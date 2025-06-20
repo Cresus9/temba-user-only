@@ -1,0 +1,37 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Main domain redirects
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Admin subdomain handling
+[[redirects]]
+  from = "https://admin.afritix.net/*"
+  to = "/index.html"
+  status = 200
+  force = true
+  conditions = {Role = ["admin"]}
+
+# Organizer subdomain handling  
+[[redirects]]
+  from = "https://organizer.afritix.net/*"
+  to = "/index.html"
+  status = 200
+  force = true
+  conditions = {Role = ["organizer"]}
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co wss://uwmlagvsivxqocklxbbo.supabase.co; script-src 'self' 'unsafe-inline' 'unsafe-eval';"
