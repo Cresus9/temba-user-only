@@ -2,57 +2,53 @@ import React from 'react';
 
 export default function Cookies() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Cookie Policy</h1>
-      
-      <div className="prose prose-indigo max-w-none">
-        <h2>What are cookies?</h2>
-        <p>
-          Cookies are small text files that are stored on your computer or mobile device when you visit our website. 
-          They help us make the site work better and improve our service.
-        </p>
+    <div className="bg-white">
+      <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div className="prose prose-indigo max-w-none">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Politique de Cookies</h1>
+          
+          <p className="text-lg text-gray-500 mt-4">Dernière mise à jour : 24 Juillet 2024</p>
 
-        <h2>How we use cookies</h2>
-        <p>We use cookies for several purposes, including:</p>
-        <ul>
-          <li>Essential cookies for site functionality</li>
-          <li>Analytics cookies to understand how visitors use our site</li>
-          <li>Authentication cookies to keep you signed in</li>
-          <li>Preference cookies to remember your settings</li>
-        </ul>
+          <h2>Qu'est-ce qu'un cookie ?</h2>
+          <p>
+            Les cookies sont de petits fichiers texte stockés sur votre ordinateur ou appareil mobile lorsque vous visitez notre site web. Ils nous aident à améliorer le fonctionnement du site et la qualité de nos services.
+          </p>
 
-        <h2>Types of cookies we use</h2>
-        <h3>Essential Cookies</h3>
-        <p>
-          These cookies are necessary for the website to function properly. They enable core functionality such as security, 
-          network management, and accessibility.
-        </p>
+          <h2>Comment nous utilisons les cookies</h2>
+          <p>Nous utilisons les cookies pour plusieurs raisons, notamment :</p>
+          <ul>
+            <li>Les cookies essentiels au fonctionnement du site.</li>
+            <li>Les cookies d'analyse pour comprendre comment les visiteurs utilisent notre site.</li>
+            <li>Les cookies d'authentification pour vous maintenir connecté.</li>
+            <li>Les cookies de préférence pour mémoriser vos paramètres.</li>
+          </ul>
 
-        <h3>Analytics Cookies</h3>
-        <p>
-          We use analytics cookies to understand how visitors interact with our website, helping us improve our service.
-        </p>
+          <h2>Types de cookies que nous utilisons</h2>
+          <h3>Cookies Essentiels</h3>
+          <p>
+            Ces cookies sont nécessaires au bon fonctionnement du site web. Ils activent des fonctionnalités de base comme la sécurité, la gestion du réseau et l'accessibilité.
+          </p>
 
-        <h3>Authentication Cookies</h3>
-        <p>
-          These cookies help us identify users and prevent fraudulent use of user credentials.
-        </p>
+          <h3>Cookies d'Analyse</h3>
+          <p>
+            Nous utilisons des cookies d'analyse pour comprendre comment les visiteurs interagissent avec notre site, ce qui nous aide à améliorer nos services.
+          </p>
 
-        <h2>Managing Cookies</h2>
-        <p>
-          Most web browsers allow you to control cookies through their settings preferences. However, limiting cookies may impact 
-          your experience using our website.
-        </p>
+          <h2>Gestion des Cookies</h2>
+          <p>
+            La plupart des navigateurs web vous permettent de contrôler les cookies via leurs paramètres. Cependant, la restriction des cookies peut affecter votre expérience sur notre site web.
+          </p>
 
-        <h2>Updates to this Policy</h2>
-        <p>
-          We may update this Cookie Policy from time to time. Any changes will be posted on this page with an updated revision date.
-        </p>
+          <h2>Mises à jour de cette politique</h2>
+          <p>
+            Nous pouvons mettre à jour cette Politique de Cookies de temps en temps. Toute modification sera publiée sur cette page avec une date de révision mise à jour.
+          </p>
 
-        <h2>Contact Us</h2>
-        <p>
-          If you have any questions about our Cookie Policy, please contact us at support@afritix.com.
-        </p>
+          <h2>Contact</h2>
+          <p>
+            Si vous avez des questions sur notre Politique de Cookies, veuillez nous contacter à <a href="mailto:support@temba.com">support@temba.com</a>.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -29,7 +29,7 @@ export default function Contact() {
 
       if (error) throw error;
 
-      toast.success('Message sent successfully! Our team will contact you soon.');
+      toast.success('Message envoyé avec succès ! Notre équipe vous contactera bientôt.');
       setFormData({
         name: '',
         email: '',
@@ -37,8 +37,8 @@ export default function Contact() {
         message: ''
       });
     } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error('Failed to send message. Please try again.');
+      console.error('Erreur lors de la soumission du formulaire:', error);
+      toast.error("Échec de l'envoi du message. Veuillez réessayer.");
     } finally {
       setSubmitting(false);
     }
@@ -49,9 +49,9 @@ export default function Contact() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Contact Information */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Contact Us</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Contactez-nous</h1>
           <p className="text-gray-600 mb-8">
-            Have questions? We're here to help. Reach out to our team through any of the channels below.
+            Vous avez des questions ? Nous sommes là pour vous aider. Contactez notre équipe via l'un des canaux ci-dessous.
           </p>
 
           <div className="space-y-6">
@@ -61,7 +61,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Email</h3>
-                <p className="text-gray-600">support@afritix.com</p>
+                <p className="text-gray-600">support@temba.com</p>
               </div>
             </div>
 
@@ -70,7 +70,7 @@ export default function Contact() {
                 <Phone className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Phone</h3>
+                <h3 className="font-medium text-gray-900">Téléphone</h3>
                 <p className="text-gray-600">+226 76 46 57 38</p>
               </div>
             </div>
@@ -80,7 +80,7 @@ export default function Contact() {
                 <MapPin className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Address</h3>
+                <h3 className="font-medium text-gray-900">Adresse</h3>
                 <p className="text-gray-600">123 Innovation Hub, Ouagadougou, Burkina Faso</p>
               </div>
             </div>
@@ -90,8 +90,8 @@ export default function Contact() {
                 <Clock className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Business Hours</h3>
-                <p className="text-gray-600">Mon-Fri from 9am to 6pm WAT</p>
+                <h3 className="font-medium text-gray-900">Heures d'ouverture</h3>
+                <p className="text-gray-600">Lun-Ven de 9h à 18h WAT</p>
               </div>
             </div>
           </div>
@@ -99,12 +99,12 @@ export default function Contact() {
 
         {/* Contact Form */}
         <div className="bg-white rounded-xl shadow-sm p-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Send us a message</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Envoyez-nous un message</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Your Name
+                Votre Nom
               </label>
               <input
                 type="text"
@@ -118,7 +118,7 @@ export default function Contact() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                Adresse Email
               </label>
               <input
                 type="email"
@@ -132,7 +132,7 @@ export default function Contact() {
 
             <div>
               <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                Subject
+                Sujet
               </label>
               <input
                 type="text"
@@ -166,12 +166,12 @@ export default function Contact() {
               {submitting ? (
                 <>
                   <Loader className="h-5 w-5 animate-spin" />
-                  <span>Sending...</span>
+                  <span>Envoi en cours...</span>
                 </>
               ) : (
                 <>
                   <Send className="h-5 w-5" />
-                  <span>Send Message</span>
+                  <span>Envoyer le message</span>
                 </>
               )}
             </button>

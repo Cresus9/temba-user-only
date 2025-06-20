@@ -23,6 +23,7 @@ import Terms from '../pages/Terms';
 import Privacy from '../pages/Privacy';
 import Contact from '../pages/Contact';
 import Cookies from '../pages/Cookies';
+import About from '../pages/About';
 
 // Guest Pages
 import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
@@ -65,6 +66,7 @@ export default function AppRoutes() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/cookies" element={<Cookies />} />
+        <Route path="/about" element={<About />} />
 
         {/* Guest Routes */}
         <Route path="/verify/:token" element={<GuestTicketVerification />} />

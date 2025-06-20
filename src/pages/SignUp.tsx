@@ -55,9 +55,8 @@ export default function SignUp() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold text-gray-900 mb-2">
-              <Ticket className="h-8 w-8 text-indigo-600" />
-              Temba
+            <Link to="/" className="inline-block mb-4">
+              <img src="/logo.svg" alt="Temba Logo" className="h-10 w-auto mx-auto" />
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               Créez votre compte
@@ -86,7 +85,7 @@ export default function SignUp() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Jean Dupont"
+                  placeholder="Thierry Yabre"
                   required
                 />
               </div>
