@@ -1,3 +1,14 @@
+export interface EventCategory {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  description?: string;
+  subcategories?: string[]; // Array of subcategory names
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -12,7 +23,8 @@ export interface Event {
   tickets_sold: number;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   featured: boolean;
-  categories: string[];
+  categories?: string[]; // Array of category IDs (legacy support)
+  category_relations?: EventCategory[]; // New normalized categories
   ticket_types?: TicketType[];
   coordinates?: {
     latitude: number;
@@ -52,3 +64,9 @@ export interface CreateEventInput {
   };
   ticket_types: Omit<TicketType, 'id' | 'event_id' | 'created_at' | 'updated_at'>[];
 }
+
+export interface CategoryId {
+  id: string;
+}
+
+export type CategoryIdType = typeof CATEGORIES[number]['id'];

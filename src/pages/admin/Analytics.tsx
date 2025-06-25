@@ -129,7 +129,7 @@ export default function Analytics() {
         .select('categories, tickets_sold');
 
       const categoryTotals = events?.reduce((acc: Record<string, number>, event) => {
-        event.categories.forEach((category: string) => {
+        (event.categories || []).forEach((category: string) => {
           acc[category] = (acc[category] || 0) + (event.tickets_sold || 0);
         });
         return acc;

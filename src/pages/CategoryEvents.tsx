@@ -1,68 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Search, Filter, Loader } from 'lucide-react';
-import { CATEGORIES } from '../constants/categories';
 import EventCard from '../components/EventCard';
-import { supabase } from '../lib/supabase-client';
-import { Event } from '../types/event';
+import { CategoryService } from '../services/categoryService';
+import { Event, EventCategory } from '../types/event';
 import toast from 'react-hot-toast';
 
 export default function CategoryEvents() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const [events, setEvents] = useState<Event[]>([]);
+  const [category, setCategory] = useState<EventCategory | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date');
 
-  const category = CATEGORIES.find(c => c.id === categoryId);
-
   useEffect(() => {
     if (categoryId) {
-      fetchEvents();
+      fetchCategoryAndEvents();
     }
   }, [categoryId, sortBy]);
 
-  const fetchEvents = async () => {
+  const fetchCategoryAndEvents = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
-        .eq('status', 'PUBLISHED');
-
-      // Add category filter using array containment
+      
+      // Fetch category details
       if (categoryId) {
-        query = query.contains('categories', [categoryId]);
+        const categoryData = await CategoryService.fetchCategoryById(categoryId);
+        setCategory(categoryData);
       }
 
-      // Add sorting
-      switch (sortBy) {
-        case 'price_asc':
-          query = query.order('price', { ascending: true });
-          break;
-        case 'price_desc':
-          query = query.order('price', { ascending: false });
-          break;
-        case 'popularity':
-          query = query.order('tickets_sold', { ascending: false });
-          break;
-        default:
-          query = query.order('date', { ascending: true });
+      // Fetch events by category
+      if (categoryId) {
+        const eventsData = await CategoryService.fetchEventsByCategory(categoryId);
+        setEvents(eventsData);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Log the query results for debugging
-      console.log('Category events:', data);
-      
-      setEvents(data || []);
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('Error fetching category and events:', error);
       toast.error('Failed to load events');
     } finally {
       setLoading(false);
@@ -76,7 +50,22 @@ export default function CategoryEvents() {
     : true
   );
 
-  if (!category) {
+  // Sort events based on selected criteria
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
+    switch (sortBy) {
+      case 'price_asc':
+        return a.price - b.price;
+      case 'price_desc':
+        return b.price - a.price;
+      case 'popularity':
+        return (b.tickets_sold || 0) - (a.tickets_sold || 0);
+      case 'date':
+      default:
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+    }
+  });
+
+  if (!category && !loading) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h2 className="text-2xl font-bold text-gray-900">Category not found</h2>
@@ -98,8 +87,21 @@ export default function CategoryEvents() {
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">{category.name}</h1>
-        <p className="text-gray-600">{category.description}</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">{category?.name}</h1>
+        <p className="text-gray-600">{category?.description}</p>
+        
+        {/* Category details */}
+        {category && (
+          <div className="mt-4 flex items-center gap-4">
+            <div 
+              className="w-4 h-4 rounded-full" 
+              style={{ backgroundColor: category.color }}
+            />
+            <span className="text-sm text-gray-500">
+              {events.length} events available
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -133,9 +135,9 @@ export default function CategoryEvents() {
         <div className="flex justify-center items-center min-h-[400px]">
           <Loader className="h-8 w-8 animate-spin text-indigo-600" />
         </div>
-      ) : filteredEvents.length > 0 ? (
+      ) : sortedEvents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredEvents.map((event) => (
+          {sortedEvents.map((event) => (
             <EventCard key={event.id} {...event} />
           ))}
         </div>

@@ -60,7 +60,7 @@ export default function Home() {
               Explorez les événements par catégorie et trouvez ceux qui correspondent à vos intérêts
             </p>
           </div>
-          <CategoryList />
+          <CategoryList showSubcategories={true} />
         </div>
       </section>
 

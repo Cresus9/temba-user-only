@@ -25,6 +25,9 @@ import Contact from '../pages/Contact';
 import Cookies from '../pages/Cookies';
 import About from '../pages/About';
 
+// Test Components
+import CategoryTest from '../components/CategoryTest';
+
 // Guest Pages
 import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
 import GuestOrderVerification from '../components/checkout/GuestOrderVerification';
@@ -67,6 +70,9 @@ export default function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/about" element={<About />} />
+
+        {/* Test Routes */}
+        <Route path="/test/categories" element={<CategoryTest />} />
 
         {/* Guest Routes */}
         <Route path="/verify/:token" element={<GuestTicketVerification />} />

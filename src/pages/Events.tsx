@@ -59,7 +59,7 @@ export default function Events() {
         .eq('status', 'PUBLISHED');
       
       const uniqueCategories = [...new Set(
-        categoriesData?.flatMap(e => e.categories) || []
+        categoriesData?.flatMap(e => e.categories || []) || []
       )];
       setCategories(uniqueCategories);
     } catch (error) {
@@ -81,9 +81,6 @@ export default function Events() {
       if (debouncedSearch) {
         query = query.or(`title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
       }
-      if (filters.category) {
-        query = query.contains('categories', [filters.category]);
-      }
       if (filters.location) {
         query = query.ilike('location', `%${filters.location}%`);
       }
@@ -94,7 +91,16 @@ export default function Events() {
       const { data, error } = await query.order('date', { ascending: true });
 
       if (error) throw error;
-      setEvents(data || []);
+      
+      // Filter by category client-side if category filter is applied
+      let filteredData = data || [];
+      if (filters.category) {
+        filteredData = filteredData.filter(event => 
+          event.categories && event.categories.includes(filters.category)
+        );
+      }
+      
+      setEvents(filteredData);
     } catch (error) {
       console.error('Erreur lors du chargement des événements:', error);
       toast.error('Échec du chargement des événements');
