@@ -35,17 +35,17 @@ const EventCard = memo(({
       to={`/events/${id}`}
       className={`group block ${className}`}
     >
-      <Card variant="interactive" padding="none" className="h-full transform transition-all duration-[var(--duration-normal)] hover:scale-[1.02] hover:shadow-2xl">
+      <Card variant="interactive" padding="none" className="h-full transform transition-all duration-[var(--duration-normal)] hover:scale-[1.05] hover:shadow-2xl animate-float hover:animate-glow bg-gradient-to-br from-white via-orange-50 to-amber-50 border-2 border-transparent hover:border-orange-200">
         {/* Image Container */}
-        <div className="relative aspect-[16/9] overflow-hidden rounded-t-xl">
+        <div className="relative aspect-[16/9] overflow-hidden rounded-t-xl border-b-4 border-gradient-to-r from-orange-400 to-red-500">
           <Image
             src={image_url}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[var(--duration-slow)]"
+            className="w-full h-full object-cover group-hover:scale-115 transition-transform duration-[var(--duration-slow)] filter group-hover:brightness-110 group-hover:contrast-110"
             fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary-600)]/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-[var(--duration-normal)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-orange-900/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/30 via-red-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-[var(--duration-normal)] animate-gradient" />
           
           {/* Status Badge */}
           {status !== 'PUBLISHED' && (
@@ -84,8 +84,8 @@ const EventCard = memo(({
 
           {/* Price Badge */}
           <div className="absolute bottom-4 right-4">
-            <Badge variant="default" className="bg-gradient-to-r from-white to-[var(--gray-50)] text-[var(--gray-900)] shadow-xl border border-white/20 backdrop-blur-sm font-bold text-lg px-4 py-2">
-              {formatCurrency(price, currency)}
+            <Badge variant="default" className="bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-2xl border-2 border-white/30 backdrop-blur-sm font-bold text-xl px-6 py-3 animate-pulse hover:animate-bounce transform hover:scale-110 transition-all">
+              💰 {formatCurrency(price, currency)}
             </Badge>
           </div>
 
@@ -150,9 +150,9 @@ const EventCard = memo(({
 
             <Button 
               variant="primary" 
-              className="w-full bg-gradient-to-r from-[var(--primary-600)] to-[var(--primary-700)] hover:from-[var(--primary-700)] hover:to-[var(--primary-800)] shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-[var(--duration-normal)] font-semibold text-lg py-3"
+              className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 shadow-2xl hover:shadow-orange-500/50 transform hover:scale-[1.05] transition-all duration-[var(--duration-normal)] font-bold text-xl py-4 animate-gradient border-2 border-white/20 text-white hover:animate-pulse"
             >
-              {isUpcoming ? '🎫 Obtenir des billets' : '👁️ Voir les détails'}
+              {isUpcoming ? '🎫✨ OBTENIR DES BILLETS ✨🎫' : '👁️🔥 VOIR LES DÉTAILS 🔥👁️'}
             </Button>
           </div>
         </div>
