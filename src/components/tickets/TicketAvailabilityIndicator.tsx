@@ -19,14 +19,14 @@ export default function TicketAvailabilityIndicator({
       return {
         text: 'Épuisé',
         icon: AlertCircle,
-        color: 'text-red-600',
+        color: 'text-[var(--error-600)]',
         bgColor: 'bg-red-100'
       };
     } else if (availabilityPercentage >= 80) {
       return {
         text: 'Presque Épuisé',
         icon: AlertCircle,
-        color: 'text-red-600',
+        color: 'text-[var(--error-600)]',
         bgColor: 'bg-red-100'
       };
     } else if (availabilityPercentage >= 50) {
@@ -56,20 +56,20 @@ export default function TicketAvailabilityIndicator({
       </div>
       
       <div className="w-full">
-        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-2 bg-[var(--gray-200)] rounded-full overflow-hidden">
           <div
-            className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+            className="h-full bg-[var(--primary-600)] transition-all duration-500 ease-out"
             style={{ width: `${availabilityPercentage}%` }}
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-sm text-gray-600">{available} billets restants</span>
-          <span className="text-sm text-gray-600">{total} total</span>
+          <span className="text-sm text-[var(--gray-600)]">{available} billets restants</span>
+          <span className="text-sm text-[var(--gray-600)]">{total} total</span>
         </div>
       </div>
 
       {availabilityPercentage >= 80 && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-[var(--error-600)]">
           Seulement {available} billets restants ! Réservez maintenant pour éviter toute déception.
         </p>
       )}

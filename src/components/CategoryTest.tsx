@@ -63,7 +63,7 @@ export default function CategoryTest() {
             {categories.map((category) => (
               <div key={category.id} className="border p-4 rounded">
                 <h3 className="font-semibold">{category.name}</h3>
-                <p className="text-gray-600">{category.description}</p>
+                <p className="text-[var(--gray-600)]">{category.description}</p>
                 <p className="text-sm text-gray-500">Icon: {category.icon}</p>
                 <p className="text-sm text-gray-500">Color: {category.color}</p>
                 {category.subcategories && category.subcategories.length > 0 && (
@@ -71,7 +71,7 @@ export default function CategoryTest() {
                     <p className="text-sm font-medium">Subcategories:</p>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {category.subcategories.map((sub, index) => (
-                        <span key={index} className="text-xs bg-gray-200 px-2 py-1 rounded">
+                        <span key={index} className="text-xs bg-[var(--gray-200)] px-2 py-1 rounded">
                           {sub}
                         </span>
                       ))}
@@ -85,4 +85,4 @@ export default function CategoryTest() {
       )}
     </div>
   );
-} 
+}    

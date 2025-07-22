@@ -46,17 +46,17 @@ export default function Checkout() {
       {/* Back button */}
       <Link
         to="/events"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8"
+        className="inline-flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)] mb-8"
       >
         <ArrowLeft className="h-5 w-5" />
         Retour aux événements
       </Link>
 
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold text-[var(--gray-900)] mb-2">
           Finaliser votre achat
         </h1>
-        <p className="text-gray-600">
+        <p className="text-[var(--gray-600)]">
           Choisissez votre méthode de paiement pour sécuriser vos billets
         </p>
       </div>
@@ -83,7 +83,7 @@ export default function Checkout() {
       {/* Switch between guest and authenticated checkout */}
       {!isAuthenticated && (
         <div className="mt-8 text-center">
-          <p className="text-gray-600">
+          <p className="text-[var(--gray-600)]">
             Vous avez déjà un compte ?{' '}
             <button
               onClick={() => navigate('/login', { 
@@ -92,7 +92,7 @@ export default function Checkout() {
                   checkoutData: state 
                 }
               })}
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
             >
               Se connecter
             </button>

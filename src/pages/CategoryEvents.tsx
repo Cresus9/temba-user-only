@@ -68,8 +68,8 @@ export default function CategoryEvents() {
   if (!category && !loading) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Category not found</h2>
-        <Link to="/categories" className="mt-4 text-indigo-600 hover:text-indigo-700">
+        <h2 className="text-2xl font-bold text-[var(--gray-900)]">Category not found</h2>
+        <Link to="/categories" className="mt-4 text-[var(--primary-600)] hover:text-[var(--primary-700)]">
           Back to Categories
         </Link>
       </div>
@@ -80,15 +80,15 @@ export default function CategoryEvents() {
     <div className="container mx-auto px-4 py-8">
       <Link
         to="/categories"
-        className="mb-8 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+        className="mb-8 inline-flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)]"
       >
         <ArrowLeft className="h-5 w-5" />
         Back to Categories
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">{category?.name}</h1>
-        <p className="text-gray-600">{category?.description}</p>
+        <h1 className="text-3xl font-bold text-[var(--gray-900)] mb-4">{category?.name}</h1>
+        <p className="text-[var(--gray-600)]">{category?.description}</p>
         
         {/* Category details */}
         {category && (
@@ -107,21 +107,21 @@ export default function CategoryEvents() {
       {/* Filters */}
       <div className="mb-8 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder="Search events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5 text-gray-400" />
+          <Filter className="h-5 w-5 text-[var(--gray-400)]" />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           >
             <option value="date">Date: Soonest</option>
             <option value="price_asc">Price: Low to High</option>
@@ -133,7 +133,7 @@ export default function CategoryEvents() {
 
       {loading ? (
         <div className="flex justify-center items-center min-h-[400px]">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+          <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
         </div>
       ) : sortedEvents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -143,9 +143,9 @@ export default function CategoryEvents() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No events found</h3>
-          <p className="text-gray-600">
+          <Calendar className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">No events found</h3>
+          <p className="text-[var(--gray-600)]">
             {searchQuery 
               ? 'Try adjusting your search terms'
               : 'There are currently no events in this category'}

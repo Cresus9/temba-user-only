@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, MapPin } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
+import { Input, Button } from '../ui';
 
 export default function HomeSearch() {
   const navigate = useNavigate();
@@ -49,8 +50,8 @@ export default function HomeSearch() {
     return (
       <div className="w-full max-w-2xl mx-auto">
         <div className="animate-pulse">
-          <div className="h-12 bg-gray-200 rounded-lg mb-4"></div>
-          <div className="h-12 bg-gray-200 rounded-lg"></div>
+          <div className="h-12 bg-[var(--gray-200)] rounded-lg mb-4"></div>
+          <div className="h-12 bg-[var(--gray-200)] rounded-lg"></div>
         </div>
       </div>
     );
@@ -59,35 +60,39 @@ export default function HomeSearch() {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
+        <div className="flex-1">
+          <Input
             type="text"
             placeholder="Rechercher des événements..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/90 backdrop-blur-sm"
+            leftIcon={<Search className="h-5 w-5" />}
+            className="bg-white/90 backdrop-blur-sm"
           />
         </div>
-        <div className="relative md:w-48">
-          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none bg-white/90 backdrop-blur-sm"
-          >
-            <option value="">Tous les lieux</option>
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>{loc}</option>
-            ))}
-          </select>
+        <div className="md:w-48">
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-lg border border-[var(--gray-200)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] appearance-none bg-white/90 backdrop-blur-sm transition-colors duration-[var(--duration-fast)]"
+            >
+              <option value="">Tous les lieux</option>
+              {locations.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <button
+        <Button
           type="submit"
-          className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
+          variant="primary"
+          size="lg"
+          className="px-8 shadow-lg shadow-[var(--primary-600)]/20"
         >
           Rechercher
-        </button>
+        </Button>
       </div>
     </form>
   );

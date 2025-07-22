@@ -119,7 +119,7 @@ export default function CheckoutForm({
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+        <h2 className="text-2xl font-semibold text-[var(--gray-900)] mb-6">
           Méthode de paiement
         </h2>
         
@@ -130,15 +130,15 @@ export default function CheckoutForm({
               onClick={() => setPaymentMethod('mobile_money')}
               className={`flex-1 flex items-center gap-3 p-4 border rounded-lg ${
                 paymentMethod === 'mobile_money'
-                  ? 'border-indigo-600 bg-indigo-50'
-                  : 'border-gray-200 hover:bg-gray-50'
+                  ? 'border-indigo-600 bg-[var(--primary-50)]'
+                  : 'border-[var(--gray-200)] hover:bg-[var(--gray-50)]'
               }`}
             >
               <Wallet className={`h-5 w-5 ${
-                paymentMethod === 'mobile_money' ? 'text-indigo-600' : 'text-gray-400'
+                paymentMethod === 'mobile_money' ? 'text-[var(--primary-600)]' : 'text-[var(--gray-400)]'
               }`} />
               <div className="text-left">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   Mobile Money
                 </p>
                 <p className="text-sm text-gray-500">
@@ -152,15 +152,15 @@ export default function CheckoutForm({
               onClick={() => setPaymentMethod('card')}
               className={`flex-1 flex items-center gap-3 p-4 border rounded-lg ${
                 paymentMethod === 'card'
-                  ? 'border-indigo-600 bg-indigo-50'
-                  : 'border-gray-200 hover:bg-gray-50'
+                  ? 'border-indigo-600 bg-[var(--primary-50)]'
+                  : 'border-[var(--gray-200)] hover:bg-[var(--gray-50)]'
               }`}
             >
               <CreditCard className={`h-5 w-5 ${
-                paymentMethod === 'card' ? 'text-indigo-600' : 'text-gray-400'
+                paymentMethod === 'card' ? 'text-[var(--primary-600)]' : 'text-[var(--gray-400)]'
               }`} />
               <div className="text-left">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   Carte
                 </p>
                 <p className="text-sm text-gray-500">
@@ -180,7 +180,7 @@ export default function CheckoutForm({
                 <select
                   value={formData.provider}
                   onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                   required
                 >
                   <option value="">
@@ -199,7 +199,7 @@ export default function CheckoutForm({
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                   placeholder="+226 XX XX XX XX"
                   required
                 />
@@ -215,7 +215,7 @@ export default function CheckoutForm({
                   type="text"
                   value={formData.cardNumber}
                   onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                   placeholder="1234 5678 9012 3456"
                   required
                 />
@@ -229,7 +229,7 @@ export default function CheckoutForm({
                     type="text"
                     value={formData.expiryDate}
                     onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                     placeholder="MM/AA"
                     required
                   />
@@ -242,7 +242,7 @@ export default function CheckoutForm({
                     type="text"
                     value={formData.cvv}
                     onChange={(e) => setFormData({ ...formData, cvv: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                     placeholder="123"
                     required
                   />
@@ -251,16 +251,16 @@ export default function CheckoutForm({
             </div>
           )}
 
-          <div className="border-t border-gray-200 pt-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+          <div className="border-t border-[var(--gray-200)] pt-4">
+            <div className="flex justify-between text-sm text-[var(--gray-600)] mb-2">
               <span>Sous-total</span>
               <span>{currency} {totalAmount}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-sm text-[var(--gray-600)] mb-2">
               <span>Frais de traitement (2%)</span>
               <span>{currency} {(totalAmount * 0.02).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2">
+            <div className="flex justify-between font-semibold text-[var(--gray-900)] text-lg pt-2">
               <span>Total</span>
               <span>{currency} {(totalAmount * 1.02).toFixed(2)}</span>
             </div>
@@ -269,7 +269,7 @@ export default function CheckoutForm({
           <button
             type="submit"
             disabled={isProcessing}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50"
           >
             {isProcessing ? (
               <>

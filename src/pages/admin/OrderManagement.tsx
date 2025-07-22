@@ -243,7 +243,7 @@ export default function OrderManagement() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -252,12 +252,12 @@ export default function OrderManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('admin.orders.title', { default: 'Gestion des Commandes' })}
         </h1>
         <button
           onClick={handleExport}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           <Download className="h-5 w-5" />
           {t('admin.orders.export', { default: 'Exporter les Commandes' })}
@@ -270,13 +270,13 @@ export default function OrderManagement() {
           <div className="bg-white p-6 rounded-xl shadow-sm">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-indigo-100 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-indigo-600" />
+                <ShoppingCart className="h-6 w-6 text-[var(--primary-600)]" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('admin.orders.stats.total_orders', { default: 'Total des Commandes' })}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
+                <p className="text-2xl font-bold text-[var(--gray-900)]">{stats.totalOrders}</p>
               </div>
             </div>
           </div>
@@ -287,10 +287,10 @@ export default function OrderManagement() {
                 <ShoppingCart className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('admin.orders.stats.completed_orders', { default: 'Commandes Terminées' })}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedOrders}</p>
+                <p className="text-2xl font-bold text-[var(--gray-900)]">{stats.completedOrders}</p>
               </div>
             </div>
           </div>
@@ -301,10 +301,10 @@ export default function OrderManagement() {
                 <DollarSign className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('admin.orders.stats.total_revenue', { default: 'Revenu Total' })}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                <p className="text-2xl font-bold text-[var(--gray-900)]">{formatCurrency(stats.totalRevenue)}</p>
               </div>
             </div>
           </div>
@@ -315,10 +315,10 @@ export default function OrderManagement() {
                 <TrendingUp className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('admin.orders.stats.recent_orders', { default: 'Commandes Récentes' })}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{stats.recentOrders}</p>
+                <p className="text-2xl font-bold text-[var(--gray-900)]">{stats.recentOrders}</p>
                 <p className="text-xs text-gray-500">
                   {t('admin.orders.stats.last_30_days', { default: 'Derniers 30 jours' })}
                 </p>
@@ -331,20 +331,20 @@ export default function OrderManagement() {
       {/* Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder={t('admin.orders.search', { default: 'Rechercher des commandes...' })}
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
 
         <select
           value={filters.status}
           onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.orders.filters.all_status', { default: 'Tous les Statuts' })}</option>
           <option value="PENDING">{t('admin.orders.status.pending', { default: 'En Attente' })}</option>
@@ -392,25 +392,25 @@ export default function OrderManagement() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <tr key={order.id} className="hover:bg-[var(--gray-50)]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--gray-900)]">
                       #{order.id.slice(0, 8)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="max-w-xs truncate">
-                        <div className="font-medium text-gray-900 truncate">{order.user_name}</div>
+                        <div className="font-medium text-[var(--gray-900)] truncate">{order.user_name}</div>
                         <div className="text-sm text-gray-500 truncate">{order.user_email}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="max-w-xs truncate text-sm text-gray-900">
+                      <div className="max-w-xs truncate text-sm text-[var(--gray-900)]">
                         {order.event_title}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(order.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--gray-900)]">
                       {formatCurrency(order.total)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -428,7 +428,7 @@ export default function OrderManagement() {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100"
+                          className="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] rounded-lg hover:bg-gray-100"
                           title={t('admin.orders.actions.view', { default: 'Voir les Détails' })}
                         >
                           <Eye className="h-5 w-5" />
@@ -436,7 +436,7 @@ export default function OrderManagement() {
                         {order.status === 'COMPLETED' && (
                           <button
                             onClick={() => handleRefund(order.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
+                            className="p-2 text-[var(--gray-400)] hover:text-[var(--error-600)] rounded-lg hover:bg-gray-100"
                             title={t('admin.orders.actions.refund', { default: 'Rembourser la Commande' })}
                           >
                             <RefreshCcw className="h-5 w-5" />
@@ -445,7 +445,7 @@ export default function OrderManagement() {
                         {order.status === 'PENDING' && (
                           <button
                             onClick={() => handleStatusChange(order.id, 'CANCELLED')}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
+                            className="p-2 text-[var(--gray-400)] hover:text-[var(--error-600)] rounded-lg hover:bg-gray-100"
                             title={t('admin.orders.actions.cancel', { default: 'Annuler la Commande' })}
                           >
                             <Ban className="h-5 w-5" />

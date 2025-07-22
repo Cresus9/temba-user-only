@@ -80,7 +80,7 @@ export default function EventDetails() {
   if (!event) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Événement non trouvé</h2>
+        <h2 className="text-2xl font-bold text-[var(--gray-900)]">Événement non trouvé</h2>
       </div>
     );
   }
@@ -140,7 +140,7 @@ export default function EventDetails() {
               />
             ) : (
               <div className="text-center py-6">
-                <p className="text-gray-600">
+                <p className="text-[var(--gray-600)]">
                   Cet événement n'est actuellement pas disponible pour la réservation.
                 </p>
               </div>
@@ -151,13 +151,13 @@ export default function EventDetails() {
         {/* Event Details */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">À propos de cet événement</h2>
-            <p className="text-gray-600 whitespace-pre-line mb-8">{event.description}</p>
+            <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-4">À propos de cet événement</h2>
+            <p className="text-[var(--gray-600)] whitespace-pre-line mb-8">{event.description}</p>
 
             {/* Location Map */}
             {location && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Lieu de l'événement</h3>
+                <h3 className="text-xl font-bold text-[var(--gray-900)] mb-4">Lieu de l'événement</h3>
                 <EventMap
                   latitude={location.latitude}
                   longitude={location.longitude}
@@ -167,8 +167,8 @@ export default function EventDetails() {
                   isDisabled={isReviewModalOpen}
                   isModalOpen={isReviewModalOpen}
                 />
-                <p className="text-gray-600 flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-gray-400" />
+                <p className="text-[var(--gray-600)] flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-[var(--gray-400)]" />
                   {event.location}
                 </p>
               </div>
@@ -189,7 +189,7 @@ export default function EventDetails() {
               />
             ) : (
               <div className="text-center py-6">
-                <p className="text-gray-600">
+                <p className="text-[var(--gray-600)]">
                   Cet événement n'est actuellement pas disponible pour la réservation.
                 </p>
               </div>

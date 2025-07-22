@@ -5,7 +5,7 @@ export default function Cookies() {
     <div className="bg-white">
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="prose prose-indigo max-w-none">
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Politique de Cookies</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-[var(--gray-900)] sm:text-4xl">Politique de Cookies</h1>
           
           <p className="text-lg text-gray-500 mt-4">Dernière mise à jour : 24 Juillet 2024</p>
 

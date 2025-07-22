@@ -41,13 +41,13 @@ export default function Profile() {
         <aside className="w-full md:w-64 bg-white rounded-xl shadow-sm p-6">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span className="text-2xl font-bold text-indigo-600">
+              <span className="text-2xl font-bold text-[var(--primary-600)]">
                 {user?.email?.[0].toUpperCase()}
               </span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{user?.email}</h2>
-              <p className="text-sm text-gray-600">
+              <h2 className="text-lg font-semibold text-[var(--gray-900)]">{user?.email}</h2>
+              <p className="text-sm text-[var(--gray-600)]">
                 {t('profile.menu.member_since', { 
                   year: new Date(user?.created_at || '').getFullYear(),
                   default: `Member since ${new Date(user?.created_at || '').getFullYear()}`
@@ -65,8 +65,8 @@ export default function Profile() {
                   to={item.path}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-[var(--primary-50)] text-[var(--primary-600)]'
+                      : 'text-gray-700 hover:bg-[var(--gray-50)]'
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
@@ -76,7 +76,7 @@ export default function Profile() {
             })}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[var(--error-600)] hover:bg-[var(--error-50)]"
             >
               <LogOut className="h-5 w-5" />
               {t('profile.menu.sign_out', { default: 'Sign Out' })}

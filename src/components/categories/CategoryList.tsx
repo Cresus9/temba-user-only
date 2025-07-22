@@ -52,10 +52,10 @@ export default function CategoryList({
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="bg-gray-200 rounded-xl aspect-[4/3] mb-4" />
+            <div className="bg-[var(--gray-200)] rounded-xl aspect-[4/3] mb-4" />
             <div className="space-y-3">
-              <div className="h-6 bg-gray-200 rounded w-3/4" />
-              <div className="h-4 bg-gray-200 rounded w-1/2" />
+              <div className="h-6 bg-[var(--gray-200)] rounded w-3/4" />
+              <div className="h-4 bg-[var(--gray-200)] rounded w-1/2" />
             </div>
           </div>
         ))}
@@ -66,10 +66,10 @@ export default function CategoryList({
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
+        <p className="text-[var(--error-600)] mb-4">{error}</p>
         <button 
           onClick={fetchCategories}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           Retry
         </button>

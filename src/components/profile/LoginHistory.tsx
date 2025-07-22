@@ -45,7 +45,7 @@ export default function LoginHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
-        <Loader className="h-6 w-6 animate-spin text-indigo-600" />
+        <Loader className="h-6 w-6 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -53,9 +53,9 @@ export default function LoginHistory() {
   if (!loginHistory.length) {
     return (
       <div className="text-center py-8">
-        <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Login History</h3>
-        <p className="text-gray-600">Your login activity will appear here</p>
+        <AlertCircle className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">No Login History</h3>
+        <p className="text-[var(--gray-600)]">Your login activity will appear here</p>
       </div>
     );
   }
@@ -65,18 +65,18 @@ export default function LoginHistory() {
       {loginHistory.map((record) => (
         <div
           key={record.id}
-          className="bg-white p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+          className="bg-white p-4 rounded-lg border border-[var(--gray-200)] hover:border-[var(--gray-300)] transition-colors"
         >
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               <div className="p-2 bg-indigo-100 rounded-lg">
-                <Globe className="h-5 w-5 text-indigo-600" />
+                <Globe className="h-5 w-5 text-[var(--primary-600)]" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   Login from {record.location || 'Unknown Location'}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   IP: {record.ip_address}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">

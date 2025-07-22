@@ -113,8 +113,8 @@ export default function BookingForm({
   if (availableTickets.length === 0) {
     return (
       <div className="text-center py-8">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun billet disponible</h3>
-        <p className="text-gray-600">
+        <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">Aucun billet disponible</h3>
+        <p className="text-[var(--gray-600)]">
           Les billets ne sont actuellement pas disponibles pour cet événement.
           Revenez plus tard ou contactez l'organisateur pour plus d'informations.
         </p>
@@ -155,7 +155,7 @@ export default function BookingForm({
         <button
           type="submit"
           disabled={loading || !Object.values(selectedTickets).some(qty => qty > 0)}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Ticket className="h-5 w-5" />
           Vérifier la commande

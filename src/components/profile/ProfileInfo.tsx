@@ -66,7 +66,7 @@ export default function ProfileInfo() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function ProfileInfo() {
   if (!profile && !loading) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-600">
+        <p className="text-[var(--gray-600)]">
           {t('profile.error.try_again', { default: 'Profile not found. Please try refreshing the page.' })}
         </p>
       </div>
@@ -84,12 +84,12 @@ export default function ProfileInfo() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('profile.info.title', { default: 'Profile Information' })}
         </h1>
         <button
           onClick={() => setIsEditing(!isEditing)}
-          className="px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="px-4 py-2 text-sm font-medium text-[var(--primary-600)] hover:text-[var(--primary-700)]"
         >
           {isEditing 
             ? t('profile.info.cancel', { default: 'Cancel' })
@@ -109,7 +109,7 @@ export default function ProfileInfo() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               disabled={!isEditing}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] disabled:bg-gray-50"
               required
             />
           </div>
@@ -123,7 +123,7 @@ export default function ProfileInfo() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               disabled={true}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg bg-gray-50"
               required
             />
           </div>
@@ -137,7 +137,7 @@ export default function ProfileInfo() {
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               disabled={!isEditing}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] disabled:bg-gray-50"
               placeholder={t('profile.fields.phone.placeholder', { default: '+226 XX XX XX XX' })}
             />
           </div>
@@ -151,7 +151,7 @@ export default function ProfileInfo() {
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               disabled={!isEditing}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] disabled:bg-gray-50"
               placeholder={t('profile.fields.location.placeholder', { default: 'City, Country' })}
             />
           </div>
@@ -165,7 +165,7 @@ export default function ProfileInfo() {
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
               disabled={!isEditing}
               rows={4}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] disabled:bg-gray-50"
               placeholder={t('profile.fields.bio.placeholder', { default: 'Tell us about yourself...' })}
             />
           </div>
@@ -176,14 +176,14 @@ export default function ProfileInfo() {
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="px-6 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-6 py-2 border border-[var(--gray-200)] rounded-lg text-gray-700 hover:bg-[var(--gray-50)]"
             >
               {t('profile.info.cancel', { default: 'Cancel' })}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
                 <>

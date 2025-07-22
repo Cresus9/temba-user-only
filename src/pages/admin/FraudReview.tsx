@@ -136,7 +136,7 @@ export default function FraudReview() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -144,10 +144,10 @@ export default function FraudReview() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Fraud Review</h1>
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">Fraud Review</h1>
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-indigo-600" />
-          <span className="text-gray-600">
+          <Shield className="h-5 w-5 text-[var(--primary-600)]" />
+          <span className="text-[var(--gray-600)]">
             {orders.filter(o => !o.reviewed).length} pending reviews
           </span>
         </div>
@@ -156,20 +156,20 @@ export default function FraudReview() {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder="Search by user..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
 
         <select
           value={filters.status}
           onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="pending">Pending Review</option>
           <option value="reviewed">Reviewed</option>
@@ -179,7 +179,7 @@ export default function FraudReview() {
         <select
           value={filters.riskLevel}
           onChange={(e) => setFilters(prev => ({ ...prev, riskLevel: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">All Risk Levels</option>
           <option value="high">High Risk</option>
@@ -193,7 +193,7 @@ export default function FraudReview() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 border-b border-[var(--gray-200)]">
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Order Details</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Risk Level</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Reasons</th>
@@ -204,13 +204,13 @@ export default function FraudReview() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+                <tr key={order.id} className="hover:bg-[var(--gray-50)]">
                   <td className="px-6 py-4">
                     <div>
-                      <p className="font-medium text-gray-900">{order.event.title}</p>
-                      <p className="text-sm text-gray-600">{order.user.name}</p>
+                      <p className="font-medium text-[var(--gray-900)]">{order.event.title}</p>
+                      <p className="text-sm text-[var(--gray-600)]">{order.user.name}</p>
                       <p className="text-sm text-gray-500">{order.user.email}</p>
-                      <p className="text-sm font-medium text-gray-900 mt-1">
+                      <p className="text-sm font-medium text-[var(--gray-900)] mt-1">
                         {formatCurrency(order.amount)}
                       </p>
                     </div>
@@ -221,22 +221,22 @@ export default function FraudReview() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <ul className="text-sm text-gray-600 list-disc list-inside">
+                    <ul className="text-sm text-[var(--gray-600)] list-disc list-inside">
                       {order.reasons.split(', ').map((reason, index) => (
                         <li key={index}>{reason}</li>
                       ))}
                     </ul>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-sm text-gray-600">IP: {order.ip}</p>
-                    <p className="text-sm text-gray-600">Device ID: {order.device_id}</p>
+                    <p className="text-sm text-[var(--gray-600)]">IP: {order.ip}</p>
+                    <p className="text-sm text-[var(--gray-600)]">Device ID: {order.device_id}</p>
                   </td>
                   <td className="px-6 py-4">
                     {order.reviewed ? (
                       <div className="flex items-center gap-2 text-sm">
                         <CheckCircle className="h-5 w-5 text-green-500" />
                         <div>
-                          <p className="font-medium text-gray-900">Reviewed</p>
+                          <p className="font-medium text-[var(--gray-900)]">Reviewed</p>
                           <p className="text-gray-500">
                             {new Date(order.reviewed_at!).toLocaleDateString()}
                           </p>
@@ -264,7 +264,7 @@ export default function FraudReview() {
                         </button>
                         <button
                           onClick={() => handleReview(order.id, false)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          className="p-2 text-[var(--error-600)] hover:bg-red-50 rounded-lg"
                           title="Reject Transaction"
                         >
                           <XCircle className="h-5 w-5" />
@@ -280,9 +280,9 @@ export default function FraudReview() {
 
         {orders.length === 0 && (
           <div className="text-center py-12">
-            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Flagged Transactions</h3>
-            <p className="text-gray-600">
+            <Shield className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">No Flagged Transactions</h3>
+            <p className="text-[var(--gray-600)]">
               {filters.status === 'pending' 
                 ? 'No transactions pending review'
                 : 'No transactions match your filters'}

@@ -105,22 +105,22 @@ export default function TicketDetails() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'LOW':
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
       case 'MEDIUM':
         return 'text-blue-600';
       case 'HIGH':
         return 'text-orange-600';
       case 'URGENT':
-        return 'text-red-600';
+        return 'text-[var(--error-600)]';
       default:
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -130,15 +130,15 @@ export default function TicketDetails() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-2">
             {error || 'Ticket Not Found'}
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[var(--gray-600)] mb-4">
             This ticket doesn't exist or you don't have permission to view it.
           </p>
           <Link
             to="/support"
-            className="text-indigo-600 hover:text-indigo-700 font-medium"
+            className="text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
           >
             Return to Support
           </Link>
@@ -151,7 +151,7 @@ export default function TicketDetails() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <Link
         to="/support"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        className="inline-flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)] mb-6"
       >
         <ArrowLeft className="h-5 w-5" />
         Back to Support
@@ -159,10 +159,10 @@ export default function TicketDetails() {
 
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {/* Ticket Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-[var(--gray-200)]">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{ticket.subject}</h1>
+              <h1 className="text-2xl font-bold text-[var(--gray-900)] mb-2">{ticket.subject}</h1>
               <div className="flex flex-wrap items-center gap-4">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(ticket.status)}`}>
                   {ticket.status}

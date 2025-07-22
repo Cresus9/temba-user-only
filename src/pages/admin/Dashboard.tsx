@@ -192,7 +192,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -201,10 +201,10 @@ export default function AdminDashboard() {
     return (
       <div className="text-center py-12">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{error}</h2>
+        <h2 className="text-xl font-semibold text-[var(--gray-900)] mb-2">{error}</h2>
         <button
           onClick={fetchStats}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           {t('common.try_again', { default: 'Try Again' })}
         </button>
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('admin.dashboard.title', { default: 'Platform Analytics' })}
         </h1>
       </div>
@@ -269,13 +269,13 @@ export default function AdminDashboard() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">
             {t('admin.charts.revenue_overview', { default: 'Revenue Overview' })}
           </h2>
           <RevenueChart data={stats.revenueData} />
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">
             {t('admin.charts.sales_by_category', { default: 'Sales by Category' })}
           </h2>
           <CategoryDistributionChart data={stats.categoryData} />

@@ -69,17 +69,17 @@ export default function GuestOrderVerification() {
       <div className="min-h-[400px] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-sm p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <X className="h-8 w-8 text-red-600" />
+            <X className="h-8 w-8 text-[var(--error-600)]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-2">
             Lien invalide
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[var(--gray-600)] mb-6">
             Aucun jeton de vérification fourni.
           </p>
           <Link
             to="/events"
-            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[var(--primary-600)] hover:bg-[var(--primary-700)]"
           >
             Parcourir les événements
           </Link>
@@ -92,8 +92,8 @@ export default function GuestOrderVerification() {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
         <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">
+          <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)] mx-auto mb-4" />
+          <p className="text-[var(--gray-600)]">
             Vérification de votre email...
           </p>
         </div>
@@ -109,22 +109,22 @@ export default function GuestOrderVerification() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-2">
               Email vérifié !
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-[var(--gray-600)] mb-6">
               Redirection vers vos billets...
             </p>
           </>
         ) : (
           <>
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="h-8 w-8 text-red-600" />
+              <AlertCircle className="h-8 w-8 text-[var(--error-600)]" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-2">
               Échec de la vérification
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-[var(--gray-600)] mb-6">
               {error || 'Le lien de vérification est invalide ou a expiré. Veuillez réessayer ou contacter le support.'}
             </p>
             <div className="space-y-4">
@@ -133,7 +133,7 @@ export default function GuestOrderVerification() {
                   setRetryCount(0);
                   verifyToken();
                 }}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[var(--primary-600)] hover:bg-[var(--primary-700)]"
               >
                 <RotateCcw className="h-5 w-5" />
                 Réessayer
@@ -141,7 +141,7 @@ export default function GuestOrderVerification() {
               <div>
                 <Link
                   to="/events"
-                  className="text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
                 >
                   Parcourir les événements
                 </Link>

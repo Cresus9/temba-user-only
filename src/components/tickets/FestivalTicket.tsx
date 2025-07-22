@@ -61,7 +61,7 @@ export default function FestivalTicket({
 
           <div className="grid grid-cols-2 gap-6">
             <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-gray-400" />
+              <Calendar className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
                 <p className="text-gray-500">Date</p>
                 <p className="font-medium">{eventDate}</p>
@@ -69,7 +69,7 @@ export default function FestivalTicket({
             </div>
 
             <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-gray-400" />
+              <Clock className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
                 <p className="text-gray-500">Heure</p>
                 <p className="font-medium">{eventTime}</p>
@@ -77,7 +77,7 @@ export default function FestivalTicket({
             </div>
 
             <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-gray-400" />
+              <MapPin className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
                 <p className="text-gray-500">Lieu</p>
                 <p className="font-medium">{eventLocation}</p>
@@ -85,7 +85,7 @@ export default function FestivalTicket({
             </div>
 
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-gray-400" />
+              <User className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
                 <p className="text-gray-500">Détenteur du billet</p>
                 <p className="font-medium">{ticketHolder || 'Non assigné'}</p>
@@ -95,27 +95,27 @@ export default function FestivalTicket({
         </div>
 
         {/* QR Code Section */}
-        <div className="w-full md:w-72 p-6 bg-gray-50 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-gray-200">
+        <div className="w-full md:w-72 p-6 bg-gray-50 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-[var(--gray-200)]">
           <DynamicQRCode
             ticketId={ticketId}
             size={200}
           />
           <div className="text-center mt-4">
-            <p className="font-medium text-gray-900">SCANNER POUR VÉRIFIER</p>
+            <p className="font-medium text-[var(--gray-900)]">SCANNER POUR VÉRIFIER</p>
             <p className="text-sm text-gray-500">Valable pour une entrée unique</p>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-200">
+      <div className="border-t border-[var(--gray-200)]">
         <div className="p-4">
           <div className="flex items-center justify-between">
             <p className="text-gray-500">Ce billet est non transférable et doit être présenté à l'entrée</p>
             {canTransfer && (
               <button
                 onClick={onTransfer}
-                className="flex items-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-[var(--primary-600)] hover:bg-[var(--primary-50)] rounded-lg transition-colors"
               >
                 <Send className="h-5 w-5" />
                 Transférer le billet

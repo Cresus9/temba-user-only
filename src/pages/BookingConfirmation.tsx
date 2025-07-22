@@ -113,7 +113,7 @@ export default function BookingConfirmation() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -121,11 +121,11 @@ export default function BookingConfirmation() {
   if (!tickets.length) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Aucun billet trouvé</h2>
-        <p className="text-gray-600 mb-8">Nous n'avons pas pu trouver de billets pour cette réservation.</p>
+        <h2 className="text-2xl font-bold text-[var(--gray-900)] mb-4">Aucun billet trouvé</h2>
+        <p className="text-[var(--gray-600)] mb-8">Nous n'avons pas pu trouver de billets pour cette réservation.</p>
         <Link
           to="/events"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           <ArrowLeft className="h-5 w-5" />
           Parcourir les événements
@@ -139,7 +139,7 @@ export default function BookingConfirmation() {
       {/* Return button */}
       <button
         onClick={() => navigate('/dashboard')}
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8"
+        className="inline-flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)] mb-8"
       >
         <ArrowLeft className="h-5 w-5" />
         Retour au tableau de bord
@@ -149,8 +149,8 @@ export default function BookingConfirmation() {
         <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
           <Check className="h-8 w-8 text-green-600" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Vos billets sont prêts !</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-[var(--gray-900)] mb-2">Vos billets sont prêts !</h1>
+        <p className="text-[var(--gray-600)]">
           Vos billets ont été envoyés à votre email à {user?.email}
         </p>
       </div>
@@ -179,7 +179,7 @@ export default function BookingConfirmation() {
         <button
           onClick={handleDownloadTickets}
           disabled={downloadingTicket}
-          className="flex items-center justify-center gap-2 py-3 px-6 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 py-3 px-6 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50"
         >
           {downloadingTicket ? (
             <Loader className="h-5 w-5 animate-spin" />
@@ -192,8 +192,8 @@ export default function BookingConfirmation() {
 
       {/* Important Information */}
       <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations importantes</h3>
-        <ul className="space-y-2 text-gray-600">
+        <h3 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Informations importantes</h3>
+        <ul className="space-y-2 text-[var(--gray-600)]">
           <li>• Veuillez arriver au moins 30 minutes avant le début de l'événement</li>
           <li>• Ayez votre code QR de billet prêt pour la numérisation à l'entrée</li>
           <li>• Respectez le code vestimentaire et les directives de l'événement</li>
@@ -204,7 +204,7 @@ export default function BookingConfirmation() {
       <div className="mt-8 text-center">
         <Link
           to="/dashboard"
-          className="text-indigo-600 hover:text-indigo-700 font-medium"
+          className="text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
         >
           Voir toutes vos réservations →
         </Link>

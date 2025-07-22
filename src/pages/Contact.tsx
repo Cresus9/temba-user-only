@@ -49,49 +49,49 @@ export default function Contact() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Contact Information */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Contactez-nous</h1>
-          <p className="text-gray-600 mb-8">
+          <h1 className="text-3xl font-bold text-[var(--gray-900)] mb-6">Contactez-nous</h1>
+          <p className="text-[var(--gray-600)] mb-8">
             Vous avez des questions ? Nous sommes là pour vous aider. Contactez notre équipe via l'un des canaux ci-dessous.
           </p>
 
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <Mail className="h-6 w-6 text-indigo-600" />
+                <Mail className="h-6 w-6 text-[var(--primary-600)]" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Email</h3>
-                <p className="text-gray-600">support@temba.com</p>
+                <h3 className="font-medium text-[var(--gray-900)]">Email</h3>
+                <p className="text-[var(--gray-600)]">support@temba.com</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <Phone className="h-6 w-6 text-indigo-600" />
+                <Phone className="h-6 w-6 text-[var(--primary-600)]" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Téléphone</h3>
-                <p className="text-gray-600">+226 76 46 57 38</p>
+                <h3 className="font-medium text-[var(--gray-900)]">Téléphone</h3>
+                <p className="text-[var(--gray-600)]">+226 76 46 57 38</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <MapPin className="h-6 w-6 text-indigo-600" />
+                <MapPin className="h-6 w-6 text-[var(--primary-600)]" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Adresse</h3>
-                <p className="text-gray-600">123 Innovation Hub, Ouagadougou, Burkina Faso</p>
+                <h3 className="font-medium text-[var(--gray-900)]">Adresse</h3>
+                <p className="text-[var(--gray-600)]">123 Innovation Hub, Ouagadougou, Burkina Faso</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-indigo-600" />
+                <Clock className="h-6 w-6 text-[var(--primary-600)]" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Heures d'ouverture</h3>
-                <p className="text-gray-600">Lun-Ven de 9h à 18h WAT</p>
+                <h3 className="font-medium text-[var(--gray-900)]">Heures d'ouverture</h3>
+                <p className="text-[var(--gray-600)]">Lun-Ven de 9h à 18h WAT</p>
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function Contact() {
 
         {/* Contact Form */}
         <div className="bg-white rounded-xl shadow-sm p-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Envoyez-nous un message</h2>
+          <h2 className="text-2xl font-semibold text-[var(--gray-900)] mb-6">Envoyez-nous un message</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -111,7 +111,7 @@ export default function Contact() {
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                 required
               />
             </div>
@@ -125,7 +125,7 @@ export default function Contact() {
                 id="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                 required
               />
             </div>
@@ -139,7 +139,7 @@ export default function Contact() {
                 id="subject"
                 value={formData.subject}
                 onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                 required
               />
             </div>
@@ -153,7 +153,7 @@ export default function Contact() {
                 value={formData.message}
                 onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
                 rows={4}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                 required
               />
             </div>
@@ -161,7 +161,7 @@ export default function Contact() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50"
             >
               {submitting ? (
                 <>

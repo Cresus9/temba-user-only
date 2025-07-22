@@ -69,8 +69,8 @@ export default function EventMap({
           <Marker position={[latitude, longitude]} icon={customIcon}>
             <Popup>
               <div className="p-2">
-                <h3 className="font-medium text-gray-900">{title}</h3>
-                <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                <h3 className="font-medium text-[var(--gray-900)]">{title}</h3>
+                <div className="flex items-center gap-2 text-sm text-[var(--gray-600)] mt-1">
                   <MapPin className="h-4 w-4" />
                   <span>{address}</span>
                 </div>
@@ -90,7 +90,7 @@ export default function EventMap({
       {!isDisabled && (
         <button
           onClick={handleGetDirections}
-          className="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 text-gray-700 font-medium"
+          className="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-lg hover:bg-[var(--gray-50)] text-[var(--gray-700)] font-medium"
         >
           <Navigation className="h-5 w-5" />
           Get Directions

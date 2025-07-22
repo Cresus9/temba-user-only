@@ -160,7 +160,7 @@ export default function EventManagement() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -169,7 +169,7 @@ export default function EventManagement() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--gray-900)]">
             {selectedEvent 
               ? t('admin.events.edit', { default: 'Edit Event' })
               : t('admin.events.create', { default: 'Create Event' })
@@ -180,7 +180,7 @@ export default function EventManagement() {
               setShowForm(false);
               setSelectedEvent(null);
             }}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-[var(--gray-50)]"
           >
             {t('common.cancel', { default: 'Cancel' })}
           </button>
@@ -206,12 +206,12 @@ export default function EventManagement() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('admin.events.title', { default: 'Event Management' })}
         </h1>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           <Plus className="h-5 w-5" />
           {t('admin.events.create', { default: 'Create Event' })}
@@ -221,20 +221,20 @@ export default function EventManagement() {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder={t('admin.events.search', { default: 'Search events...' })}
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
 
         <select
           value={filters.status}
           onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.events.filters.all_status', { default: 'All Status' })}</option>
           <option value="DRAFT">{t('admin.events.filters.draft', { default: 'Draft' })}</option>
@@ -245,7 +245,7 @@ export default function EventManagement() {
         <select
           value={filters.organizer}
           onChange={(e) => setFilters(prev => ({ ...prev, organizer: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.events.filters.all_organizers', { default: 'All Organizers' })}</option>
           {organizers.map(organizer => (
@@ -261,7 +261,7 @@ export default function EventManagement() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 border-b border-[var(--gray-200)]">
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                   {t('admin.events.table.event', { default: 'Event' })}
                 </th>
@@ -287,7 +287,7 @@ export default function EventManagement() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {events.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-50">
+                <tr key={event.id} className="hover:bg-[var(--gray-50)]">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <img
@@ -296,7 +296,7 @@ export default function EventManagement() {
                         className="w-16 h-16 rounded-lg object-cover"
                       />
                       <div className="ml-4">
-                        <div className="font-medium text-gray-900">{event.title}</div>
+                        <div className="font-medium text-[var(--gray-900)]">{event.title}</div>
                         <div className="text-sm text-gray-500">
                           {event.currency} {event.price}
                         </div>
@@ -305,7 +305,7 @@ export default function EventManagement() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm">
-                      <div className="font-medium text-gray-900">{event.organizer?.name}</div>
+                      <div className="font-medium text-[var(--gray-900)]">{event.organizer?.name}</div>
                       <div className="text-gray-500">{event.organizer?.email}</div>
                     </div>
                   </td>
@@ -352,7 +352,7 @@ export default function EventManagement() {
                       <button
                         onClick={() => handleToggleFeatured(event.id, !event.featured)}
                         className={`p-2 rounded-lg hover:bg-gray-100 ${
-                          event.featured ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'
+                          event.featured ? 'text-yellow-500' : 'text-[var(--gray-400)] hover:text-yellow-500'
                         }`}
                         title={event.featured 
                           ? t('admin.events.unfeatured', { default: 'Remove from featured' })
@@ -366,14 +366,14 @@ export default function EventManagement() {
                           setSelectedEvent(event);
                           setShowForm(true);
                         }}
-                        className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100"
+                        className="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] rounded-lg hover:bg-gray-100"
                         title={t('admin.events.edit', { default: 'Edit event' })}
                       >
                         <Edit2 className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleDeleteEvent(event.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
+                        className="p-2 text-[var(--gray-400)] hover:text-[var(--error-600)] rounded-lg hover:bg-gray-100"
                         title={t('admin.events.delete', { default: 'Delete event' })}
                       >
                         <Trash2 className="h-5 w-5" />

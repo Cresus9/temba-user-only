@@ -26,28 +26,28 @@ export default function BookingSummary({
 
   return (
     <div className="bg-gray-50 rounded-lg p-4">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Résumé de la commande</h3>
+      <h3 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Résumé de la commande</h3>
       
       <div className="space-y-4">
         {ticketTypes.map((ticket) => (
           selectedTickets[ticket.id] > 0 && (
-            <div key={ticket.id} className="flex justify-between text-gray-600">
+            <div key={ticket.id} className="flex justify-between text-[var(--gray-600)]">
               <span>{ticket.name} × {selectedTickets[ticket.id]}</span>
               <span>{formatCurrency(ticket.price * selectedTickets[ticket.id], currency)}</span>
             </div>
           )
         ))}
 
-        <div className="pt-4 border-t border-gray-200 space-y-2">
-          <div className="flex justify-between text-gray-600">
+        <div className="pt-4 border-t border-[var(--gray-200)] space-y-2">
+          <div className="flex justify-between text-[var(--gray-600)]">
             <span>Sous-total</span>
             <span>{formatCurrency(subtotal, currency)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-[var(--gray-600)]">
             <span>Frais de traitement (2%)</span>
             <span>{formatCurrency(processingFee, currency)}</span>
           </div>
-          <div className="flex justify-between text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">
+          <div className="flex justify-between text-lg font-semibold text-[var(--gray-900)] pt-2 border-t border-[var(--gray-200)]">
             <span>Total</span>
             <span>{formatCurrency(total, currency)}</span>
           </div>

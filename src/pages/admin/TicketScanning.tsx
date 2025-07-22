@@ -48,10 +48,10 @@ export default function TicketScanning() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Scan Tickets</h1>
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">Scan Tickets</h1>
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 px-4 py-2 text-[var(--gray-600)] hover:text-[var(--gray-900)]"
         >
           <History className="h-5 w-5" />
           {showHistory ? 'Hide History' : 'View History'}
@@ -75,7 +75,7 @@ export default function TicketScanning() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center h-64">
-              <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+              <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
             </div>
           ) : scanHistory.length > 0 ? (
             <div className="overflow-x-auto">
@@ -98,10 +98,10 @@ export default function TicketScanning() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {scanHistory.map((scan) => (
-                    <tr key={scan.id} className="hover:bg-gray-50">
+                    <tr key={scan.id} className="hover:bg-[var(--gray-50)]">
                       <td className="px-6 py-4">
                         <div>
-                          <div className="font-medium text-gray-900">{scan.event_title}</div>
+                          <div className="font-medium text-[var(--gray-900)]">{scan.event_title}</div>
                           <div className="text-sm text-gray-500">
                             {scan.ticket_type_name} - {scan.user_name}
                           </div>
@@ -132,9 +132,9 @@ export default function TicketScanning() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Scan History</h3>
-              <p className="text-gray-600">No tickets have been scanned yet.</p>
+              <History className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">No Scan History</h3>
+              <p className="text-[var(--gray-600)]">No tickets have been scanned yet.</p>
             </div>
           )}
         </div>

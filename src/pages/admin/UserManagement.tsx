@@ -154,7 +154,7 @@ export default function UserManagement() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -162,7 +162,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('admin.users.title', { default: 'User Management' })}
         </h1>
       </div>
@@ -170,20 +170,20 @@ export default function UserManagement() {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder={t('admin.users.search', { default: 'Search users...' })}
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
 
         <select
           value={filters.role}
           onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.users.filters.all_roles', { default: 'All Roles' })}</option>
           <option value="USER">{t('admin.users.roles.user', { default: 'User' })}</option>
@@ -193,7 +193,7 @@ export default function UserManagement() {
         <select
           value={filters.status}
           onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.users.filters.all_status', { default: 'All Status' })}</option>
           <option value="ACTIVE">{t('admin.users.status.active', { default: 'Active' })}</option>
@@ -207,7 +207,7 @@ export default function UserManagement() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 border-b border-[var(--gray-200)]">
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                   {t('admin.users.table.user', { default: 'User' })}
                 </th>
@@ -227,16 +227,16 @@ export default function UserManagement() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className="hover:bg-[var(--gray-50)]">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <span className="text-sm font-medium text-indigo-600">
+                        <span className="text-sm font-medium text-[var(--primary-600)]">
                           {user.name[0]}
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="font-medium text-gray-900">{user.name}</div>
+                        <div className="font-medium text-[var(--gray-900)]">{user.name}</div>
                       </div>
                     </div>
                   </td>
@@ -258,7 +258,7 @@ export default function UserManagement() {
                     <select
                       value={user.role}
                       onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                      className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="px-3 py-1 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                     >
                       <option value="USER">{t('admin.users.roles.user', { default: 'User' })}</option>
                       <option value="ADMIN">{t('admin.users.roles.admin', { default: 'Admin' })}</option>
@@ -285,20 +285,20 @@ export default function UserManagement() {
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => handleSendNotification(user.id)}
-                        className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100"
+                        className="p-2 text-[var(--gray-400)] hover:text-[var(--primary-600)] rounded-lg hover:bg-gray-100"
                         title={t('admin.users.actions.send_message', { default: 'Send Message' })}
                       >
                         <Send className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
+                        className="p-2 text-[var(--gray-400)] hover:text-[var(--error-600)] rounded-lg hover:bg-gray-100"
                         title={t('admin.users.actions.delete', { default: 'Delete User' })}
                       >
                         <UserX className="h-5 w-5" />
                       </button>
                       <button
-                        className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                        className="p-2 text-[var(--gray-400)] hover:text-[var(--gray-600)] rounded-lg hover:bg-gray-100"
                         title={t('admin.users.actions.more', { default: 'More Actions' })}
                       >
                         <MoreVertical className="h-5 w-5" />

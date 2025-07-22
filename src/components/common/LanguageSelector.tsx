@@ -13,11 +13,11 @@ export default function LanguageSelector() {
   return (
     <div className="relative inline-block">
       <div className="flex items-center gap-2">
-        <Globe className="h-5 w-5 text-gray-400" />
+        <Globe className="h-5 w-5 text-[var(--gray-400)]" />
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value)}
-          className="appearance-none bg-transparent border border-gray-200 rounded-lg py-1 pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="appearance-none bg-transparent border border-[var(--gray-200)] rounded-lg py-1 pl-2 pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           {availableLocales.map((code) => (
             <option key={code} value={code}>

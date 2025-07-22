@@ -73,7 +73,7 @@ export default function GuestTicketVerification() {
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -82,13 +82,13 @@ export default function GuestTicketVerification() {
     return (
       <div className="max-w-md mx-auto px-4 py-8 text-center">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{error}</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-xl font-semibold text-[var(--gray-900)] mb-2">{error}</h2>
+        <p className="text-[var(--gray-600)] mb-6">
           The verification link may be invalid or has expired.
         </p>
         <button
           onClick={verifyToken}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           <RotateCcw className="h-5 w-5" />
           Try Again

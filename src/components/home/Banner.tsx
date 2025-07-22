@@ -112,7 +112,7 @@ export default function Banner() {
             )}
             {isClickable && (
               <button
-                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] transition-colors"
               >
                 Obtenir des billets
                 <ChevronRight className="h-5 w-5" />

@@ -33,15 +33,15 @@ export default function Home() {
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-[var(--gray-900)] mb-4">
               Événements à la Une
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-[var(--gray-600)] max-w-2xl mx-auto">
               Découvrez les événements les plus populaires et ne manquez pas les expériences incontournables
             </p>
           </div>
           <div className="flex justify-between items-center mb-8">
-            <Link to="/events" className="text-indigo-600 hover:text-indigo-700">
+            <Link to="/events" className="text-[var(--primary-600)] hover:text-[var(--primary-700)]">
               Voir tous les événements
             </Link>
           </div>
@@ -53,10 +53,10 @@ export default function Home() {
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-[var(--gray-900)] mb-4">
               Catégories Populaires
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-[var(--gray-600)] max-w-2xl mx-auto">
               Explorez les événements par catégorie et trouvez ceux qui correspondent à vos intérêts
             </p>
           </div>

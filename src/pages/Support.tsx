@@ -67,22 +67,22 @@ export default function Support() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'LOW':
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
       case 'MEDIUM':
         return 'text-blue-600';
       case 'HIGH':
         return 'text-orange-600';
       case 'URGENT':
-        return 'text-red-600';
+        return 'text-[var(--error-600)]';
       default:
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function Support() {
       {/* Back button */}
       <Link
         to="/dashboard"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        className="inline-flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)] mb-6"
       >
         <ArrowLeft className="h-5 w-5" />
         {t('support.back_to_dashboard', { default: 'Back to Dashboard' })}
@@ -100,16 +100,16 @@ export default function Support() {
 
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--gray-900)]">
             {t('support.title', { default: 'Support' })}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-[var(--gray-600)]">
             {t('support.description', { default: 'View and manage your support tickets' })}
           </p>
         </div>
         <button
           onClick={() => setShowNewTicket(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           <Plus className="h-5 w-5" />
           {t('support.new_ticket', { default: 'New Ticket' })}
@@ -128,8 +128,8 @@ export default function Support() {
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <MessageSquare className="h-5 w-5 text-gray-400" />
-                      <h3 className="font-medium text-gray-900">{ticket.subject}</h3>
+                      <MessageSquare className="h-5 w-5 text-[var(--gray-400)]" />
+                      <h3 className="font-medium text-[var(--gray-900)]">{ticket.subject}</h3>
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
                         {ticket.status}
                       </span>
@@ -156,16 +156,16 @@ export default function Support() {
         </div>
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <MessageSquare className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">
             {t('support.no_tickets.title', { default: 'No Support Tickets' })}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[var(--gray-600)] mb-4">
             {t('support.no_tickets.description', { default: 'You haven\'t created any support tickets yet' })}
           </p>
           <button
             onClick={() => setShowNewTicket(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
           >
             <Plus className="h-5 w-5" />
             {t('support.create_first_ticket', { default: 'Create Your First Ticket' })}

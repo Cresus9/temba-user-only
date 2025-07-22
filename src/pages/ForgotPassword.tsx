@@ -41,24 +41,24 @@ export default function ForgotPassword() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold text-gray-900 mb-2">
-              <Ticket className="h-8 w-8 text-indigo-600" />
+            <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold text-[var(--gray-900)] mb-2">
+              <Ticket className="h-8 w-8 text-[var(--primary-600)]" />
               Temba
             </Link>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Réinitialiser le mot de passe</h2>
-            <p className="text-gray-600">Entrez votre email pour recevoir les instructions</p>
+            <h2 className="text-3xl font-bold text-[var(--gray-900)] mb-2">Réinitialiser le mot de passe</h2>
+            <p className="text-[var(--gray-600)]">Entrez votre email pour recevoir les instructions</p>
           </div>
 
           {isSuccess ? (
             <div className="text-center">
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Vérifiez votre email</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="text-xl font-semibold text-[var(--gray-900)] mb-2">Vérifiez votre email</h3>
+              <p className="text-[var(--gray-600)] mb-6">
                 Nous avons envoyé les instructions de réinitialisation à {email}
               </p>
               <Link
                 to="/login"
-                className="text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
               >
                 Retour à la connexion
               </Link>
@@ -70,12 +70,12 @@ export default function ForgotPassword() {
                   Adresse email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="block w-full pl-10 pr-4 py-3 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                     placeholder="nom@exemple.com"
                     required
                   />
@@ -85,7 +85,7 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[var(--primary-600)] hover:bg-[var(--primary-700)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-500)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
@@ -99,7 +99,7 @@ export default function ForgotPassword() {
 
               <Link
                 to="/login"
-                className="flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                className="flex items-center justify-center gap-2 text-sm text-[var(--gray-600)] hover:text-[var(--gray-900)]"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Retour à la connexion

@@ -75,14 +75,14 @@ export default function TicketChat({ ticketId, messages, onNewMessage }: TicketC
               <div
                 className={`max-w-[80%] rounded-lg ${
                   isStaffMessage
-                    ? 'bg-white border border-gray-200'
-                    : 'bg-indigo-600'
+                    ? 'bg-white border border-[var(--gray-200)]'
+                    : 'bg-[var(--primary-600)]'
                 }`}
               >
                 {/* Message Header */}
                 <div className={`px-4 py-2 border-b ${
                   isStaffMessage 
-                    ? 'border-gray-200 text-gray-700'
+                    ? 'border-[var(--gray-200)] text-gray-700'
                     : 'border-indigo-500 text-indigo-100'
                 }`}>
                   <span className="font-medium">
@@ -111,20 +111,20 @@ export default function TicketChat({ ticketId, messages, onNewMessage }: TicketC
       </div>
 
       {/* Message Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+      <form onSubmit={handleSubmit} className="p-4 border-t border-[var(--gray-200)]">
         <div className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
             disabled={sending}
           />
           <button
             type="submit"
             disabled={sending || !newMessage.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {sending ? (
               <>

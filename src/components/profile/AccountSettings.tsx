@@ -92,15 +92,15 @@ export default function AccountSettings() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+      <h1 className="text-2xl font-bold text-[var(--gray-900)] mb-6">
         {t('account.settings.title', { default: 'Account Settings' })}
       </h1>
 
       {/* Password Change Section */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Key className="h-5 w-5 text-indigo-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
+          <Key className="h-5 w-5 text-[var(--primary-600)]" />
+          <h2 className="text-lg font-semibold text-[var(--gray-900)]">
             {t('account.password.title', { default: 'Change Password' })}
           </h2>
         </div>
@@ -113,7 +113,7 @@ export default function AccountSettings() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
               required
             />
           </div>
@@ -125,7 +125,7 @@ export default function AccountSettings() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
               required
               minLength={8}
             />
@@ -138,14 +138,14 @@ export default function AccountSettings() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
               required
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -162,37 +162,37 @@ export default function AccountSettings() {
       {/* Security Settings */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="h-5 w-5 text-indigo-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
+          <Shield className="h-5 w-5 text-[var(--primary-600)]" />
+          <h2 className="text-lg font-semibold text-[var(--gray-900)]">
             {t('account.security.title', { default: 'Security Settings' })}
           </h2>
         </div>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <p className="font-medium text-gray-900">
+              <p className="font-medium text-[var(--gray-900)]">
                 {t('account.security.2fa.title', { default: 'Two-Factor Authentication' })}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-[var(--gray-600)]">
                 {t('account.security.2fa.description', { default: 'Add an extra layer of security to your account' })}
               </p>
             </div>
-            <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <button className="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]">
               {t('account.security.2fa.enable', { default: 'Enable' })}
             </button>
           </div>
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <p className="font-medium text-gray-900">
+              <p className="font-medium text-[var(--gray-900)]">
                 {t('account.security.login_history.title', { default: 'Login History' })}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-[var(--gray-600)]">
                 {t('account.security.login_history.description', { default: 'View your recent login activity' })}
               </p>
             </div>
             <button
               onClick={() => setShowLoginHistory(!showLoginHistory)}
-              className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-[var(--gray-200)] rounded-lg text-gray-700 hover:bg-[var(--gray-50)]"
             >
               {showLoginHistory 
                 ? t('account.security.login_history.hide', { default: 'Hide History' })
@@ -211,14 +211,14 @@ export default function AccountSettings() {
       {/* Delete Account */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
-          <AlertTriangle className="h-5 w-5 text-red-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
+          <AlertTriangle className="h-5 w-5 text-[var(--error-600)]" />
+          <h2 className="text-lg font-semibold text-[var(--gray-900)]">
             {t('account.delete.title', { default: 'Delete Account' })}
           </h2>
         </div>
         {!showDeleteConfirm ? (
           <div>
-            <p className="text-gray-600 mb-4">
+            <p className="text-[var(--gray-600)] mb-4">
               {t('account.delete.warning', { default: 'Once you delete your account, there is no going back. Please be certain.' })}
             </p>
             <button
@@ -246,7 +246,7 @@ export default function AccountSettings() {
                   setShowDeleteConfirm(false);
                   setDeleteConfirmation('');
                 }}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-[var(--gray-200)] rounded-lg text-gray-700 hover:bg-[var(--gray-50)]"
               >
                 {t('account.delete.cancel', { default: 'Cancel' })}
               </button>

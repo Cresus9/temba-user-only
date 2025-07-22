@@ -75,11 +75,11 @@ export default function TransferTicketModal({
           <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
             <div className="sm:flex sm:items-start">
               <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold leading-6 text-[var(--gray-900)] mb-4">
                   {t('transfers.title', { default: 'Transfer Ticket' })}
                 </h3>
 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-[var(--gray-600)] mb-4">
                   {t('transfers.description', { 
                     event: eventTitle,
                     default: `Transfer your ticket for "${eventTitle}" to another user`
@@ -99,12 +99,12 @@ export default function TransferTicketModal({
                       {t('transfers.recipient_email', { default: "Recipient's Email" })}
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
                       <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                         placeholder={t('transfers.email_placeholder', { default: "Enter recipient's email" })}
                         required
                       />
@@ -115,7 +115,7 @@ export default function TransferTicketModal({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50"
                     >
                       {loading ? (
                         <>
@@ -132,7 +132,7 @@ export default function TransferTicketModal({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="mt-3 sm:mt-0 w-full sm:w-auto px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 border border-gray-300"
+                      className="mt-3 sm:mt-0 w-full sm:w-auto px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-[var(--gray-50)] border border-gray-300"
                     >
                       {t('common.cancel', { default: 'Cancel' })}
                     </button>

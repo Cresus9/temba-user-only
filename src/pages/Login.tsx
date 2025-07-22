@@ -64,10 +64,10 @@ export default function Login() {
             <Link to="/" className="inline-block mb-4">
               <img src="/logo.svg" alt="Temba Logo" className="h-10 w-auto mx-auto" />
             </Link>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-3xl font-bold text-[var(--gray-900)] mb-2">
               Bienvenue
             </h2>
-            <p className="text-gray-600">
+            <p className="text-[var(--gray-600)]">
               Connectez-vous pour accéder à votre compte
             </p>
           </div>
@@ -85,13 +85,13 @@ export default function Login() {
                 Adresse email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="block w-full pl-10 pr-4 py-3 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                   placeholder="nom@exemple.com"
                   required
                 />
@@ -103,20 +103,20 @@ export default function Login() {
                 Mot de passe
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="block w-full pl-10 pr-12 py-3 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--gray-400)] hover:text-[var(--gray-600)]"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -130,13 +130,13 @@ export default function Login() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[var(--primary-600)] focus:ring-[var(--primary-500)] border-gray-300 rounded"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                   Se souvenir de moi
                 </label>
               </div>
-              <Link to="/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+              <Link to="/forgot-password" className="text-sm font-medium text-[var(--primary-600)] hover:text-[var(--primary-500)]">
                 Mot de passe oublié ?
               </Link>
             </div>
@@ -144,7 +144,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[var(--primary-600)] hover:bg-[var(--primary-700)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-500)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
@@ -159,9 +159,9 @@ export default function Login() {
               )}
             </button>
 
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm text-[var(--gray-600)]">
               Vous n'avez pas de compte ?{' '}
-              <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <Link to="/signup" className="font-medium text-[var(--primary-600)] hover:text-[var(--primary-500)]">
                 S'inscrire
               </Link>
             </p>

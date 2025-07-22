@@ -60,7 +60,7 @@ const CategoryCard = memo(({
             <div className="rounded-full p-2" style={{ backgroundColor: `${color}22` }}>
               {getIcon()}
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">{name}</h3>
+            <h3 className="text-2xl font-bold text-[var(--gray-900)]">{name}</h3>
           </div>
           <span className="text-sm font-medium text-indigo-700 mb-2">
             {eventCount} Événement{eventCount !== 1 ? 's' : ''} Disponible{eventCount !== 1 ? 's' : ''}

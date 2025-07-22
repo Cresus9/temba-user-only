@@ -25,9 +25,9 @@ export default function SecurityLogs() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Security Logs</h1>
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">Security Logs</h1>
         <div className="flex gap-4">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-[var(--gray-50)]">
             Export Logs
           </button>
         </div>
@@ -36,19 +36,19 @@ export default function SecurityLogs() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder="Search logs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">All Severities</option>
           <option value="low">Low</option>
@@ -62,7 +62,7 @@ export default function SecurityLogs() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 border-b border-[var(--gray-200)]">
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Timestamp</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Action</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">IP Address</th>
@@ -73,14 +73,14 @@ export default function SecurityLogs() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50">
+                <tr key={log.id} className="hover:bg-[var(--gray-50)]">
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-900">{log.action}</span>
+                      <Shield className="h-4 w-4 text-[var(--gray-400)]" />
+                      <span className="text-[var(--gray-900)]">{log.action}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 font-mono text-sm text-gray-500">{log.ip}</td>
@@ -99,7 +99,7 @@ export default function SecurityLogs() {
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={() => handleBlockIP(log.ip)}
-                      className="text-gray-400 hover:text-red-600"
+                      className="text-[var(--gray-400)] hover:text-[var(--error-600)]"
                       title="Block IP"
                     >
                       <Ban className="h-5 w-5" />
@@ -114,7 +114,7 @@ export default function SecurityLogs() {
 
       {/* Blocked IPs */}
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Blocked IP Addresses</h2>
+        <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Blocked IP Addresses</h2>
         <div className="space-y-4">
           {blockedIPs.map((blocked) => (
             <div
@@ -123,12 +123,12 @@ export default function SecurityLogs() {
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <AlertTriangle className="h-5 w-5 text-[var(--error-600)]" />
                   <span className="font-mono font-medium text-red-900">{blocked.ip}</span>
                 </div>
                 <p className="mt-1 text-sm text-red-700">{blocked.reason}</p>
               </div>
-              <div className="text-sm text-red-600">
+              <div className="text-sm text-[var(--error-600)]">
                 Expires: {new Date(blocked.expiresAt).toLocaleString()}
               </div>
             </div>

@@ -152,7 +152,7 @@ export default function Notifications() {
                 <img className="h-10 w-10" src="/favicon.svg" alt="Temba"/>
               </div>
               <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-[var(--gray-900)]">
                   {t('notifications.push.enable_title', { default: 'Enable Push Notifications' })}
                 </p>
                 <p className="mt-1 text-sm text-gray-500">
@@ -165,10 +165,10 @@ export default function Notifications() {
               </div>
             </div>
           </div>
-          <div className="flex border-l border-gray-200">
+          <div className="flex border-l border-[var(--gray-200)]">
             <button
               onClick={() => toast.dismiss(t.id)}
-              className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
+              className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-[var(--primary-600)] hover:text-[var(--primary-500)] focus:outline-none"
             >
               {t('common.close', { default: 'Close' })}
             </button>
@@ -181,7 +181,7 @@ export default function Notifications() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -190,12 +190,12 @@ export default function Notifications() {
     return (
       <div className="text-center py-8">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        <h2 className="text-xl font-semibold text-[var(--gray-900)] mb-2">
           {t('notifications.error.load_title', { default: 'Failed to load preferences' })}
         </h2>
         <button
           onClick={loadPreferences}
-          className="text-indigo-600 hover:text-indigo-700"
+          className="text-[var(--primary-600)] hover:text-[var(--primary-700)]"
         >
           {t('common.try_again', { default: 'Try Again' })}
         </button>
@@ -206,18 +206,18 @@ export default function Notifications() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">
           {t('notifications.channels.title', { default: 'Notification Channels' })}
         </h2>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-[var(--gray-200)]">
             <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-gray-400" />
+              <Mail className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   {t('notifications.channels.email.title', { default: 'Email Notifications' })}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('notifications.channels.email.description', { default: 'Receive notifications via email' })}
                 </p>
               </div>
@@ -226,7 +226,7 @@ export default function Notifications() {
               onClick={() => handleToggle('email', !preferences.email)}
               disabled={saving}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                preferences.email ? 'bg-indigo-600' : 'bg-gray-200'
+                preferences.email ? 'bg-[var(--primary-600)]' : 'bg-[var(--gray-200)]'
               } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
@@ -237,19 +237,19 @@ export default function Notifications() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-[var(--gray-200)]">
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-gray-400" />
+              <Bell className="h-5 w-5 text-[var(--gray-400)]" />
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   {t('notifications.channels.push.title', { default: 'Push Notifications' })}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t('notifications.channels.push.description', { default: 'Receive notifications in your browser' })}
                   {pushPermission === 'denied' && (
                     <button
                       onClick={openBrowserSettings}
-                      className="ml-2 text-indigo-600 hover:text-indigo-700"
+                      className="ml-2 text-[var(--primary-600)] hover:text-[var(--primary-700)]"
                     >
                       <Settings className="h-4 w-4 inline-block" />
                       <span className="ml-1">
@@ -261,7 +261,7 @@ export default function Notifications() {
               </div>
             </div>
             {!('Notification' in window) ? (
-              <span className="text-sm text-red-600">
+              <span className="text-sm text-[var(--error-600)]">
                 {t('notifications.push.not_supported', { default: 'Not supported in your browser' })}
               </span>
             ) : (
@@ -269,7 +269,7 @@ export default function Notifications() {
                 onClick={() => handleToggle('push', !preferences.push)}
                 disabled={saving || pushPermission === 'denied'}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  preferences.push ? 'bg-indigo-600' : 'bg-gray-200'
+                  preferences.push ? 'bg-[var(--primary-600)]' : 'bg-[var(--gray-200)]'
                 } ${(saving || pushPermission === 'denied') ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span
@@ -284,20 +284,20 @@ export default function Notifications() {
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">
           {t('notifications.types.title', { default: 'Notification Types' })}
         </h2>
         <div className="space-y-4">
           {NOTIFICATION_TYPES.map((type) => (
             <div
               key={type.id}
-              className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
+              className="flex items-center justify-between p-4 bg-white rounded-lg border border-[var(--gray-200)]"
             >
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-[var(--gray-900)]">
                   {t(`notifications.types.${type.id}.label`, { default: type.label })}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--gray-600)]">
                   {t(`notifications.types.${type.id}.description`, { default: type.description })}
                 </p>
               </div>
@@ -305,7 +305,7 @@ export default function Notifications() {
                 onClick={() => handleTypeToggle(type.id)}
                 disabled={saving}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  preferences.types.includes(type.id) ? 'bg-indigo-600' : 'bg-gray-200'
+                  preferences.types.includes(type.id) ? 'bg-[var(--primary-600)]' : 'bg-[var(--gray-200)]'
                 } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span

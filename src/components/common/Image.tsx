@@ -28,7 +28,7 @@ export default function Image({ src, alt, className, fallbackSrc, ...props }: Im
       />
     ) : (
       <div className={`bg-gray-100 flex items-center justify-center ${className}`}>
-        <ImageOff className="h-8 w-8 text-gray-400" />
+        <ImageOff className="h-8 w-8 text-[var(--gray-400)]" />
       </div>
     );
   }

@@ -83,22 +83,22 @@ export default function SupportManagement() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'LOW':
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
       case 'MEDIUM':
         return 'text-blue-600';
       case 'HIGH':
         return 'text-orange-600';
       case 'URGENT':
-        return 'text-red-600';
+        return 'text-[var(--error-600)]';
       default:
-        return 'text-gray-600';
+        return 'text-[var(--gray-600)]';
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function SupportManagement() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">
           {t('admin.support.title', { default: 'Support Management' })}
         </h1>
       </div>
@@ -114,20 +114,20 @@ export default function SupportManagement() {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
           <input
             type="text"
             placeholder={t('admin.support.search', { default: 'Search tickets...' })}
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           />
         </div>
 
         <select
           value={filters.status}
           onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.support.filters.all_status', { default: 'All Status' })}</option>
           <option value="OPEN">{t('admin.support.status.open', { default: 'Open' })}</option>
@@ -139,7 +139,7 @@ export default function SupportManagement() {
         <select
           value={filters.priority}
           onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.support.filters.all_priority', { default: 'All Priority' })}</option>
           <option value="LOW">{t('admin.support.priority.low', { default: 'Low' })}</option>
@@ -151,7 +151,7 @@ export default function SupportManagement() {
         <select
           value={filters.category}
           onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
         >
           <option value="all">{t('admin.support.filters.all_categories', { default: 'All Categories' })}</option>
           <option value="General">{t('admin.support.categories.general', { default: 'General' })}</option>
@@ -166,7 +166,7 @@ export default function SupportManagement() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 border-b border-[var(--gray-200)]">
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
                   {t('admin.support.table.ticket', { default: 'Ticket' })}
                 </th>
@@ -195,10 +195,10 @@ export default function SupportManagement() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {tickets.map((ticket) => (
-                <tr key={ticket.id} className="hover:bg-gray-50">
+                <tr key={ticket.id} className="hover:bg-[var(--gray-50)]">
                   <td className="px-6 py-4">
                     <div>
-                      <div className="font-medium text-gray-900">{ticket.subject}</div>
+                      <div className="font-medium text-[var(--gray-900)]">{ticket.subject}</div>
                       <div className="text-sm text-gray-500">
                         {t('admin.support.created', { 
                           date: new Date(ticket.created_at).toLocaleDateString(),
@@ -209,7 +209,7 @@ export default function SupportManagement() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm">
-                      <div className="font-medium text-gray-900">{ticket.user_name}</div>
+                      <div className="font-medium text-[var(--gray-900)]">{ticket.user_name}</div>
                       <div className="text-gray-500">{ticket.user_email}</div>
                     </div>
                   </td>
@@ -235,7 +235,7 @@ export default function SupportManagement() {
                   <td className="px-6 py-4 text-right">
                     <a
                       href={`/support/${ticket.id}`}
-                      className="text-indigo-600 hover:text-indigo-900"
+                      className="text-[var(--primary-600)] hover:text-[var(--primary-900)]"
                     >
                       {t('admin.support.actions.view', { default: 'View' })}
                     </a>

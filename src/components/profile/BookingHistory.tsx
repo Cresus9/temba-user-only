@@ -160,7 +160,7 @@ export default function BookingHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -168,15 +168,15 @@ export default function BookingHistory() {
   if (!bookings.length) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        <h2 className="text-xl font-semibold text-[var(--gray-900)] mb-2">
           Aucune réservation trouvée
         </h2>
-        <p className="text-gray-600 mb-4">
+        <p className="text-[var(--gray-600)] mb-4">
           Vous n'avez pas encore effectué de réservations.
         </p>
         <Link
           to="/events"
-          className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="inline-block px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           Parcourir les événements
         </Link>
@@ -186,7 +186,7 @@ export default function BookingHistory() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+      <h2 className="text-xl sm:text-2xl font-bold text-[var(--gray-900)]">
         Mes réservations
       </h2>
       
@@ -200,10 +200,10 @@ export default function BookingHistory() {
             <div className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-[var(--gray-900)]">
                     {booking.event.title}
                   </h3>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-[var(--gray-600)]">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 flex-shrink-0" />
                       {new Date(booking.event.date).toLocaleDateString()}
@@ -219,7 +219,7 @@ export default function BookingHistory() {
                   </div>
                 </div>
                 <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-1">
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-lg font-semibold text-[var(--gray-900)]">
                     {formatCurrency(booking.total, booking.event.currency)}
                   </p>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -239,7 +239,7 @@ export default function BookingHistory() {
               <div className="mt-4 flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={() => toggleBookingDetails(booking.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-[var(--primary-600)] border border-[var(--primary-600)] rounded-lg hover:bg-[var(--primary-50)] text-sm"
                 >
                   {expandedBooking === booking.id ? (
                     <>
@@ -262,7 +262,7 @@ export default function BookingHistory() {
                 {booking.tickets.map((ticket) => (
                   <div 
                     key={ticket.id}
-                    className="bg-white rounded-lg p-4 border border-gray-200"
+                    className="bg-white rounded-lg p-4 border border-[var(--gray-200)]"
                   >
                     {/* Ticket Status Banner */}
                     <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
@@ -314,7 +314,7 @@ export default function BookingHistory() {
                       <button
                         onClick={() => handleDownloadTicket(ticket, booking)}
                         disabled={downloadingTicket === ticket.id}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)] disabled:opacity-50"
                       >
                         {downloadingTicket === ticket.id ? (
                           <Loader className="h-5 w-5 animate-spin" />

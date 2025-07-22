@@ -213,7 +213,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -221,10 +221,10 @@ export default function Analytics() {
   if (!stats) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600">Failed to load analytics</p>
+        <p className="text-[var(--error-600)]">Failed to load analytics</p>
         <button 
           onClick={fetchAnalytics}
-          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="mt-4 px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg hover:bg-[var(--primary-700)]"
         >
           Retry
         </button>
@@ -270,12 +270,12 @@ export default function Analytics() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Platform Analytics</h1>
+        <h1 className="text-2xl font-bold text-[var(--gray-900)]">Platform Analytics</h1>
         <div className="flex gap-4">
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="px-4 py-2 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -295,11 +295,11 @@ export default function Analytics() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Overview</h2>
+          <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Revenue Overview</h2>
           <RevenueChart data={stats.revenueData} />
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Sales by Category</h2>
+          <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Sales by Category</h2>
           <CategoryDistributionChart data={stats.categoryData} />
         </div>
       </div>
@@ -307,11 +307,11 @@ export default function Analytics() {
       {/* Top Events Table */}
       <div className="bg-white rounded-xl shadow-sm">
         <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Events</h2>
+          <h2 className="text-lg font-semibold text-[var(--gray-900)] mb-4">Top Performing Events</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
+                <tr className="border-b border-[var(--gray-200)]">
                   <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Event</th>
                   <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Tickets Sold</th>
                   <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Revenue</th>
@@ -321,20 +321,20 @@ export default function Analytics() {
               <tbody className="divide-y divide-gray-200">
                 {stats.topEvents.map((event) => (
                   <tr key={event.id}>
-                    <td className="px-6 py-4 text-sm text-gray-900">{event.title}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{event.ticketsSold}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-[var(--gray-900)]">{event.title}</td>
+                    <td className="px-6 py-4 text-sm text-[var(--gray-600)]">{event.ticketsSold}</td>
+                    <td className="px-6 py-4 text-sm text-[var(--gray-600)]">
                       {formatCurrency(event.revenue)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="flex-1 h-2 bg-gray-100 rounded-full mr-2">
                           <div
-                            className="h-full bg-indigo-600 rounded-full"
+                            className="h-full bg-[var(--primary-600)] rounded-full"
                             style={{ width: `${event.occupancy}%` }}
                           />
                         </div>
-                        <span className="text-sm text-gray-600">{Math.round(event.occupancy)}%</span>
+                        <span className="text-sm text-[var(--gray-600)]">{Math.round(event.occupancy)}%</span>
                       </div>
                     </td>
                   </tr>

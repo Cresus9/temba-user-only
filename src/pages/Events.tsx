@@ -122,48 +122,48 @@ export default function Events() {
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        className="mb-6 flex items-center gap-2 text-[var(--gray-600)] hover:text-[var(--gray-900)] transition-colors"
       >
         <ArrowLeft className="h-5 w-5" />
         Retour
       </button>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Découvrir les événements</h1>
-        <p className="text-gray-600">Trouvez et réservez des billets pour les meilleurs événements près de chez vous</p>
+        <h1 className="text-3xl font-bold text-[var(--gray-900)] mb-4">Découvrir les événements</h1>
+        <p className="text-[var(--gray-600)]">Trouvez et réservez des billets pour les meilleurs événements près de chez vous</p>
       </div>
 
       {/* Filters */}
       <div className="mb-8 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
             <input
               type="text"
               value={filters.search}
               onChange={handleSearchChange}
               placeholder="Rechercher des événements..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-10 pr-4 py-3 border border-[var(--gray-200)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
             />
           </div>
           
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
             <input
               type="date"
               value={filters.date}
               onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-[var(--gray-200)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
             />
           </div>
 
           <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
             <select
               value={filters.location}
               onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-[var(--gray-200)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
             >
               <option value="">Tous les lieux</option>
               {locations.map(location => (
@@ -173,11 +173,11 @@ export default function Events() {
           </div>
 
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[var(--gray-400)]" />
             <select
               value={filters.category}
               onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-[var(--gray-200)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
             >
               <option value="">Toutes les catégories</option>
               {categories.map(category => (
@@ -188,7 +188,7 @@ export default function Events() {
 
           <button
             onClick={clearFilters}
-            className="px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-[var(--gray-200)]"
           >
             Effacer les filtres
           </button>
@@ -200,10 +200,10 @@ export default function Events() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-xl aspect-[16/9] mb-4" />
+              <div className="bg-[var(--gray-200)] rounded-xl aspect-[16/9] mb-4" />
               <div className="space-y-3">
-                <div className="h-6 bg-gray-200 rounded w-3/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-6 bg-[var(--gray-200)] rounded w-3/4" />
+                <div className="h-4 bg-[var(--gray-200)] rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -216,10 +216,10 @@ export default function Events() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">
             Aucun événement trouvé
           </h3>
-          <p className="text-gray-600">
+          <p className="text-[var(--gray-600)]">
             Essayez d'ajuster vos filtres ou termes de recherche
           </p>
         </div>

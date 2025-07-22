@@ -90,7 +90,7 @@ export default function TransferRequests() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader className="h-8 w-8 animate-spin text-[var(--primary-600)]" />
       </div>
     );
   }
@@ -98,11 +98,11 @@ export default function TransferRequests() {
   if (!requests.length) {
     return (
       <div className="text-center py-8">
-        <Send className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <Send className="h-12 w-12 text-[var(--gray-400)] mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-[var(--gray-900)] mb-2">
           {t('transfers.empty.title', { default: 'No Transfer Requests' })}
         </h3>
-        <p className="text-gray-600">
+        <p className="text-[var(--gray-600)]">
           {t('transfers.empty.description', { default: 'You have no pending ticket transfer requests' })}
         </p>
       </div>

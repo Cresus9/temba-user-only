@@ -78,10 +78,10 @@ export default function TransferRequestCard({ request, onUpdate }: TransferReque
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white rounded-lg border border-[var(--gray-200)] p-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-medium text-gray-900">{request.event.title}</div>
+          <div className="font-medium text-[var(--gray-900)]">{request.event.title}</div>
           <div className="text-sm text-gray-500">
             {t('transfers.from', { 
               name: request.sender.name, 
@@ -113,7 +113,7 @@ export default function TransferRequestCard({ request, onUpdate }: TransferReque
             <button
               onClick={() => handleResponse(false)}
               disabled={loading}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+              className="p-2 text-[var(--error-600)] hover:bg-[var(--error-50)] rounded-lg disabled:opacity-50"
               title={t('transfers.reject', { default: 'Reject Transfer' })}
             >
               <X className="h-5 w-5" />
@@ -121,7 +121,7 @@ export default function TransferRequestCard({ request, onUpdate }: TransferReque
           </div>
           <button
             onClick={handleOrderTickets}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-[var(--primary-600)] hover:bg-[var(--primary-50)] rounded-lg transition-colors"
           >
             <Ticket className="h-5 w-5" />
             {t('transfers.order_tickets', { default: 'Order Tickets' })}

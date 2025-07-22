@@ -99,7 +99,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
           <div className="absolute top-0 right-0 pt-4 pr-4">
             <button
               onClick={onClose}
-              className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+              className="rounded-md bg-white text-[var(--gray-400)] hover:text-[var(--gray-500)]"
             >
               <X className="h-6 w-6" />
             </button>
@@ -108,7 +108,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
           <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
             <div className="sm:flex sm:items-start">
               <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold leading-6 text-[var(--gray-900)] mb-4">
                   Create Support Ticket
                 </h3>
 
@@ -127,7 +127,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                     <select
                       value={formData.category_id}
                       onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                       required
                     >
                       <option value="">Select a category</option>
@@ -147,7 +147,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                       type="text"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                       required
                     />
                   </div>
@@ -159,7 +159,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                     <select
                       value={formData.priority}
                       onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                       required
                     >
                       <option value="LOW">Low</option>
@@ -177,7 +177,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
                       required
                     />
                   </div>
@@ -186,7 +186,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                     <button
                       type="submit"
                       disabled={loading}
-                      className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto disabled:opacity-50"
+                      className="inline-flex w-full justify-center rounded-md bg-[var(--primary-600)] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--primary-500)] sm:ml-3 sm:w-auto disabled:opacity-50"
                     >
                       {loading ? (
                         <>
@@ -200,7 +200,7 @@ export default function NewTicketModal({ onClose, onSuccess }: NewTicketModalPro
                     <button
                       type="button"
                       onClick={onClose}
-                      className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                      className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-[var(--gray-900)] shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-[var(--gray-50)] sm:mt-0 sm:w-auto"
                     >
                       Cancel
                     </button>

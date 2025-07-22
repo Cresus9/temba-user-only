@@ -31,7 +31,7 @@ export default function TicketCounter({
       <button
         onClick={decrement}
         disabled={quantity === 0}
-        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-2 rounded-lg border border-[var(--gray-200)] hover:bg-[var(--gray-50)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Minus className="h-4 w-4" />
       </button>
@@ -39,7 +39,7 @@ export default function TicketCounter({
       <button
         onClick={increment}
         disabled={quantity >= Math.min(available, maxPerOrder)}
-        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-2 rounded-lg border border-[var(--gray-200)] hover:bg-[var(--gray-50)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Plus className="h-4 w-4" />
       </button>
