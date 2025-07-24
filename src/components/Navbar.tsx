@@ -48,10 +48,10 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/events" className="text-gray-600 hover:text-indigo-600">
+            <Link to="/events" className="text-gray-600 hover:text-indigo-600 transition-colors">
               Événements
             </Link>
-            <Link to="/categories" className="text-gray-600 hover:text-indigo-600">
+            <Link to="/categories" className="text-gray-600 hover:text-indigo-600 transition-colors">
               Catégories
             </Link>
 
@@ -59,7 +59,7 @@ export default function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center space-x-1 text-gray-600 hover:text-indigo-600 focus:outline-none"
+                  className="flex items-center space-x-1 text-gray-600 hover:text-indigo-600 focus:outline-none transition-colors"
                 >
                   <User className="h-5 w-5" />
                   <span>{profile?.name || 'Mon compte'}</span>
@@ -68,21 +68,21 @@ export default function Navbar() {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
                     <Link
                       to="/dashboard"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Tableau de bord
                     </Link>
                     <Link
                       to="/profile"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Profil
                     </Link>
                     <Link
                       to="/support"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
                     >
                       <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export default function Navbar() {
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50 transition-colors"
                     >
                       Déconnexion
                     </button>
@@ -100,20 +100,27 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="flex items-center space-x-1 text-gray-600 hover:text-indigo-600"
-              >
-                <User className="h-5 w-5" />
-                <span>Connexion</span>
-              </Link>
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/login"
+                  className="text-gray-600 hover:text-indigo-600 transition-colors font-medium"
+                >
+                  Se connecter
+                </Link>
+                <Link
+                  to="/signup"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                >
+                  S'inscrire
+                </Link>
+              </div>
             )}
           </div>
 
           {/* Mobile menu button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden rounded-lg p-2 hover:bg-gray-100 focus:outline-none"
+            className="md:hidden rounded-lg p-2 hover:bg-gray-100 focus:outline-none transition-colors"
           >
             {isOpen ? (
               <X className="h-6 w-6 text-gray-600" />
@@ -128,14 +135,14 @@ export default function Navbar() {
           <div className="md:hidden py-4 space-y-4">
             <Link
               to="/events"
-              className="block text-gray-600 hover:text-indigo-600"
+              className="block text-gray-600 hover:text-indigo-600 transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Événements
             </Link>
             <Link
               to="/categories"
-              className="block text-gray-600 hover:text-indigo-600"
+              className="block text-gray-600 hover:text-indigo-600 transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Catégories
@@ -145,21 +152,21 @@ export default function Navbar() {
               <>
                 <Link
                   to="/dashboard"
-                  className="block text-gray-600 hover:text-indigo-600"
+                  className="block text-gray-600 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   Tableau de bord
                 </Link>
                 <Link
                   to="/profile"
-                  className="block text-gray-600 hover:text-indigo-600"
+                  className="block text-gray-600 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   Profil
                 </Link>
                 <Link
                   to="/support"
-                  className="block text-gray-600 hover:text-indigo-600"
+                  className="block text-gray-600 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   <div className="flex items-center gap-2">
@@ -169,19 +176,28 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left text-red-600 hover:text-red-700"
+                  className="block w-full text-left text-red-600 hover:text-red-700 transition-colors"
                 >
                   Déconnexion
                 </button>
               </>
             ) : (
-              <Link
-                to="/login"
-                className="block text-gray-600 hover:text-indigo-600"
-                onClick={() => setIsOpen(false)}
-              >
-                Connexion
-              </Link>
+              <div className="space-y-3 pt-4 border-t border-gray-200">
+                <Link
+                  to="/login"
+                  className="block text-gray-600 hover:text-indigo-600 transition-colors font-medium"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Se connecter
+                </Link>
+                <Link
+                  to="/signup"
+                  className="block bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-center"
+                  onClick={() => setIsOpen(false)}
+                >
+                  S'inscrire
+                </Link>
+              </div>
             )}
           </div>
         )}

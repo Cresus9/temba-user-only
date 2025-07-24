@@ -170,6 +170,17 @@ export default function EventDetails() {
                 <p className="text-gray-600 flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-gray-400" />
                   {event.location}
+                  {/* Google Maps Button */}
+                  <a
+                    href={location
+                      ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-4 inline-flex items-center px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+                  >
+                    Voir sur Google Maps
+                  </a>
                 </p>
               </div>
             )}

@@ -47,46 +47,55 @@ export default function HomeSearch() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-4xl mx-auto">
         <div className="animate-pulse">
-          <div className="h-12 bg-gray-200 rounded-lg mb-4"></div>
-          <div className="h-12 bg-gray-200 rounded-lg"></div>
+          <div className="flex gap-4">
+            <div className="flex-1 h-14 bg-white/10 rounded-xl"></div>
+            <div className="w-48 h-14 bg-white/10 rounded-xl"></div>
+            <div className="w-16 h-14 bg-white rounded-xl"></div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+    <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
+      <div className="flex gap-4">
+        {/* Search Input - Takes up most of the width */}
+        <div className="flex-1 relative group">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/80 group-focus-within:text-white transition-colors" />
           <input
             type="text"
             placeholder="Rechercher des événements..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/90 backdrop-blur-sm"
+            className="w-full pl-12 pr-4 py-4 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-white/30 bg-white/10 backdrop-blur-md text-white placeholder-white/60 transition-all duration-200 hover:bg-white/15 shadow-lg"
           />
         </div>
-        <div className="relative md:w-48">
-          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+
+        {/* Location Button - Medium width */}
+        <div className="relative group w-48">
+          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/80 group-focus-within:text-white transition-colors pointer-events-none" />
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none bg-white/90 backdrop-blur-sm"
+            className="w-full pl-12 pr-4 py-4 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-white/30 bg-white/10 backdrop-blur-md text-white appearance-none cursor-pointer transition-all duration-200 hover:bg-white/15 shadow-lg"
           >
-            <option value="">Tous les lieux</option>
+            <option value="" className="text-gray-900">Tous les lieux</option>
             {locations.map((loc) => (
-              <option key={loc} value={loc}>{loc}</option>
+              <option key={loc} value={loc} className="text-gray-900">{loc}</option>
             ))}
           </select>
         </div>
+
+        {/* Search Button - Compact, icon only */}
         <button
           type="submit"
-          className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
+          className="w-16 h-14 bg-white text-gray-900 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-lg flex items-center justify-center group"
+          aria-label="Rechercher des événements"
         >
-          Rechercher
+          <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
         </button>
       </div>
     </form>

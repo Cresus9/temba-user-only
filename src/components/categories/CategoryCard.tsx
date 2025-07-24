@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music, Film, Trophy, PartyPopper, ArrowRight } from 'lucide-react';
 
@@ -25,71 +25,113 @@ const CategoryCard = memo(({
   eventCount = 0,
   showSubcategories = false
 }: CategoryCardProps) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
   const getIcon = () => {
     switch (icon) {
       case 'music':
-        return <Music className="h-8 w-8" />;
+        return <Music className="h-5 w-5" aria-hidden="true" />;
       case 'clapperboard':
-        return <Film className="h-8 w-8" />;
+        return <Film className="h-5 w-5" aria-hidden="true" />;
       case 'trophy':
-        return <Trophy className="h-8 w-8" />;
+        return <Trophy className="h-5 w-5" aria-hidden="true" />;
       case 'party-popper':
-        return <PartyPopper className="h-8 w-8" />;
+        return <PartyPopper className="h-5 w-5" aria-hidden="true" />;
       default:
-        return <Music className="h-8 w-8" />;
+        return <Music className="h-5 w-5" aria-hidden="true" />;
     }
   };
 
   const defaultImage = `https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=300&fit=crop&crop=center`;
 
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
-    <Link to={`/categories/${id}`} className="block">
-      <div className="relative flex flex-col h-full bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-200">
+    <Link 
+      to={`/categories/${id}`} 
+      className="block h-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-xl transition-all duration-200"
+      aria-label={`Voir les événements de la catégorie ${name}`}
+    >
+      <article className="relative flex flex-col h-full bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-200 group">
         {/* Image */}
-        <div className="aspect-[4/3] w-full overflow-hidden">
+        <div className="aspect-[4/3] w-full overflow-hidden flex-shrink-0 relative">
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+          )}
           <img
             src={image || defaultImage}
-            alt={name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+            alt={`Image représentant la catégorie ${name}`}
+            className={`h-full w-full object-cover transition-all duration-300 group-hover:scale-110 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            loading="lazy"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
         </div>
+        
         {/* Content */}
-        <div className="flex flex-col flex-1 p-6 pt-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-full p-2" style={{ backgroundColor: `${color}22` }}>
+        <div className="flex flex-col flex-1 p-4 pt-3 min-h-0">
+          <header className="flex items-center gap-2 mb-2">
+            <div 
+              className="rounded-full p-1.5 flex-shrink-0" 
+              style={{ backgroundColor: `${color}22` }}
+              aria-hidden="true"
+            >
               {getIcon()}
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">{name}</h3>
+            <h3 className="text-lg font-bold text-gray-900 truncate">{name}</h3>
+          </header>
+          
+          <div className="mb-2">
+            <span className="text-xs font-medium text-indigo-700">
+              {eventCount !== undefined ? (
+                `${eventCount} Événement${eventCount !== 1 ? 's' : ''} Disponible${eventCount !== 1 ? 's' : ''}`
+              ) : (
+                'Chargement...'
+              )}
+            </span>
           </div>
-          <span className="text-sm font-medium text-indigo-700 mb-2">
-            {eventCount} Événement{eventCount !== 1 ? 's' : ''} Disponible{eventCount !== 1 ? 's' : ''}
-          </span>
-          <p className="mb-3 text-gray-700 text-base line-clamp-2">{description}</p>
+          
+          <p className="mb-2 text-gray-700 text-sm line-clamp-2 flex-1">{description}</p>
+          
           {/* Subcategories */}
           {showSubcategories && subcategories.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {subcategories.slice(0, 3).map((subcategory) => (
-                <span
-                  key={subcategory}
-                  className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
-                >
-                  {subcategory}
-                </span>
-              ))}
-              {subcategories.length > 3 && (
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">
-                  +{subcategories.length - 3} more
-                </span>
-              )}
+            <div className="mb-2" role="list" aria-label="Sous-catégories">
+              <div className="flex flex-wrap gap-1">
+                {subcategories.slice(0, 3).map((subcategory) => (
+                  <span
+                    key={subcategory}
+                    className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
+                    role="listitem"
+                  >
+                    {subcategory}
+                  </span>
+                ))}
+                {subcategories.length > 3 && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                    +{subcategories.length - 3} plus
+                  </span>
+                )}
+              </div>
             </div>
           )}
-          <div className="mt-auto flex items-center gap-2 text-sm font-medium text-indigo-700 hover:text-indigo-900 transition-colors">
+          
+          <footer className="mt-auto flex items-center gap-1 text-xs font-medium text-indigo-700 group-hover:text-indigo-900 transition-colors pt-2">
             <span>Voir les événements</span>
-            <ArrowRight className="h-4 w-4" />
-          </div>
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+          </footer>
         </div>
-      </div>
+      </article>
     </Link>
   );
 });

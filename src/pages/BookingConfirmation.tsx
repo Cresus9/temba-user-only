@@ -174,6 +174,20 @@ export default function BookingConfirmation() {
         ))}
       </div>
 
+      {/* Google Maps Button */}
+      {tickets.length > 0 && (
+        <div className="flex justify-center mb-8">
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tickets[0].event.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+          >
+            Voir le lieu sur Google Maps
+          </a>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex justify-center mb-8">
         <button

@@ -25,6 +25,21 @@ body {
   @apply bg-white text-gray-700 border border-gray-200 hover:bg-gray-50;
 }
 
+/* Scrollbar utilities */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scrolling for horizontal containers */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
 /* Leaflet map styles */
 .leaflet-container {
   width: 100%;
