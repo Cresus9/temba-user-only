@@ -192,6 +192,33 @@ export default function Privacy() {
           </ul>
           <p>Vous pouvez contrôler les paramètres des cookies via les paramètres de votre appareil.</p>
 
+          <h2>14. Conformité iOS App Store</h2>
+          
+          <h3>14.1 Permissions iOS</h3>
+          <p>Notre application demande les permissions suivantes sur iOS :</p>
+          <ul>
+            <li><strong>Caméra :</strong> Pour scanner les codes QR de vos billets d'événements</li>
+            <li><strong>Localisation :</strong> Pour vous proposer des événements à proximité et vous guider</li>
+            <li><strong>Microphone :</strong> Pour les fonctionnalités audio lors d'événements virtuels</li>
+            <li><strong>Galerie photos :</strong> Pour télécharger et partager vos billets</li>
+          </ul>
+
+          <h3>14.2 App Tracking Transparency</h3>
+          <ul>
+            <li>Nous respectons les directives d'App Tracking Transparency d'Apple</li>
+            <li>Nous ne suivons pas votre activité sur d'autres applications</li>
+            <li>Nous ne partageons pas vos données avec des réseaux publicitaires</li>
+            <li>Vous pouvez contrôler les permissions de suivi dans les paramètres iOS</li>
+          </ul>
+
+          <h3>14.3 App Store Connect</h3>
+          <ul>
+            <li>Notre application est conforme aux directives de l'App Store</li>
+            <li>Nous fournissons des informations de support claires</li>
+            <li>Nous maintenons une politique de confidentialité accessible</li>
+            <li>Nous répondons aux demandes de suppression de données</li>
+          </ul>
+
           <hr className="my-8" />
           
           <p className="text-sm text-gray-600 italic">
