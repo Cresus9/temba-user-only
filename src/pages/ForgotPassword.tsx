@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader, CheckCircle, AlertCircle, Ticket } from 'lucide-react';
-import { supabase } from '../lib/supabase-client';
+import { authService } from '../services/authService';
 import toast from 'react-hot-toast';
 
 export default function ForgotPassword() {
@@ -14,17 +14,7 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      // Get the current site URL, falling back to production URL if localhost
-      const siteUrl = window.location.hostname === 'localhost' 
-        ? 'https://dancing-douhua-32a239.netlify.app'
-        : window.location.origin;
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/reset-password`,
-      });
-
-      if (error) throw error;
-
+      await authService.resetPassword(email);
       setIsSuccess(true);
       toast.success('Instructions de réinitialisation envoyées à votre email');
     } catch (error: any) {

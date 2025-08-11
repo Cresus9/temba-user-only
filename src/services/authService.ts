@@ -1,5 +1,6 @@
 // src/services/authService.ts
 import { supabase } from '../lib/supabase-client';
+import { getRedirectUrl, validatePassword } from '../config/auth';
 
 interface LoginCredentials {
   email: string;
@@ -93,6 +94,44 @@ class AuthService {
 
     if (profileError) throw profileError;
     return profile;
+  }
+
+  async resetPassword(email: string) {
+    try {
+      const redirectUrl = getRedirectUrl('PASSWORD_RESET');
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Erreur de réinitialisation du mot de passe:', error);
+      throw new Error(error.message || 'Échec de l\'envoi des instructions de réinitialisation');
+    }
+  }
+
+  async updatePassword(newPassword: string) {
+    try {
+      // Validate password strength
+      const validation = validatePassword(newPassword);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Erreur de mise à jour du mot de passe:', error);
+      throw new Error(error.message || 'Échec de la mise à jour du mot de passe');
+    }
   }
 }
 

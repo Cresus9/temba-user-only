@@ -1,6 +1,7 @@
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
+import { AUTH_CONFIG } from '../config/auth';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -11,9 +12,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+    persistSession: AUTH_CONFIG.SESSION.PERSIST_SESSION,
+    autoRefreshToken: AUTH_CONFIG.SESSION.AUTO_REFRESH_TOKEN,
+    detectSessionInUrl: AUTH_CONFIG.SESSION.DETECT_SESSION_IN_URL,
+    flowType: AUTH_CONFIG.SESSION.FLOW_TYPE,
+    redirectTo: AUTH_CONFIG.REDIRECT_URLS.PASSWORD_RESET
   },
   realtime: {
     params: {
