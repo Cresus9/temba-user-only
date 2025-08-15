@@ -44,25 +44,47 @@ class AuthService {
 
   async register(data: RegisterData) {
     try {
-      // Sign up the user - Supabase will send the confirmation email automatically
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            name: data.name,
-            phone: data.phone
-          }
-        }
+      // Use the custom signup edge function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          name: data.name,
+          phone: data.phone
+        })
       });
 
-      if (signUpError) throw signUpError;
-      if (!authData.user) throw new Error('Aucun utilisateur retourné lors de l\'inscription');
+      const result = await response.json();
 
-      // Return the user data
+      if (!result.success) {
+        throw new Error(result.error || 'Échec de la création du compte');
+      }
+
+      // Sign in the user after successful registration
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      });
+
+      if (signInError) throw signInError;
+
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', signInData.user.id)
+        .single();
+
       return {
-        user: authData.user,
-        session: authData.session
+        user: signInData.user,
+        profile,
+        session: signInData.session
       };
     } catch (error: any) {
       console.error('Erreur d\'inscription:', error);

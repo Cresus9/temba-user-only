@@ -1,138 +1,110 @@
-import React from 'react';
 import { supabase } from '../lib/supabase-client';
-import toast from 'react-hot-toast';
 
-export interface NotificationPreferences {
-  id?: string;
-  user_id?: string;
-  email: boolean;
-  push: boolean;
-  types: string[];
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  data?: any;
+  read_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 class NotificationService {
-  async getPreferences(): Promise<NotificationPreferences> {
+  async getUserNotifications(limit = 10): Promise<Notification[]> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
-
       const { data, error } = await supabase
-        .from('notification_preferences')
+        .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No preferences found, create default preferences
-          const defaultPreferences = {
-            user_id: user.id,
-            email: true,
-            push: false,
-            types: ['EVENT_REMINDER', 'TICKET_PURCHASED', 'PRICE_CHANGE', 'EVENT_CANCELLED', 'EVENT_UPDATED']
-          };
-
-          const { error: insertError } = await supabase
-            .from('notification_preferences')
-            .insert(defaultPreferences);
-
-          if (insertError) throw insertError;
-          return defaultPreferences;
-        }
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Erreur lors du chargement des préférences de notification:', error);
-      throw error;
-    }
-  }
-
-  async updatePreferences(preferences: Partial<NotificationPreferences>): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
-
-      // If enabling push notifications, check permission first
-      if (preferences.push) {
-        const permission = await this.checkPushPermission();
-        if (permission !== 'granted') {
-          // Don't enable push if permission not granted
-          preferences.push = false;
-        }
-      }
-
-      const { error } = await supabase
-        .from('notification_preferences')
-        .upsert({
-          user_id: user.id,
-          ...preferences,
-          updated_at: new Date().toISOString()
-        });
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       if (error) throw error;
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour des préférences de notification:', error);
-      throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error);
+      throw new Error(error.message || 'Failed to fetch notifications');
     }
   }
 
-  async requestPushPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
-      toast.error('Les notifications push ne sont pas prises en charge dans votre navigateur', {
-        icon: React.createElement('img', { src: '/favicon.svg', alt: 'Temba Icon', className: 'w-6 h-6' }),
-      });
-      return false;
-    }
-
+  async getUnreadNotifications(): Promise<Notification[]> {
     try {
-      if (Notification.permission === 'denied') {
-        toast.error(
-          'Les notifications push sont bloquées. Veuillez les activer dans les paramètres de votre navigateur.',
-          { 
-            duration: 5000,
-            icon: React.createElement('img', { src: '/favicon.svg', alt: 'Temba Icon', className: 'w-6 h-6' }),
-          }
-        );
-        return false;
-      }
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .is('read_at', null)
+        .order('created_at', { ascending: false });
 
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        await this.registerServiceWorker();
-        return true;
-      } else {
-        toast.error('Autorisation de notification push refusée', {
-          icon: React.createElement('img', { src: '/favicon.svg', alt: 'Temba Icon', className: 'w-6 h-6' }),
-        });
-        return false;
-      }
-    } catch (error) {
-      console.error('Erreur lors de la demande d\'autorisation push:', error);
-      toast.error('Échec de l\'activation des notifications push', {
-        icon: React.createElement('img', { src: '/favicon.svg', alt: 'Temba Icon', className: 'w-6 h-6' }),
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching unread notifications:', error);
+      throw new Error(error.message || 'Failed to fetch unread notifications');
+    }
+  }
+
+  async markAsRead(notificationId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('mark_notification_read', {
+        notification_id: notificationId
       });
-      return false;
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error marking notification as read:', error);
+      throw new Error(error.message || 'Failed to mark notification as read');
     }
   }
 
-  private async checkPushPermission(): Promise<NotificationPermission> {
-    if (!('Notification' in window)) {
-      return 'denied';
+  async markAllAsRead(): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .is('read_at', null);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error marking all notifications as read:', error);
+      throw new Error(error.message || 'Failed to mark all notifications as read');
     }
-    return Notification.permission;
   }
 
-  private async registerServiceWorker(): Promise<void> {
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker enregistré:', registration);
-      } catch (error) {
-        console.error('Échec de l\'enregistrement du Service Worker:', error);
-      }
+  async getNotificationCount(): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .is('read_at', null);
+
+      if (error) throw error;
+      return count || 0;
+    } catch (error: any) {
+      console.error('Error getting notification count:', error);
+      return 0;
     }
+  }
+
+  // Subscribe to real-time notifications
+  subscribeToNotifications(callback: (notification: Notification) => void) {
+    return supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${supabase.auth.getUser().then(user => user.data.user?.id)}`
+        },
+        (payload) => {
+          callback(payload.new as Notification);
+        }
+      )
+      .subscribe();
   }
 }
 

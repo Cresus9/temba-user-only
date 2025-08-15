@@ -19,10 +19,31 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Debug: Log current URL and parameters
+    console.log('Current URL:', window.location.href);
+    console.log('Hash:', window.location.hash);
+    
+    // Check URL parameters for specific errors
+    const urlParams = new URLSearchParams(window.location.hash.substring(1));
+    const error = urlParams.get('error');
+    const errorCode = urlParams.get('error_code');
+    const errorDescription = urlParams.get('error_description');
+
+    console.log('URL Error:', error);
+    console.log('Error Code:', errorCode);
+    console.log('Error Description:', errorDescription);
+
+    if (error === 'access_denied' && errorCode === 'otp_expired') {
+      setError('Le lien de réinitialisation a expiré. Veuillez demander un nouveau lien.');
+      return;
+    }
+
     // Check if we have a valid session (user clicked the reset link)
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log('Session check result:', { session: !!session, error });
         
         if (error) {
           console.error('Session error:', error);
@@ -31,10 +52,12 @@ export default function ResetPassword() {
         }
 
         if (!session) {
+          console.log('No session found');
           setError('Lien de réinitialisation invalide ou expiré');
           return;
         }
 
+        console.log('Valid session found, user:', session.user.email);
         setIsValidToken(true);
       } catch (error) {
         console.error('Error checking session:', error);
@@ -103,8 +126,15 @@ export default function ResetPassword() {
             </div>
             
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Lien invalide</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              {error.includes('expiré') ? 'Lien expiré' : 'Lien invalide'}
+            </h2>
             <p className="text-gray-600 mb-6">{error}</p>
+            {error.includes('expiré') && (
+              <p className="text-sm text-gray-500 mb-6">
+                Les liens de réinitialisation expirent après 1 heure pour des raisons de sécurité.
+              </p>
+            )}
             
             <div className="space-y-4">
               <Link

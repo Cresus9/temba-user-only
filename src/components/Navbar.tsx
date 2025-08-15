@@ -4,6 +4,7 @@ import { User, Menu, X, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
 import toast from 'react-hot-toast';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,14 +57,16 @@ export default function Navbar() {
             </Link>
 
             {isAuthenticated ? (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center space-x-1 text-gray-600 hover:text-indigo-600 focus:outline-none transition-colors"
-                >
-                  <User className="h-5 w-5" />
-                  <span>{profile?.name || 'Mon compte'}</span>
-                </button>
+              <div className="flex items-center space-x-4">
+                <NotificationBell />
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-indigo-600 focus:outline-none transition-colors"
+                  >
+                    <User className="h-5 w-5" />
+                    <span>{profile?.name || 'Mon compte'}</span>
+                  </button>
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
                     <Link
