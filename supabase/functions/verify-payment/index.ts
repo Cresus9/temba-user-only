@@ -1,0 +1,245 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+interface VerifyPaymentRequest {
+  payment_token: string;
+  order_id: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Check for required environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const paydunyaMasterKey = Deno.env.get("PAYDUNYA_MASTER_KEY");
+    const paydunyaPrivateKey = Deno.env.get("PAYDUNYA_PRIVATE_KEY");
+    const paydunyaPublicKey = Deno.env.get("PAYDUNYA_PUBLIC_KEY");
+    const paydunyaToken = Deno.env.get("PAYDUNYA_TOKEN");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Supabase configuration missing");
+    }
+
+    if (!paydunyaMasterKey || !paydunyaPrivateKey || !paydunyaPublicKey || !paydunyaToken) {
+      throw new Error("Paydunya configuration missing");
+    }
+
+    const supabase = createClient(
+      supabaseUrl,
+      supabaseServiceKey
+    );
+
+    const { payment_token, order_id }: VerifyPaymentRequest = await req.json();
+    console.log("Verifying payment:", { payment_token, order_id });
+
+    if (!payment_token || !order_id) {
+      throw new Error("Missing payment token or order ID");
+    }
+
+    // Get Paydunya configuration
+    const paydunyaMode = Deno.env.get("PAYDUNYA_MODE") || "test";
+    const PAYDUNYA_CONFIG = {
+      masterKey: paydunyaMasterKey,
+      privateKey: paydunyaPrivateKey,
+      publicKey: paydunyaPublicKey,
+      token: paydunyaToken,
+      baseUrl: paydunyaMode === "live" 
+        ? "https://app.paydunya.com/api/v1"
+        : "https://app.paydunya.com/sandbox-api/v1"
+    };
+
+    console.log("Using Paydunya API URL:", PAYDUNYA_CONFIG.baseUrl, "Mode:", paydunyaMode);
+
+    // Find payment in our database - try both token and transaction_id
+    let payment, paymentError;
+    
+    // First try to find by token (UUID)
+    const { data: paymentByToken, error: tokenError } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("token", payment_token)
+      .single();
+
+    if (paymentByToken) {
+      payment = paymentByToken;
+      paymentError = tokenError;
+    } else {
+      // If not found, try by transaction_id (Paydunya token)
+      const { data: paymentByTransaction, error: transactionError } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("transaction_id", payment_token)
+        .single();
+      
+      payment = paymentByTransaction;
+      paymentError = transactionError;
+    }
+
+    if (paymentError || !payment) {
+      console.error("Payment not found in database:", paymentError);
+      throw new Error("Payment record not found");
+    }
+
+    // Use the Paydunya token for verification
+    const paydunyaTransactionToken = payment.transaction_id;
+    if (!paydunyaTransactionToken) {
+      throw new Error("Paydunya token not found in payment record");
+    }
+
+    console.log("Found payment record:", {
+      payment_id: payment.id,
+      payment_token: payment.token,
+      paydunya_token: paydunyaTransactionToken,
+      status: payment.status
+    });
+
+    // Check payment status with Paydunya
+    const response = await fetch(`${PAYDUNYA_CONFIG.baseUrl}/checkout-invoice/confirm/${paydunyaTransactionToken}`, {
+      method: "GET",
+      headers: {
+        "PAYDUNYA-MASTER-KEY": PAYDUNYA_CONFIG.masterKey,
+        "PAYDUNYA-PRIVATE-KEY": PAYDUNYA_CONFIG.privateKey,
+        "PAYDUNYA-PUBLIC-KEY": PAYDUNYA_CONFIG.publicKey,
+        "PAYDUNYA-TOKEN": PAYDUNYA_CONFIG.token
+      }
+    });
+
+    const paymentData = await response.json();
+    console.log("Paydunya verification response:", paymentData);
+
+    // Update payment status based on Paydunya response
+    let status = "pending";
+    if (paymentData.status === "completed") {
+      status = "completed";
+    } else if (paymentData.status === "cancelled" || paymentData.status === "failed") {
+      status = "failed";
+    }
+    
+    // In test mode, treat pending payments as completed for ticket creation
+    const shouldCreateTickets = status === "completed" || (paydunyaMode === "test" && status === "pending");
+    if (shouldCreateTickets && paydunyaMode === "test" && status === "pending") {
+      console.log("Test mode: treating pending payment as completed for ticket creation");
+      status = "completed"; // Update status to completed in test mode
+    }
+
+    // Update payment record
+    const { error: updateError } = await supabase
+      .from("payments")
+      .update({
+        status,
+        completed_at: status === "completed" ? new Date().toISOString() : null,
+        failed_at: status === "failed" ? new Date().toISOString() : null,
+        amount_paid: paymentData.invoice?.total_amount || payment.amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", payment.id);
+
+    if (updateError) throw updateError;
+
+    // If payment is completed, update order and create tickets
+    if (status === "completed") {
+      console.log(`Processing payment verification for order ${order_id}, status: ${status}, mode: ${paydunyaMode}`);
+      
+      // Check if tickets already exist for this order to prevent duplicates
+      const { data: existingTickets, error: existingTicketsError } = await supabase
+        .from("tickets")
+        .select("id")
+        .eq("order_id", order_id);
+
+      if (existingTicketsError) {
+        console.error("Error checking existing tickets:", existingTicketsError);
+      } else if (existingTickets && existingTickets.length > 0) {
+        console.log(`Tickets already exist for order ${order_id}, skipping ticket creation`);
+      } else {
+        console.log(`No existing tickets found for order ${order_id}, creating tickets...`);
+        
+        // Update order status
+        const { error: orderUpdateError } = await supabase
+          .from("orders")
+          .update({
+            status: status === "completed" ? "COMPLETED" : "PENDING",
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", order_id);
+
+        if (orderUpdateError) {
+          console.error("Error updating order:", orderUpdateError);
+        }
+
+        // Get order details to create tickets
+        const { data: order, error: orderError } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", order_id)
+          .single();
+
+        if (!orderError && order?.ticket_quantities) {
+          // Create tickets
+          const ticketInserts = [];
+          
+          for (const [ticketTypeId, quantity] of Object.entries(order.ticket_quantities)) {
+            for (let i = 0; i < Number(quantity); i++) {
+              ticketInserts.push({
+                order_id: order.id,
+                event_id: order.event_id,
+                user_id: order.user_id,
+                ticket_type_id: ticketTypeId,
+                status: "VALID",
+                payment_status: status === "completed" ? "paid" : "pending",
+                payment_id: payment.id
+              });
+            }
+          }
+
+          if (ticketInserts.length > 0) {
+            const { error: ticketsError } = await supabase
+              .from("tickets")
+              .insert(ticketInserts);
+
+            if (ticketsError) {
+              console.error("Error creating tickets:", ticketsError);
+            } else {
+              console.log(`Created ${ticketInserts.length} tickets for order ${order_id}`);
+            }
+          }
+        }
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: status === "completed",
+        status,
+        payment_id: payment.id,
+        order_id,
+        message: status === "completed" ? "Payment verified successfully" : `Payment status: ${status}`
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message || "Payment verification failed"
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+  }
+});

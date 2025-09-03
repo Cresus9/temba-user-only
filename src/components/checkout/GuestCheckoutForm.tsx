@@ -41,15 +41,36 @@ export default function GuestCheckoutForm({
         phone: formData.phone,
         eventId,
         ticketQuantities: tickets,
-        paymentMethod: paymentMethod === 'mobile_money' ? 'MOBILE_MONEY' : 'CARD'
+        paymentMethod: paymentMethod === 'mobile_money' ? 'MOBILE_MONEY' : 'CARD',
+        paymentDetails: paymentMethod === 'mobile_money' ? {
+          provider: formData.provider,
+          phone: formData.phone
+        } : {
+          cardNumber: formData.cardNumber,
+          expiryDate: formData.expiryDate,
+          cvv: formData.cvv
+        }
       });
 
-      if (!result.orderId) {
+      if (result.success && result.paymentUrl) {
+        // Check if we're in test mode
+        const isTestMode = import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
+        
+        if (isTestMode) {
+          // In test mode, redirect directly to success page with payment token
+          const successUrl = `${window.location.origin}/payment/success?order=${result.orderId}&token=${result.paymentToken}`;
+          window.location.href = successUrl;
+        } else {
+          // In production, redirect to Paydunya payment page
+          window.location.href = result.paymentUrl;
+        }
+      } else if (result.orderId) {
+        // Fallback to success page
+        onSuccess(result.orderId);
+        toast.success('Commande créée avec succès !');
+      } else {
         throw new Error('Aucun ID de commande retourné');
       }
-
-      onSuccess(result.orderId);
-      toast.success('Commande complétée avec succès !');
     } catch (error: any) {
       console.error('Erreur de paiement invité:', error);
       toast.error(error.message || 'Échec du traitement de la commande');

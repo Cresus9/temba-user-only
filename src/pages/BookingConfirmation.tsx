@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Download, Loader, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import FestivalTicket from '../components/tickets/FestivalTicket';
 import toast from 'react-hot-toast';
 import { generatePDF } from '../utils/ticketService';
+import { paymentService } from '../services/paymentService';
 
 interface Ticket {
   id: string;
@@ -26,16 +27,58 @@ interface Ticket {
 export default function BookingConfirmation() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingTicket, setDownloadingTicket] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
-      fetchTickets();
+      const token = searchParams.get('token');
+      if (token) {
+        verifyPaymentAndFetchTickets(token);
+      } else {
+        fetchTickets();
+      }
     }
-  }, [bookingId]);
+  }, [bookingId, searchParams]);
+
+  const verifyPaymentAndFetchTickets = async (token: string) => {
+    try {
+      setVerifyingPayment(true);
+      console.log('Verifying payment with token:', token);
+      
+      // Verify payment first
+      const result = await paymentService.verifyPayment(token, bookingId);
+      console.log('Payment verification result:', result);
+      console.log('Payment verification details:', {
+        success: result.success,
+        status: result.status,
+        message: result.message,
+        payment_id: result.payment_id,
+        order_id: result.order_id
+      });
+      
+      if (result.success) {
+        toast.success('Paiement vérifié avec succès !');
+        // Wait a moment for tickets to be created, then fetch them
+        setTimeout(() => {
+          fetchTickets();
+        }, 1000);
+      } else {
+        toast.error('Échec de la vérification du paiement');
+        fetchTickets(); // Still try to fetch tickets
+      }
+    } catch (error: any) {
+      console.error('Payment verification error:', error);
+      toast.error('Erreur lors de la vérification du paiement');
+      fetchTickets(); // Still try to fetch tickets
+    } finally {
+      setVerifyingPayment(false);
+    }
+  };
 
   const fetchTickets = async () => {
     try {
@@ -110,10 +153,15 @@ export default function BookingConfirmation() {
     }
   };
 
-  if (loading) {
+  if (loading || verifyingPayment) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <div className="text-center">
+          <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            {verifyingPayment ? 'Vérification du paiement...' : 'Chargement des billets...'}
+          </p>
+        </div>
       </div>
     );
   }

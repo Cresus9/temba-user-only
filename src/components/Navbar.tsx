@@ -67,40 +67,41 @@ export default function Navbar() {
                     <User className="h-5 w-5" />
                     <span>{profile?.name || 'Mon compte'}</span>
                   </button>
-                {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
-                    <Link
-                      to="/dashboard"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      Tableau de bord
-                    </Link>
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      Profil
-                    </Link>
-                    <Link
-                      to="/support"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Support
-                      </div>
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50 transition-colors"
-                    >
-                      Déconnexion
-                    </button>
-                  </div>
-                )}
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+                      <Link
+                        to="/dashboard"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        Tableau de bord
+                      </Link>
+                      <Link
+                        to="/profile"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        Profil
+                      </Link>
+                      <Link
+                        to="/support"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Support
+                        </div>
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50 transition-colors"
+                      >
+                        Déconnexion
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex items-center space-x-4">

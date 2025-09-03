@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase-client';
+import { paymentService, CreatePaymentRequest } from './paymentService';
 
 export interface CreateOrderInput {
   eventId: string;
@@ -26,36 +27,97 @@ class OrderService {
       }
       if (!input.paymentMethod) throw new Error('Méthode de paiement requise');
 
-      // Validate payment details
-      if (input.paymentMethod === 'MOBILE_MONEY') {
-        if (!input.paymentDetails?.provider) throw new Error('Fournisseur de paiement requis');
-        if (!input.paymentDetails?.phone) throw new Error('Numéro de téléphone requis');
-      } else if (input.paymentMethod === 'CARD') {
-        if (!input.paymentDetails?.cardNumber) throw new Error('Numéro de carte requis');
-        if (!input.paymentDetails?.expiryDate) throw new Error('Date d\'expiration de la carte requise');
-        if (!input.paymentDetails?.cvv) throw new Error('CVV de la carte requis');
+      // Get user profile for payment
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, email, phone')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) throw new Error('Profil utilisateur non trouvé');
+
+      // Calculate total amount
+      const { data: ticketTypes } = await supabase
+        .from('ticket_types')
+        .select('id, price')
+        .in('id', Object.keys(input.ticketQuantities));
+
+      if (!ticketTypes) throw new Error('Types de billets non trouvés');
+
+      const totalAmount = ticketTypes.reduce((sum, ticket) => {
+        const quantity = input.ticketQuantities[ticket.id] || 0;
+        return sum + (ticket.price * quantity);
+      }, 0);
+
+      // Get event details
+      const { data: event } = await supabase
+        .from('events')
+        .select('title, currency')
+        .eq('id', input.eventId)
+        .single();
+
+      if (!event) throw new Error('Événement non trouvé');
+
+      // Create order in database first
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          event_id: input.eventId,
+          total: totalAmount,
+          status: 'PENDING',
+          payment_method: input.paymentMethod,
+          ticket_quantities: input.ticketQuantities
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create payment using edge function
+      // Build ticket lines for the edge function
+      const ticketLines = ticketTypes.map(ticket => ({
+        ticket_type_id: ticket.id,
+        quantity: input.ticketQuantities[ticket.id] || 0,
+        price_major: ticket.price,
+        currency: event.currency
+      })).filter(line => line.quantity > 0);
+
+      console.log('Ticket types from database:', ticketTypes);
+      console.log('Input ticket quantities:', input.ticketQuantities);
+      console.log('Generated ticket lines:', ticketLines);
+
+      const paymentRequest: CreatePaymentRequest = {
+        idempotency_key: `payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        user_id: user.id,
+        event_id: input.eventId,
+        order_id: orderData.id,
+        ticket_lines: ticketLines,
+        amount_major: totalAmount,
+        currency: event.currency,
+        method: input.paymentMethod === 'MOBILE_MONEY' ? 'mobile_money' : 'credit_card',
+        phone: input.paymentDetails?.phone || profile.phone,
+        provider: input.paymentDetails?.provider,
+        save_method: false,
+        return_url: `${window.location.origin}/payment/success`,
+        cancel_url: `${window.location.origin}/payment/cancelled`,
+        description: `Tickets for ${event.title}`
+      };
+
+      console.log('Creating payment with request:', paymentRequest);
+      const paymentResponse = await paymentService.createPayment(paymentRequest);
+
+      if (!paymentResponse.success) {
+        // Delete the order if payment creation failed
+        await supabase.from('orders').delete().eq('id', orderData.id);
+        throw new Error(paymentResponse.error || 'Failed to create payment');
       }
 
-      // Create order using database function
-      const { data, error } = await supabase.rpc('order_processor', {
-        p_event_id: input.eventId,
-        p_payment_method: input.paymentMethod,
-        p_ticket_quantities: input.ticketQuantities,
-        p_user_id: user.id,
-        p_payment_details: input.paymentDetails || {}
-      });
-
-      if (error) {
-        console.error('Erreur de base de données:', error);
-        throw new Error(error.message || 'Échec de la création de la commande');
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'Échec du traitement de la commande');
-      }
 
       return {
-        orderId: data.id,
+        orderId: orderData.id,
+        paymentUrl: paymentResponse.payment_url,
+        paymentToken: paymentResponse.payment_token,
         success: true
       };
     } catch (error: any) {

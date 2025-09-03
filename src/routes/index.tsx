@@ -17,6 +17,8 @@ import Profile from '../pages/Profile';
 import Dashboard from '../pages/Dashboard';
 import Checkout from '../pages/Checkout';
 import BookingConfirmation from '../pages/BookingConfirmation';
+import PaymentSuccess from '../pages/PaymentSuccess';
+import PaymentCancelled from '../pages/PaymentCancelled';
 import Support from '../pages/Support';
 import TicketDetails from '../pages/TicketDetails';
 import Terms from '../pages/Terms';
@@ -78,6 +80,10 @@ export default function AppRoutes() {
         <Route path="/verify/:token" element={<GuestTicketVerification />} />
         <Route path="/verify-order/:token" element={<GuestOrderVerification />} />
         <Route path="/guest/tickets/:token" element={<BookingConfirmation />} />
+
+        {/* Payment Routes */}
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/cancelled" element={<PaymentCancelled />} />
 
         {/* Protected User Routes */}
         <Route path="/dashboard" element={

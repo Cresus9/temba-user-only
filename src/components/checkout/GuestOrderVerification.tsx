@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Check, X, RotateCcw, Loader, AlertCircle } from 'lucide-react';
 import { orderService } from '../../services/orderService';
+import { paymentService } from '../../services/paymentService';
 import toast from 'react-hot-toast';
 
 export default function GuestOrderVerification() {
@@ -27,17 +28,53 @@ export default function GuestOrderVerification() {
       setLoading(true);
       setError(null);
 
-      const data = await orderService.verifyGuestOrder(token);
-      console.log('Réponse de vérification:', data);
+      // First verify the guest order
+      const orderData = await orderService.verifyGuestOrder(token);
+      console.log('Réponse de vérification de commande:', orderData);
 
-      if (!data.success) {
-        throw new Error(data.error || 'Échec de la vérification');
+      if (!orderData.success) {
+        throw new Error(orderData.error || 'Échec de la vérification de la commande');
       }
 
-      // Only proceed if order status is appropriate
-      if (data.orderStatus === 'PENDING') {
+      // If order is pending, verify payment
+      if (orderData.orderStatus === 'PENDING') {
+        try {
+          // Verify payment using the token
+          const paymentResult = await paymentService.verifyPayment(token);
+          console.log('Résultat de vérification de paiement:', paymentResult);
+
+          if (paymentResult.success) {
+            setVerified(true);
+            toast.success('Paiement vérifié avec succès !');
+
+            // Redirect to guest tickets page after a short delay
+            setTimeout(() => {
+              navigate(`/guest/tickets/${token}`);
+            }, 2000);
+          } else {
+            // Payment verification failed but order exists
+            setVerified(true);
+            toast.success('Commande vérifiée ! Vérification du paiement en cours...');
+
+            // Redirect to guest tickets page after a short delay
+            setTimeout(() => {
+              navigate(`/guest/tickets/${token}`);
+            }, 2000);
+          }
+        } catch (paymentError: any) {
+          console.error('Erreur de vérification de paiement:', paymentError);
+          // Even if payment verification fails, we can still show the order
+          setVerified(true);
+          toast.success('Commande vérifiée !');
+
+          // Redirect to guest tickets page after a short delay
+          setTimeout(() => {
+            navigate(`/guest/tickets/${token}`);
+          }, 2000);
+        }
+      } else if (orderData.orderStatus === 'COMPLETED') {
         setVerified(true);
-        toast.success('Email vérifié avec succès !');
+        toast.success('Commande déjà complétée !');
 
         // Redirect to guest tickets page after a short delay
         setTimeout(() => {
