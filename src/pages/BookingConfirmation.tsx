@@ -50,7 +50,7 @@ export default function BookingConfirmation() {
       setVerifyingPayment(true);
       console.log('Verifying payment with token:', token);
       
-      // Verify payment first
+      // Verify payment first (we don't have payment details here, so we can't save the method)
       const result = await paymentService.verifyPayment(token, bookingId);
       console.log('Payment verification result:', result);
       console.log('Payment verification details:', {

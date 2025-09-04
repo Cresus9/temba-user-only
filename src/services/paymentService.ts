@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase-client';
+import { paymentMethodService } from './paymentMethodService';
 
 export interface CreatePaymentRequest {
   idempotency_key: string;
@@ -103,7 +104,7 @@ class PaymentService {
     }
   }
 
-  async verifyPayment(paymentToken: string, orderId?: string): Promise<PaymentVerification> {
+  async verifyPayment(paymentToken: string, orderId?: string, saveMethod?: boolean, paymentDetails?: any): Promise<PaymentVerification> {
     try {
       const { data, error } = await supabase.functions.invoke('verify-payment', {
         body: {
@@ -121,17 +122,93 @@ class PaymentService {
         throw new Error('No response data from verification service');
       }
 
-      return {
+      const result = {
         success: data.success,
         status: data.status,
         payment_id: data.payment_id,
         order_id: orderId,
         message: data.status === 'completed' ? 'Payment verified successfully' : `Payment status: ${data.status}`
       };
+
+      // If payment was successful and user wants to save the method
+      if (result.success && result.status === 'completed' && saveMethod && paymentDetails) {
+        try {
+          await this.saveSuccessfulPaymentMethod(paymentDetails);
+        } catch (saveError) {
+          console.error('Error saving payment method:', saveError);
+          // Don't fail the verification if saving fails
+        }
+      }
+
+      return result;
     } catch (error: any) {
       console.error('Payment verification error:', error);
       throw new Error(error.message || 'Failed to verify payment');
     }
+  }
+
+  private async saveSuccessfulPaymentMethod(paymentDetails: any): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // Can't save for guests
+
+      if (paymentDetails.method === 'mobile_money' && paymentDetails.phone && paymentDetails.provider) {
+        await paymentMethodService.savePaymentMethod({
+          method_type: 'mobile_money',
+          provider: paymentDetails.provider,
+          account_number: paymentDetails.phone,
+          account_name: paymentDetails.accountName || '',
+          is_default: false
+        });
+      } else if (paymentDetails.method === 'credit_card' && paymentDetails.cardNumber) {
+        // Determine card provider from card number
+        const cardProvider = this.getCardProvider(paymentDetails.cardNumber);
+        
+        await paymentMethodService.savePaymentMethod({
+          method_type: 'credit_card',
+          provider: cardProvider,
+          account_number: paymentDetails.cardNumber,
+          account_name: paymentDetails.cardholderName || '',
+          is_default: false
+        });
+      }
+    } catch (error) {
+      console.error('Error saving payment method:', error);
+      throw error;
+    }
+  }
+
+  private getCardProvider(cardNumber: string): string {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    
+    // Visa
+    if (cleanNumber.startsWith('4')) return 'Visa';
+    
+    // Mastercard (5xxx or 2xxx series)
+    if (cleanNumber.startsWith('5') || (cleanNumber.startsWith('2') && cleanNumber.length >= 2)) {
+      const firstTwo = cleanNumber.substring(0, 2);
+      if (cleanNumber.startsWith('5') || (parseInt(firstTwo) >= 22 && parseInt(firstTwo) <= 27)) {
+        return 'Mastercard';
+      }
+    }
+    
+    // American Express
+    if (cleanNumber.startsWith('34') || cleanNumber.startsWith('37')) return 'American Express';
+    
+    // Discover
+    if (cleanNumber.startsWith('6011') || cleanNumber.startsWith('65') || cleanNumber.startsWith('644') || cleanNumber.startsWith('645')) return 'Discover';
+    
+    // Diners Club
+    if (cleanNumber.startsWith('30') || cleanNumber.startsWith('36') || cleanNumber.startsWith('38')) return 'Diners Club';
+    
+    // JCB
+    if (cleanNumber.startsWith('35')) return 'JCB';
+    
+    // Union Pay
+    if (cleanNumber.startsWith('62')) return 'Union Pay';
+    
+    // Default to "Carte" (Card) instead of "Unknown"
+    return 'Carte';
   }
 
   async getPaymentStatus(paymentId: string) {

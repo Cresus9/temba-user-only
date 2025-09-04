@@ -33,8 +33,26 @@ export default function PaymentSuccess() {
     try {
       setLoading(true);
       
-      // Verify payment using our service
-      const result = await paymentService.verifyPayment(token!, orderId!);
+      // Get payment details from localStorage
+      const storedPaymentDetails = localStorage.getItem('paymentDetails');
+      let paymentDetails = null;
+      let saveMethod = false;
+      
+      if (storedPaymentDetails) {
+        try {
+          const parsed = JSON.parse(storedPaymentDetails);
+          if (parsed.orderId === orderId) {
+            paymentDetails = parsed;
+            saveMethod = parsed.saveMethod;
+            console.log('Found stored payment details for saving:', { saveMethod, method: parsed.method });
+          }
+        } catch (e) {
+          console.error('Error parsing payment details:', e);
+        }
+      }
+      
+      // Verify payment using our service with payment details for saving
+      const result = await paymentService.verifyPayment(token!, orderId!, saveMethod, paymentDetails);
       
       console.log('Payment verification result:', result);
       console.log('Payment verification details:', {
@@ -66,6 +84,11 @@ export default function PaymentSuccess() {
           ? 'Paiement en attente (mode test) - Billets créés !'
           : 'Paiement confirmé avec succès !';
         toast.success(statusMessage);
+        
+        // Clean up localStorage after successful verification
+        if (storedPaymentDetails) {
+          localStorage.removeItem('paymentDetails');
+        }
         
         // Redirect to booking confirmation after 3 seconds
         setTimeout(() => {

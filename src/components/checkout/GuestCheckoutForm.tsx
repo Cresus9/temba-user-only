@@ -25,7 +25,11 @@ export default function GuestCheckoutForm({
     provider: '',
     cardNumber: '',
     expiryDate: '',
-    cvv: ''
+    cvv: '',
+    cardholderName: '',
+    billingAddress: '',
+    billingCity: '',
+    billingCountry: ''
   });
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [submitting, setSubmitting] = useState(false);
@@ -48,11 +52,34 @@ export default function GuestCheckoutForm({
         } : {
           cardNumber: formData.cardNumber,
           expiryDate: formData.expiryDate,
-          cvv: formData.cvv
+          cvv: formData.cvv,
+          cardholderName: formData.cardholderName || formData.name,
+          billingAddress: formData.billingAddress,
+          billingCity: formData.billingCity,
+          billingCountry: formData.billingCountry
         }
       });
 
       if (result.success && result.paymentUrl) {
+        // Store payment details (guests can't save methods, but we store for consistency)
+        const paymentDetails = {
+          method: paymentMethod === 'mobile_money' ? 'mobile_money' : 'credit_card',
+          saveMethod: false, // Guests can't save payment methods
+          ...(paymentMethod === 'mobile_money' ? {
+            provider: formData.provider,
+            phone: formData.phone
+          } : {
+            cardNumber: formData.cardNumber,
+            cardholderName: formData.cardholderName || formData.name
+          })
+        };
+
+        localStorage.setItem('paymentDetails', JSON.stringify({
+          orderId: result.orderId,
+          paymentToken: result.paymentToken,
+          ...paymentDetails
+        }));
+
         // Check if we're in test mode
         const isTestMode = import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
         
@@ -256,6 +283,90 @@ export default function GuestCheckoutForm({
                       placeholder="123"
                       required={paymentMethod === 'card'}
                     />
+                  </div>
+                </div>
+
+                {/* Cardholder Information */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom du titulaire de la carte
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cardholderName}
+                    onChange={(e) => setFormData({ ...formData, cardholderName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Laisser vide pour utiliser le nom ci-dessus"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si différent du nom du compte, entrez le nom tel qu'il apparaît sur la carte
+                  </p>
+                </div>
+
+                {/* Billing Address Section */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                    Adresse de facturation (optionnel)
+                  </h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Certaines banques requièrent l'adresse de facturation pour la vérification
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Adresse
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.billingAddress}
+                        onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="123 Rue de la Paix"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ville
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.billingCity}
+                          onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Ouagadougou"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Pays
+                        </label>
+                        <select
+                          value={formData.billingCountry}
+                          onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Sélectionner un pays</option>
+                          <option value="BF">Burkina Faso</option>
+                          <option value="CI">Côte d'Ivoire</option>
+                          <option value="GH">Ghana</option>
+                          <option value="ML">Mali</option>
+                          <option value="NE">Niger</option>
+                          <option value="SN">Sénégal</option>
+                          <option value="TG">Togo</option>
+                          <option value="NG">Nigeria</option>
+                          <option value="KE">Kenya</option>
+                          <option value="ZA">Afrique du Sud</option>
+                          <option value="FR">France</option>
+                          <option value="US">États-Unis</option>
+                          <option value="CA">Canada</option>
+                          <option value="GB">Royaume-Uni</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

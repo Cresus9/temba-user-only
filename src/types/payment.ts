@@ -130,3 +130,33 @@ export interface CreditCardProvider extends PaymentProvider {
   type: 'credit_card';
   supported_cards: string[];
 }
+
+// Saved Payment Methods (matching existing table structure)
+export interface SavedPaymentMethod {
+  id: string;
+  user_id: string;
+  method_type: 'mobile_money' | 'credit_card' | 'bank_transfer';
+  provider: string;
+  account_number: string;
+  account_name: string;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavePaymentMethodRequest {
+  method_type: 'mobile_money' | 'credit_card' | 'bank_transfer';
+  provider: string;
+  account_number: string; // Phone number or card number
+  account_name?: string;
+  is_default?: boolean;
+}
+
+export interface PaymentMethodService {
+  savePaymentMethod(request: SavePaymentMethodRequest): Promise<SavedPaymentMethod>;
+  getSavedPaymentMethods(userId: string): Promise<SavedPaymentMethod[]>;
+  updatePaymentMethod(id: string, updates: Partial<SavedPaymentMethod>): Promise<SavedPaymentMethod>;
+  deletePaymentMethod(id: string): Promise<void>;
+  setDefaultPaymentMethod(id: string): Promise<void>;
+}
