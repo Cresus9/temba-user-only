@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, Check, MessageSquare } from 'lucide-react';
+import { Bell, X, Check, MessageSquare, ExternalLink } from 'lucide-react';
 import { notificationService, Notification } from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function NotificationBell() {
@@ -10,6 +11,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -19,14 +21,26 @@ export default function NotificationBell() {
 
     // Subscribe to real-time notifications
     const subscription = notificationService.subscribeToNotifications((newNotification) => {
-      setNotifications(prev => [newNotification, ...prev]);
+      setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
       setUnreadCount(prev => prev + 1);
       
-      // Show toast for new notifications
-      toast.success(newNotification.title, {
-        description: newNotification.message,
-        duration: 5000,
-      });
+      // Show toast for high priority notifications
+      if (newNotification.data?.priority === 'high' || newNotification.data?.priority === 'urgent') {
+        toast.success(newNotification.title, {
+          description: newNotification.message,
+          duration: 5000,
+          action: newNotification.data?.action_url ? {
+            label: 'Voir',
+            onClick: () => handleNotificationClick(newNotification)
+          } : undefined,
+        });
+      } else {
+        // Show a subtle notification for normal priority
+        toast(newNotification.title, {
+          icon: '🔔',
+          duration: 3000,
+        });
+      }
     });
 
     return () => {
@@ -55,13 +69,48 @@ export default function NotificationBell() {
     }
   };
 
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read if unread
+    if (notification.read === 'false') {
+      handleMarkAsRead(notification.id);
+    }
+
+    // Close dropdown
+    setIsOpen(false);
+
+    // Handle deep linking based on notification type and data
+    if (notification.action_url) {
+      // Use action_url from the notification
+      if (notification.action_url.startsWith('http')) {
+        window.open(notification.action_url, '_blank');
+      } else {
+        navigate(notification.action_url);
+      }
+    } else if (notification.metadata?.action_url) {
+      // Fallback to metadata action_url
+      if (notification.metadata.action_url.startsWith('http')) {
+        window.open(notification.metadata.action_url, '_blank');
+      } else {
+        navigate(notification.metadata.action_url);
+      }
+    } else if (notification.metadata?.order_id) {
+      navigate(`/booking/confirmation/${notification.metadata.order_id}`);
+    } else if (notification.metadata?.event_id) {
+      navigate(`/events/${notification.metadata.event_id}`);
+    } else if (notification.metadata?.ticket_id) {
+      navigate(`/profile/tickets`);
+    } else if (notification.type === 'SUPPORT_REPLY' && notification.metadata?.support_ticket_id) {
+      navigate(`/support/${notification.metadata.support_ticket_id}`);
+    }
+  };
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await notificationService.markAsRead(notificationId);
       setNotifications(prev => 
         prev.map(notif => 
           notif.id === notificationId 
-            ? { ...notif, read_at: new Date().toISOString() }
+            ? { ...notif, read: 'true', read_at: new Date().toISOString() }
             : notif
         )
       );
@@ -75,11 +124,66 @@ export default function NotificationBell() {
     try {
       await notificationService.markAllAsRead();
       setNotifications(prev => 
-        prev.map(notif => ({ ...notif, read_at: new Date().toISOString() }))
+        prev.map(notif => ({ ...notif, read: 'true', read_at: new Date().toISOString() }))
       );
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const handleMarkNotificationsAsReadOnView = async () => {
+    try {
+      // Get unread notifications from current list
+      const unreadNotifications = notifications.filter(n => n.read === 'false');
+      
+      if (unreadNotifications.length === 0) {
+        console.log('No unread notifications to mark as read');
+        return;
+      }
+
+      console.log(`🔄 Attempting to mark ${unreadNotifications.length} notifications as read on view`);
+      console.log('Unread notification IDs:', unreadNotifications.map(n => n.id));
+
+      // Mark each unread notification as read with detailed logging
+      for (const notification of unreadNotifications) {
+        try {
+          console.log(`📝 Marking notification ${notification.id} as read...`);
+          await notificationService.markAsRead(notification.id);
+          console.log(`✅ Successfully marked ${notification.id} as read`);
+        } catch (error) {
+          console.error(`❌ Failed to mark ${notification.id} as read:`, error);
+        }
+      }
+
+      // Update local state immediately
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.read === 'false' 
+            ? { ...notif, read: 'true', read_at: new Date().toISOString() }
+            : notif
+        )
+      );
+      
+      console.log('🔄 Updated local notification state to read');
+      
+      // Refresh unread count from server
+      try {
+        const newCount = await notificationService.getNotificationCount();
+        console.log(`📊 Server unread count after marking as read: ${newCount}`);
+        setUnreadCount(newCount);
+        
+        if (newCount === 0) {
+          console.log('✅ Badge should now be hidden');
+        } else {
+          console.log(`⚠️ Badge still showing - ${newCount} unread notifications remain`);
+        }
+      } catch (error) {
+        console.error('❌ Error refreshing unread count:', error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in handleMarkNotificationsAsReadOnView:', error);
     }
   };
 
@@ -117,7 +221,21 @@ export default function NotificationBell() {
     <div className="relative">
       {/* Notification Bell Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const wasOpen = isOpen;
+          setIsOpen(!isOpen);
+          
+          // Mark notifications as read when opening dropdown (with small delay)
+          if (!wasOpen && notifications.length > 0) {
+            console.log(`Bell clicked - opening dropdown. Unread count: ${unreadCount}, Total notifications: ${notifications.length}`);
+            const unreadNotifs = notifications.filter(n => n.read === 'false');
+            console.log(`Unread notifications to mark as read: ${unreadNotifs.length}`);
+            
+            setTimeout(() => {
+              handleMarkNotificationsAsReadOnView();
+            }, 1000); // 1 second delay to let user see the notifications
+          }
+        }}
         className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
         aria-label="Notifications"
       >
@@ -166,9 +284,10 @@ export default function NotificationBell() {
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 hover:bg-gray-50 transition-colors ${
-                      !notification.read_at ? 'bg-blue-50' : ''
+                    className={`p-4 hover:bg-gray-50 transition-all duration-300 cursor-pointer ${
+                      notification.read === 'false' ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-white'
                     }`}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 mt-1">
@@ -176,12 +295,20 @@ export default function NotificationBell() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className={`text-sm font-medium ${
+                            notification.read === 'false' ? 'text-gray-900' : 'text-gray-600'
+                          }`}>
                             {notification.title}
+                            {notification.read === 'false' && (
+                              <span className="ml-2 inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                            )}
                           </p>
-                          {!notification.read_at && (
+                          {notification.read === 'false' && (
                             <button
-                              onClick={() => handleMarkAsRead(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsRead(notification.id);
+                              }}
                               className="text-xs text-indigo-600 hover:text-indigo-700"
                             >
                               Marquer comme lu
@@ -194,13 +321,16 @@ export default function NotificationBell() {
                         <p className="text-xs text-gray-400 mt-2">
                           {formatTimeAgo(notification.created_at)}
                         </p>
-                        {notification.data?.action_url && (
-                          <a
-                            href={notification.data.action_url}
+                        {(notification.action_url || notification.metadata?.action_url) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNotificationClick(notification);
+                            }}
                             className="text-xs text-indigo-600 hover:text-indigo-700 mt-2 inline-block"
                           >
-                            {notification.data.action_text || 'Voir plus'}
-                          </a>
+                            {notification.action_text || notification.metadata?.action_text || 'Voir plus'}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -208,6 +338,17 @@ export default function NotificationBell() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Footer with View All link */}
+          <div className="p-3 bg-gray-50 border-t border-gray-200">
+            <Link
+              to="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block text-center text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              Voir toutes les notifications
+            </Link>
           </div>
         </div>
       )}

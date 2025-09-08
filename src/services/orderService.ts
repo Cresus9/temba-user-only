@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { paymentService, CreatePaymentRequest } from './paymentService';
+import { notificationTriggers } from './notificationTriggers';
 
 export interface CreateOrderInput {
   eventId: string;

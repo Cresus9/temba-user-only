@@ -6,10 +6,17 @@ export interface Notification {
   type: string;
   title: string;
   message: string;
-  data?: any;
+  metadata?: any;  // Your table uses 'metadata' instead of 'data'
+  read: string;    // Your table uses 'read' as string instead of 'read_at' as date
   read_at: string | null;
   created_at: string;
   updated_at: string;
+  category_id?: string | null;
+  template_id?: string | null;
+  priority: string;
+  action_url?: string | null;
+  action_text?: string | null;
+  expires_at?: string | null;
 }
 
 export interface NotificationPreferences {
@@ -72,7 +79,7 @@ class NotificationService {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .is('read_at', null)
+        .eq('read', 'false')  // Your table uses 'read' as string 'true'/'false'
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -85,24 +92,43 @@ class NotificationService {
 
   async markAsRead(notificationId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.rpc('mark_notification_read', {
-        notification_id: notificationId
-      });
+      console.log(`🔄 NotificationService: Marking ${notificationId} as read in database...`);
+      
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ 
+          read: 'true',
+          read_at: new Date().toISOString()
+        })
+        .eq('id', notificationId)
+        .select(); // Add select to see what was updated
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error(`❌ Database error marking ${notificationId} as read:`, error);
+        throw error;
+      }
+      
+      console.log(`✅ Database update result for ${notificationId}:`, data);
+      return true;
     } catch (error: any) {
-      console.error('Error marking notification as read:', error);
+      console.error(`❌ Error marking notification ${notificationId} as read:`, error);
       throw new Error(error.message || 'Failed to mark notification as read');
     }
   }
 
   async markAllAsRead(): Promise<void> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+
       const { error } = await supabase
         .from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .is('read_at', null);
+        .update({ 
+          read: 'true',
+          read_at: new Date().toISOString() 
+        })
+        .eq('user_id', user.id)
+        .eq('read', 'false');
 
       if (error) throw error;
     } catch (error: any) {
@@ -113,10 +139,14 @@ class NotificationService {
 
   async getNotificationCount(): Promise<number> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
+
       const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .is('read_at', null);
+        .eq('user_id', user.id)
+        .eq('read', 'false');
 
       if (error) throw error;
       return count || 0;
@@ -128,21 +158,120 @@ class NotificationService {
 
   // Subscribe to real-time notifications
   subscribeToNotifications(callback: (notification: Notification) => void) {
-    return supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${supabase.auth.getUser().then(user => user.data.user?.id)}`
-        },
-        (payload) => {
-          callback(payload.new as Notification);
+    const setupSubscription = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.log('❌ No authenticated user for notifications subscription');
+          return null;
         }
-      )
-      .subscribe();
+
+        console.log('🔔 Setting up notifications subscription for user:', user.id);
+        
+        // Create a unique channel name
+        const channelName = `notifications-${user.id}-${Date.now()}`;
+        
+        const channel = supabase
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('🔔 Received notification via realtime:', payload);
+              console.log('📝 Notification data:', payload.new);
+              callback(payload.new as Notification);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('🔄 Notification updated via realtime:', payload);
+            }
+          )
+          .subscribe((status, err) => {
+            console.log('📡 Notification subscription status:', status);
+            if (err) {
+              console.error('❌ Subscription error:', err);
+            }
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ Successfully subscribed to notifications');
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('❌ Channel error - realtime may not be enabled for notifications table');
+            } else if (status === 'TIMED_OUT') {
+              console.error('❌ Subscription timed out');
+            } else if (status === 'CLOSED') {
+              console.log('🔐 Subscription closed');
+            }
+          });
+
+        return channel;
+      } catch (error) {
+        console.error('❌ Error setting up notifications subscription:', error);
+        return null;
+      }
+    };
+
+    const channelPromise = setupSubscription();
+    
+    return {
+      unsubscribe: () => {
+        channelPromise.then(channel => {
+          if (channel) {
+            console.log('🔕 Unsubscribing from notifications');
+            supabase.removeChannel(channel);
+          }
+        });
+      }
+    };
+  }
+
+  // Delete notification
+  async deleteNotification(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error deleting notification:', error);
+      throw new Error(error.message || 'Failed to delete notification');
+    }
+  }
+
+  // Get notifications with pagination
+  async getNotifications(page = 1, limit = 20): Promise<{ notifications: Notification[]; hasMore: boolean }> {
+    try {
+      const offset = (page - 1) * limit;
+      
+      const { data, error, count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) throw error;
+      
+      return {
+        notifications: data || [],
+        hasMore: (count || 0) > offset + limit
+      };
+    } catch (error: any) {
+      console.error('Error fetching paginated notifications:', error);
+      throw new Error(error.message || 'Failed to fetch notifications');
+    }
   }
 }
 

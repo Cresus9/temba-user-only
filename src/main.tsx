@@ -12,6 +12,11 @@ import './index.css';
 // Initialize Supabase client
 import './lib/supabase-client';
 
+// Import test utilities in development
+if (import.meta.env.DEV) {
+  import('./utils/testNotifications');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

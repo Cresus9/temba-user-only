@@ -21,6 +21,7 @@ import PaymentSuccess from '../pages/PaymentSuccess';
 import PaymentCancelled from '../pages/PaymentCancelled';
 import Support from '../pages/Support';
 import TicketDetails from '../pages/TicketDetails';
+import Notifications from '../pages/Notifications';
 import Terms from '../pages/Terms';
 import Privacy from '../pages/Privacy';
 import Contact from '../pages/Contact';
@@ -29,6 +30,8 @@ import About from '../pages/About';
 
 // Test Components
 import CategoryTest from '../components/CategoryTest';
+import NotificationTester from '../components/NotificationTester';
+import NotificationDebugger from '../components/NotificationDebugger';
 
 // Guest Pages
 import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
@@ -75,6 +78,8 @@ export default function AppRoutes() {
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />
+        <Route path="/test/notifications" element={<NotificationTester />} />
+        <Route path="/debug/notifications" element={<NotificationDebugger />} />
 
         {/* Guest Routes */}
         <Route path="/verify/:token" element={<GuestTicketVerification />} />
@@ -106,6 +111,11 @@ export default function AppRoutes() {
         <Route path="/support/:id" element={
           <RequireAuth>
             <TicketDetails />
+          </RequireAuth>
+        } />
+        <Route path="/notifications" element={
+          <RequireAuth>
+            <Notifications />
           </RequireAuth>
         } />
 

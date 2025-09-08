@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { paymentMethodService } from './paymentMethodService';
+import { notificationTriggers } from './notificationTriggers';
 
 export interface CreatePaymentRequest {
   idempotency_key: string;
@@ -137,6 +138,41 @@ class PaymentService {
         } catch (saveError) {
           console.error('Error saving payment method:', saveError);
           // Don't fail the verification if saving fails
+        }
+      }
+
+      // Trigger notification for successful payment
+      if (result.success && result.status === 'completed' && orderId) {
+        try {
+          // Get order details for notification
+          const { data: orderData } = await supabase
+            .from('orders')
+            .select(`
+              id,
+              user_id,
+              total,
+              currency,
+              events (title),
+              order_items (quantity)
+            `)
+            .eq('id', orderId)
+            .single();
+
+          if (orderData && orderData.user_id) {
+            const ticketCount = orderData.order_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 1;
+            
+            await notificationTriggers.onOrderCreated({
+              order_id: orderId,
+              user_id: orderData.user_id,
+              event_title: orderData.events?.title || 'Événement',
+              total_amount: orderData.total,
+              currency: orderData.currency,
+              ticket_count: ticketCount
+            });
+          }
+        } catch (notificationError) {
+          console.error('Error creating order confirmation notification:', notificationError);
+          // Don't fail the verification if notification fails
         }
       }
 
