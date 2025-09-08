@@ -85,7 +85,7 @@ export default function Banner() {
   const isClickable = currentBanner.event_id || currentBanner.link;
 
   return (
-    <div className="relative w-full h-[400px] bg-gray-900">
+    <div className="relative w-full h-[280px] md:h-[320px] bg-gray-900">
       {/* Banner Image */}
       <div 
         className={`absolute inset-0 ${isClickable ? 'cursor-pointer' : ''}`}
@@ -104,18 +104,18 @@ export default function Banner() {
         className={`absolute inset-0 flex items-end ${isClickable ? 'cursor-pointer' : ''}`}
         onClick={isClickable ? handleBannerClick : undefined}
       >
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-bold text-white mb-4">{currentBanner.title}</h2>
+        <div className="container mx-auto px-4 py-6 md:py-8">
+          <div className="max-w-xl">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{currentBanner.title}</h2>
             {currentBanner.description && (
-              <p className="text-lg text-gray-200 mb-6">{currentBanner.description}</p>
+              <p className="text-sm md:text-base text-gray-200 mb-4">{currentBanner.description}</p>
             )}
             {isClickable && (
               <button
-                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Obtenir des billets
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             )}
           </div>

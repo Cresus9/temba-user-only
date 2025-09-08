@@ -24,15 +24,24 @@ export default function CategoryEvents() {
     try {
       setLoading(true);
       
-      // Fetch category details
+      // Determine if categoryId is a UUID; if not, resolve via slug/name
+      let resolvedCategoryId: string | null = null;
+      let categoryData: EventCategory | null = null;
+
       if (categoryId) {
-        const categoryData = await CategoryService.fetchCategoryById(categoryId);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(categoryId)) {
+          categoryData = await CategoryService.fetchCategoryById(categoryId);
+        } else {
+          categoryData = await CategoryService.fetchCategoryBySlug(categoryId);
+        }
         setCategory(categoryData);
+        resolvedCategoryId = categoryData?.id ?? null;
       }
 
       // Fetch events by category
-      if (categoryId) {
-        const eventsData = await CategoryService.fetchEventsByCategory(categoryId);
+      if (resolvedCategoryId) {
+        const eventsData = await CategoryService.fetchEventsByCategory(resolvedCategoryId);
         setEvents(eventsData);
       }
     } catch (error) {

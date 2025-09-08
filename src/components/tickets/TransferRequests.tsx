@@ -23,7 +23,7 @@ export default function TransferRequests() {
       // Log the user ID for debugging
       console.log('Fetching transfers for user:', user.id);
 
-      // First try to get pending requests where user is recipient
+      // Get pending transfer requests where current user is recipient
       const { data: recipientRequests, error: recipientError } = await supabase
         .from('ticket_transfers')
         .select(`
@@ -32,11 +32,6 @@ export default function TransferRequests() {
           sender_id,
           status,
           created_at,
-          sender:auth_users!sender_id (
-            id,
-            email,
-            raw_user_meta_data->name
-          ),
           ticket:tickets!ticket_id (
             event_id,
             ticket_type_id,
@@ -57,23 +52,40 @@ export default function TransferRequests() {
 
       if (recipientError) throw recipientError;
 
-      // Log the fetched data for debugging
-      console.log('Fetched recipient requests:', recipientRequests);
+      // Fetch sender profiles separately (cannot join auth.users directly)
+      const senderIds = (recipientRequests || []).map(r => r.sender_id).filter((v, i, a) => v && a.indexOf(v) === i);
+      let profilesMap: Record<string, { name?: string; email?: string }> = {};
+      if (senderIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, name, email')
+          .in('user_id', senderIds);
+        if (profileError) throw profileError;
+        profilesMap = (profiles || []).reduce((acc: any, p: any) => {
+          acc[p.user_id] = { name: p.name, email: p.email };
+          return acc;
+        }, {} as Record<string, { name?: string; email?: string }>);
+      }
 
       // Transform the data to match the expected format
-      const formattedRequests = recipientRequests?.map(request => ({
-        id: request.id,
-        ticket_id: request.ticket_id,
-        sender_name: request.sender?.raw_user_meta_data?.name || request.sender?.email?.split('@')[0],
-        sender_email: request.sender?.email,
-        event_id: request.ticket?.event_id,
-        event_title: request.ticket?.event?.title,
-        event_date: request.ticket?.event?.date,
-        event_time: request.ticket?.event?.time,
-        ticket_type_name: request.ticket?.ticket_type?.name,
-        ticket_type_price: request.ticket?.ticket_type?.price,
-        created_at: request.created_at
-      })) || [];
+      const formattedRequests = (recipientRequests || []).map((request: any) => {
+        const profile = profilesMap[request.sender_id] || {};
+        const senderEmail = profile.email || '';
+        const senderName = profile.name || (senderEmail ? senderEmail.split('@')[0] : '');
+        return {
+          id: request.id,
+          ticket_id: request.ticket_id,
+          sender_name: senderName,
+          sender_email: senderEmail,
+          event_id: request.ticket?.event_id,
+          event_title: request.ticket?.event?.title,
+          event_date: request.ticket?.event?.date,
+          event_time: request.ticket?.event?.time,
+          ticket_type_name: request.ticket?.ticket_type?.name,
+          ticket_type_price: request.ticket?.ticket_type?.price,
+          created_at: request.created_at
+        };
+      });
 
       // Log the formatted requests for debugging
       console.log('Formatted requests:', formattedRequests);
@@ -100,10 +112,10 @@ export default function TransferRequests() {
       <div className="text-center py-8">
         <Send className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {t('transfers.empty.title', { default: 'No Transfer Requests' })}
+          {t('transfers.empty.title', { default: 'Aucune Demande de Transfert' })}
         </h3>
         <p className="text-gray-600">
-          {t('transfers.empty.description', { default: 'You have no pending ticket transfer requests' })}
+          {t('transfers.empty.description', { default: 'Vous n\'avez aucune demande de transfert de billet en attente' })}
         </p>
       </div>
     );

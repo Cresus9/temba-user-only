@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import EventCard from './EventCard';
 import { useEvents } from '../context/EventContext';
@@ -17,13 +17,38 @@ export default function EventCardList({
   const { events, featuredEvents, loading, error } = useEvents();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [eventsPerView, setEventsPerView] = useState(3);
 
   // Filter events based on props
   const displayEvents = featured ? featuredEvents : events;
   const filteredEvents = limit ? displayEvents.slice(0, limit) : displayEvents;
   
   // Calculate how many events to show based on screen size
-  const eventsPerView = 3;
+  const getEventsPerView = () => {
+    if (typeof window === 'undefined') return 3;
+    if (window.innerWidth < 1024) return 2; // mobile and tablet: 2 events
+    return 3; // desktop: 3 events
+  };
+  
+  // Update eventsPerView on window resize
+  useEffect(() => {
+    const updateEventsPerView = () => {
+      const newEventsPerView = getEventsPerView();
+      setEventsPerView(newEventsPerView);
+    };
+    
+    updateEventsPerView();
+    window.addEventListener('resize', updateEventsPerView);
+    
+    return () => window.removeEventListener('resize', updateEventsPerView);
+  }, []);
+
+  // Calculate minWidth based on eventsPerView
+  const getMinWidth = () => {
+    if (eventsPerView === 2) return 'calc(50% - 0.5rem)';
+    return 'calc(33.333% - 1rem)';
+  };
+  
   const maxIndex = Math.max(0, filteredEvents.length - eventsPerView);
 
   const scrollToIndex = (index: number) => {
@@ -106,12 +131,12 @@ export default function EventCardList({
           <button
             onClick={handlePrevious}
             disabled={!canGoPrevious}
-            className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 ${
+            className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full shadow-lg border flex items-center justify-center transition-all duration-200 ${
               canGoPrevious 
-                ? 'hover:bg-white text-gray-700 hover:shadow-xl' 
-                : 'text-gray-300 cursor-not-allowed'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 hover:shadow-xl opacity-90 hover:opacity-100' 
+                : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed opacity-50'
             }`}
-            aria-label="Previous events"
+            aria-label="Événements précédents"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -120,12 +145,12 @@ export default function EventCardList({
           <button
             onClick={handleNext}
             disabled={!canGoNext}
-            className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 ${
+            className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full shadow-lg border flex items-center justify-center transition-all duration-200 ${
               canGoNext 
-                ? 'hover:bg-white text-gray-700 hover:shadow-xl' 
-                : 'text-gray-300 cursor-not-allowed'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 hover:shadow-xl opacity-90 hover:opacity-100' 
+                : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed opacity-50'
             }`}
-            aria-label="Next events"
+            aria-label="Événements suivants"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -135,14 +160,14 @@ export default function EventCardList({
       {/* Events Container */}
       <div 
         ref={scrollContainerRef}
-        className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {filteredEvents.map((event, index) => (
           <div 
             key={event.id} 
-            className="flex-shrink-0 w-full sm:w-1/3 snap-start"
-            style={{ minWidth: 'calc(33.333% - 1rem)' }}
+            className="flex-shrink-0 w-1/2 sm:w-1/2 lg:w-1/3 snap-start"
+            style={{ minWidth: getMinWidth() }}
           >
             <EventCard {...event} />
           </div>
@@ -161,7 +186,7 @@ export default function EventCardList({
                   ? 'bg-indigo-600 w-6'
                   : 'bg-gray-300 hover:bg-gray-400'
               }`}
-              aria-label={`Go to page ${i + 1}`}
+              aria-label={`Aller à la page ${i + 1}`}
             />
           ))}
         </div>

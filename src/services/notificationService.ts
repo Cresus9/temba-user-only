@@ -12,6 +12,12 @@ export interface Notification {
   updated_at: string;
 }
 
+export interface NotificationPreferences {
+  email: boolean;
+  push: boolean;
+  types: string[];
+}
+
 class NotificationService {
   async getUserNotifications(limit = 10): Promise<Notification[]> {
     try {
@@ -27,6 +33,38 @@ class NotificationService {
       console.error('Error fetching notifications:', error);
       throw new Error(error.message || 'Failed to fetch notifications');
     }
+  }
+
+  async getPreferences(): Promise<NotificationPreferences> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Non authentifié');
+
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('email, push, types')
+      .eq('user_id', user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // no rows
+
+    return data || { email: true, push: false, types: [] };
+  }
+
+  async updatePreferences(prefs: NotificationPreferences): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Non authentifié');
+
+    const { error } = await supabase
+      .from('notification_preferences')
+      .upsert({ user_id: user.id, ...prefs }, { onConflict: 'user_id' });
+
+    if (error) throw error;
+  }
+
+  async requestPushPermission(): Promise<boolean> {
+    if (!('Notification' in window)) return false;
+    const result = await Notification.requestPermission();
+    return result === 'granted';
   }
 
   async getUnreadNotifications(): Promise<Notification[]> {

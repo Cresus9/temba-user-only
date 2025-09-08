@@ -43,6 +43,12 @@ export interface TicketType {
   quantity: number;
   available: number;
   max_per_order: number;
+  // Optional flags managed by admin portal to control sales
+  is_active?: boolean; // when false, stop selling
+  on_sale?: boolean;   // when false, stop selling
+  is_paused?: boolean; // temporary pause
+  sales_enabled?: boolean; // authoritative flag from DB/view
+  status?: 'AVAILABLE' | 'SOLD_OUT' | 'PAUSED' | string;
   created_at?: string;
   updated_at?: string;
 }

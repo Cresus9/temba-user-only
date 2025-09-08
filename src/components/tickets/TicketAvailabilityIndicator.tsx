@@ -15,7 +15,14 @@ export default function TicketAvailabilityIndicator({
   const availabilityPercentage = Math.max(0, Math.min(100, ((total - available) / total) * 100));
 
   const getStatusInfo = () => {
-    if (status === 'SOLD_OUT' || available <= 0) {
+    if (status === 'PAUSED') {
+      return {
+        text: 'Vente suspendue',
+        icon: Clock,
+        color: 'text-yellow-600',
+        bgColor: 'bg-yellow-100'
+      };
+    } else if (status === 'SOLD_OUT' || available <= 0) {
       return {
         text: 'Épuisé',
         icon: AlertCircle,

@@ -52,7 +52,7 @@ export default function Categories() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading categories...</p>
+          <p className="mt-4 text-sm text-gray-600">Chargement des catégories...</p>
         </div>
       </div>
     );
@@ -62,12 +62,12 @@ export default function Categories() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-600 mb-4 text-sm">{error}</p>
           <button 
             onClick={fetchCategories}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            Retry
+            Réessayer
           </button>
         </div>
       </div>
@@ -75,55 +75,66 @@ export default function Categories() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Browse Event Categories
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl">
-          Discover events by category. From music concerts to sports events, find experiences that match your interests.
-        </p>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search categories..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+    <div>
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-slate-800 via-indigo-800 to-indigo-900 py-12 md:py-16">
+        <div className="absolute inset-0 bg-black/15"></div>
+        <div className="relative container mx-auto px-4">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              Découvrez les Événements par{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">
+                Catégorie
+              </span>
+            </h1>
+            <p className="text-base md:text-lg text-slate-200 mb-8 max-w-3xl mx-auto leading-relaxed">
+              Explorez notre sélection d'événements organisés par thème. De la musique aux sports, trouvez l'expérience parfaite pour vous.
+            </p>
           </div>
           
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select
-              value={selectedSubcategory || ''}
-              onChange={(e) => setSelectedSubcategory(e.target.value || null)}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">All Subcategories</option>
-              {allSubcategories.map(subcategory => (
-                <option key={subcategory} value={subcategory}>
-                  {subcategory}
-                </option>
-              ))}
-            </select>
+          {/* Search and Filters in Hero */}
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une catégorie..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 text-sm bg-white rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-white/50 shadow-lg"
+                />
+              </div>
+              
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/70" />
+                <select
+                  value={selectedSubcategory || ''}
+                  onChange={(e) => setSelectedSubcategory(e.target.value || null)}
+                  className="w-full md:w-auto px-10 py-3 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-colors text-sm font-medium border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                >
+                  <option value="" className="text-gray-900">Toutes les Sous-catégories</option>
+                  {allSubcategories.map(subcategory => (
+                    <option key={subcategory} value={subcategory} className="text-gray-900">
+                      {subcategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
 
+      {/* Content Section */}
+      <div className="container mx-auto px-4 py-8">
         {/* Active filters */}
         {(searchQuery || selectedSubcategory) && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-600">Active filters:</span>
+          <div className="flex items-center gap-2 flex-wrap mb-6">
+            <span className="text-xs text-gray-600">Filtres actifs:</span>
             {searchQuery && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                Search: "{searchQuery}"
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs">
+                Recherche: "{searchQuery}"
                 <button
                   onClick={() => setSearchQuery('')}
                   className="ml-1 text-indigo-600 hover:text-indigo-800"
@@ -133,8 +144,8 @@ export default function Categories() {
               </span>
             )}
             {selectedSubcategory && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                Subcategory: {selectedSubcategory}
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs">
+                Sous-catégorie: {selectedSubcategory}
                 <button
                   onClick={() => setSelectedSubcategory(null)}
                   className="ml-1 text-indigo-600 hover:text-indigo-800"
@@ -148,40 +159,40 @@ export default function Categories() {
                 setSearchQuery('');
                 setSelectedSubcategory(null);
               }}
-              className="text-sm text-indigo-600 hover:text-indigo-700"
+              className="text-xs text-indigo-600 hover:text-indigo-700"
             >
-              Clear all
+              Effacer tout
             </button>
           </div>
         )}
-      </div>
 
-      {/* Results count */}
-      <div className="mb-6">
-        <p className="text-gray-600">
-          {filteredCategories.length} category{filteredCategories.length !== 1 ? 'ies' : 'y'} found
-        </p>
-      </div>
-
-      {/* Categories Grid */}
-      {filteredCategories.length > 0 ? (
-        <CategoryList 
-          showSubcategories={true}
-          onCategorySelect={handleCategorySelect}
-        />
-      ) : (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="h-8 w-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No categories found
-          </h3>
-          <p className="text-gray-600">
-            Try adjusting your search terms or filters
+        {/* Results count */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            {filteredCategories.length} catégorie{filteredCategories.length !== 1 ? 's' : ''} trouvée{filteredCategories.length !== 1 ? 's' : ''}
           </p>
         </div>
-      )}
+
+        {/* Categories Grid */}
+        {filteredCategories.length > 0 ? (
+          <CategoryList 
+            showSubcategories={true}
+            onCategorySelect={handleCategorySelect}
+          />
+        ) : (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-base font-medium text-gray-900 mb-2">
+              Aucune catégorie trouvée
+            </h3>
+            <p className="text-sm text-gray-600">
+              Essayez d'ajuster vos termes de recherche ou vos filtres
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

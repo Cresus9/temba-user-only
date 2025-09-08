@@ -17,12 +17,12 @@ export default function Profile() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navigation = [
-    { name: t('profile.menu.profile_info', { default: 'Profile Information' }), path: '/profile', icon: User },
-    { name: t('profile.menu.booking_history', { default: 'Booking History' }), path: '/profile/bookings', icon: Ticket },
-    { name: t('profile.menu.transfer_requests', { default: 'Transfer Requests' }), path: '/profile/transfers', icon: Ticket },
+    { name: t('profile.menu.profile_info', { default: 'Informations du Profil' }), path: '/profile', icon: User },
+    { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
+    { name: t('profile.menu.transfer_requests', { default: 'Demandes de Transfert' }), path: '/profile/transfers', icon: Ticket },
     { name: t('profile.menu.notifications', { default: 'Notifications' }), path: '/profile/notifications', icon: Bell },
-    { name: t('profile.menu.payment_methods', { default: 'Payment Methods' }), path: '/profile/payments', icon: CreditCard },
-    { name: t('profile.menu.account_settings', { default: 'Account Settings' }), path: '/profile/settings', icon: Settings },
+    { name: t('profile.menu.payment_methods', { default: 'Méthodes de Paiement' }), path: '/profile/payments', icon: CreditCard },
+    { name: t('profile.menu.account_settings', { default: 'Paramètres du Compte' }), path: '/profile/settings', icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -50,7 +50,7 @@ export default function Profile() {
               <p className="text-sm text-gray-600">
                 {t('profile.menu.member_since', { 
                   year: new Date(user?.created_at || '').getFullYear(),
-                  default: `Member since ${new Date(user?.created_at || '').getFullYear()}`
+                  default: `Membre depuis ${new Date(user?.created_at || '').getFullYear()}`
                 })}
               </p>
             </div>
@@ -79,7 +79,7 @@ export default function Profile() {
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
             >
               <LogOut className="h-5 w-5" />
-              {t('profile.menu.sign_out', { default: 'Sign Out' })}
+              {t('profile.menu.sign_out', { default: 'Déconnexion' })}
             </button>
           </nav>
         </aside>

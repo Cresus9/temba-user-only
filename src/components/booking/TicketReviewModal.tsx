@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { useFeeCalculation } from '../../hooks/useFeeCalculation';
 
 interface TicketType {
   id: string;
@@ -17,6 +18,7 @@ interface TicketReviewModalProps {
   selectedSeats?: string[];
   ticketTypes: TicketType[];
   currency: string;
+  eventId: string;
 }
 
 export default function TicketReviewModal({
@@ -25,23 +27,26 @@ export default function TicketReviewModal({
   onConfirm,
   selectedTickets,
   ticketTypes,
-  currency
+  currency,
+  eventId
 }: TicketReviewModalProps) {
   if (!isOpen) return null;
 
-  const calculateTotals = () => {
-    const subtotal = ticketTypes.reduce((total, ticket) => {
-      return total + (ticket.price * selectedTickets[ticket.id]);
+  const subtotal = useMemo(() => {
+    return ticketTypes.reduce((total, ticket) => {
+      return total + (ticket.price * (selectedTickets[ticket.id] || 0));
     }, 0);
-    const processingFee = subtotal * 0.02;
-    return {
-      subtotal,
-      processingFee,
-      total: subtotal + processingFee
-    };
-  };
+  }, [ticketTypes, selectedTickets]);
 
-  const { subtotal, processingFee, total } = calculateTotals();
+  const selections = useMemo(() => {
+    return ticketTypes
+      .filter(t => (selectedTickets[t.id] || 0) > 0)
+      .map(t => ({ ticket_type_id: t.id, quantity: selectedTickets[t.id], price: t.price }));
+  }, [ticketTypes, selectedTickets]);
+
+  const { fees } = useFeeCalculation(eventId, selections);
+  const processingFee = fees.total_buyer_fees || 0;
+  const total = subtotal + processingFee;
 
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto">
@@ -89,7 +94,7 @@ export default function TicketReviewModal({
                       <span>{formatCurrency(subtotal, currency)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
-                      <span>Frais de traitement (2%)</span>
+                      <span>Frais de service</span>
                       <span>{formatCurrency(processingFee, currency)}</span>
                     </div>
                     <div className="flex justify-between text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">

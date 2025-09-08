@@ -197,7 +197,7 @@ export default function Events() {
 
       {/* Events Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="bg-gray-200 rounded-xl aspect-[16/9] mb-4" />
@@ -209,7 +209,7 @@ export default function Events() {
           ))}
         </div>
       ) : events.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {events.map((event) => (
             <EventCard key={event.id} {...event} />
           ))}

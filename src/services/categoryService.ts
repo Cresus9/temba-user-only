@@ -53,9 +53,57 @@ export class CategoryService {
     }
   }
 
+  // Fetch category by slug (fallback when route param is not a UUID)
+  static async fetchCategoryBySlug(slug: string): Promise<EventCategory | null> {
+    try {
+      const normalized = decodeURIComponent(slug).replace(/-/g, ' ').trim();
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .ilike('name', normalized)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      // Try a broader match as a second chance
+      try {
+        const likePattern = `%${decodeURIComponent(slug).replace(/-/g, ' ').trim()}%`;
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .ilike('name', likePattern)
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        return data;
+      } catch (e) {
+        console.error('Error fetching category by slug:', e);
+        return null;
+      }
+    }
+  }
+
   // Fetch events by category ID
   static async fetchEventsByCategory(categoryId: string): Promise<Event[]> {
     try {
+      // First, get event IDs from the junction table
+      const { data: relationData, error: relationError } = await supabase
+        .from('event_category_relations')
+        .select('event_id')
+        .eq('category_id', categoryId);
+
+      if (relationError) throw relationError;
+
+      if (!relationData || relationData.length === 0) {
+        return [];
+      }
+
+      // Extract event IDs
+      const eventIds = relationData.map(rel => rel.event_id);
+
+      // Now fetch the events with their details
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -67,7 +115,7 @@ export class CategoryService {
           )
         `)
         .eq('status', 'PUBLISHED')
-        .eq('event_category_relations.category_id', categoryId)
+        .in('id', eventIds)
         .order('date', { ascending: true });
 
       if (error) throw error;
@@ -81,6 +129,22 @@ export class CategoryService {
   // Fetch events by multiple category IDs
   static async fetchEventsByCategories(categoryIds: string[]): Promise<Event[]> {
     try {
+      // First, get event IDs from the junction table
+      const { data: relationData, error: relationError } = await supabase
+        .from('event_category_relations')
+        .select('event_id')
+        .in('category_id', categoryIds);
+
+      if (relationError) throw relationError;
+
+      if (!relationData || relationData.length === 0) {
+        return [];
+      }
+
+      // Extract unique event IDs
+      const eventIds = [...new Set(relationData.map(rel => rel.event_id))];
+
+      // Now fetch the events with their details
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -92,7 +156,7 @@ export class CategoryService {
           )
         `)
         .eq('status', 'PUBLISHED')
-        .in('event_category_relations.category_id', categoryIds)
+        .in('id', eventIds)
         .order('date', { ascending: true });
 
       if (error) throw error;
@@ -106,6 +170,37 @@ export class CategoryService {
   // Fetch events by subcategory
   static async fetchEventsBySubcategory(subcategory: string): Promise<Event[]> {
     try {
+      // First, find categories that contain this subcategory
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('id')
+        .contains('subcategories', [subcategory]);
+
+      if (categoryError) throw categoryError;
+
+      if (!categoryData || categoryData.length === 0) {
+        return [];
+      }
+
+      // Extract category IDs
+      const categoryIds = categoryData.map(cat => cat.id);
+
+      // Now get event IDs from the junction table
+      const { data: relationData, error: relationError } = await supabase
+        .from('event_category_relations')
+        .select('event_id')
+        .in('category_id', categoryIds);
+
+      if (relationError) throw relationError;
+
+      if (!relationData || relationData.length === 0) {
+        return [];
+      }
+
+      // Extract unique event IDs
+      const eventIds = [...new Set(relationData.map(rel => rel.event_id))];
+
+      // Finally, fetch the events with their details
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -117,7 +212,7 @@ export class CategoryService {
           )
         `)
         .eq('status', 'PUBLISHED')
-        .contains('event_category_relations.categories.subcategories', [subcategory])
+        .in('id', eventIds)
         .order('date', { ascending: true });
 
       if (error) throw error;
@@ -234,6 +329,35 @@ export class CategoryService {
       return count || 0;
     } catch (error) {
       console.error('Error getting event count by category:', error);
+      return 0;
+    }
+  }
+
+  // Get PUBLISHED event count by category
+  static async getPublishedEventCountByCategory(categoryId: string): Promise<number> {
+    try {
+      // Step 1: relations → event_ids
+      const { data: relations, error: relError } = await supabase
+        .from('event_category_relations')
+        .select('event_id')
+        .eq('category_id', categoryId);
+
+      if (relError) throw relError;
+      if (!relations || relations.length === 0) return 0;
+
+      const eventIds = [...new Set(relations.map(r => r.event_id))];
+
+      // Step 2: count published events among those IDs
+      const { count, error } = await supabase
+        .from('events')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PUBLISHED')
+        .in('id', eventIds);
+
+      if (error) throw error;
+      return count || 0;
+    } catch (error) {
+      console.error('Error getting published event count by category:', error);
       return 0;
     }
   }

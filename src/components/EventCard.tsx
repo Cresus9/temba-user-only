@@ -37,7 +37,7 @@ const EventCard = memo(({
     >
       <article className="flex flex-col h-full">
         {/* Image Container */}
-        <div className="relative aspect-[16/9] overflow-hidden flex-shrink-0">
+        <div className="relative aspect-[4/3] overflow-hidden flex-shrink-0">
           <Image
             src={image_url}
             alt={title}
@@ -48,68 +48,68 @@ const EventCard = memo(({
           
           {/* Status Badge */}
           {status !== 'PUBLISHED' && (
-            <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium bg-black/50 text-white">
+            <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium bg-black/50 text-white">
               {status}
             </div>
           )}
 
           {/* Categories */}
           {categories.length > 0 && (
-            <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-              {categories.slice(0, 2).map((category) => (
+            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+              {categories.slice(0, 1).map((category) => (
                 <span
                   key={category}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-black/50 text-white"
+                  className="px-2 py-0.5 rounded text-xs font-medium bg-white/90 text-gray-800"
                 >
                   {category}
                 </span>
               ))}
-              {categories.length > 2 && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-black/50 text-white">
-                  +{categories.length - 2}
+              {categories.length > 1 && (
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/90 text-gray-800">
+                  +{categories.length - 1}
                 </span>
               )}
             </div>
           )}
 
           {/* Price Badge */}
-          <div className="absolute bottom-4 right-4 px-3 py-1 rounded-full text-sm font-medium bg-white text-gray-900 shadow-sm">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-xs font-medium bg-white text-gray-900 shadow-sm">
             {formatCurrency(price, currency)}
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex flex-col flex-1 p-6 min-h-0">
-          <header className="mb-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 leading-tight">
+        <div className="flex flex-col flex-1 p-3 min-h-0">
+          <header className="mb-2">
+            <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2 leading-tight">
               {title}
             </h3>
-            <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed flex-1">
+            <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed flex-1">
               {description}
             </p>
           </header>
 
-          <div className="space-y-3 mb-4 flex-shrink-0">
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              <Calendar className="h-4 w-4 flex-shrink-0" />
+          <div className="space-y-1 mb-2 flex-shrink-0">
+            <div className="flex items-center gap-2 text-gray-600 text-xs">
+              <Calendar className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{eventDate.toLocaleDateString()}</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              <Clock className="h-4 w-4 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-gray-600 text-xs">
+              <Clock className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{time}</span>
             </div>
-            <div className="flex items-start gap-2 text-gray-600 text-sm">
-              <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 text-gray-600 text-xs">
+              <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
               <span className="line-clamp-2 leading-relaxed">{location}</span>
             </div>
           </div>
 
           {/* Availability Indicator */}
-          <div className="mb-4 flex-shrink-0">
-            <div className="flex items-center justify-between text-sm mb-1">
+          <div className="mb-2 flex-shrink-0">
+            <div className="flex items-center justify-between text-xs mb-0.5">
               <span className="text-gray-600 flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                {tickets_sold} / {capacity} billets vendus
+                <Users className="h-3 w-3" />
+                {tickets_sold} / {capacity}
               </span>
               {availabilityPercentage >= 80 && (
                 <span className="text-red-600 font-medium text-xs">Vente rapide</span>

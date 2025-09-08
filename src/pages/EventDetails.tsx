@@ -40,7 +40,8 @@ export default function EventDetails() {
               price,
               quantity,
               available,
-              max_per_order
+              max_per_order,
+              sales_enabled
             )
           `)
           .eq('id', id)

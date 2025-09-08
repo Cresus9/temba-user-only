@@ -1,27 +1,44 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TicketType } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
+import { serviceFeeService, ServiceFeeSelection, ServiceFeeResult } from '../../services/serviceFeeService';
 
 interface BookingSummaryProps {
   selectedTickets: { [key: string]: number };
   ticketTypes: TicketType[];
   currency: string;
+  eventId?: string;
 }
 
 export default function BookingSummary({
   selectedTickets,
   ticketTypes,
-  currency
+  currency,
+  eventId
 }: BookingSummaryProps) {
-  const calculateSubtotal = () => {
-    return ticketTypes.reduce((total, ticket) => {
-      const quantity = selectedTickets[ticket.id] || 0;
-      return total + (ticket.price * quantity);
-    }, 0);
-  };
+  const [fees, setFees] = useState<ServiceFeeResult>({ total_buyer_fees: 0, total_organizer_fees: 0, fee_breakdown: [] });
 
-  const subtotal = calculateSubtotal();
-  const processingFee = subtotal * 0.02; // 2% processing fee
+  const subtotal = ticketTypes.reduce((total, ticket) => {
+    const quantity = selectedTickets[ticket.id] || 0;
+    return total + (ticket.price * quantity);
+  }, 0);
+
+  useEffect(() => {
+    const loadFees = async () => {
+      const selections: ServiceFeeSelection[] = ticketTypes
+        .filter(t => (selectedTickets[t.id] || 0) > 0)
+        .map(t => ({ ticket_type_id: t.id, quantity: selectedTickets[t.id], price: t.price }));
+      if (!eventId || selections.length === 0) {
+        setFees({ total_buyer_fees: 0, total_organizer_fees: 0, fee_breakdown: [] });
+        return;
+      }
+      const result = await serviceFeeService.calculateFees(eventId, selections);
+      setFees(result);
+    };
+    loadFees();
+  }, [eventId, selectedTickets, ticketTypes]);
+
+  const processingFee = fees.total_buyer_fees;
   const total = subtotal + processingFee;
 
   return (
@@ -44,7 +61,7 @@ export default function BookingSummary({
             <span>{formatCurrency(subtotal, currency)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Frais de traitement (2%)</span>
+            <span>Frais de service</span>
             <span>{formatCurrency(processingFee, currency)}</span>
           </div>
           <div className="flex justify-between text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">

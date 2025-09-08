@@ -20,7 +20,10 @@ export default function TicketTypeCard({
 }: TicketTypeCardProps) {
   const [showDetails, setShowDetails] = useState(false);
 
-  if (ticket.status === 'SOLD_OUT' || ticket.available <= 0) {
+  const isPaused = ticket.sales_enabled === false || ticket.is_paused === true || ticket.on_sale === false || ticket.is_active === false || ticket.status === 'PAUSED';
+  const isSoldOut = ticket.status === 'SOLD_OUT' || ticket.available <= 0;
+
+  if (isSoldOut || isPaused) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <div className="flex justify-between items-start">
@@ -31,9 +34,15 @@ export default function TicketTypeCard({
               {formatCurrency(ticket.price, currency)}
             </p>
           </div>
-          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-            Épuisé
-          </span>
+          {isPaused ? (
+            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+              Vente suspendue
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+              Épuisé
+            </span>
+          )}
         </div>
       </div>
     );
@@ -82,7 +91,7 @@ export default function TicketTypeCard({
       <TicketAvailabilityIndicator
         available={ticket.available}
         total={ticket.quantity}
-        status={ticket.status}
+        status={ticket.status || (isPaused ? 'PAUSED' : undefined)}
       />
     </div>
   );

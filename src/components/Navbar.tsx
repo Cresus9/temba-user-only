@@ -41,18 +41,18 @@ export default function Navbar() {
   return (
     <nav className="bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-14">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <img src="/logo.svg" alt="Temba Logo" className="h-10 w-auto" />
+            <img src="/logo.svg" alt="Temba Logo" className="h-8 w-auto" />
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/events" className="text-gray-600 hover:text-indigo-600 transition-colors">
+          <div className="hidden md:flex items-center space-x-6">
+            <Link to="/events" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
               Événements
             </Link>
-            <Link to="/categories" className="text-gray-600 hover:text-indigo-600 transition-colors">
+            <Link to="/categories" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
               Catégories
             </Link>
 

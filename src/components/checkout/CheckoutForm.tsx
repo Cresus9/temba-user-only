@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -6,6 +6,8 @@ import { orderService } from '../../services/orderService';
 import { paymentMethodService } from '../../services/paymentMethodService';
 import { SavedPaymentMethod } from '../../types/payment';
 import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabase-client';
+import { useFeeCalculation } from '../../hooks/useFeeCalculation';
 
 interface CheckoutFormProps {
   tickets: { [key: string]: number };
@@ -41,6 +43,25 @@ export default function CheckoutForm({
     saveMethod: false
   });
   const { user } = useAuth();
+  const selections = useMemo(() => Object.entries(tickets).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity: Number(quantity), price: 0 })), [tickets]);
+
+  // Fetch prices for selections
+  const [pricedSelections, setPricedSelections] = useState(selections);
+  useEffect(() => {
+    const loadPrices = async () => {
+      const ids = Object.keys(tickets);
+      if (ids.length === 0) { setPricedSelections([]); return; }
+      const { data } = await supabase.from('ticket_types').select('id, price').in('id', ids);
+      const map = new Map((data || []).map((t: any) => [t.id, Number(t.price || 0)]));
+      setPricedSelections(Object.entries(tickets).map(([id, q]) => ({ ticket_type_id: id, quantity: Number(q), price: map.get(id) || 0 })));
+    };
+    loadPrices();
+  }, [tickets]);
+
+  const { fees } = useFeeCalculation(eventId, pricedSelections);
+  const subtotal = pricedSelections.reduce((s, it) => s + it.price * it.quantity, 0);
+  const buyerFees = fees.total_buyer_fees || 0;
+  const grandTotal = subtotal + buyerFees;
 
   // Format account display for better presentation
   const formatAccountDisplay = (method: SavedPaymentMethod) => {
@@ -599,15 +620,15 @@ export default function CheckoutForm({
           <div className="border-t border-gray-200 pt-4">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>Sous-total</span>
-              <span>{currency} {totalAmount}</span>
+              <span>{currency} {subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Frais de traitement (2%)</span>
-              <span>{currency} {(totalAmount * 0.02).toFixed(2)}</span>
+              <span>Frais de service</span>
+              <span>{currency} {buyerFees.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2">
               <span>Total</span>
-              <span>{currency} {(totalAmount * 1.02).toFixed(2)}</span>
+              <span>{currency} {grandTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -622,7 +643,7 @@ export default function CheckoutForm({
                 <span>Traitement en cours...</span>
               </>
             ) : (
-              <>Payer {currency} {(totalAmount * 1.02).toFixed(2)}</>
+              <>Payer {currency} {grandTotal.toFixed(2)}</>
             )}
           </button>
         </form>

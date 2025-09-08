@@ -72,16 +72,16 @@ class UserService {
       .eq('user_id', user.id)
       .eq('status', 'VALID');
 
-    // Get total spent from completed orders
-    const { data: completedOrders, error: ordersError } = await supabase
+    // Get money committed by the user (all non-cancelled orders)
+    const { data: userOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('total')
+      .select('total, status')
       .eq('user_id', user.id)
-      .eq('status', 'COMPLETED');
+      .neq('status', 'CANCELLED');
 
     if (ordersError) throw ordersError;
 
-    const totalSpent = completedOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
+    const totalSpent = userOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
 
     // Get recent orders with event details
     const { data: recentOrders, error: recentError } = await supabase
