@@ -305,11 +305,13 @@ class NotificationTriggers {
           type: notificationData.type,
           title: notificationData.title,
           message: notificationData.message,
-          data: {
+          priority: notificationData.priority || 'normal',
+          read: 'false',
+          action_url: notificationData.action_url,
+          action_text: notificationData.action_text,
+          metadata: {
             ...notificationData.data,
             priority: notificationData.priority || 'normal',
-            action_url: notificationData.action_url,
-            action_text: notificationData.action_text,
           }
         })
         .select()

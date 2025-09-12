@@ -178,17 +178,23 @@ async function createWelcomeNotification(supabase: any, userId: string, userName
       .from('notifications')
       .insert({
         user_id: userId,
-        type: 'welcome',
+        type: 'ACCOUNT_UPDATE',
         title: 'Bienvenue sur Temba !',
         message: `Bonjour ${userName} ! Nous sommes ravis de vous accueillir sur Temba. Commencez à explorer nos événements incroyables !`,
-        data: {
-          action_url: '/events',
-          action_text: 'Explorer les événements'
+        priority: 'normal',
+        read: 'false',
+        action_url: '/events',
+        action_text: 'Explorer les événements',
+        metadata: {
+          welcome: true,
+          user_name: userName
         }
       })
 
     if (error) {
       console.error('Error creating welcome notification:', error)
+    } else {
+      console.log('Welcome notification created successfully for user:', userId)
     }
   } catch (error) {
     console.error('Error creating welcome notification:', error)
