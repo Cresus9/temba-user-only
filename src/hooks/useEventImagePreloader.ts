@@ -25,7 +25,7 @@ export function useEventImagePreloader(events: Event[]) {
     if (!originalUrl) return '';
     
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const optimizerUrl = `${supabaseUrl}/functions/v1/image-optimizer`;
+    const optimizerUrl = `${supabaseUrl}/functions/v1/simple-image-optimizer`;
     
     const params = new URLSearchParams({
       url: originalUrl,
@@ -115,7 +115,7 @@ export function useCriticalImagePreloader() {
     if (!originalUrl) return '';
     
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const optimizerUrl = `${supabaseUrl}/functions/v1/image-optimizer`;
+    const optimizerUrl = `${supabaseUrl}/functions/v1/simple-image-optimizer`;
     
     const params = new URLSearchParams({
       url: originalUrl,

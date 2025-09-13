@@ -27,13 +27,29 @@ export default function Image({
   const imgRef = useRef<HTMLImageElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Get optimized image URL - using original URLs for now (reliable)
+  // Get optimized image URL using the simple optimizer
   const getOptimizedUrl = (originalUrl: string) => {
     if (!originalUrl) return '';
     
-    // Use original URLs since they're working perfectly
-    // This gives us reliability without the complexity of optimization
-    return originalUrl;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    
+    // Fallback to original URL if no Supabase URL
+    if (!supabaseUrl) {
+      return originalUrl;
+    }
+    
+    // Use the simple image optimizer (no authentication required)
+    const optimizerUrl = `${supabaseUrl}/functions/v1/simple-image-optimizer`;
+    
+    const params = new URLSearchParams({
+      url: originalUrl,
+      width: width.toString(),
+      height: height.toString(),
+      quality: quality.toString(),
+      format: 'webp'
+    });
+    
+    return `${optimizerUrl}?${params.toString()}`;
   };
 
   // Set up intersection observer for lazy loading
