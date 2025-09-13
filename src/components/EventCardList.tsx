@@ -169,7 +169,7 @@ export default function EventCardList({
             className="flex-shrink-0 w-1/2 sm:w-1/2 lg:w-1/3 snap-start"
             style={{ minWidth: getMinWidth() }}
           >
-            <EventCard {...event} />
+            <EventCard {...event} priority={index < 3} />
           </div>
         ))}
       </div>

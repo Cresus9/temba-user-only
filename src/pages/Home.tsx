@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../context/TranslationContext';
+import { useEvents } from '../context/EventContext';
 import HomeSearch from '../components/search/HomeSearch';
 import EventCardList from '../components/EventCardList';
 import Banner from '../components/home/Banner';
@@ -8,9 +9,27 @@ import Features from '../components/home/Features';
 import CategoryList from '../components/categories/CategoryList';
 import AppDownload from '../components/home/AppDownload';
 import HowItWorks from '../components/home/HowItWorks';
+import { imagePreloader } from '../utils/imagePreloader';
 
 export default function Home() {
   const { t } = useTranslation();
+  const { featuredEvents } = useEvents();
+
+  // Preload featured event images for instant loading
+  useEffect(() => {
+    if (featuredEvents && featuredEvents.length > 0) {
+      // Preload first 6 featured event images
+      const imagesToPreload = featuredEvents
+        .slice(0, 6)
+        .filter(event => event.image_url)
+        .map(event => ({ image_url: event.image_url, title: event.title }));
+
+      if (imagesToPreload.length > 0) {
+        console.log('🚀 Preloading', imagesToPreload.length, 'featured event images...');
+        imagePreloader.preloadEventImages(imagesToPreload);
+      }
+    }
+  }, [featuredEvents]);
 
   return (
     <div>

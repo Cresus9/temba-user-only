@@ -7,6 +7,7 @@ import Image from './common/Image';
 
 interface EventCardProps extends Event {
   className?: string;
+  priority?: boolean;
 }
 
 const EventCard = memo(({
@@ -23,7 +24,8 @@ const EventCard = memo(({
   tickets_sold,
   categories = [],
   status,
-  className = ''
+  className = '',
+  priority = false
 }: EventCardProps) => {
   const availabilityPercentage = (tickets_sold / capacity) * 100;
   const eventDate = new Date(date);
@@ -43,6 +45,10 @@ const EventCard = memo(({
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
+            width={400}
+            height={300}
+            quality={85}
+            priority={priority}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/50 to-transparent" />
           
