@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       invoice: {
         total_amount: payload.amount_major,
         description: payload.description,
-        return_url: payload.return_url || `${baseUrl}/payment/success?order=${payload.event_id}&token=${paymentToken}`,
+        return_url: payload.return_url || `${baseUrl}/payment/success?order=${payload.event_id}&token=PLACEHOLDER_TOKEN`,
         cancel_url: payload.cancel_url || `${baseUrl}/payment/cancelled?order=${payload.event_id}`,
         callback_url: `${supabaseUrl}/functions/v1/paydunya-ipn`
       },
@@ -236,9 +236,10 @@ Deno.serve(async (req) => {
       // For test mode, if no invoice URL is provided, create a fallback
       let paymentUrl = invoiceUrl;
       if (!paymentUrl && paydunyaMode === "test") {
-        // In test mode, redirect to success page directly
+        // In test mode, redirect to success page directly with Paydunya token
         const orderParam = payload.order_id || payload.event_id;
-        paymentUrl = `${baseUrl}/payment/success?order=${orderParam}&token=${paymentToken}`;
+        const tokenForUrl = paydunyaToken || `test_${paymentToken.slice(0, 10)}`;
+        paymentUrl = `${baseUrl}/payment/success?order=${orderParam}&token=${tokenForUrl}`;
         console.log("Using fallback payment URL for test mode:", paymentUrl);
       }
 
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           payment_url: paymentUrl,
-          payment_token: paymentToken,
+          payment_token: paydunyaToken || `test_${paymentToken.slice(0, 10)}`,
           payment_id: paymentRecord.id
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
