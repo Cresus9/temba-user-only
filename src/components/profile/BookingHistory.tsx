@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { generatePDF } from '../../utils/ticketService';
 import { useAuth } from '../../context/AuthContext';
 import FestivalTicket from '../tickets/FestivalTicket';
+import EnhancedFestivalTicket from '../tickets/EnhancedFestivalTicket';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
@@ -41,6 +42,7 @@ export default function BookingHistory() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
   const [transferTicket, setTransferTicket] = useState<{id: string, eventTitle: string} | null>(null);
@@ -157,6 +159,10 @@ export default function BookingHistory() {
     setExpandedBooking(expandedBooking === bookingId ? null : bookingId);
   };
 
+  const handleBookingClick = (bookingId: string) => {
+    navigate(`/booking/confirmation/${bookingId}`);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -197,10 +203,13 @@ export default function BookingHistory() {
             className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
           >
             {/* Booking Header */}
-            <div className="p-4 sm:p-6">
+            <div 
+              className="p-4 sm:p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleBookingClick(booking.id)}
+            >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
                     {booking.event.title}
                   </h3>
                   <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600">
@@ -234,11 +243,16 @@ export default function BookingHistory() {
                   </span>
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            {/* Action Buttons */}
+            <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  onClick={() => toggleBookingDetails(booking.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleBookingDetails(booking.id);
+                  }}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 text-sm"
                 >
                   {expandedBooking === booking.id ? (
@@ -291,8 +305,8 @@ export default function BookingHistory() {
                       )}
                     </div>
 
-                    <div id={`ticket-${ticket.id}`}>
-                      <FestivalTicket
+                    <div id={`ticket-${ticket.id}`} data-ticket>
+                      <EnhancedFestivalTicket
                         ticketHolder={user?.name || ''}
                         ticketType={ticket.ticket_type.name}
                         ticketId={ticket.id}
@@ -302,17 +316,21 @@ export default function BookingHistory() {
                         eventLocation={booking.event.location}
                         qrCode={ticket.qr_code}
                         eventImage={booking.event.image_url}
-                        status={ticket.status}
-                        onTransfer={() => setTransferTicket({
-                          id: ticket.id,
-                          eventTitle: booking.event.title
-                        })}
+                        price={ticket.ticket_type.price}
+                        currency="XOF"
+                        orderNumber={booking.id}
+                        purchaseDate={booking.created_at}
+                        eventCategory="Concert"
+                        specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
                       />
                     </div>
                     
                     <div className="mt-4 flex justify-end">
                       <button
-                        onClick={() => handleDownloadTicket(ticket, booking)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadTicket(ticket, booking);
+                        }}
                         disabled={downloadingTicket === ticket.id}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                       >

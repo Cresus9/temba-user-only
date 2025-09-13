@@ -17,6 +17,7 @@ import Profile from '../pages/Profile';
 import Dashboard from '../pages/Dashboard';
 import Checkout from '../pages/Checkout';
 import BookingConfirmation from '../pages/BookingConfirmation';
+import EnhancedBookingConfirmation from '../pages/EnhancedBookingConfirmation';
 import PaymentSuccess from '../pages/PaymentSuccess';
 import PaymentCancelled from '../pages/PaymentCancelled';
 import Support from '../pages/Support';
@@ -102,7 +103,7 @@ export default function AppRoutes() {
           </RequireAuth>
         } />
         <Route path="/checkout" element={<Checkout />} />
-        <Route path="/booking/confirmation/:bookingId" element={<BookingConfirmation />} />
+        <Route path="/booking/confirmation/:bookingId" element={<EnhancedBookingConfirmation />} />
         <Route path="/support" element={
           <RequireAuth>
             <Support />

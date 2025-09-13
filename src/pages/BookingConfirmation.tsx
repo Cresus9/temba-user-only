@@ -4,6 +4,7 @@ import { Check, Download, Loader, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import FestivalTicket from '../components/tickets/FestivalTicket';
+import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
 import toast from 'react-hot-toast';
 import { generatePDF } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
@@ -207,7 +208,7 @@ export default function BookingConfirmation() {
       <div className="space-y-8 mb-8">
         {tickets.map((ticket) => (
           <div key={ticket.id} data-ticket>
-            <FestivalTicket
+            <EnhancedFestivalTicket
               ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Non assigné'}
               ticketType={ticket.ticket_type.name}
               ticketId={ticket.id}
@@ -217,6 +218,10 @@ export default function BookingConfirmation() {
               eventLocation={ticket.event.location}
               qrCode={ticket.qr_code}
               eventImage={ticket.event.image_url}
+              price={ticket.ticket_type.price}
+              currency="XOF"
+              eventCategory="Concert"
+              specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
             />
           </div>
         ))}

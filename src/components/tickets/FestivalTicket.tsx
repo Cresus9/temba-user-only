@@ -95,12 +95,12 @@ export default function FestivalTicket({
         </div>
 
         {/* QR Code Section */}
-        <div className="w-full md:w-72 p-6 bg-gray-50 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-gray-200">
+        <div className="w-full md:w-80 p-8 bg-gray-50 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-gray-200">
           <DynamicQRCode
             ticketId={ticketId}
-            size={200}
+            size={240}
           />
-          <div className="text-center mt-4">
+          <div className="text-center mt-6">
             <p className="font-medium text-gray-900">SCANNER POUR VÉRIFIER</p>
             <p className="text-sm text-gray-500">Valable pour une entrée unique</p>
           </div>

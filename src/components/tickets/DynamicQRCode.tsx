@@ -30,7 +30,7 @@ export default function DynamicQRCode({ ticketId, size = 120 }: DynamicQRCodePro
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-qr-code="true">
       <QRCodeSVG
         value={qrData}
         size={size}

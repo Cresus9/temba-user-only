@@ -17,6 +17,41 @@ export const generatePDF = async (element: HTMLElement): Promise<Blob> => {
     clone.style.left = '-9999px';
     clone.style.transform = 'none';
 
+    // Find and optimize QR codes for PDF - make them larger for better scanning
+    const qrCodeContainers = clone.querySelectorAll('[data-qr-code="true"]');
+    qrCodeContainers.forEach(container => {
+      const svgElements = container.querySelectorAll('svg');
+      svgElements.forEach(svgElement => {
+        if (svgElement && svgElement.getAttribute('width')) {
+          // This is a QR code SVG - make it larger for PDF
+          const currentSize = parseInt(svgElement.getAttribute('width') || '200');
+          const pdfOptimizedSize = Math.max(currentSize, 350); // Minimum 350px for PDF
+          svgElement.setAttribute('width', pdfOptimizedSize.toString());
+          svgElement.setAttribute('height', pdfOptimizedSize.toString());
+          
+          // Also update the viewBox if it exists
+          const viewBox = svgElement.getAttribute('viewBox');
+          if (viewBox) {
+            const [x, y, w, h] = viewBox.split(' ').map(Number);
+            if (w && h) {
+              // Keep the same viewBox but the SVG will be rendered larger
+              svgElement.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+            }
+          }
+        }
+      });
+      
+      // Also make the container responsive classes work for PDF by showing the larger version
+      const mobileQR = container.querySelector('.block.sm\\:hidden');
+      const desktopQR = container.querySelector('.hidden.sm\\:block');
+      
+      if (mobileQR && desktopQR) {
+        // Force show the mobile version (which is larger) and hide desktop version
+        (mobileQR as HTMLElement).style.display = 'block';
+        (desktopQR as HTMLElement).style.display = 'none';
+      }
+    });
+
     // Wait for all images to load - but don't fail if some images can't load
     const images = Array.from(clone.getElementsByTagName('img'));
     await Promise.all(
@@ -32,13 +67,15 @@ export const generatePDF = async (element: HTMLElement): Promise<Blob> => {
       })
     );
 
-    // Generate canvas
+    // Generate canvas with high quality for QR codes
     const canvas = await html2canvas(clone, {
-      scale: 2, // Higher quality
+      scale: 3, // Even higher quality for better QR code rendering
       useCORS: true,
       allowTaint: true,
       logging: false,
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      width: clone.scrollWidth,
+      height: clone.scrollHeight
     });
 
     // Remove clone after canvas generation
