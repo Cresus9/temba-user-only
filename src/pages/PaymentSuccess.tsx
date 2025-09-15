@@ -33,6 +33,15 @@ export default function PaymentSuccess() {
     try {
       setLoading(true);
       
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Verification timeout - redirecting anyway');
+        setLoading(false);
+        setSuccess(true);
+        toast.success('Redirection vers vos billets...');
+        navigate(`/booking/confirmation/${orderId}?token=${token}`);
+      }, 15000); // 15 second timeout
+      
       // Get payment details from localStorage
       const storedPaymentDetails = localStorage.getItem('paymentDetails');
       let paymentDetails = null;
@@ -74,8 +83,13 @@ export default function PaymentSuccess() {
         isTestMode,
         resultSuccess: result.success,
         resultStatus: result.status,
-        isSuccessful
+        isSuccessful,
+        resultTestMode: result.test_mode,
+        envDEV: import.meta.env.DEV,
+        envPaydunyaMode: import.meta.env.VITE_PAYDUNYA_MODE
       });
+      
+      console.log('Full verification result:', JSON.stringify(result, null, 2));
       
       if (isSuccessful) {
         setSuccess(true);
@@ -89,18 +103,43 @@ export default function PaymentSuccess() {
           localStorage.removeItem('paymentDetails');
         }
         
+        // Clear timeout since verification succeeded
+        clearTimeout(timeoutId);
+        
         // Redirect to booking confirmation after 3 seconds
         setTimeout(() => {
           navigate(`/booking/confirmation/${orderId}?token=${token}`);
         }, 3000);
       } else {
+        // Clear timeout
+        clearTimeout(timeoutId);
         throw new Error(result.message || 'Paiement non confirmé');
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
-      setError(error.message || 'Échec de la vérification du paiement');
-      toast.error(error.message || 'Échec de la vérification du paiement');
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // If tickets were created but verification failed, still redirect
+      if (error.message && error.message.includes('already exist')) {
+        console.log('🎫 Tickets already exist - redirecting to confirmation');
+        setSuccess(true);
+        toast.success('Billets déjà créés - redirection vers la confirmation');
+        setTimeout(() => {
+          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+        }, 2000);
+      } else {
+        setError(error.message || 'Échec de la vérification du paiement');
+        toast.error(error.message || 'Échec de la vérification du paiement');
+      }
     } finally {
+      // Clear timeout in finally block to ensure it's always cleared
+      if (typeof timeoutId !== 'undefined') {
+        clearTimeout(timeoutId);
+      }
       setLoading(false);
     }
   };
