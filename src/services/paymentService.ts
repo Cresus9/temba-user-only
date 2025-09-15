@@ -107,11 +107,33 @@ class PaymentService {
 
   async verifyPayment(paymentToken: string, orderId?: string, saveMethod?: boolean, paymentDetails?: any): Promise<PaymentVerification> {
     try {
+      // Determine if token looks like UUID (internal_token) or Paydunya token (payment_token)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentToken);
+      const isPaydunyaTestToken = paymentToken.startsWith('test_');
+      
+      console.log('Token analysis:', {
+        token: paymentToken,
+        isUUID,
+        isPaydunyaTestToken,
+        length: paymentToken.length
+      });
+
+      // Prepare payload for the deployed function
+      const payload: any = {
+        order_id: orderId || ''
+      };
+
+      // Send token in the appropriate field based on format
+      if (isUUID) {
+        payload.internal_token = paymentToken;
+        console.log('Sending as internal_token (UUID)');
+      } else {
+        payload.payment_token = paymentToken;
+        console.log('Sending as payment_token (Paydunya)');
+      }
+
       const { data, error } = await supabase.functions.invoke('verify-payment', {
-        body: {
-          payment_token: paymentToken,
-          order_id: orderId || ''
-        }
+        body: payload
       });
 
       if (error) {
@@ -127,9 +149,17 @@ class PaymentService {
         success: data.success,
         status: data.status,
         payment_id: data.payment_id,
-        order_id: orderId,
-        message: data.status === 'completed' ? 'Payment verified successfully' : `Payment status: ${data.status}`
+        order_id: data.order_id || orderId,
+        test_mode: data.test_mode,
+        message: data.message || (data.status === 'completed' ? 'Payment verified successfully' : `Payment status: ${data.status}`)
       };
+
+      console.log('Verification response from deployed function:', {
+        success: data.success,
+        status: data.status,
+        test_mode: data.test_mode,
+        message: data.message
+      });
 
       // If payment was successful and user wants to save the method
       if (result.success && result.status === 'completed' && saveMethod && paymentDetails) {

@@ -38,11 +38,11 @@ Deno.serve(async (req) => {
       supabaseServiceKey
     );
 
-    const { payment_token, order_id }: VerifyPaymentRequest = await req.json();
-    console.log("Verifying payment:", { payment_token, order_id });
+    const { payment_token, internal_token, order_id }: VerifyPaymentRequest = await req.json();
+    console.log("Verifying payment:", { payment_token, internal_token, order_id });
 
-    if (!payment_token || !order_id) {
-      throw new Error("Missing payment token or order ID");
+    if ((!payment_token && !internal_token) || !order_id) {
+      throw new Error("Missing payment token (payment_token or internal_token) or order ID");
     }
 
     // Get Paydunya configuration
@@ -59,29 +59,29 @@ Deno.serve(async (req) => {
 
     console.log("Using Paydunya API URL:", PAYDUNYA_CONFIG.baseUrl, "Mode:", paydunyaMode);
 
-    // Find payment in our database - try both token and transaction_id
+    // Find payment in our database using either token type
     let payment, paymentError;
     
-    // First try to find by token (UUID)
-    const { data: paymentByToken, error: tokenError } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("token", payment_token)
-      .single();
-
-    if (paymentByToken) {
-      payment = paymentByToken;
-      paymentError = tokenError;
-    } else {
-      // If not found, try by transaction_id (Paydunya token)
-      const { data: paymentByTransaction, error: transactionError } = await supabase
+    if (internal_token) {
+      // Use internal token (UUID) for database lookup - this is the preferred method
+      const result = await supabase
+        .from("payments")
+        .select("*")
+        .eq("token", internal_token)
+        .single();
+      payment = result.data;
+      paymentError = result.error;
+      console.log("Looking up payment by internal_token:", internal_token);
+    } else if (payment_token) {
+      // Fallback: try to find by Paydunya token (stored in transaction_id field)
+      const result = await supabase
         .from("payments")
         .select("*")
         .eq("transaction_id", payment_token)
         .single();
-      
-      payment = paymentByTransaction;
-      paymentError = transactionError;
+      payment = result.data;
+      paymentError = result.error;
+      console.log("Looking up payment by payment_token:", payment_token);
     }
 
     if (paymentError || !payment) {
@@ -124,11 +124,10 @@ Deno.serve(async (req) => {
       status = "failed";
     }
     
-    // In test mode, treat pending payments as completed for ticket creation
-    const shouldCreateTickets = status === "completed" || (paydunyaMode === "test" && status === "pending");
-    if (shouldCreateTickets && paydunyaMode === "test" && status === "pending") {
-      console.log("Test mode: treating pending payment as completed for ticket creation");
-      status = "completed"; // Update status to completed in test mode
+    // 🎯 TEST MODE LOGIC: Treat pending payments as completed for immediate ticket generation
+    if (paydunyaMode === "test" && status === "pending") {
+      console.log("🎯 Test mode: Treating pending payment as completed for immediate ticket generation");
+      status = "completed";
     }
 
     // Update payment record
@@ -145,9 +144,9 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    // If payment is completed, update order and create tickets
-    if (status === "completed") {
-      console.log(`Processing payment verification for order ${order_id}, status: ${status}, mode: ${paydunyaMode}`);
+    // If payment is completed or pending in test mode, update order and create tickets
+    if (status === "completed" || (paydunyaMode === "test" && status === "pending")) {
+      console.log(`🎫 Processing completed payment for order ${order_id}, status: ${status}, mode: ${paydunyaMode}`);
       
       // Check if tickets already exist for this order to prevent duplicates
       const { data: existingTickets, error: existingTicketsError } = await supabase
@@ -158,15 +157,25 @@ Deno.serve(async (req) => {
       if (existingTicketsError) {
         console.error("Error checking existing tickets:", existingTicketsError);
       } else if (existingTickets && existingTickets.length > 0) {
-        console.log(`Tickets already exist for order ${order_id}, skipping ticket creation`);
+        console.log(`🎫 Tickets already exist for order ${order_id} (${existingTickets.length} tickets), skipping ticket creation`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: "completed",
+            message: "Payment verified successfully - tickets already exist"
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
       } else {
-        console.log(`No existing tickets found for order ${order_id}, creating tickets...`);
+        console.log(`🎫 No existing tickets found for order ${order_id}, creating tickets...`);
         
         // Update order status
         const { error: orderUpdateError } = await supabase
           .from("orders")
           .update({
-            status: status === "completed" ? "COMPLETED" : "PENDING",
+            status: "COMPLETED",
             updated_at: new Date().toISOString()
           })
           .eq("id", order_id);
@@ -194,34 +203,48 @@ Deno.serve(async (req) => {
                 user_id: order.user_id,
                 ticket_type_id: ticketTypeId,
                 status: "VALID",
-                payment_status: status === "completed" ? "paid" : "pending",
+                payment_status: "paid",
                 payment_id: payment.id
               });
             }
           }
 
           if (ticketInserts.length > 0) {
-            const { error: ticketsError } = await supabase
+            console.log(`🎫 Creating ${ticketInserts.length} tickets for order ${order_id}`);
+            const { data: createdTickets, error: ticketsError } = await supabase
               .from("tickets")
-              .insert(ticketInserts);
+              .insert(ticketInserts)
+              .select("id");
 
             if (ticketsError) {
               console.error("Error creating tickets:", ticketsError);
             } else {
-              console.log(`Created ${ticketInserts.length} tickets for order ${order_id}`);
+              console.log(`🎫 Successfully created ${createdTickets?.length || ticketInserts.length} tickets for order ${order_id}`);
+              if (createdTickets) {
+                console.log(`🎫 Created ticket IDs:`, createdTickets.map(t => t.id));
+              }
             }
           }
         }
       }
     }
 
+    // 🎯 TEST MODE RESPONSE: Include clear test mode indicators
+    const isTestModeSuccess = paydunyaMode === "test" && status === "pending";
+    const responseMessage = isTestModeSuccess 
+      ? "🧪 Test Mode: Payment pending but tickets generated automatically!"
+      : status === "completed" 
+        ? "Payment verified successfully" 
+        : `Payment status: ${status}`;
+    
     return new Response(
       JSON.stringify({
-        success: status === "completed",
-        status,
+        success: status === "completed" || (paydunyaMode === "test" && status === "pending"),
+        status: status === "completed" || (paydunyaMode === "test" && status === "pending") ? "completed" : status,
         payment_id: payment.id,
         order_id,
-        message: status === "completed" ? "Payment verified successfully" : `Payment status: ${status}`
+        test_mode: paydunyaMode === "test",
+        message: responseMessage
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" }

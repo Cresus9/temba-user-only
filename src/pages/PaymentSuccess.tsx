@@ -66,9 +66,8 @@ export default function PaymentSuccess() {
         VITE_PAYDUNYA_MODE: import.meta.env.VITE_PAYDUNYA_MODE
       });
       
-      // In test mode, accept 'pending' status as successful
-      // Since we're in development and using test Paydunya keys, treat as test mode
-      const isTestMode = import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
+      // Check if the function indicates test mode or if we're in dev environment
+      const isTestMode = result.test_mode || import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
       const isSuccessful = result.success && (result.status === 'completed' || (isTestMode && result.status === 'pending'));
       
       console.log('Test mode check:', {
