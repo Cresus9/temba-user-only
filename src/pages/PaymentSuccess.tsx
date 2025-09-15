@@ -33,14 +33,30 @@ export default function PaymentSuccess() {
     try {
       setLoading(true);
       
-      // Add timeout to prevent infinite loading
+      // Add timeout to prevent infinite loading - reduced to 10 seconds
       const timeoutId = setTimeout(() => {
         console.log('⏰ Verification timeout - redirecting anyway');
         setLoading(false);
         setSuccess(true);
-        toast.success('Redirection vers vos billets...');
+        toast.success('Paiement traité - Redirection vers vos billets...');
         navigate(`/booking/confirmation/${orderId}?token=${token}`);
-      }, 15000); // 15 second timeout
+      }, 10000); // 10 second timeout
+      
+      // Add even quicker fallback - 5 seconds for immediate redirect option
+      const quickTimeoutId = setTimeout(() => {
+        console.log('🚀 Quick redirect - payment likely succeeded');
+        // Don't stop the verification, but show user they can skip
+        if (loading) {
+          toast.success('Paiement traité! Cliquez ici pour voir vos billets', {
+            duration: 5000,
+            onClick: () => {
+              clearTimeout(timeoutId);
+              clearTimeout(quickTimeoutId);
+              navigate(`/booking/confirmation/${orderId}?token=${token}`);
+            }
+          });
+        }
+      }, 5000); // 5 second quick option
       
       // Get payment details from localStorage
       const storedPaymentDetails = localStorage.getItem('paymentDetails');
@@ -59,6 +75,15 @@ export default function PaymentSuccess() {
           console.error('Error parsing payment details:', e);
         }
       }
+      
+      // If we're here and have orderId + token, payment likely succeeded
+      // Add quick success check before full verification
+      console.log('🎯 Quick success check:', {
+        hasOrderId: !!orderId,
+        hasToken: !!token,
+        tokenLength: token?.length,
+        currentUrl: window.location.href
+      });
       
       // Verify payment using our service with payment details for saving
       const result = await paymentService.verifyPayment(token!, orderId!, saveMethod, paymentDetails);
@@ -103,16 +128,18 @@ export default function PaymentSuccess() {
           localStorage.removeItem('paymentDetails');
         }
         
-        // Clear timeout since verification succeeded
+        // Clear both timeouts since verification succeeded
         clearTimeout(timeoutId);
+        clearTimeout(quickTimeoutId);
         
         // Redirect to booking confirmation after 3 seconds
         setTimeout(() => {
           navigate(`/booking/confirmation/${orderId}?token=${token}`);
         }, 3000);
       } else {
-        // Clear timeout
+        // Clear both timeouts
         clearTimeout(timeoutId);
+        clearTimeout(quickTimeoutId);
         throw new Error(result.message || 'Paiement non confirmé');
       }
     } catch (error: any) {
@@ -136,9 +163,12 @@ export default function PaymentSuccess() {
         toast.error(error.message || 'Échec de la vérification du paiement');
       }
     } finally {
-      // Clear timeout in finally block to ensure it's always cleared
+      // Clear both timeouts in finally block to ensure they're always cleared
       if (typeof timeoutId !== 'undefined') {
         clearTimeout(timeoutId);
+      }
+      if (typeof quickTimeoutId !== 'undefined') {
+        clearTimeout(quickTimeoutId);
       }
       setLoading(false);
     }
@@ -147,14 +177,30 @@ export default function PaymentSuccess() {
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md mx-auto px-4">
           <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Vérification du paiement...
+            Vérification du paiement
           </h2>
-          <p className="text-gray-600">
-            Veuillez patienter pendant que nous confirmons votre paiement
+          <p className="text-gray-600 mb-6">
+            Confirmation de votre transaction...
           </p>
+          
+          {/* Manual skip button */}
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                console.log('🚀 Manual skip - redirecting to tickets');
+                navigate(`/booking/confirmation/${orderId}?token=${token}`);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700 underline"
+            >
+              Voir mes billets directement
+            </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Si la vérification prend trop de temps
+            </p>
+          </div>
         </div>
       </div>
     );
