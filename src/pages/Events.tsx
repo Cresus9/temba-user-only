@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search, Filter, Calendar, MapPin, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import EventCard from '../components/EventCard';
-import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
+import { EventService } from '../services/eventService';
 
 const initialFilters = {
   search: '',
@@ -22,10 +22,69 @@ export default function Events() {
   const [categories, setCategories] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   const navigate = useNavigate();
+  const eventService = useMemo(() => new EventService(), []);
+  const isMountedRef = useRef(true);
+  const latestRequestRef = useRef(0);
+
+  const fetchLocationsAndCategories = useCallback(async () => {
+    try {
+      const metadata = await eventService.fetchFilterMetadata();
+      if (!isMountedRef.current) {
+        return;
+      }
+      setLocations(metadata.locations);
+      setCategories(metadata.categories);
+    } catch (error) {
+      console.error('Erreur lors du chargement des lieux et catégories:', error);
+    }
+  }, [eventService]);
+
+  const fetchEvents = useCallback(async () => {
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
+    try {
+      setLoading(true);
+      const fetchedEvents = await eventService.fetchPublishedEvents({
+        search: debouncedSearch,
+        location: filters.location,
+        date: filters.date,
+        category: filters.category,
+      });
+
+      if (!isMountedRef.current || latestRequestRef.current !== requestId) {
+        return;
+      }
+
+      const categoryFilter = filters.category?.trim();
+      const filtered = categoryFilter
+        ? fetchedEvents.filter(event => event.categories?.includes(categoryFilter))
+        : fetchedEvents;
+
+      setEvents(filtered);
+    } catch (error) {
+      if (!isMountedRef.current || latestRequestRef.current !== requestId) {
+        return;
+      }
+
+      console.error('Erreur lors du chargement des événements:', error);
+      const online = typeof navigator !== 'undefined' && navigator.onLine;
+      if (online) {
+        toast.error('Échec du chargement des événements');
+      }
+    } finally {
+      if (isMountedRef.current && latestRequestRef.current === requestId) {
+        setLoading(false);
+      }
+    }
+  }, [eventService, debouncedSearch, filters.category, filters.date, filters.location]);
 
   useEffect(() => {
-    fetchLocationsAndCategories();
-  }, []);
+    isMountedRef.current = true;
+    void fetchLocationsAndCategories();
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchLocationsAndCategories]);
 
   // Debounce search input
   useEffect(() => {
@@ -38,76 +97,8 @@ export default function Events() {
 
   // Fetch events when filters change
   useEffect(() => {
-    fetchEvents();
-  }, [debouncedSearch, filters.category, filters.location, filters.date]);
-
-  const fetchLocationsAndCategories = async () => {
-    try {
-      // Get unique locations
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('location')
-        .eq('status', 'PUBLISHED');
-      
-      const uniqueLocations = [...new Set(eventsData?.map(e => e.location) || [])];
-      setLocations(uniqueLocations);
-
-      // Get unique categories
-      const { data: categoriesData } = await supabase
-        .from('events')
-        .select('categories')
-        .eq('status', 'PUBLISHED');
-      
-      const uniqueCategories = [...new Set(
-        categoriesData?.flatMap(e => e.categories || []) || []
-      )];
-      setCategories(uniqueCategories);
-    } catch (error) {
-      console.error('Erreur lors du chargement des lieux et catégories:', error);
-    }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
-        .eq('status', 'PUBLISHED');
-
-      if (debouncedSearch) {
-        query = query.or(`title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
-      }
-      if (filters.location) {
-        query = query.ilike('location', `%${filters.location}%`);
-      }
-      if (filters.date) {
-        query = query.eq('date', filters.date);
-      }
-
-      const { data, error } = await query.order('date', { ascending: true });
-
-      if (error) throw error;
-      
-      // Filter by category client-side if category filter is applied
-      let filteredData = data || [];
-      if (filters.category) {
-        filteredData = filteredData.filter(event => 
-          event.categories && event.categories.includes(filters.category)
-        );
-      }
-      
-      setEvents(filteredData);
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-      toast.error('Échec du chargement des événements');
-    } finally {
-      setLoading(false);
-    }
-  };
+    void fetchEvents();
+  }, [fetchEvents]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters(prev => ({ ...prev, search: e.target.value }));

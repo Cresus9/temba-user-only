@@ -1,180 +1,454 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
-import { paymentService, CreatePaymentRequest } from './paymentService';
-import { notificationTriggers } from './notificationTriggers';
+import {
+  paymentService,
+  type CreatePaymentRequest,
+} from './paymentService';
+
+export interface PaymentDetailsInput {
+  provider?: string;
+  phone?: string;
+  cardNumber?: string;
+  expiryDate?: string;
+  cvv?: string;
+  cardholderName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingCountry?: string;
+}
+
+export type PaymentMethod = 'MOBILE_MONEY' | 'CARD';
 
 export interface CreateOrderInput {
   eventId: string;
-  ticketQuantities: { [key: string]: number };
-  paymentMethod: string;
-  paymentDetails?: {
-    provider?: string;
-    phone?: string;
-    cardNumber?: string;
-    expiryDate?: string;
-    cvv?: string;
-  };
+  ticketQuantities: Record<string, number>;
+  paymentMethod: PaymentMethod;
+  paymentDetails?: PaymentDetailsInput;
 }
 
-class OrderService {
+interface GuestOrderInput {
+  email: string;
+  name: string;
+  phone?: string;
+  eventId: string;
+  ticketQuantities: Record<string, number>;
+  paymentMethod: PaymentMethod;
+  paymentDetails?: PaymentDetailsInput;
+}
+
+interface OrderServiceDependencies {
+  supabaseClient?: SupabaseClient;
+  paymentClient?: Pick<typeof paymentService, 'createPayment'>;
+}
+
+type TicketTypeRow = {
+  id: string;
+  price: number;
+  event_id: string;
+};
+
+type EventRow = {
+  title: string;
+  currency: string;
+  status?: string | null;
+};
+
+const SUPPORTED_PAYMENT_METHODS: PaymentMethod[] = ['MOBILE_MONEY', 'CARD'];
+
+const stripUndefined = <T extends Record<string, unknown>>(input: T): Partial<T> => {
+  return Object.entries(input).reduce<Partial<T>>((accumulator, [key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      accumulator[key as keyof T] = value as T[keyof T];
+    }
+    return accumulator;
+  }, {});
+};
+
+const ensurePaymentMethod = (method: string): PaymentMethod => {
+  const normalised = method?.toUpperCase() as PaymentMethod;
+  if (SUPPORTED_PAYMENT_METHODS.includes(normalised)) {
+    return normalised;
+  }
+  throw new Error('Méthode de paiement invalide');
+};
+
+const sanitizeTicketQuantities = (quantities: Record<string, number>): Record<string, number> => {
+  const sanitized: Record<string, number> = {};
+
+  for (const [rawId, rawQuantity] of Object.entries(quantities ?? {})) {
+    const ticketId = rawId.trim();
+    if (!ticketId) {
+      continue;
+    }
+
+    const quantity = typeof rawQuantity === 'number' ? rawQuantity : Number(rawQuantity);
+    if (!Number.isFinite(quantity)) {
+      throw new Error('Quantité de billets invalide');
+    }
+    if (!Number.isInteger(quantity)) {
+      throw new Error('La quantité de billets doit être un entier');
+    }
+    if (quantity < 0) {
+      throw new Error('La quantité de billets ne peut pas être négative');
+    }
+    if (quantity > 0) {
+      sanitized[ticketId] = quantity;
+    }
+  }
+
+  return sanitized;
+};
+
+const ensureTicketSelection = (quantities: Record<string, number>): Record<string, number> => {
+  const sanitized = sanitizeTicketQuantities(quantities);
+  if (Object.keys(sanitized).length === 0) {
+    throw new Error('Aucun billet sélectionné');
+  }
+  return sanitized;
+};
+
+const sanitizePhoneNumber = (value?: string | null): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const normalised = trimmed.replace(/(?!^)\+/g, '').replace(/[^+\d]/g, '');
+  return normalised || undefined;
+};
+
+const sanitizeProvider = (value?: string | null): string | undefined => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.toLowerCase() : undefined;
+};
+
+const normalizeEmail = (email?: string | null): string | undefined => {
+  const trimmed = email?.trim();
+  return trimmed && trimmed.includes('@') ? trimmed.toLowerCase() : undefined;
+};
+
+const getApplicationOrigin = (): string | undefined => {
+  const browserLocation =
+    (typeof window !== 'undefined' && window?.location)
+    || (globalThis as { location?: Pick<Location, 'origin'> }).location;
+
+  const origin = browserLocation?.origin?.trim();
+  return origin ? origin.replace(/\/$/, '') : undefined;
+};
+
+const buildReturnUrls = (): { returnUrl?: string; cancelUrl?: string } => {
+  const origin = getApplicationOrigin();
+  if (!origin) {
+    return {};
+  }
+  return {
+    returnUrl: `${origin}/payment/success`,
+    cancelUrl: `${origin}/payment/cancelled`,
+  };
+};
+
+const createIdempotencyKey = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `payment-${crypto.randomUUID()}`;
+  }
+  return `payment-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
+const sanitizeGuestPaymentDetails = (
+  method: PaymentMethod,
+  details?: PaymentDetailsInput,
+): Record<string, unknown> => {
+  if (!details) {
+    return {};
+  }
+
+  if (method === 'MOBILE_MONEY') {
+    return stripUndefined({
+      provider: sanitizeProvider(details.provider),
+      phone: sanitizePhoneNumber(details.phone),
+    });
+  }
+
+  const sanitizedCardNumber = typeof details.cardNumber === 'string'
+    ? details.cardNumber.replace(/[\s-]/g, '')
+    : undefined;
+
+  return stripUndefined({
+    cardNumber: sanitizedCardNumber,
+    expiryDate: details.expiryDate?.trim(),
+    cvv: details.cvv?.trim(),
+    cardholderName: details.cardholderName?.trim(),
+    billingAddress: details.billingAddress?.trim(),
+    billingCity: details.billingCity?.trim(),
+    billingCountry: details.billingCountry?.trim(),
+  });
+};
+
+export class OrderService {
+  private readonly supabase: SupabaseClient;
+  private readonly paymentClient: Pick<typeof paymentService, 'createPayment'>;
+
+  constructor({ supabaseClient, paymentClient }: OrderServiceDependencies = {}) {
+    this.supabase = supabaseClient ?? supabase;
+    this.paymentClient = paymentClient ?? paymentService;
+  }
+
+  private async rollbackOrder(orderId: string): Promise<void> {
+    if (!orderId) {
+      return;
+    }
+
+    const { error } = await this.supabase.from('orders').delete().eq('id', orderId);
+    if (error) {
+      console.error('Échec de la suppression de la commande après une erreur de paiement:', error);
+    }
+  }
+
   async createOrder(input: CreateOrderInput) {
+    let orderIdForCleanup: string | null = null;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
+      const paymentMethod = ensurePaymentMethod(input.paymentMethod);
+      const ticketQuantities = ensureTicketSelection(input.ticketQuantities);
 
-      // Validate input
-      if (!input.eventId) throw new Error('ID d\'événement requis');
-      if (!input.ticketQuantities || Object.keys(input.ticketQuantities).length === 0) {
-        throw new Error('Aucun billet sélectionné');
+      const { data: userResult, error: userError } = await this.supabase.auth.getUser();
+      if (userError) {
+        console.error('Erreur de récupération de l\'utilisateur connecté:', userError);
+        throw new Error('Non authentifié');
       }
-      if (!input.paymentMethod) throw new Error('Méthode de paiement requise');
 
-      // Get user profile for payment
-      const { data: profile } = await supabase
+      const user = userResult?.user;
+      if (!user) {
+        throw new Error('Non authentifié');
+      }
+
+      const { data: profile, error: profileError } = await this.supabase
         .from('profiles')
         .select('name, email, phone')
         .eq('user_id', user.id)
         .single();
 
-      if (!profile) throw new Error('Profil utilisateur non trouvé');
+      if (profileError) {
+        console.error('Erreur lors de la récupération du profil utilisateur:', profileError);
+        throw new Error('Profil utilisateur non trouvé');
+      }
 
-      // Calculate total amount
-      const { data: ticketTypes } = await supabase
-        .from('ticket_types')
-        .select('id, price')
-        .in('id', Object.keys(input.ticketQuantities));
+      if (!profile) {
+        throw new Error('Profil utilisateur non trouvé');
+      }
 
-      if (!ticketTypes) throw new Error('Types de billets non trouvés');
+      const { data: ticketTypes, error: ticketError } = await this.supabase
+        .from<TicketTypeRow>('ticket_types')
+        .select('id, price, event_id')
+        .in('id', Object.keys(ticketQuantities));
 
-      const totalAmount = ticketTypes.reduce((sum, ticket) => {
-        const quantity = input.ticketQuantities[ticket.id] || 0;
-        return sum + (ticket.price * quantity);
-      }, 0);
+      if (ticketError) {
+        console.error('Erreur lors de la récupération des types de billets:', ticketError);
+        throw new Error('Types de billets non trouvés');
+      }
 
-      // Get event details
-      const { data: event } = await supabase
-        .from('events')
-        .select('title, currency')
+      if (!ticketTypes || ticketTypes.length === 0) {
+        throw new Error('Types de billets non trouvés');
+      }
+
+      const foundIds = new Set(ticketTypes.map(ticket => ticket.id));
+      const missingIds = Object.keys(ticketQuantities).filter(id => !foundIds.has(id));
+      if (missingIds.length > 0) {
+        throw new Error('Certains types de billets sont introuvables');
+      }
+
+      const mismatched = ticketTypes.filter(ticket => ticket.event_id !== input.eventId);
+      if (mismatched.length > 0) {
+        throw new Error('Certains billets ne correspondent pas à cet événement');
+      }
+
+      const { data: event, error: eventError } = await this.supabase
+        .from<EventRow>('events')
+        .select('title, currency, status')
         .eq('id', input.eventId)
         .single();
 
-      if (!event) throw new Error('Événement non trouvé');
+      if (eventError) {
+        console.error('Erreur lors de la récupération de l\'événement:', eventError);
+        throw new Error('Événement non trouvé');
+      }
 
-      // Create order in database first
-      const { data: orderData, error: orderError } = await supabase
+      if (!event) {
+        throw new Error('Événement non trouvé');
+      }
+
+      if (event.status && event.status !== 'PUBLISHED') {
+        throw new Error('Événement indisponible');
+      }
+
+      const ticketLines = ticketTypes
+        .map(({ id, price }) => {
+          const quantity = ticketQuantities[id] ?? 0;
+          const ticketPrice = Number(price);
+          if (!Number.isFinite(ticketPrice) || ticketPrice < 0) {
+            throw new Error('Prix de billet invalide');
+          }
+          return {
+            ticket_type_id: id,
+            quantity,
+            price_major: ticketPrice,
+            currency: event.currency,
+          };
+        })
+        .filter(line => line.quantity > 0);
+
+      const totalAmount = ticketLines.reduce((sum, line) => sum + (line.price_major * line.quantity), 0);
+      if (totalAmount <= 0) {
+        throw new Error('Montant total invalide');
+      }
+
+      const providedPhone = sanitizePhoneNumber(input.paymentDetails?.phone);
+      const fallbackPhone = sanitizePhoneNumber(profile.phone);
+      const phone = providedPhone ?? fallbackPhone;
+      const provider = sanitizeProvider(input.paymentDetails?.provider);
+
+      if (paymentMethod === 'MOBILE_MONEY') {
+        if (!provider) {
+          throw new Error('Fournisseur de paiement requis');
+        }
+        if (!phone) {
+          throw new Error('Numéro de téléphone requis');
+        }
+      } else {
+        const cardNumber = input.paymentDetails?.cardNumber?.replace(/[\s-]/g, '') ?? '';
+        const expiryDate = input.paymentDetails?.expiryDate?.trim() ?? '';
+        const cvv = input.paymentDetails?.cvv?.trim() ?? '';
+
+        if (!/^\d{12,19}$/.test(cardNumber)) {
+          throw new Error('Numéro de carte invalide');
+        }
+        if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiryDate)) {
+          throw new Error('Date d\'expiration invalide');
+        }
+        if (!/^\d{3,4}$/.test(cvv)) {
+          throw new Error('CVV invalide');
+        }
+      }
+
+      const { data: orderData, error: orderError } = await this.supabase
         .from('orders')
         .insert({
           user_id: user.id,
           event_id: input.eventId,
           total: totalAmount,
           status: 'PENDING',
-          payment_method: input.paymentMethod,
-          ticket_quantities: input.ticketQuantities
+          payment_method: paymentMethod,
+          ticket_quantities: ticketQuantities,
         })
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError || !orderData) {
+        console.error('Erreur lors de la création de la commande:', orderError);
+        throw new Error('Échec de la création de la commande');
+      }
 
-      // Create payment using edge function
-      // Build ticket lines for the edge function
-      const ticketLines = ticketTypes.map(ticket => ({
-        ticket_type_id: ticket.id,
-        quantity: input.ticketQuantities[ticket.id] || 0,
-        price_major: ticket.price,
-        currency: event.currency
-      })).filter(line => line.quantity > 0);
+      orderIdForCleanup = orderData.id;
 
-      console.log('Ticket types from database:', ticketTypes);
-      console.log('Input ticket quantities:', input.ticketQuantities);
-      console.log('Generated ticket lines:', ticketLines);
+      const { returnUrl, cancelUrl } = buildReturnUrls();
 
       const paymentRequest: CreatePaymentRequest = {
-        idempotency_key: `payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        idempotency_key: createIdempotencyKey(),
         user_id: user.id,
+        buyer_email: normalizeEmail(profile.email),
         event_id: input.eventId,
         order_id: orderData.id,
         ticket_lines: ticketLines,
         amount_major: totalAmount,
         currency: event.currency,
-        method: input.paymentMethod === 'MOBILE_MONEY' ? 'mobile_money' : 'credit_card',
-        phone: input.paymentDetails?.phone || profile.phone,
-        provider: input.paymentDetails?.provider,
+        method: paymentMethod === 'MOBILE_MONEY' ? 'mobile_money' : 'credit_card',
+        phone: phone ?? undefined,
+        provider,
         save_method: false,
-        return_url: `${window.location.origin}/payment/success`,
-        cancel_url: `${window.location.origin}/payment/cancelled`,
-        description: `Tickets for ${event.title}`
+        description: `Tickets for ${event.title}`,
+        ...(returnUrl ? { return_url: returnUrl } : {}),
+        ...(cancelUrl ? { cancel_url: cancelUrl } : {}),
       };
 
-      console.log('Creating payment with request:', paymentRequest);
-      const paymentResponse = await paymentService.createPayment(paymentRequest);
+      const paymentResponse = await this.paymentClient.createPayment(paymentRequest);
 
       if (!paymentResponse.success) {
-        // Delete the order if payment creation failed
-        await supabase.from('orders').delete().eq('id', orderData.id);
-        throw new Error(paymentResponse.error || 'Failed to create payment');
+        await this.rollbackOrder(orderData.id);
+        orderIdForCleanup = null;
+        throw new Error(paymentResponse.error || 'Échec de la création du paiement');
       }
 
+      if (!paymentResponse.payment_token) {
+        await this.rollbackOrder(orderData.id);
+        orderIdForCleanup = null;
+        throw new Error('Réponse de paiement invalide');
+      }
+
+      orderIdForCleanup = null;
 
       return {
         orderId: orderData.id,
         paymentUrl: paymentResponse.payment_url,
         paymentToken: paymentResponse.payment_token,
-        success: true
+        success: true,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (orderIdForCleanup) {
+        await this.rollbackOrder(orderIdForCleanup);
+      }
+
       console.error('Erreur de création de commande:', error);
-      throw new Error(error.message || 'Échec de la création de la commande');
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Échec de la création de la commande';
+      throw new Error(message);
     }
   }
 
-  async createGuestOrder(input: {
-    email: string;
-    name: string;
-    phone?: string;
-    eventId: string;
-    ticketQuantities: { [key: string]: number };
-    paymentMethod: string;
-    paymentDetails?: {
-      provider?: string;
-      phone?: string;
-      cardNumber?: string;
-      expiryDate?: string;
-      cvv?: string;
-    };
-  }) {
+  async createGuestOrder(input: GuestOrderInput) {
     try {
-      // Input validation
       if (!input.email?.trim()) throw new Error('Email requis');
       if (!input.name?.trim()) throw new Error('Nom requis');
       if (!input.eventId) throw new Error('ID d\'événement requis');
-      if (!input.ticketQuantities || Object.keys(input.ticketQuantities).length === 0) {
-        throw new Error('Aucun billet sélectionné');
-      }
-      if (!input.paymentMethod) throw new Error('Méthode de paiement requise');
 
-      // Validate email format
+      const paymentMethod = ensurePaymentMethod(input.paymentMethod);
+      const ticketQuantities = ensureTicketSelection(input.ticketQuantities);
+
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
       if (!emailRegex.test(input.email)) throw new Error('Format d\'email invalide');
 
-      // Validate payment details
-      if (input.paymentMethod === 'MOBILE_MONEY') {
-        if (!input.paymentDetails?.provider) throw new Error('Fournisseur de paiement requis');
-        if (!input.paymentDetails?.phone) throw new Error('Numéro de téléphone requis');
-      } else if (input.paymentMethod === 'CARD') {
-        if (!input.paymentDetails?.cardNumber) throw new Error('Numéro de carte requis');
-        if (!input.paymentDetails?.expiryDate) throw new Error('Date d\'expiration de la carte requise');
-        if (!input.paymentDetails?.cvv) throw new Error('CVV de la carte requis');
+      const sanitizedPhone = sanitizePhoneNumber(input.phone);
+      const paymentDetails = sanitizeGuestPaymentDetails(paymentMethod, input.paymentDetails);
+
+      if (paymentMethod === 'MOBILE_MONEY') {
+        if (!paymentDetails.provider) throw new Error('Fournisseur de paiement requis');
+        if (!paymentDetails.phone && !sanitizedPhone) throw new Error('Numéro de téléphone requis');
+      } else {
+        const cardNumber = paymentDetails.cardNumber as string | undefined;
+        const expiryDate = paymentDetails.expiryDate as string | undefined;
+        const cvv = paymentDetails.cvv as string | undefined;
+
+        if (!cardNumber || !/^\d{12,19}$/.test(cardNumber)) {
+          throw new Error('Numéro de carte invalide');
+        }
+        if (!expiryDate || !/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiryDate)) {
+          throw new Error('Date d\'expiration invalide');
+        }
+        if (!cvv || !/^\d{3,4}$/.test(cvv)) {
+          throw new Error('CVV invalide');
+        }
       }
 
-      // Create guest order using database function
-      const { data, error } = await supabase.rpc('guest_order_processor', {
-        p_email: input.email.trim(),
+      const { data, error } = await this.supabase.rpc('guest_order_processor', {
+        p_email: input.email.trim().toLowerCase(),
         p_name: input.name.trim(),
-        p_phone: input.phone?.trim(),
+        p_phone: sanitizedPhone ?? null,
         p_event_id: input.eventId,
-        p_payment_method: input.paymentMethod,
-        p_ticket_quantities: input.ticketQuantities,
-        p_payment_details: input.paymentDetails || {}
+        p_payment_method: paymentMethod,
+        p_ticket_quantities: ticketQuantities,
+        p_payment_details: paymentDetails,
       });
 
       if (error) {
@@ -189,11 +463,16 @@ class OrderService {
       return {
         orderId: data.order_id,
         token: data.token,
-        success: true
+        paymentUrl: data.payment_url,
+        paymentToken: data.payment_token,
+        success: true,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur de création de commande invité:', error);
-      throw new Error(error.message || 'Échec de la création de la commande invité');
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Échec de la création de la commande invité';
+      throw new Error(message);
     }
   }
 
@@ -201,16 +480,19 @@ class OrderService {
     try {
       if (!token?.trim()) throw new Error('Jeton requis');
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('guest_ticket_details')
         .select('*')
         .eq('token', token.trim());
 
       if (error) throw error;
       return data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur lors du chargement des billets invité:', error);
-      throw new Error(error.message || 'Échec du chargement des billets invité');
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Échec du chargement des billets invité';
+      throw new Error(message);
     }
   }
 
@@ -218,7 +500,7 @@ class OrderService {
     try {
       if (!token?.trim()) throw new Error('Jeton requis');
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('orders')
         .select(`
           id,
@@ -232,11 +514,14 @@ class OrderService {
 
       return {
         success: true,
-        orderStatus: data.status
+        orderStatus: data.status,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur de vérification de commande invité:', error);
-      throw new Error(error.message || 'Échec de la vérification de la commande invité');
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Échec de la vérification de la commande invité';
+      throw new Error(message);
     }
   }
 }

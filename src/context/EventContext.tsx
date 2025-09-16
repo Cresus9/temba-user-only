@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase-client';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
+import { EventService, eventService as defaultEventService } from '../services/eventService';
 
 interface EventContextType {
   events: Event[];
@@ -14,93 +14,121 @@ interface EventContextType {
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
-export function EventProvider({ children }: { children: React.ReactNode }) {
+interface EventProviderProps {
+  children: React.ReactNode;
+  service?: EventService;
+}
+
+export function EventProvider({ children, service }: EventProviderProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const eventService = useMemo(() => service ?? defaultEventService, [service]);
+  const isMountedRef = useRef(true);
+  const hasLoadedOnceRef = useRef(false);
+  const lastToastAtRef = useRef<number | null>(null);
+  const latestRequestRef = useRef(0);
 
-      // Fetch all published events
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
-        .eq('status', 'PUBLISHED')
-        .order('date', { ascending: true });
-
-      if (eventsError) throw eventsError;
-
-      // Set both events and featured events to the same data
-      setEvents(eventsData || []);
-      setFeaturedEvents(eventsData || []);
-       // Log each event's ID
-    eventsData?.forEach((event) => {
-      console.log('Event TITLE:', event.title);
-      console.log('Event ID:', event.id);
-    });
-
-      // Log the results for debugging
-      console.log('Published events:', eventsData?.length || 0);
-    } catch (err: any) {
-      console.error('Error fetching events:', err);
-      setError('Failed to load events');
-      if (navigator.onLine) {
-        toast.error('Failed to load events. Please try again later.');
+  const dedupeEvents = useCallback((list: Event[]): Event[] => {
+    const seen = new Set<string>();
+    return list.filter((event) => {
+      if (!event.id) {
+        return false;
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getEvent = (id: string) => {
-    return events.find(event => event.id === id);
-  };
-
-  // Subscribe to realtime changes
-  useEffect(() => {
-    const eventsSubscription = supabase
-      .channel('events_channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'events'
-        },
-        () => {
-          // Refetch events when changes occur
-          fetchEvents();
-        }
-      )
-      .subscribe();
-
-    // Initial fetch
-    fetchEvents();
-
-    // Cleanup subscription
-    return () => {
-      eventsSubscription.unsubscribe();
-    };
+      if (seen.has(event.id)) {
+        return false;
+      }
+      seen.add(event.id);
+      return true;
+    });
   }, []);
 
+  const updateEvents = useCallback((list: Event[]) => {
+    const deduped = dedupeEvents(list);
+    setEvents(deduped);
+    setFeaturedEvents(deduped.filter((event) => event.featured));
+  }, [dedupeEvents]);
+
+  const loadEvents = useCallback(
+    async (options: { showLoading?: boolean } = {}) => {
+      const requestId = latestRequestRef.current + 1;
+      latestRequestRef.current = requestId;
+      const shouldShowLoading = options.showLoading ?? !hasLoadedOnceRef.current;
+
+      if (shouldShowLoading) {
+        setLoading(true);
+      }
+
+      try {
+        setError(null);
+        const list = await eventService.fetchPublishedEvents();
+        if (!isMountedRef.current || latestRequestRef.current !== requestId) {
+          return;
+        }
+        updateEvents(list);
+        hasLoadedOnceRef.current = true;
+        lastToastAtRef.current = null;
+      } catch (err) {
+        if (!isMountedRef.current || latestRequestRef.current !== requestId) {
+          return;
+        }
+
+        const message = err instanceof Error ? err.message : 'Failed to load events';
+        setError(message);
+
+        const now = Date.now();
+        const online = typeof navigator !== 'undefined' && navigator.onLine;
+        if (online && (!lastToastAtRef.current || now - lastToastAtRef.current > 5000)) {
+          toast.error('Failed to load events. Please try again later.');
+          lastToastAtRef.current = now;
+        }
+      } finally {
+        if (shouldShowLoading && isMountedRef.current && latestRequestRef.current === requestId) {
+          setLoading(false);
+        }
+      }
+    },
+    [eventService, updateEvents],
+  );
+
+  const fetchEvents = useCallback(() => loadEvents({ showLoading: true }), [loadEvents]);
+
+  const getEvent = useCallback(
+    (id: string) => events.find((event) => event.id === id),
+    [events],
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const subscription = eventService.subscribeToEventChanges(() => {
+      void loadEvents({ showLoading: false });
+    });
+
+    void loadEvents({ showLoading: true });
+
+    return () => {
+      isMountedRef.current = false;
+      void subscription.unsubscribe();
+    };
+  }, [eventService, loadEvents]);
+
+  const contextValue = useMemo(
+    () => ({
+      events,
+      loading,
+      error,
+      fetchEvents,
+      getEvent,
+      featuredEvents,
+    }),
+    [events, loading, error, fetchEvents, getEvent, featuredEvents],
+  );
+
   return (
-    <EventContext.Provider
-      value={{
-        events,
-        loading,
-        error,
-        fetchEvents,
-        getEvent,
-        featuredEvents
-      }}
-    >
+    <EventContext.Provider value={contextValue}>
       {children}
     </EventContext.Provider>
   );

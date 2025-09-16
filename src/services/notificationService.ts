@@ -1,3 +1,4 @@
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
 
 export interface Notification {
@@ -6,8 +7,8 @@ export interface Notification {
   type: string;
   title: string;
   message: string;
-  metadata?: any;  // Your table uses 'metadata' instead of 'data'
-  read: string;    // Your table uses 'read' as string instead of 'read_at' as date
+  metadata?: Record<string, unknown> | null;
+  read: string;
   read_at: string | null;
   created_at: string;
   updated_at: string;
@@ -25,252 +26,338 @@ export interface NotificationPreferences {
   types: string[];
 }
 
-class NotificationService {
+interface NotificationServiceOptions {
+  supabaseClient?: SupabaseClient;
+  logger?: Pick<Console, 'error' | 'warn'>;
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  email: true,
+  push: false,
+  types: [],
+};
+
+const MAX_LIMIT = 100;
+
+export class NotificationService {
+  private readonly client: SupabaseClient;
+  private readonly logger: Pick<Console, 'error' | 'warn'>;
+
+  constructor(options: NotificationServiceOptions = {}) {
+    this.client = options.supabaseClient ?? supabase;
+    this.logger = options.logger ?? console;
+  }
+
+  private normaliseLimit(value: number, fallback: number): number {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.min(Math.floor(parsed), MAX_LIMIT);
+    }
+    return fallback;
+  }
+
+  private async requireUserId(): Promise<string> {
+    const { data, error } = await this.client.auth.getUser();
+    if (error) {
+      this.logger.error('Erreur lors de la récupération de l\'utilisateur authentifié:', error);
+      throw new Error('Impossible de récupérer l\'utilisateur authentifié');
+    }
+
+    const userId = data?.user?.id;
+    if (!userId) {
+      throw new Error('Non authentifié');
+    }
+
+    return userId;
+  }
+
+  private async maybeGetUserId(): Promise<string | null> {
+    const { data, error } = await this.client.auth.getUser();
+    if (error) {
+      this.logger.error('Erreur lors de la récupération de l\'utilisateur authentifié:', error);
+      return null;
+    }
+
+    return data?.user?.id ?? null;
+  }
+
   async getUserNotifications(limit = 10): Promise<Notification[]> {
+    const userId = await this.requireUserId();
+    const effectiveLimit = this.normaliseLimit(limit, 10);
+
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from('notifications')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(effectiveLimit);
 
-      if (error) throw error;
-      return data || [];
-    } catch (error: any) {
-      console.error('Error fetching notifications:', error);
-      throw new Error(error.message || 'Failed to fetch notifications');
+      if (error) {
+        throw error;
+      }
+
+      return data ?? [];
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors du chargement des notifications:', error as Error);
+      throw new Error('Échec du chargement des notifications');
     }
   }
 
   async getPreferences(): Promise<NotificationPreferences> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
+    const userId = await this.requireUserId();
 
-    const { data, error } = await supabase
-      .from('notification_preferences')
-      .select('email, push, types')
-      .eq('user_id', user.id)
-      .single();
+    try {
+      const { data, error } = await this.client
+        .from('notification_preferences')
+        .select('email, push, types')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error; // no rows
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
 
-    return data || { email: true, push: false, types: [] };
+      return data ?? { ...DEFAULT_PREFERENCES };
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors du chargement des préférences de notification:', error as Error);
+      throw new Error('Échec du chargement des préférences de notification');
+    }
   }
 
   async updatePreferences(prefs: NotificationPreferences): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
+    const userId = await this.requireUserId();
 
-    const { error } = await supabase
-      .from('notification_preferences')
-      .upsert({ user_id: user.id, ...prefs }, { onConflict: 'user_id' });
+    try {
+      const { error } = await this.client
+        .from('notification_preferences')
+        .upsert({ user_id: userId, ...prefs }, { onConflict: 'user_id' });
 
-    if (error) throw error;
+      if (error) {
+        throw error;
+      }
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors de la mise à jour des préférences de notification:', error as Error);
+      throw new Error('Échec de la mise à jour des préférences de notification');
+    }
   }
 
   async requestPushPermission(): Promise<boolean> {
-    if (!('Notification' in window)) return false;
-    const result = await Notification.requestPermission();
-    return result === 'granted';
+    if (typeof window === 'undefined' || typeof window.Notification === 'undefined') {
+      return false;
+    }
+
+    try {
+      const result = await window.Notification.requestPermission();
+      return result === 'granted';
+    } catch (error) {
+      this.logger.error('Erreur lors de la demande de permission de notification push:', error as Error);
+      return false;
+    }
   }
 
   async getUnreadNotifications(): Promise<Notification[]> {
+    const userId = await this.requireUserId();
+
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from('notifications')
         .select('*')
-        .eq('read', 'false')  // Your table uses 'read' as string 'true'/'false'
+        .eq('user_id', userId)
+        .eq('read', 'false')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
-    } catch (error: any) {
-      console.error('Error fetching unread notifications:', error);
-      throw new Error(error.message || 'Failed to fetch unread notifications');
+      if (error) {
+        throw error;
+      }
+
+      return data ?? [];
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors du chargement des notifications non lues:', error as Error);
+      throw new Error('Échec du chargement des notifications non lues');
     }
   }
 
   async markAsRead(notificationId: string): Promise<boolean> {
+    const userId = await this.requireUserId();
+
     try {
-      console.log(`🔄 NotificationService: Marking ${notificationId} as read in database...`);
-      
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from('notifications')
-        .update({ 
+        .update({
           read: 'true',
-          read_at: new Date().toISOString()
+          read_at: new Date().toISOString(),
         })
         .eq('id', notificationId)
-        .select(); // Add select to see what was updated
+        .eq('user_id', userId)
+        .select('id');
 
       if (error) {
-        console.error(`❌ Database error marking ${notificationId} as read:`, error);
         throw error;
       }
-      
-      console.log(`✅ Database update result for ${notificationId}:`, data);
+
+      if (!data || data.length === 0) {
+        throw new Error('Notification introuvable');
+      }
+
       return true;
-    } catch (error: any) {
-      console.error(`❌ Error marking notification ${notificationId} as read:`, error);
-      throw new Error(error.message || 'Failed to mark notification as read');
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors de la mise à jour de la notification:', error as Error);
+      const message = error instanceof Error && error.message !== 'Notification introuvable'
+        ? 'Échec de la mise à jour de la notification'
+        : error instanceof Error
+          ? error.message
+          : 'Échec de la mise à jour de la notification';
+      throw new Error(message);
     }
   }
 
   async markAllAsRead(): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
+    const userId = await this.requireUserId();
 
-      const { error } = await supabase
+    try {
+      const { error } = await this.client
         .from('notifications')
-        .update({ 
+        .update({
           read: 'true',
-          read_at: new Date().toISOString() 
+          read_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('read', 'false');
 
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Error marking all notifications as read:', error);
-      throw new Error(error.message || 'Failed to mark all notifications as read');
+      if (error) {
+        throw error;
+      }
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors de la mise à jour des notifications:', error as Error);
+      throw new Error('Échec de la mise à jour des notifications');
     }
   }
 
   async getNotificationCount(): Promise<number> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
+    const userId = await this.maybeGetUserId();
+    if (!userId) {
+      return 0;
+    }
 
-      const { count, error } = await supabase
+    try {
+      const { count, error } = await this.client
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('read', 'false');
 
-      if (error) throw error;
-      return count || 0;
-    } catch (error: any) {
-      console.error('Error getting notification count:', error);
+      if (error) {
+        throw error;
+      }
+
+      return count ?? 0;
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors du calcul du nombre de notifications:', error as Error);
       return 0;
     }
   }
 
-  // Subscribe to real-time notifications
   subscribeToNotifications(callback: (notification: Notification) => void) {
-    const setupSubscription = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          console.log('❌ No authenticated user for notifications subscription');
-          return null;
-        }
-
-        console.log('🔔 Setting up notifications subscription for user:', user.id);
-        
-        // Create a unique channel name
-        const channelName = `notifications-${user.id}-${Date.now()}`;
-        
-        const channel = supabase
-          .channel(channelName)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload) => {
-              console.log('🔔 Received notification via realtime:', payload);
-              console.log('📝 Notification data:', payload.new);
-              callback(payload.new as Notification);
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload) => {
-              console.log('🔄 Notification updated via realtime:', payload);
-            }
-          )
-          .subscribe((status, err) => {
-            console.log('📡 Notification subscription status:', status);
-            if (err) {
-              console.error('❌ Subscription error:', err);
-            }
-            if (status === 'SUBSCRIBED') {
-              console.log('✅ Successfully subscribed to notifications');
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Channel error - realtime may not be enabled for notifications table');
-            } else if (status === 'TIMED_OUT') {
-              console.error('❌ Subscription timed out');
-            } else if (status === 'CLOSED') {
-              console.log('🔐 Subscription closed');
-            }
-          });
-
-        return channel;
-      } catch (error) {
-        console.error('❌ Error setting up notifications subscription:', error);
+    const channelPromise: Promise<RealtimeChannel | null> = (async () => {
+      const userId = await this.maybeGetUserId();
+      if (!userId) {
         return null;
       }
-    };
 
-    const channelPromise = setupSubscription();
-    
-    return {
-      unsubscribe: () => {
-        channelPromise.then(channel => {
-          if (channel) {
-            console.log('🔕 Unsubscribing from notifications');
-            supabase.removeChannel(channel);
+      const channelName = `notifications-${userId}-${Date.now()}`;
+      const channel = this.client
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            callback(payload.new as Notification);
+          },
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            this.logger.error('Erreur lors de l\'abonnement aux notifications');
+          }
+          if (status === 'TIMED_OUT') {
+            this.logger.warn?.('Expiration de l\'abonnement aux notifications');
           }
         });
-      }
+
+      return channel;
+    })();
+
+    return {
+      unsubscribe: async () => {
+        try {
+          const channel = await channelPromise;
+          if (channel) {
+            await channel.unsubscribe();
+          }
+        } catch (error) {
+          this.logger.error('Erreur lors de la désinscription des notifications:', error as Error);
+        }
+      },
     };
   }
 
-  // Delete notification
   async deleteNotification(notificationId: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
+    const userId = await this.requireUserId();
 
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Error deleting notification:', error);
-      throw new Error(error.message || 'Failed to delete notification');
+    try {
+      const { error, count } = await this.client
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .eq('id', notificationId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!count) {
+        throw new Error('Notification introuvable');
+      }
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors de la suppression de la notification:', error as Error);
+      const message = error instanceof Error && error.message === 'Notification introuvable'
+        ? error.message
+        : 'Échec de la suppression de la notification';
+      throw new Error(message);
     }
   }
 
-  // Get notifications with pagination
   async getNotifications(page = 1, limit = 20): Promise<{ notifications: Notification[]; hasMore: boolean }> {
+    const userId = await this.requireUserId();
+    const safeLimit = this.normaliseLimit(limit, 20);
+    const pageNumber = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const offset = (pageNumber - 1) * safeLimit;
+
     try {
-      const offset = (page - 1) * limit;
-      
-      const { data, error, count } = await supabase
+      const { data, error, count } = await this.client
         .from('notifications')
         .select('*', { count: 'exact' })
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + safeLimit - 1);
 
-      if (error) throw error;
-      
+      if (error) {
+        throw error;
+      }
+
+      const total = count ?? 0;
       return {
-        notifications: data || [],
-        hasMore: (count || 0) > offset + limit
+        notifications: data ?? [],
+        hasMore: total > offset + safeLimit,
       };
-    } catch (error: any) {
-      console.error('Error fetching paginated notifications:', error);
-      throw new Error(error.message || 'Failed to fetch notifications');
+    } catch (error: unknown) {
+      this.logger.error('Erreur lors du chargement paginé des notifications:', error as Error);
+      throw new Error('Échec du chargement des notifications');
     }
   }
 }
