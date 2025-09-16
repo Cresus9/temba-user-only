@@ -92,8 +92,8 @@ export class PaymentService {
   }
 
   private resolveFunctionConfig(): { url: string; anonKey: string } {
-    const url = this.getEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL');
-    const anonKey = this.getEnvValue('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY');
+    const url = this.getEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL') || 'https://uwmlagvsivxqocklxbbo.supabase.co';
+    const anonKey = this.getEnvValue('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bWxhZ3ZzaXZ4cW9ja2x4YmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NzM4MjcsImV4cCI6MjA1MTI0OTgyN30.L8zTSaKJ5t9QyNZwKvx8xSvVLJvBtZnfKdRYQZW4fPE';
 
     if (!url) {
       throw new Error('Configuration Supabase manquante (URL)');
