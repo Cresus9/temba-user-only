@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Filter, Calendar, MapPin, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import EventCard from '../components/EventCard';
 import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
+import { buildTextSearchFilter } from '../utils/supabaseFilters';
 
 const initialFilters = {
   search: '',
@@ -22,10 +23,51 @@ export default function Events() {
   const [categories, setCategories] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
+  const activeRequestId = useRef(0);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const fetchLocationsAndCategories = useCallback(async () => {
+    try {
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events')
+        .select('location')
+        .eq('status', 'PUBLISHED');
+
+      if (eventsError) throw eventsError;
+
+      if (isMountedRef.current) {
+        const uniqueLocations = [...new Set(eventsData?.map(e => e.location) || [])];
+        setLocations(uniqueLocations);
+      }
+
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('events')
+        .select('categories')
+        .eq('status', 'PUBLISHED');
+
+      if (categoriesError) throw categoriesError;
+
+      if (isMountedRef.current) {
+        const uniqueCategories = [...new Set(
+          categoriesData?.flatMap(e => e.categories || []) || []
+        )];
+        setCategories(uniqueCategories);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des lieux et catégories:', error);
+    }
+  }, []);
 
   useEffect(() => {
     fetchLocationsAndCategories();
-  }, []);
+  }, [fetchLocationsAndCategories]);
 
   // Debounce search input
   useEffect(() => {
@@ -37,39 +79,13 @@ export default function Events() {
   }, [filters.search]);
 
   // Fetch events when filters change
-  useEffect(() => {
-    fetchEvents();
-  }, [debouncedSearch, filters.category, filters.location, filters.date]);
-
-  const fetchLocationsAndCategories = async () => {
+  const fetchEvents = useCallback(async () => {
+    const requestId = ++activeRequestId.current;
     try {
-      // Get unique locations
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('location')
-        .eq('status', 'PUBLISHED');
-      
-      const uniqueLocations = [...new Set(eventsData?.map(e => e.location) || [])];
-      setLocations(uniqueLocations);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
 
-      // Get unique categories
-      const { data: categoriesData } = await supabase
-        .from('events')
-        .select('categories')
-        .eq('status', 'PUBLISHED');
-      
-      const uniqueCategories = [...new Set(
-        categoriesData?.flatMap(e => e.categories || []) || []
-      )];
-      setCategories(uniqueCategories);
-    } catch (error) {
-      console.error('Erreur lors du chargement des lieux et catégories:', error);
-    }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
       let query = supabase
         .from('events')
         .select(`
@@ -78,8 +94,9 @@ export default function Events() {
         `)
         .eq('status', 'PUBLISHED');
 
-      if (debouncedSearch) {
-        query = query.or(`title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
+      const searchFilter = buildTextSearchFilter(['title', 'description'], debouncedSearch);
+      if (searchFilter) {
+        query = query.or(searchFilter);
       }
       if (filters.location) {
         query = query.ilike('location', `%${filters.location}%`);
@@ -91,23 +108,35 @@ export default function Events() {
       const { data, error } = await query.order('date', { ascending: true });
 
       if (error) throw error;
-      
+
+      if (!isMountedRef.current || requestId !== activeRequestId.current) {
+        return;
+      }
+
       // Filter by category client-side if category filter is applied
       let filteredData = data || [];
       if (filters.category) {
-        filteredData = filteredData.filter(event => 
+        filteredData = filteredData.filter(event =>
           event.categories && event.categories.includes(filters.category)
         );
       }
-      
+
       setEvents(filteredData);
     } catch (error) {
       console.error('Erreur lors du chargement des événements:', error);
-      toast.error('Échec du chargement des événements');
+      if (isMountedRef.current && requestId === activeRequestId.current) {
+        toast.error('Échec du chargement des événements');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && requestId === activeRequestId.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [debouncedSearch, filters.category, filters.date, filters.location]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters(prev => ({ ...prev, search: e.target.value }));

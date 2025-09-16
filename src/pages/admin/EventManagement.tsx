@@ -1,35 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, MapPin, Users, Edit2, Trash2, Star, AlertCircle, Loader } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Search, Calendar, MapPin, Users, Edit2, Trash2, Star, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import EventForm from '../../components/admin/events/EventForm';
 import { useTranslation } from '../../context/TranslationContext';
 import toast from 'react-hot-toast';
+import { buildTextSearchFilter } from '../../utils/supabaseFilters';
+import type { Event, EventOrganizer, TicketType } from '../../types/event';
+import { ADMIN_EVENT_STATUSES } from '../../services/eventAdminService';
 
-interface Organizer {
-  user_id: string;
-  name: string;
-  email: string;
-}
+type Organizer = EventOrganizer;
+
+type AdminEvent = Event & {
+  ticket_types: TicketType[];
+};
+
+type EventStatus = (typeof ADMIN_EVENT_STATUSES)[number];
+const EVENT_STATUS_SET = new Set<EventStatus>(ADMIN_EVENT_STATUSES);
+const ORGANIZER_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function EventManagement() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<AdminEvent[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
   const [filters, setFilters] = useState({
     status: 'all',
     search: '',
     organizer: 'all'
   });
   const { t } = useTranslation();
+  const isMountedRef = useRef(true);
+  const activeRequestId = useRef(0);
 
   useEffect(() => {
-    fetchEvents();
-    fetchOrganizers();
-  }, [filters]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const fetchOrganizers = async () => {
+  const fetchOrganizers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -37,18 +48,24 @@ export default function EventManagement() {
         .eq('role', 'ORGANIZER');
 
       if (error) throw error;
-      setOrganizers(data || []);
+      if (!isMountedRef.current) return;
+      setOrganizers((data ?? []) as Organizer[]);
     } catch (error) {
       console.error('Error fetching organizers:', error);
+      if (!isMountedRef.current) return;
       toast.error('Failed to load organizers', {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
     }
-  };
+  }, []);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
+    const requestId = ++activeRequestId.current;
     try {
-      setLoading(true);
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
+
       let query = supabase
         .from('events')
         .select(`
@@ -61,43 +78,83 @@ export default function EventManagement() {
           )
         `);
 
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+      const statusFilter = filters.status;
+      if (statusFilter !== 'all') {
+        if (EVENT_STATUS_SET.has(statusFilter as EventStatus)) {
+          query = query.eq('status', statusFilter);
+        } else {
+          console.warn('Ignoring invalid status filter when fetching events', statusFilter);
+        }
       }
-      if (filters.organizer !== 'all') {
-        query = query.eq('organizer_id', filters.organizer);
+      const organizerFilter = filters.organizer;
+      if (organizerFilter !== 'all') {
+        if (ORGANIZER_UUID_REGEX.test(organizerFilter)) {
+          query = query.eq('organizer_id', organizerFilter);
+        } else {
+          console.warn('Ignoring invalid organizer filter when fetching events', organizerFilter);
+        }
       }
       if (filters.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        const filter = buildTextSearchFilter(['title', 'description'], filters.search);
+        if (filter) {
+          query = query.or(filter);
+        }
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      setEvents(data || []);
+      if (!isMountedRef.current || requestId !== activeRequestId.current) {
+        return;
+      }
+      const fetchedEvents = ((data ?? []) as AdminEvent[]).map(eventRecord => ({
+        ...eventRecord,
+        ticket_types: eventRecord.ticket_types ?? [],
+      }));
+      setEvents(fetchedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
-      toast.error(t('admin.events.error.load', { default: 'Failed to load events' }), {
-        icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
-      });
+      if (isMountedRef.current && requestId === activeRequestId.current) {
+        toast.error(t('admin.events.error.load', { default: 'Failed to load events' }), {
+          icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
+        });
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && requestId === activeRequestId.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [filters.organizer, filters.search, filters.status, t]);
 
-  const handleStatusChange = async (id: string, status: string) => {
+  useEffect(() => {
+    fetchOrganizers();
+  }, [fetchOrganizers]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleStatusChange = async (id: string, status: EventStatus) => {
     try {
+      if (!EVENT_STATUS_SET.has(status)) {
+        console.warn('Attempted to set invalid status on event', { id, status });
+        toast.error(t('admin.events.error.update', { default: 'Failed to update event status' }), {
+          icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('events')
         .update({ status })
         .eq('id', id);
 
       if (error) throw error;
-      
+
       toast.success(t('admin.events.success.update', { default: 'Event status updated successfully' }), {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
-      fetchEvents();
+      await fetchEvents();
     } catch (error) {
       console.error('Error updating event status:', error);
       toast.error(t('admin.events.error.update', { default: 'Failed to update event status' }), {
@@ -116,14 +173,14 @@ export default function EventManagement() {
       if (error) throw error;
       
       toast.success(
-        featured 
+        featured
           ? t('admin.events.success.featured', { default: 'Event marked as featured' })
           : t('admin.events.success.unfeatured', { default: 'Event removed from featured' }),
         {
           icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
         }
       );
-      fetchEvents();
+      await fetchEvents();
     } catch (error) {
       console.error('Error updating event featured status:', error);
       toast.error(t('admin.events.error.featured', { default: 'Failed to update featured status' }), {
@@ -148,7 +205,7 @@ export default function EventManagement() {
       toast.success(t('admin.events.success.delete', { default: 'Event deleted successfully' }), {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
-      fetchEvents();
+      await fetchEvents();
     } catch (error) {
       console.error('Error deleting event:', error);
       toast.error(t('admin.events.error.delete', { default: 'Failed to delete event' }), {
@@ -189,10 +246,10 @@ export default function EventManagement() {
         <EventForm
           event={selectedEvent}
           organizers={organizers}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowForm(false);
             setSelectedEvent(null);
-            fetchEvents();
+            await fetchEvents();
           }}
           onCancel={() => {
             setShowForm(false);
@@ -237,9 +294,17 @@ export default function EventManagement() {
           className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="all">{t('admin.events.filters.all_status', { default: 'All Status' })}</option>
-          <option value="DRAFT">{t('admin.events.filters.draft', { default: 'Draft' })}</option>
-          <option value="PUBLISHED">{t('admin.events.filters.published', { default: 'Published' })}</option>
-          <option value="CANCELLED">{t('admin.events.filters.cancelled', { default: 'Cancelled' })}</option>
+          {ADMIN_EVENT_STATUSES.map(statusValue => (
+            <option key={statusValue} value={statusValue}>
+              {statusValue === 'DRAFT'
+                ? t('admin.events.filters.draft', { default: 'Draft' })
+                : statusValue === 'PUBLISHED'
+                ? t('admin.events.filters.published', { default: 'Published' })
+                : statusValue === 'CANCELLED'
+                ? t('admin.events.filters.cancelled', { default: 'Cancelled' })
+                : t('admin.events.filters.completed', { default: 'Completed' })}
+            </option>
+          ))}
         </select>
 
         <select
@@ -327,18 +392,28 @@ export default function EventManagement() {
                   <td className="px-6 py-4">
                     <select
                       value={event.status}
-                      onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                      onChange={(e) => handleStatusChange(event.id, e.target.value as EventStatus)}
                       className={`px-3 py-1 rounded-lg ${
                         event.status === 'PUBLISHED'
                           ? 'bg-green-100 text-green-800'
                           : event.status === 'DRAFT'
                           ? 'bg-yellow-100 text-yellow-800'
+                          : event.status === 'COMPLETED'
+                          ? 'bg-blue-100 text-blue-800'
                           : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      <option value="DRAFT">{t('admin.events.status.draft', { default: 'Draft' })}</option>
-                      <option value="PUBLISHED">{t('admin.events.status.published', { default: 'Published' })}</option>
-                      <option value="CANCELLED">{t('admin.events.status.cancelled', { default: 'Cancelled' })}</option>
+                      {ADMIN_EVENT_STATUSES.map(statusValue => (
+                        <option key={statusValue} value={statusValue}>
+                          {statusValue === 'DRAFT'
+                            ? t('admin.events.status.draft', { default: 'Draft' })
+                            : statusValue === 'PUBLISHED'
+                            ? t('admin.events.status.published', { default: 'Published' })
+                            : statusValue === 'CANCELLED'
+                            ? t('admin.events.status.cancelled', { default: 'Cancelled' })
+                            : t('admin.events.status.completed', { default: 'Completed' })}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td className="px-6 py-4">

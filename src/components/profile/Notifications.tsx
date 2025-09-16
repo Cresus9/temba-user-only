@@ -78,8 +78,8 @@ export default function Notifications() {
         [key]: value
       };
 
-      await notificationService.updatePreferences(updatedPreferences);
-      setPreferences(updatedPreferences);
+      const savedPreferences = await notificationService.updatePreferences(updatedPreferences);
+      setPreferences(savedPreferences);
       toast.success(
         t('notifications.updated', {
           channel: t(`notifications.channels.${key}`, { default: key }),
@@ -114,8 +114,8 @@ export default function Notifications() {
         types: newTypes
       };
 
-      await notificationService.updatePreferences(updatedPreferences);
-      setPreferences(updatedPreferences);
+      const savedPreferences = await notificationService.updatePreferences(updatedPreferences);
+      setPreferences(savedPreferences);
       
       const type = NOTIFICATION_TYPES.find(t => t.id === typeId);
       if (type) {

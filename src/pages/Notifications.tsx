@@ -33,6 +33,28 @@ export default function Notifications() {
 
   const ITEMS_PER_PAGE = 20;
 
+  const getMetadataString = (metadata: Notification['metadata'], key: string): string | undefined => {
+    if (!metadata) {
+      return undefined;
+    }
+    const value = metadata[key];
+    return typeof value === 'string' ? value : undefined;
+  };
+
+  const getMetadataId = (metadata: Notification['metadata'], key: string): string | undefined => {
+    if (!metadata) {
+      return undefined;
+    }
+    const value = metadata[key];
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return String(value);
+    }
+    return undefined;
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
     loadNotifications(true);
@@ -43,7 +65,15 @@ export default function Notifications() {
 
     // Subscribe to real-time notifications
     const subscription = notificationService.subscribeToNotifications((newNotification) => {
-      setNotifications(prev => [newNotification, ...prev]);
+      setNotifications(prev => {
+        const existingIndex = prev.findIndex(notification => notification.id === newNotification.id);
+        if (existingIndex !== -1) {
+          const next = [...prev];
+          next[existingIndex] = newNotification;
+          return next;
+        }
+        return [newNotification, ...prev];
+      });
     });
 
     return () => {
@@ -84,7 +114,16 @@ export default function Notifications() {
         setNotifications(data);
         setPage(1);
       } else {
-        setNotifications(prev => [...prev, ...data.slice(prev.length)]);
+        setNotifications(prev => {
+          const seen = new Set(prev.map(notification => notification.id));
+          const merged = [...prev];
+          data.forEach(notification => {
+            if (!seen.has(notification.id)) {
+              merged.push(notification);
+            }
+          });
+          return merged;
+        });
       }
 
       setHasMore(data.length >= ITEMS_PER_PAGE * currentPage);
@@ -107,11 +146,11 @@ export default function Notifications() {
     try {
       setProcessingIds(prev => new Set([...prev, notificationId]));
       await notificationService.markAsRead(notificationId);
-      
+
       setNotifications(prev =>
         prev.map(n =>
           n.id === notificationId
-            ? { ...n, read_at: new Date().toISOString() }
+            ? { ...n, read: true, read_at: new Date().toISOString() }
             : n
         )
       );
@@ -131,11 +170,11 @@ export default function Notifications() {
     try {
       setLoading(true);
       await notificationService.markAllAsRead();
-      
+
       setNotifications(prev =>
-        prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+        prev.map(n => ({ ...n, read: true, read_at: n.read_at || new Date().toISOString() }))
       );
-      
+
       toast.success('Toutes les notifications ont été marquées comme lues');
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -156,11 +195,11 @@ export default function Notifications() {
       setNotifications(prev =>
         prev.map(n =>
           selectedIds.has(n.id)
-            ? { ...n, read_at: new Date().toISOString() }
+            ? { ...n, read: true, read_at: new Date().toISOString() }
             : n
         )
       );
-      
+
       setSelectedIds(new Set());
       toast.success(`${selectedIds.size} notifications marquées comme lues`);
     } catch (error) {
@@ -194,17 +233,26 @@ export default function Notifications() {
 
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read if unread
-    if (!notification.read_at) {
+    if (!notification.read) {
       handleMarkAsRead(notification.id);
     }
 
     // Handle deep linking based on notification type and data
-    if (notification.data?.action_url) {
-      window.location.href = notification.data.action_url;
-    } else if (notification.data?.order_id) {
-      window.location.href = `/booking/confirmation/${notification.data.order_id}`;
-    } else if (notification.data?.event_id) {
-      window.location.href = `/events/${notification.data.event_id}`;
+    const actionUrl = notification.action_url ?? getMetadataString(notification.metadata, 'action_url');
+    if (actionUrl) {
+      window.location.href = actionUrl;
+      return;
+    }
+
+    const orderId = getMetadataId(notification.metadata, 'order_id');
+    if (orderId) {
+      window.location.href = `/booking/confirmation/${orderId}`;
+      return;
+    }
+
+    const eventId = getMetadataId(notification.metadata, 'event_id');
+    if (eventId) {
+      window.location.href = `/events/${eventId}`;
     }
   };
 
@@ -233,7 +281,7 @@ export default function Notifications() {
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.read_at).length;
+  const unreadCount = notifications.reduce((count, notification) => (notification.read ? count : count + 1), 0);
 
   if (!isAuthenticated) {
     return (

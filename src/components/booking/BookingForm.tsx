@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ticket, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { TicketType } from '../../types/event';
 import TicketTypeCard from './TicketTypeCard';
 import BookingSummary from './BookingSummary';
 import TicketReviewModal from './TicketReviewModal';
 import { useAuth } from '../../context/AuthContext';
-import toast from 'react-hot-toast';
+import { useFeeCalculation } from '../../hooks/useFeeCalculation';
+import { BookingLineItem } from '../../types/booking';
 
 interface BookingFormProps {
   eventId: string;
@@ -16,37 +18,54 @@ interface BookingFormProps {
   onReviewClose?: () => void;
 }
 
-export default function BookingForm({ 
-  eventId, 
-  ticketTypes, 
+export default function BookingForm({
+  eventId,
+  ticketTypes,
   currency,
   onReviewOpen,
   onReviewClose
 }: BookingFormProps) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [selectedTickets, setSelectedTickets] = useState<{ [key: string]: number }>(
+  const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>(
     ticketTypes.reduce((acc, ticket) => ({ ...acc, [ticket.id]: 0 }), {})
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [formError, setFormError] = useState<string | null>(null);
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const isPaused = (t: TicketType) => t.sales_enabled === false || t.is_paused === true || t.on_sale === false || t.is_active === false || t.status === 'PAUSED';
+  const isPaused = (ticket: TicketType) =>
+    ticket.sales_enabled === false ||
+    ticket.is_paused === true ||
+    ticket.on_sale === false ||
+    ticket.is_active === false ||
+    ticket.status === 'PAUSED';
 
-  // Reset any quantities for paused tickets whenever types change
-  React.useEffect(() => {
+  useEffect(() => {
     setSelectedTickets(prev => {
       const next = { ...prev };
-      let changed = false;
-      for (const t of ticketTypes) {
-        if (isPaused(t) && next[t.id] > 0) {
-          next[t.id] = 0;
-          changed = true;
+      let mutated = false;
+      const validIds = new Set(ticketTypes.map(ticket => ticket.id));
+
+      for (const ticket of ticketTypes) {
+        if (isPaused(ticket) && next[ticket.id] > 0) {
+          next[ticket.id] = 0;
+          mutated = true;
+        }
+        if (!(ticket.id in next)) {
+          next[ticket.id] = 0;
+          mutated = true;
         }
       }
-      return changed ? next : prev;
+
+      for (const ticketId of Object.keys(next)) {
+        if (!validIds.has(ticketId)) {
+          delete next[ticketId];
+          mutated = true;
+        }
+      }
+
+      return mutated ? next : prev;
     });
   }, [ticketTypes]);
 
@@ -59,13 +78,15 @@ export default function BookingForm({
       return;
     }
 
-    if (quantity > ticket.max_per_order) {
-      toast.error(`Maximum ${ticket.max_per_order} billets autorisés par commande`);
+    const maxPerOrder = ticket.max_per_order ?? Infinity;
+    if (quantity > maxPerOrder) {
+      toast.error(`Maximum ${maxPerOrder} billets autorisés par commande`);
       return;
     }
 
-    if (quantity > ticket.available) {
-      toast.error(`Seulement ${ticket.available} billets disponibles`);
+    const available = ticket.available ?? 0;
+    if (quantity > available) {
+      toast.error(`Seulement ${available} billets disponibles`);
       return;
     }
 
@@ -73,37 +94,72 @@ export default function BookingForm({
       ...prev,
       [ticketId]: quantity
     }));
-    setError('');
+    setFormError(null);
   };
 
-  const calculateTotals = () => {
-    const subtotal = ticketTypes.reduce((total, ticket) => {
-      if (isPaused(ticket)) return total;
-      return total + (ticket.price * (selectedTickets[ticket.id] || 0));
-    }, 0);
-    const processingFee = subtotal * 0.02; // 2% processing fee
-    return {
-      subtotal,
-      processingFee,
-      total: subtotal + processingFee
-    };
-  };
+  const activeTicketTypes = useMemo(
+    () => ticketTypes.filter(ticket => !isPaused(ticket)),
+    [ticketTypes]
+  );
 
-  const handleReviewOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const lineItems: BookingLineItem[] = useMemo(() => {
+    return activeTicketTypes
+      .map(ticket => ({
+        id: ticket.id,
+        name: ticket.name,
+        description: ticket.description,
+        price: ticket.price,
+        quantity: selectedTickets[ticket.id] || 0
+      }))
+      .filter(item => item.quantity > 0);
+  }, [activeTicketTypes, selectedTickets]);
+
+  const subtotal = useMemo(
+    () => lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [lineItems]
+  );
+
+  const feeSelections = useMemo(
+    () => lineItems.map(item => ({ ticket_type_id: item.id, quantity: item.quantity, price: item.price })),
+    [lineItems]
+  );
+
+  const { fees, loading: feeLoading, error: feeCalculationError } = useFeeCalculation(eventId, feeSelections);
+
+  const fallbackProcessingFee = useMemo(() => subtotal * 0.02, [subtotal]);
+  const numericFee = Number(fees.total_buyer_fees ?? 0);
+  const usingFallbackFees = feeCalculationError != null || !Number.isFinite(numericFee) || numericFee < 0;
+  const processingFee = usingFallbackFees ? fallbackProcessingFee : numericFee;
+  const total = subtotal + processingFee;
+  const feeErrorMessage = usingFallbackFees
+    ? 'Impossible de calculer les frais de service en temps réel. Un taux standard a été appliqué.'
+    : null;
+
+  const activeTicketSelection = useMemo(() => {
+    const entries = Object.entries(selectedTickets)
+      .filter(([ticketId, quantity]) => {
+        if (!quantity || quantity <= 0) return false;
+        const ticket = ticketTypes.find(t => t.id === ticketId);
+        return ticket ? !isPaused(ticket) : false;
+      })
+      .map(([ticketId, quantity]) => [ticketId, quantity]);
+    return Object.fromEntries(entries);
+  }, [selectedTickets, ticketTypes]);
+
+  const handleReviewOrder = (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (!user) {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
     }
 
-    // Remove any paused tickets from selection
     let hadPaused = false;
     setSelectedTickets(prev => {
       const next = { ...prev };
-      for (const t of ticketTypes) {
-        if (isPaused(t) && next[t.id] > 0) {
-          next[t.id] = 0;
+      for (const ticket of ticketTypes) {
+        if (isPaused(ticket) && next[ticket.id] > 0) {
+          next[ticket.id] = 0;
           hadPaused = true;
         }
       }
@@ -114,11 +170,16 @@ export default function BookingForm({
       toast.error('Certaines catégories de billets ont été suspendues et ont été retirées du panier.');
     }
 
-    // Validate at least one active ticket is selected
-    const hasTickets = ticketTypes.some(t => !isPaused(t) && (selectedTickets[t.id] || 0) > 0);
-    if (!hasTickets) {
+    if (lineItems.length === 0) {
       toast.error('Veuillez sélectionner au moins un billet');
+      setFormError('Veuillez sélectionner au moins un billet actif');
       return;
+    }
+
+    setFormError(null);
+
+    if (feeCalculationError) {
+      toast.error('Les frais de service n’ont pas pu être mis à jour. Un taux standard sera appliqué.');
     }
 
     if (onReviewOpen) {
@@ -128,12 +189,11 @@ export default function BookingForm({
   };
 
   const handleConfirmOrder = () => {
-    const totals = calculateTotals();
-    
-    // Navigate to checkout with order details
+    const totals = { subtotal, processingFee, total };
+
     navigate('/checkout', {
       state: {
-        tickets: selectedTickets,
+        tickets: activeTicketSelection,
         totals,
         currency,
         eventId
@@ -146,9 +206,8 @@ export default function BookingForm({
     }
   };
 
-  const availableTickets = ticketTypes.filter(ticket => 
-    ticket.available > 0 && !isPaused(ticket)
-  );
+  const availableTickets = ticketTypes.filter(ticket => ticket.available > 0 && !isPaused(ticket));
+  const hasSelection = Object.values(selectedTickets).some(quantity => quantity > 0);
 
   if (availableTickets.length === 0) {
     return (
@@ -165,10 +224,10 @@ export default function BookingForm({
   return (
     <>
       <form onSubmit={handleReviewOrder} className="space-y-6">
-        {error && (
+        {(formError || (!formError && feeErrorMessage && hasSelection)) && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
             <AlertCircle className="h-5 w-5" />
-            <span>{error}</span>
+            <span>{formError || feeErrorMessage}</span>
           </div>
         )}
 
@@ -184,18 +243,22 @@ export default function BookingForm({
           ))}
         </div>
 
-        {Object.values(selectedTickets).some(qty => qty > 0) && (
+        {lineItems.length > 0 && (
           <BookingSummary
-            selectedTickets={selectedTickets}
-            ticketTypes={ticketTypes}
+            items={lineItems}
             currency={currency}
-            eventId={eventId}
+            subtotal={subtotal}
+            processingFee={processingFee}
+            total={total}
+            feeLoading={feeLoading}
+            feeError={feeErrorMessage}
+            usingFallbackFees={usingFallbackFees}
           />
         )}
 
         <button
           type="submit"
-          disabled={loading || !Object.values(selectedTickets).some(qty => qty > 0)}
+          disabled={lineItems.length === 0}
           className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Ticket className="h-5 w-5" />
@@ -203,7 +266,6 @@ export default function BookingForm({
         </button>
       </form>
 
-      {/* Review Order Modal */}
       <TicketReviewModal
         isOpen={isReviewModalOpen}
         onClose={() => {
@@ -213,11 +275,16 @@ export default function BookingForm({
           }
         }}
         onConfirm={handleConfirmOrder}
-        selectedTickets={selectedTickets}
-        ticketTypes={ticketTypes}
+        items={lineItems}
         currency={currency}
-        eventId={eventId}
+        subtotal={subtotal}
+        processingFee={processingFee}
+        total={total}
+        feeLoading={feeLoading}
+        feeError={feeErrorMessage}
+        usingFallbackFees={usingFallbackFees}
       />
     </>
   );
 }
+

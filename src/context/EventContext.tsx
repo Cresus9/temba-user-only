@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
@@ -19,9 +19,16 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+  const activeRequestId = useRef(0);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
+    const requestId = ++activeRequestId.current;
     try {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -37,27 +44,29 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
       if (eventsError) throw eventsError;
 
-      // Set both events and featured events to the same data
-      setEvents(eventsData || []);
-      setFeaturedEvents(eventsData || []);
-       // Log each event's ID
-    eventsData?.forEach((event) => {
-      console.log('Event TITLE:', event.title);
-      console.log('Event ID:', event.id);
-    });
+      if (!isMountedRef.current || requestId !== activeRequestId.current) {
+        return;
+      }
 
-      // Log the results for debugging
-      console.log('Published events:', eventsData?.length || 0);
+      const fetchedEvents = eventsData || [];
+      setEvents(fetchedEvents);
+      setFeaturedEvents(fetchedEvents.filter(event => Boolean(event.featured)));
     } catch (err: any) {
       console.error('Error fetching events:', err);
+      if (!isMountedRef.current || requestId !== activeRequestId.current) {
+        return;
+      }
+
       setError('Failed to load events');
       if (navigator.onLine) {
         toast.error('Failed to load events. Please try again later.');
       }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && requestId === activeRequestId.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   const getEvent = (id: string) => {
     return events.find(event => event.id === id);
@@ -65,6 +74,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
   // Subscribe to realtime changes
   useEffect(() => {
+    isMountedRef.current = true;
     const eventsSubscription = supabase
       .channel('events_channel')
       .on(
@@ -86,9 +96,13 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
     // Cleanup subscription
     return () => {
-      eventsSubscription.unsubscribe();
+      isMountedRef.current = false;
+      void eventsSubscription.unsubscribe();
+      if (typeof supabase.removeChannel === 'function') {
+        supabase.removeChannel(eventsSubscription);
+      }
     };
-  }, []);
+  }, [fetchEvents]);
 
   return (
     <EventContext.Provider

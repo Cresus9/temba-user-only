@@ -13,6 +13,28 @@ export default function NotificationBell() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  const getMetadataString = (metadata: Notification['metadata'], key: string): string | undefined => {
+    if (!metadata) {
+      return undefined;
+    }
+    const value = metadata[key];
+    return typeof value === 'string' ? value : undefined;
+  };
+
+  const getMetadataId = (metadata: Notification['metadata'], key: string): string | undefined => {
+    if (!metadata) {
+      return undefined;
+    }
+    const value = metadata[key];
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return String(value);
+    }
+    return undefined;
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -21,21 +43,33 @@ export default function NotificationBell() {
 
     // Subscribe to real-time notifications
     const subscription = notificationService.subscribeToNotifications((newNotification) => {
-      setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
-      setUnreadCount(prev => prev + 1);
-      
-      // Show toast for high priority notifications
-      if (newNotification.data?.priority === 'high' || newNotification.data?.priority === 'urgent') {
+      setNotifications(prev => {
+        const existingIndex = prev.findIndex(notification => notification.id === newNotification.id);
+        if (existingIndex !== -1) {
+          const next = [...prev];
+          next[existingIndex] = newNotification;
+          return next;
+        }
+        return [newNotification, ...prev.slice(0, 9)];
+      });
+      if (!newNotification.read) {
+        setUnreadCount(prev => prev + 1);
+      }
+
+      const highPriority = newNotification.priority === 'high' || newNotification.priority === 'urgent';
+      const actionUrl = newNotification.action_url ?? getMetadataString(newNotification.metadata, 'action_url');
+      if (highPriority) {
         toast.success(newNotification.title, {
           description: newNotification.message,
           duration: 5000,
-          action: newNotification.data?.action_url ? {
-            label: 'Voir',
-            onClick: () => handleNotificationClick(newNotification)
-          } : undefined,
+          action: actionUrl
+            ? {
+                label: 'Voir',
+                onClick: () => handleNotificationClick(newNotification),
+              }
+            : undefined,
         });
       } else {
-        // Show a subtle notification for normal priority
         toast(newNotification.title, {
           icon: '🔔',
           duration: 3000,
@@ -69,9 +103,17 @@ export default function NotificationBell() {
     }
   };
 
+  const openActionUrl = (url: string) => {
+    if (url.startsWith('http')) {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      navigate(url);
+    }
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read if unread
-    if (notification.read === 'false') {
+    if (!notification.read) {
       handleMarkAsRead(notification.id);
     }
 
@@ -80,41 +122,57 @@ export default function NotificationBell() {
 
     // Handle deep linking based on notification type and data
     if (notification.action_url) {
-      // Use action_url from the notification
-      if (notification.action_url.startsWith('http')) {
-        window.open(notification.action_url, '_blank');
-      } else {
-        navigate(notification.action_url);
-      }
-    } else if (notification.metadata?.action_url) {
-      // Fallback to metadata action_url
-      if (notification.metadata.action_url.startsWith('http')) {
-        window.open(notification.metadata.action_url, '_blank');
-      } else {
-        navigate(notification.metadata.action_url);
-      }
-    } else if (notification.metadata?.order_id) {
-      navigate(`/booking/confirmation/${notification.metadata.order_id}`);
-    } else if (notification.metadata?.event_id) {
-      navigate(`/events/${notification.metadata.event_id}`);
-    } else if (notification.metadata?.ticket_id) {
+      openActionUrl(notification.action_url);
+      return;
+    }
+
+    const metadataActionUrl = getMetadataString(notification.metadata, 'action_url');
+    if (metadataActionUrl) {
+      openActionUrl(metadataActionUrl);
+      return;
+    }
+
+    const orderId = getMetadataId(notification.metadata, 'order_id');
+    if (orderId) {
+      navigate(`/booking/confirmation/${orderId}`);
+      return;
+    }
+
+    const eventId = getMetadataId(notification.metadata, 'event_id');
+    if (eventId) {
+      navigate(`/events/${eventId}`);
+      return;
+    }
+
+    const ticketId = getMetadataId(notification.metadata, 'ticket_id');
+    if (ticketId) {
       navigate(`/profile/tickets`);
-    } else if (notification.type === 'SUPPORT_REPLY' && notification.metadata?.support_ticket_id) {
-      navigate(`/support/${notification.metadata.support_ticket_id}`);
+      return;
+    }
+
+    if (notification.type === 'SUPPORT_REPLY') {
+      const supportTicketId = getMetadataId(notification.metadata, 'support_ticket_id');
+      if (supportTicketId) {
+        navigate(`/support/${supportTicketId}`);
+      }
     }
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
+      const wasUnread = notifications.some(notification => notification.id === notificationId && !notification.read);
       await notificationService.markAsRead(notificationId);
-      setNotifications(prev => 
-        prev.map(notif => 
-          notif.id === notificationId 
-            ? { ...notif, read: 'true', read_at: new Date().toISOString() }
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === notificationId
+            ? { ...notif, read: true, read_at: notif.read_at ?? new Date().toISOString() }
             : notif
         )
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (wasUnread) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        void loadUnreadCount();
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -123,10 +181,12 @@ export default function NotificationBell() {
   const handleMarkAllAsRead = async () => {
     try {
       await notificationService.markAllAsRead();
-      setNotifications(prev => 
-        prev.map(notif => ({ ...notif, read: 'true', read_at: new Date().toISOString() }))
+      const now = new Date().toISOString();
+      setNotifications(prev =>
+        prev.map(notif => ({ ...notif, read: true, read_at: notif.read_at ?? now }))
       );
       setUnreadCount(0);
+      void loadUnreadCount();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -135,55 +195,25 @@ export default function NotificationBell() {
   const handleMarkNotificationsAsReadOnView = async () => {
     try {
       // Get unread notifications from current list
-      const unreadNotifications = notifications.filter(n => n.read === 'false');
-      
+      const unreadNotifications = notifications.filter(n => !n.read);
+
       if (unreadNotifications.length === 0) {
-        console.log('No unread notifications to mark as read');
         return;
       }
 
-      console.log(`🔄 Attempting to mark ${unreadNotifications.length} notifications as read on view`);
-      console.log('Unread notification IDs:', unreadNotifications.map(n => n.id));
+      await Promise.allSettled(unreadNotifications.map(notification => notificationService.markAsRead(notification.id)));
 
-      // Mark each unread notification as read with detailed logging
-      for (const notification of unreadNotifications) {
-        try {
-          console.log(`📝 Marking notification ${notification.id} as read...`);
-          await notificationService.markAsRead(notification.id);
-          console.log(`✅ Successfully marked ${notification.id} as read`);
-        } catch (error) {
-          console.error(`❌ Failed to mark ${notification.id} as read:`, error);
-        }
-      }
-
-      // Update local state immediately
-      setNotifications(prev => 
-        prev.map(notif => 
-          notif.read === 'false' 
-            ? { ...notif, read: 'true', read_at: new Date().toISOString() }
-            : notif
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.read
+            ? notif
+            : { ...notif, read: true, read_at: notif.read_at ?? new Date().toISOString() }
         )
       );
-      
-      console.log('🔄 Updated local notification state to read');
-      
-      // Refresh unread count from server
-      try {
-        const newCount = await notificationService.getNotificationCount();
-        console.log(`📊 Server unread count after marking as read: ${newCount}`);
-        setUnreadCount(newCount);
-        
-        if (newCount === 0) {
-          console.log('✅ Badge should now be hidden');
-        } else {
-          console.log(`⚠️ Badge still showing - ${newCount} unread notifications remain`);
-        }
-      } catch (error) {
-        console.error('❌ Error refreshing unread count:', error);
-      }
-      
+
+      void loadUnreadCount();
     } catch (error) {
-      console.error('❌ Error in handleMarkNotificationsAsReadOnView:', error);
+      console.error('Error in handleMarkNotificationsAsReadOnView:', error);
     }
   };
 
@@ -224,16 +254,11 @@ export default function NotificationBell() {
         onClick={() => {
           const wasOpen = isOpen;
           setIsOpen(!isOpen);
-          
-          // Mark notifications as read when opening dropdown (with small delay)
-          if (!wasOpen && notifications.length > 0) {
-            console.log(`Bell clicked - opening dropdown. Unread count: ${unreadCount}, Total notifications: ${notifications.length}`);
-            const unreadNotifs = notifications.filter(n => n.read === 'false');
-            console.log(`Unread notifications to mark as read: ${unreadNotifs.length}`);
-            
+
+          if (!wasOpen && notifications.some(notification => !notification.read)) {
             setTimeout(() => {
-              handleMarkNotificationsAsReadOnView();
-            }, 1000); // 1 second delay to let user see the notifications
+              void handleMarkNotificationsAsReadOnView();
+            }, 1000);
           }
         }}
         className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
@@ -285,7 +310,7 @@ export default function NotificationBell() {
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 transition-all duration-300 cursor-pointer ${
-                      notification.read === 'false' ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-white'
+                      !notification.read ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-white'
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -296,14 +321,14 @@ export default function NotificationBell() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <p className={`text-sm font-medium ${
-                            notification.read === 'false' ? 'text-gray-900' : 'text-gray-600'
+                            !notification.read ? 'text-gray-900' : 'text-gray-600'
                           }`}>
                             {notification.title}
-                            {notification.read === 'false' && (
+                            {!notification.read && (
                               <span className="ml-2 inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
                             )}
                           </p>
-                          {notification.read === 'false' && (
+                          {!notification.read && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -321,7 +346,7 @@ export default function NotificationBell() {
                         <p className="text-xs text-gray-400 mt-2">
                           {formatTimeAgo(notification.created_at)}
                         </p>
-                        {(notification.action_url || notification.metadata?.action_url) && (
+                        {(notification.action_url || getMetadataString(notification.metadata, 'action_url')) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -329,7 +354,7 @@ export default function NotificationBell() {
                             }}
                             className="text-xs text-indigo-600 hover:text-indigo-700 mt-2 inline-block"
                           >
-                            {notification.action_text || notification.metadata?.action_text || 'Voir plus'}
+                            {notification.action_text || getMetadataString(notification.metadata, 'action_text') || 'Voir plus'}
                           </button>
                         )}
                       </div>

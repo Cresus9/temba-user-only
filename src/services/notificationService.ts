@@ -1,4 +1,17 @@
+import { z } from 'zod';
 import { supabase } from '../lib/supabase-client';
+import {
+  NotificationPriority,
+  coerceToBoolean,
+  parsePriority,
+  sanitizeActionText,
+  sanitizeActionUrl,
+  sanitizeMessage,
+  sanitizeMetadata,
+  sanitizePreferenceTypes,
+  sanitizeText,
+  sanitizeTitle,
+} from '../utils/notificationSanitizers';
 
 export interface Notification {
   id: string;
@@ -6,17 +19,17 @@ export interface Notification {
   type: string;
   title: string;
   message: string;
-  metadata?: any;  // Your table uses 'metadata' instead of 'data'
-  read: string;    // Your table uses 'read' as string instead of 'read_at' as date
+  metadata?: Record<string, unknown>;
+  read: boolean;
   read_at: string | null;
   created_at: string;
-  updated_at: string;
-  category_id?: string | null;
-  template_id?: string | null;
-  priority: string;
+  updated_at: string | null;
+  priority: NotificationPriority;
   action_url?: string | null;
   action_text?: string | null;
   expires_at?: string | null;
+  category_id?: string | null;
+  template_id?: string | null;
 }
 
 export interface NotificationPreferences {
@@ -25,253 +38,378 @@ export interface NotificationPreferences {
   types: string[];
 }
 
-class NotificationService {
-  async getUserNotifications(limit = 10): Promise<Notification[]> {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+const NOTIFICATIONS_TABLE = 'notifications';
+const PREFERENCES_TABLE = 'notification_preferences';
 
-      if (error) throw error;
-      return data || [];
-    } catch (error: any) {
-      console.error('Error fetching notifications:', error);
-      throw new Error(error.message || 'Failed to fetch notifications');
+const notificationRowSchema = z
+  .object({
+    id: z.string(),
+    user_id: z.string(),
+    type: z.string(),
+    title: z.string(),
+    message: z.string(),
+    metadata: z.unknown().optional().nullable(),
+    read: z.union([z.boolean(), z.string(), z.number(), z.null()]).optional(),
+    read_at: z.string().nullable().optional(),
+    created_at: z.string(),
+    updated_at: z.string().nullable().optional(),
+    category_id: z.string().nullable().optional(),
+    template_id: z.string().nullable().optional(),
+    priority: z.string().nullable().optional(),
+    action_url: z.string().nullable().optional(),
+    action_text: z.string().nullable().optional(),
+    expires_at: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+const preferencesRowSchema = z
+  .object({
+    email: z.union([z.boolean(), z.string(), z.null()]).optional(),
+    push: z.union([z.boolean(), z.string(), z.null()]).optional(),
+    types: z.array(z.string()).optional(),
+  })
+  .partial();
+
+const ensureAuthenticatedUser = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    throw error;
+  }
+  const user = data?.user;
+  if (!user) {
+    throw new Error('Non authentifié');
+  }
+  return user;
+};
+
+const clampLimit = (limit?: number) => {
+  if (typeof limit !== 'number' || Number.isNaN(limit)) {
+    return DEFAULT_LIMIT;
+  }
+  return Math.min(Math.max(Math.floor(limit), 1), MAX_LIMIT);
+};
+
+const normalizeNotificationRow = (row: unknown): Notification | null => {
+  const parsed = notificationRowSchema.safeParse(row);
+  if (!parsed.success) {
+    console.error('Invalid notification row received', parsed.error);
+    return null;
+  }
+
+  const data = parsed.data;
+  const sanitizedType = sanitizeText(data.type, 'SYSTEM', 64);
+  const title = sanitizeTitle(data.title);
+  const message = sanitizeMessage(data.message, title);
+  const metadata = sanitizeMetadata(data.metadata);
+  const actionUrl = sanitizeActionUrl(data.action_url);
+  const actionText = sanitizeActionText(data.action_text);
+
+  if (metadata) {
+    if (actionUrl && typeof metadata.action_url !== 'string') {
+      metadata.action_url = actionUrl;
+    }
+    if (actionText && typeof metadata.action_text !== 'string') {
+      metadata.action_text = actionText;
     }
   }
 
-  async getPreferences(): Promise<NotificationPreferences> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
+  const prioritySource = data.priority ?? (metadata?.priority as string | undefined);
+  const priority = parsePriority(prioritySource);
+
+  return {
+    id: data.id,
+    user_id: data.user_id,
+    type: sanitizedType,
+    title,
+    message,
+    metadata,
+    read: coerceToBoolean(data.read),
+    read_at: data.read_at ?? null,
+    created_at: data.created_at,
+    updated_at: data.updated_at ?? null,
+    priority,
+    action_url: actionUrl,
+    action_text: actionText,
+    expires_at: data.expires_at ?? null,
+    category_id: data.category_id ?? null,
+    template_id: data.template_id ?? null,
+  };
+};
+
+const normalizePreferencesRow = (row: unknown): NotificationPreferences => {
+  const parsed = preferencesRowSchema.safeParse(row);
+  if (!parsed.success) {
+    return { email: true, push: false, types: [] };
+  }
+
+  const { email, push, types } = parsed.data;
+  return {
+    email: email !== undefined ? coerceToBoolean(email) : true,
+    push: push !== undefined ? coerceToBoolean(push) : false,
+    types: sanitizePreferenceTypes(types),
+  };
+};
+
+const sanitizeNotificationId = (notificationId: string) => {
+  const trimmed = notificationId.trim();
+  if (!trimmed) {
+    throw new Error('Invalid notification identifier');
+  }
+  return trimmed;
+};
+
+class NotificationService {
+  async getUserNotifications(limit = DEFAULT_LIMIT): Promise<Notification[]> {
+    const user = await ensureAuthenticatedUser();
+    const safeLimit = clampLimit(limit);
 
     const { data, error } = await supabase
-      .from('notification_preferences')
+      .from(NOTIFICATIONS_TABLE)
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? [])
+      .map(normalizeNotificationRow)
+      .filter((notification): notification is Notification => Boolean(notification));
+  }
+
+  async getPreferences(): Promise<NotificationPreferences> {
+    const user = await ensureAuthenticatedUser();
+
+    const { data, error } = await supabase
+      .from(PREFERENCES_TABLE)
       .select('email, push, types')
       .eq('user_id', user.id)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error; // no rows
+    if (error) {
+      if ((error as { code?: string }).code === 'PGRST116') {
+        return { email: true, push: false, types: [] };
+      }
+      throw error;
+    }
 
-    return data || { email: true, push: false, types: [] };
+    return normalizePreferencesRow(data);
   }
 
-  async updatePreferences(prefs: NotificationPreferences): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
+  async updatePreferences(prefs: NotificationPreferences): Promise<NotificationPreferences> {
+    const user = await ensureAuthenticatedUser();
 
-    const { error } = await supabase
-      .from('notification_preferences')
-      .upsert({ user_id: user.id, ...prefs }, { onConflict: 'user_id' });
+    const sanitizedTypes = sanitizePreferenceTypes(prefs.types);
+    const payload = {
+      user_id: user.id,
+      email: Boolean(prefs.email),
+      push: Boolean(prefs.push),
+      types: sanitizedTypes,
+    };
 
-    if (error) throw error;
+    const { data, error } = await supabase
+      .from(PREFERENCES_TABLE)
+      .upsert(payload, { onConflict: 'user_id' })
+      .select('email, push, types')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return normalizePreferencesRow(data);
   }
 
   async requestPushPermission(): Promise<boolean> {
-    if (!('Notification' in window)) return false;
-    const result = await Notification.requestPermission();
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return false;
+    }
+
+    const result = await window.Notification.requestPermission();
     return result === 'granted';
   }
 
   async getUnreadNotifications(): Promise<Notification[]> {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('read', 'false')  // Your table uses 'read' as string 'true'/'false'
-        .order('created_at', { ascending: false });
+    const user = await ensureAuthenticatedUser();
 
-      if (error) throw error;
-      return data || [];
-    } catch (error: any) {
-      console.error('Error fetching unread notifications:', error);
-      throw new Error(error.message || 'Failed to fetch unread notifications');
+    const { data, error } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('read', 'false')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
     }
+
+    return (data ?? [])
+      .map(normalizeNotificationRow)
+      .filter((notification): notification is Notification => Boolean(notification));
   }
 
   async markAsRead(notificationId: string): Promise<boolean> {
-    try {
-      console.log(`🔄 NotificationService: Marking ${notificationId} as read in database...`);
-      
-      const { data, error } = await supabase
-        .from('notifications')
-        .update({ 
-          read: 'true',
-          read_at: new Date().toISOString()
-        })
-        .eq('id', notificationId)
-        .select(); // Add select to see what was updated
+    const user = await ensureAuthenticatedUser();
+    const sanitizedId = sanitizeNotificationId(notificationId);
 
-      if (error) {
-        console.error(`❌ Database error marking ${notificationId} as read:`, error);
-        throw error;
-      }
-      
-      console.log(`✅ Database update result for ${notificationId}:`, data);
-      return true;
-    } catch (error: any) {
-      console.error(`❌ Error marking notification ${notificationId} as read:`, error);
-      throw new Error(error.message || 'Failed to mark notification as read');
+    const { data, error } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .update({
+        read: 'true',
+        read_at: new Date().toISOString(),
+      })
+      .eq('id', sanitizedId)
+      .eq('user_id', user.id)
+      .select('id');
+
+    if (error) {
+      throw error;
     }
+
+    const updatedCount = Array.isArray(data) ? data.length : data ? 1 : 0;
+    return updatedCount > 0;
   }
 
   async markAllAsRead(): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
+    const user = await ensureAuthenticatedUser();
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ 
-          read: 'true',
-          read_at: new Date().toISOString() 
-        })
-        .eq('user_id', user.id)
-        .eq('read', 'false');
+    const { error } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .update({
+        read: 'true',
+        read_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .eq('read', 'false');
 
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Error marking all notifications as read:', error);
-      throw new Error(error.message || 'Failed to mark all notifications as read');
+    if (error) {
+      throw error;
     }
   }
 
   async getNotificationCount(): Promise<number> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
+    const user = await ensureAuthenticatedUser();
 
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', 'false');
+    const { count, error } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read', 'false');
 
-      if (error) throw error;
-      return count || 0;
-    } catch (error: any) {
-      console.error('Error getting notification count:', error);
-      return 0;
+    if (error) {
+      throw error;
     }
+
+    return count ?? 0;
   }
 
-  // Subscribe to real-time notifications
   subscribeToNotifications(callback: (notification: Notification) => void) {
     const setupSubscription = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          throw error;
+        }
+
+        const user = data?.user;
         if (!user) {
-          console.log('❌ No authenticated user for notifications subscription');
           return null;
         }
 
-        console.log('🔔 Setting up notifications subscription for user:', user.id);
-        
-        // Create a unique channel name
-        const channelName = `notifications-${user.id}-${Date.now()}`;
-        
         const channel = supabase
-          .channel(channelName)
+          .channel(`notifications-${user.id}-${Date.now()}`)
           .on(
             'postgres_changes',
             {
               event: 'INSERT',
               schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
+              table: NOTIFICATIONS_TABLE,
+              filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
-              console.log('🔔 Received notification via realtime:', payload);
-              console.log('📝 Notification data:', payload.new);
-              callback(payload.new as Notification);
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'notifications',
-              filter: `user_id=eq.${user.id}`
+              const normalized = normalizeNotificationRow(payload.new);
+              if (normalized) {
+                callback(normalized);
+              }
             },
-            (payload) => {
-              console.log('🔄 Notification updated via realtime:', payload);
-            }
           )
           .subscribe((status, err) => {
-            console.log('📡 Notification subscription status:', status);
             if (err) {
-              console.error('❌ Subscription error:', err);
+              console.error('Notification subscription error', err);
             }
-            if (status === 'SUBSCRIBED') {
-              console.log('✅ Successfully subscribed to notifications');
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('❌ Channel error - realtime may not be enabled for notifications table');
-            } else if (status === 'TIMED_OUT') {
-              console.error('❌ Subscription timed out');
-            } else if (status === 'CLOSED') {
-              console.log('🔐 Subscription closed');
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.error('Notification channel issue', status);
             }
           });
 
         return channel;
       } catch (error) {
-        console.error('❌ Error setting up notifications subscription:', error);
+        console.error('Error setting up notifications subscription:', error);
         return null;
       }
     };
 
     const channelPromise = setupSubscription();
-    
+
     return {
       unsubscribe: () => {
-        channelPromise.then(channel => {
-          if (channel) {
-            console.log('🔕 Unsubscribing from notifications');
-            supabase.removeChannel(channel);
-          }
-        });
-      }
+        channelPromise
+          .then((channel) => {
+            if (channel) {
+              supabase.removeChannel(channel);
+            }
+          })
+          .catch((error) => {
+            console.error('Error tearing down notifications subscription:', error);
+          });
+      },
     };
   }
 
-  // Delete notification
   async deleteNotification(notificationId: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
+    const user = await ensureAuthenticatedUser();
+    const sanitizedId = sanitizeNotificationId(notificationId);
 
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Error deleting notification:', error);
-      throw new Error(error.message || 'Failed to delete notification');
+    const { error } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .delete()
+      .eq('id', sanitizedId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      throw error;
     }
   }
 
-  // Get notifications with pagination
-  async getNotifications(page = 1, limit = 20): Promise<{ notifications: Notification[]; hasMore: boolean }> {
-    try {
-      const offset = (page - 1) * limit;
-      
-      const { data, error, count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+  async getNotifications(page = 1, limit = DEFAULT_LIMIT): Promise<{ notifications: Notification[]; hasMore: boolean }> {
+    const user = await ensureAuthenticatedUser();
+    const safeLimit = clampLimit(limit);
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const offset = (safePage - 1) * safeLimit;
 
-      if (error) throw error;
-      
-      return {
-        notifications: data || [],
-        hasMore: (count || 0) > offset + limit
-      };
-    } catch (error: any) {
-      console.error('Error fetching paginated notifications:', error);
-      throw new Error(error.message || 'Failed to fetch notifications');
+    const { data, error, count } = await supabase
+      .from(NOTIFICATIONS_TABLE)
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + safeLimit - 1);
+
+    if (error) {
+      throw error;
     }
+
+    const notifications = (data ?? [])
+      .map(normalizeNotificationRow)
+      .filter((notification): notification is Notification => Boolean(notification));
+
+    return {
+      notifications,
+      hasMore: (count ?? 0) > offset + safeLimit,
+    };
   }
 }
 

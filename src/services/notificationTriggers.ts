@@ -1,4 +1,14 @@
+import { z } from 'zod';
 import { supabase } from '../lib/supabase-client';
+import {
+  parsePriority,
+  sanitizeActionText,
+  sanitizeActionUrl,
+  sanitizeMessage,
+  sanitizeMetadata,
+  sanitizeText,
+  sanitizeTitle,
+} from '../utils/notificationSanitizers';
 
 export interface NotificationTriggerData {
   user_id: string;
@@ -12,6 +22,17 @@ export interface NotificationTriggerData {
 }
 
 class NotificationTriggers {
+  private static readonly notificationSchema = z.object({
+    user_id: z.string().trim().uuid(),
+    type: z.string().trim().min(1).max(64),
+    title: z.string().trim().min(1).max(255),
+    message: z.string().trim().min(1).max(2000),
+    data: z.unknown().optional(),
+    priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
+    action_url: z.string().optional().nullable(),
+    action_text: z.string().optional().nullable(),
+  });
+
   // Order confirmations
   async onOrderCreated(orderData: {
     order_id: string;
@@ -298,21 +319,43 @@ class NotificationTriggers {
   // Generic notification creator
   private async createNotification(notificationData: NotificationTriggerData) {
     try {
+      const parsed = NotificationTriggers.notificationSchema.safeParse(notificationData);
+
+      if (!parsed.success) {
+        console.error('Invalid notification payload:', parsed.error.flatten());
+        throw new Error('Invalid notification payload');
+      }
+
+      const { user_id, type, title, message, data: metadataInput, priority, action_url, action_text } = parsed.data;
+
+      const sanitizedTitle = sanitizeTitle(title);
+      const sanitizedMessage = sanitizeMessage(message, sanitizedTitle);
+      const sanitizedType = sanitizeText(type, 'SYSTEM', 64);
+      const sanitizedPriority = parsePriority(priority);
+      const sanitizedActionUrl = sanitizeActionUrl(action_url);
+      const sanitizedActionText = sanitizeActionText(action_text);
+
+      const metadata = sanitizeMetadata(metadataInput) ?? {};
+      metadata.priority = sanitizedPriority;
+      if (sanitizedActionUrl) {
+        metadata.action_url = sanitizedActionUrl;
+      }
+      if (sanitizedActionText) {
+        metadata.action_text = sanitizedActionText;
+      }
+
       const { data, error } = await supabase
         .from('notifications')
         .insert({
-          user_id: notificationData.user_id,
-          type: notificationData.type,
-          title: notificationData.title,
-          message: notificationData.message,
-          priority: notificationData.priority || 'normal',
+          user_id,
+          type: sanitizedType,
+          title: sanitizedTitle,
+          message: sanitizedMessage,
+          priority: sanitizedPriority,
           read: 'false',
-          action_url: notificationData.action_url,
-          action_text: notificationData.action_text,
-          metadata: {
-            ...notificationData.data,
-            priority: notificationData.priority || 'normal',
-          }
+          action_url: sanitizedActionUrl,
+          action_text: sanitizedActionText,
+          metadata,
         })
         .select()
         .single();

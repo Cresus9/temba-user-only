@@ -1,15 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase-client';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  read: boolean;
-  createdAt: string;
-}
+import { supabase } from '../lib/supabase-client';
+import { notificationService, Notification } from '../services/notificationService';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -23,45 +15,67 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+const MAX_RETRIES = 3;
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
+  const retryAttempts = useRef(0);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const isMountedRef = useRef(true);
 
-  const fetchNotifications = async () => {
+  const clearRetryTimeout = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+  };
+
+  const fetchNotifications = useCallback(async () => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    let shouldResetLoading = true;
+
     try {
-      setError(null);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setNotifications([]);
+      const data = await notificationService.getUserNotifications(50);
+      if (!isMountedRef.current) {
+        return;
+      }
+      setNotifications(data);
+      retryAttempts.current = 0;
+      clearRetryTimeout();
+    } catch (err) {
+      const errorObject = err as Error;
+
+      if (errorObject?.message === 'Non authentifié') {
+        if (isMountedRef.current) {
+          setNotifications([]);
+          setLoading(false);
+        }
+        shouldResetLoading = false;
         return;
       }
 
-      const { data, error: notifError } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (notifError) {
-        // If it's a network error and we haven't exceeded max retries
-        if (notifError.message.includes('Failed to fetch') && retryCount < maxRetries) {
-          setRetryCount(prev => prev + 1);
-          // Retry after a delay
-          setTimeout(fetchNotifications, 1000 * Math.pow(2, retryCount));
-          return;
-        }
-        throw notifError;
+      if (errorObject?.message?.includes('Failed to fetch') && retryAttempts.current < MAX_RETRIES) {
+        const delay = 1000 * Math.pow(2, retryAttempts.current);
+        retryAttempts.current += 1;
+        clearRetryTimeout();
+        retryTimeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            void fetchNotifications();
+          }
+        }, delay);
+        shouldResetLoading = false;
+        return;
       }
 
-      setNotifications(data || []);
-      setRetryCount(0); // Reset retry count on success
-    } catch (err: any) {
-      console.error('Error fetching notifications:', err);
-      // Only show error toast if we've exhausted retries
-      if (retryCount >= maxRetries) {
+      if (isMountedRef.current) {
         setError('Failed to load notifications');
         toast.error('Failed to load notifications', {
           id: 'notifications-error',
@@ -70,114 +84,161 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         });
       }
     } finally {
-      setLoading(false);
+      if (shouldResetLoading && isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    const attachSubscription = () => {
+      subscriptionRef.current?.unsubscribe();
+      subscriptionRef.current = notificationService.subscribeToNotifications((notification) => {
+        if (!isMountedRef.current) {
+          return;
+        }
+        setNotifications((prev) => {
+          const index = prev.findIndex((item) => item.id === notification.id);
+          if (index !== -1) {
+            const next = [...prev];
+            next[index] = notification;
+            return next;
+          }
+          return [notification, ...prev];
+        });
+      });
+    };
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
-        fetchNotifications();
+        retryAttempts.current = 0;
+        clearRetryTimeout();
+        void fetchNotifications();
+        attachSubscription();
       } else if (event === 'SIGNED_OUT') {
-        setNotifications([]);
+        clearRetryTimeout();
+        subscriptionRef.current?.unsubscribe();
+        subscriptionRef.current = null;
+        if (isMountedRef.current) {
+          setNotifications([]);
+          setLoading(false);
+        }
       }
     });
 
-    // Initial fetch if user is already signed in
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        fetchNotifications();
-      } else {
-        setLoading(false);
+    const initialize = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) {
+          retryAttempts.current = 0;
+          clearRetryTimeout();
+          await fetchNotifications();
+          attachSubscription();
+        } else if (isMountedRef.current) {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Error initializing notifications:', err);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
-    checkAuth();
+    void initialize();
 
     return () => {
+      isMountedRef.current = false;
       authListener.subscription.unsubscribe();
+      subscriptionRef.current?.unsubscribe();
+      subscriptionRef.current = null;
+      clearRetryTimeout();
     };
-  }, []);
+  }, [fetchNotifications]);
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
+      const updated = await notificationService.markAsRead(id);
+      if (!updated || !isMountedRef.current) {
+        return;
+      }
 
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.map(notif =>
-          notif.id === id ? { ...notif, read: true } : notif
-        )
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif.id === id
+            ? {
+                ...notif,
+                read: true,
+                read_at: notif.read_at ?? new Date().toISOString(),
+              }
+            : notif,
+        ),
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error marking notification as read:', err);
       toast.error('Failed to mark notification as read', {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
     }
-  };
+  }, []);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.map(notif => ({ ...notif, read: true }))
+      await notificationService.markAllAsRead();
+      if (!isMountedRef.current) {
+        return;
+      }
+      const now = new Date().toISOString();
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif.read
+            ? notif
+            : {
+                ...notif,
+                read: true,
+                read_at: notif.read_at ?? now,
+              },
+        ),
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error marking all notifications as read:', err);
       toast.error('Failed to mark all notifications as read', {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
     }
-  };
+  }, []);
 
-  const deleteNotification = async (id: string) => {
+  const deleteNotification = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.filter(notif => notif.id !== id)
-      );
-    } catch (err: any) {
+      await notificationService.deleteNotification(id);
+      if (!isMountedRef.current) {
+        return;
+      }
+      setNotifications((prev) => prev.filter((notif) => notif.id !== id));
+    } catch (err) {
       console.error('Error deleting notification:', err);
       toast.error('Failed to delete notification', {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
     }
-  };
+  }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.reduce((count, notif) => (notif.read ? count : count + 1), 0);
 
   return (
-    <NotificationContext.Provider value={{
-      notifications,
-      unreadCount,
-      loading,
-      error,
-      markAsRead,
-      markAllAsRead,
-      deleteNotification
-    }}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        loading,
+        error,
+        markAsRead,
+        markAllAsRead,
+        deleteNotification,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );

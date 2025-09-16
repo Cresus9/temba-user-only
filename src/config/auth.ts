@@ -49,14 +49,36 @@ export const getRedirectUrl = (type: keyof typeof AUTH_CONFIG.REDIRECT_URLS): st
 // Helper function to validate password strength
 export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  const { MIN_LENGTH } = AUTH_CONFIG.PASSWORD_REQUIREMENTS;
-  
+  const {
+    MIN_LENGTH,
+    REQUIRE_UPPERCASE,
+    REQUIRE_LOWERCASE,
+    REQUIRE_NUMBERS,
+    REQUIRE_SPECIAL_CHARS,
+  } = AUTH_CONFIG.PASSWORD_REQUIREMENTS;
+
   if (password.length < MIN_LENGTH) {
     errors.push(`Le mot de passe doit contenir au moins ${MIN_LENGTH} caractères`);
   }
-  
+
+  if (REQUIRE_UPPERCASE && !/[A-Z]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins une lettre majuscule');
+  }
+
+  if (REQUIRE_LOWERCASE && !/[a-z]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins une lettre minuscule');
+  }
+
+  if (REQUIRE_NUMBERS && !/\d/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins un chiffre');
+  }
+
+  if (REQUIRE_SPECIAL_CHARS && !/[!@#$%^&*(),.?":{}|<>\[\];'`~\/\\+\-=_]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins un caractère spécial');
+  }
+
   return {
     isValid: errors.length === 0,
     errors
   };
-}; 
+};

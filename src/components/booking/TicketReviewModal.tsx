@@ -1,61 +1,45 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
-import { useFeeCalculation } from '../../hooks/useFeeCalculation';
-
-interface TicketType {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-}
+import { BookingLineItem } from '../../types/booking';
 
 interface TicketReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  selectedTickets: { [key: string]: number };
-  selectedSeats?: string[];
-  ticketTypes: TicketType[];
+  items: BookingLineItem[];
   currency: string;
-  eventId: string;
+  subtotal: number;
+  processingFee: number;
+  total: number;
+  feeLoading?: boolean;
+  feeError?: string | null;
+  usingFallbackFees?: boolean;
 }
 
 export default function TicketReviewModal({
   isOpen,
   onClose,
   onConfirm,
-  selectedTickets,
-  ticketTypes,
+  items,
   currency,
-  eventId
+  subtotal,
+  processingFee,
+  total,
+  feeLoading = false,
+  feeError,
+  usingFallbackFees = false
 }: TicketReviewModalProps) {
   if (!isOpen) return null;
-
-  const subtotal = useMemo(() => {
-    return ticketTypes.reduce((total, ticket) => {
-      return total + (ticket.price * (selectedTickets[ticket.id] || 0));
-    }, 0);
-  }, [ticketTypes, selectedTickets]);
-
-  const selections = useMemo(() => {
-    return ticketTypes
-      .filter(t => (selectedTickets[t.id] || 0) > 0)
-      .map(t => ({ ticket_type_id: t.id, quantity: selectedTickets[t.id], price: t.price }));
-  }, [ticketTypes, selectedTickets]);
-
-  const { fees } = useFeeCalculation(eventId, selections);
-  const processingFee = fees.total_buyer_fees || 0;
-  const total = subtotal + processingFee;
 
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto">
       {/* Semi-transparent overlay */}
-      <div 
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity" 
+      <div
+        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg z-[101]">
@@ -67,25 +51,25 @@ export default function TicketReviewModal({
                 </h3>
 
                 <div className="space-y-4">
-                  {ticketTypes.map((ticket) => (
-                    selectedTickets[ticket.id] > 0 && (
-                      <div key={ticket.id} className="border-b border-gray-200 pb-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{ticket.name}</h4>
-                            <p className="text-sm text-gray-600">{ticket.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-gray-900">
-                              {selectedTickets[ticket.id]} × {formatCurrency(ticket.price, currency)}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {formatCurrency(ticket.price * selectedTickets[ticket.id], currency)}
-                            </p>
-                          </div>
+                  {items.map((item) => (
+                    <div key={item.id} className="border-b border-gray-200 pb-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{item.name}</h4>
+                          {item.description && (
+                            <p className="text-sm text-gray-600">{item.description}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">
+                            {item.quantity} × {formatCurrency(item.price, currency)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {formatCurrency(item.price * item.quantity, currency)}
+                          </p>
                         </div>
                       </div>
-                    )
+                    </div>
                   ))}
 
                   <div className="space-y-2 pt-4">
@@ -94,14 +78,20 @@ export default function TicketReviewModal({
                       <span>{formatCurrency(subtotal, currency)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
-                      <span>Frais de service</span>
-                      <span>{formatCurrency(processingFee, currency)}</span>
+                      <span>Frais de service{usingFallbackFees ? ' (estimés)' : ''}</span>
+                      <span>{feeLoading ? 'Calcul...' : formatCurrency(processingFee, currency)}</span>
                     </div>
                     <div className="flex justify-between text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">
                       <span>Total</span>
                       <span>{formatCurrency(total, currency)}</span>
                     </div>
                   </div>
+
+                  {(feeError || usingFallbackFees) && (
+                    <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-700">
+                      {feeError || 'Les frais exacts seront confirmés pendant le paiement.'}
+                    </div>
+                  )}
 
                   <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-yellow-800">
@@ -120,7 +110,8 @@ export default function TicketReviewModal({
             <button
               type="button"
               onClick={onConfirm}
-              className="inline-flex w-full justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto"
+              className="inline-flex w-full justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={feeLoading && !usingFallbackFees}
             >
               Procéder au paiement
             </button>
@@ -137,3 +128,4 @@ export default function TicketReviewModal({
     </div>
   );
 }
+

@@ -1,3 +1,5 @@
+import type { CategoryId } from '../constants/categories';
+
 export interface EventCategory {
   id: string;
   name: string;
@@ -7,6 +9,12 @@ export interface EventCategory {
   subcategories?: string[]; // Array of subcategory names
   created_at?: string;
   updated_at?: string;
+}
+
+export interface EventOrganizer {
+  user_id: string;
+  name: string;
+  email: string;
 }
 
 export interface Event {
@@ -23,13 +31,18 @@ export interface Event {
   tickets_sold: number;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   featured: boolean;
-  categories?: string[]; // Array of category IDs (legacy support)
+  categories?: CategoryId[] | null; // Array of category IDs (legacy support)
   category_relations?: EventCategory[]; // New normalized categories
   ticket_types?: TicketType[];
   coordinates?: {
     latitude: number;
     longitude: number;
   };
+  organizer_id?: string | null;
+  organizer?: EventOrganizer | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+  venue_layout_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -63,7 +76,7 @@ export interface CreateEventInput {
   price: number;
   currency: string;
   capacity: number;
-  categories: string[];
+  categories: CategoryId[];
   coordinates?: {
     latitude: number;
     longitude: number;
@@ -71,8 +84,4 @@ export interface CreateEventInput {
   ticket_types: Omit<TicketType, 'id' | 'event_id' | 'created_at' | 'updated_at'>[];
 }
 
-export interface CategoryId {
-  id: string;
-}
-
-export type CategoryIdType = typeof CATEGORIES[number]['id'];
+export type CategoryIdType = CategoryId;

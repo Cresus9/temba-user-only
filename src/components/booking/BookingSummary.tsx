@@ -1,58 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import { TicketType } from '../../types/event';
+import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
-import { serviceFeeService, ServiceFeeSelection, ServiceFeeResult } from '../../services/serviceFeeService';
+import { BookingLineItem } from '../../types/booking';
 
 interface BookingSummaryProps {
-  selectedTickets: { [key: string]: number };
-  ticketTypes: TicketType[];
+  items: BookingLineItem[];
   currency: string;
-  eventId?: string;
+  subtotal: number;
+  processingFee: number;
+  total: number;
+  feeLoading?: boolean;
+  feeError?: string | null;
+  usingFallbackFees?: boolean;
 }
 
 export default function BookingSummary({
-  selectedTickets,
-  ticketTypes,
+  items,
   currency,
-  eventId
+  subtotal,
+  processingFee,
+  total,
+  feeLoading = false,
+  feeError,
+  usingFallbackFees = false
 }: BookingSummaryProps) {
-  const [fees, setFees] = useState<ServiceFeeResult>({ total_buyer_fees: 0, total_organizer_fees: 0, fee_breakdown: [] });
-
-  const subtotal = ticketTypes.reduce((total, ticket) => {
-    const quantity = selectedTickets[ticket.id] || 0;
-    return total + (ticket.price * quantity);
-  }, 0);
-
-  useEffect(() => {
-    const loadFees = async () => {
-      const selections: ServiceFeeSelection[] = ticketTypes
-        .filter(t => (selectedTickets[t.id] || 0) > 0)
-        .map(t => ({ ticket_type_id: t.id, quantity: selectedTickets[t.id], price: t.price }));
-      if (!eventId || selections.length === 0) {
-        setFees({ total_buyer_fees: 0, total_organizer_fees: 0, fee_breakdown: [] });
-        return;
-      }
-      const result = await serviceFeeService.calculateFees(eventId, selections);
-      setFees(result);
-    };
-    loadFees();
-  }, [eventId, selectedTickets, ticketTypes]);
-
-  const processingFee = fees.total_buyer_fees;
-  const total = subtotal + processingFee;
-
+  
   return (
     <div className="bg-gray-50 rounded-lg p-4">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Résumé de la commande</h3>
-      
+
       <div className="space-y-4">
-        {ticketTypes.map((ticket) => (
-          selectedTickets[ticket.id] > 0 && (
-            <div key={ticket.id} className="flex justify-between text-gray-600">
-              <span>{ticket.name} × {selectedTickets[ticket.id]}</span>
-              <span>{formatCurrency(ticket.price * selectedTickets[ticket.id], currency)}</span>
-            </div>
-          )
+        {items.map((item) => (
+          <div key={item.id} className="flex justify-between text-gray-600">
+            <span>{item.name} × {item.quantity}</span>
+            <span>{formatCurrency(item.price * item.quantity, currency)}</span>
+          </div>
         ))}
 
         <div className="pt-4 border-t border-gray-200 space-y-2">
@@ -62,13 +43,21 @@ export default function BookingSummary({
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Frais de service</span>
-            <span>{formatCurrency(processingFee, currency)}</span>
+            <span>
+              {feeLoading ? 'Calcul...' : formatCurrency(processingFee, currency)}
+            </span>
           </div>
           <div className="flex justify-between text-lg font-semibold text-gray-900 pt-2 border-t border-gray-200">
             <span>Total</span>
             <span>{formatCurrency(total, currency)}</span>
           </div>
         </div>
+
+        {(feeError || usingFallbackFees) && (
+          <div className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-md p-3">
+            {feeError || 'Impossible de confirmer les frais en temps réel. Un taux standard a été appliqué.'}
+          </div>
+        )}
       </div>
     </div>
   );

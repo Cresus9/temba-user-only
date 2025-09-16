@@ -17,19 +17,35 @@ interface RegisterData {
 class AuthService {
   async login(credentials: LoginCredentials) {
     try {
+      const email = credentials.email.trim();
+      const password = credentials.password;
+
+      if (!email) {
+        throw new Error('Adresse email invalide');
+      }
+
+      if (!password) {
+        throw new Error('Mot de passe requis');
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password
+        email,
+        password
       });
 
       if (error) throw error;
+      if (!data?.user) {
+        throw new Error('Compte utilisateur introuvable');
+      }
 
       // Get user profile after successful login
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', data.user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) throw profileError;
 
       return {
         user: data.user,
@@ -44,42 +60,86 @@ class AuthService {
 
   async register(data: RegisterData) {
     try {
-      // Use the custom signup edge function
+      const passwordValidation = validatePassword(data.password);
+      if (!passwordValidation.isValid) {
+        throw new Error(passwordValidation.errors.join(', '));
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/signup`, {
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante');
+      }
+
+      const email = data.email.trim();
+      const name = data.name.trim();
+
+      if (!email) {
+        throw new Error('Adresse email invalide');
+      }
+
+      if (!name) {
+        throw new Error('Le nom est requis');
+      }
+
+      // Use the custom signup edge function
+      const signupEndpoint = new URL('functions/v1/signup', supabaseUrl).toString();
+
+      const response = await fetch(signupEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${supabaseAnonKey}`
         },
         body: JSON.stringify({
-          email: data.email,
+          email,
           password: data.password,
-          name: data.name,
-          phone: data.phone
+          name,
+          phone: data.phone?.trim()
         })
       });
 
-      const result = await response.json();
+      let result: { success?: boolean; error?: string } | null = null;
+      const isJsonResponse = response.headers?.get?.('content-type')?.includes('application/json');
+      if (isJsonResponse) {
+        try {
+          result = await response.json();
+        } catch (parseError) {
+          console.error('Erreur lors de l\'analyse de la réponse d\'inscription:', parseError);
+          throw new Error('Réponse inattendue du serveur lors de la création du compte');
+        }
+      } else if (response.ok) {
+        result = { success: true };
+      }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Échec de la création du compte');
+      if (!response.ok) {
+        throw new Error(result?.error || `Échec de la création du compte (code ${response.status})`);
+      }
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Échec de la création du compte');
       }
 
       // Sign in the user after successful registration
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
+        email,
         password: data.password
       });
 
       if (signInError) throw signInError;
+      if (!signInData?.user) {
+        throw new Error('Compte utilisateur introuvable après inscription');
+      }
 
       // Get user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', signInData.user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) throw profileError;
 
       return {
         user: signInData.user,
@@ -112,7 +172,7 @@ class AuthService {
       .from('profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError) throw profileError;
     return profile;
@@ -120,14 +180,19 @@ class AuthService {
 
   async resetPassword(email: string) {
     try {
+      const sanitizedEmail = email.trim();
+      if (!sanitizedEmail) {
+        throw new Error('Adresse email invalide');
+      }
+
       const redirectUrl = getRedirectUrl('PASSWORD_RESET');
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+
+      const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
         redirectTo: redirectUrl,
       });
 
       if (error) throw error;
-      
+
       return { success: true };
     } catch (error: any) {
       console.error('Erreur de réinitialisation du mot de passe:', error);
@@ -148,7 +213,7 @@ class AuthService {
       });
 
       if (error) throw error;
-      
+
       return { success: true };
     } catch (error: any) {
       console.error('Erreur de mise à jour du mot de passe:', error);

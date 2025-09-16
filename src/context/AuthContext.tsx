@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
 import { authService } from '../services/authService';
@@ -36,24 +36,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
+    isMountedRef.current = true;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        const sessionUser = session?.user ?? null;
+        if (!isMountedRef.current) return;
+
+        setUser(sessionUser);
+
+        if (sessionUser) {
+          setLoading(true);
+          await loadProfile(sessionUser.id);
+        } else {
+          setProfile(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération de la session:', error);
+        if (!isMountedRef.current) return;
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
+
+      if (sessionUser) {
+        setLoading(true);
+        await loadProfile(sessionUser.id);
       } else {
         setProfile(null);
         setLoading(false);
@@ -61,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      isMountedRef.current = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -71,16 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      setProfile(data);
+      if (!isMountedRef.current) return;
+      setProfile(data ?? null);
     } catch (error) {
       console.error('Erreur lors du chargement du profil:', error);
+      if (!isMountedRef.current) return;
       toast.error('Échec du chargement du profil utilisateur');
       setProfile(null);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -108,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.logout();
       setUser(null);
       setProfile(null);
+      setLoading(false);
     } catch (error: any) {
       console.error('Erreur de déconnexion:', error);
       throw error;

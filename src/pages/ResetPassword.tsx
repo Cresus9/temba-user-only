@@ -19,53 +19,44 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Debug: Log current URL and parameters
-    console.log('Current URL:', window.location.href);
-    console.log('Hash:', window.location.hash);
-    
-    // Check URL parameters for specific errors
+    let isActive = true;
+
     const urlParams = new URLSearchParams(window.location.hash.substring(1));
-    const error = urlParams.get('error');
+    const otpError = urlParams.get('error');
     const errorCode = urlParams.get('error_code');
-    const errorDescription = urlParams.get('error_description');
 
-    console.log('URL Error:', error);
-    console.log('Error Code:', errorCode);
-    console.log('Error Description:', errorDescription);
-
-    if (error === 'access_denied' && errorCode === 'otp_expired') {
-      setError('Le lien de réinitialisation a expiré. Veuillez demander un nouveau lien.');
+    if (otpError === 'access_denied' && errorCode === 'otp_expired') {
+      if (isActive) {
+        setError('Le lien de réinitialisation a expiré. Veuillez demander un nouveau lien.');
+      }
       return;
     }
 
-    // Check if we have a valid session (user clicked the reset link)
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('Session check result:', { session: !!session, error });
-        
-        if (error) {
-          console.error('Session error:', error);
+
+        if (!isActive) return;
+
+        if (error || !session) {
           setError('Lien de réinitialisation invalide ou expiré');
           return;
         }
 
-        if (!session) {
-          console.log('No session found');
-          setError('Lien de réinitialisation invalide ou expiré');
-          return;
-        }
-
-        console.log('Valid session found, user:', session.user.email);
         setIsValidToken(true);
-      } catch (error) {
-        console.error('Error checking session:', error);
-        setError('Lien de réinitialisation invalide ou expiré');
+      } catch (sessionError) {
+        console.error('Erreur lors de la vérification de la session:', sessionError);
+        if (isActive) {
+          setError('Lien de réinitialisation invalide ou expiré');
+        }
       }
     };
 
-    checkSession();
+    void checkSession();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,8 +68,9 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères');
+    const validation = validatePassword(password);
+    if (!validation.isValid) {
+      setError(validation.errors.join(', '));
       return;
     }
 
