@@ -178,46 +178,33 @@ export class PaymentService {
       throw new Error('Montant de paiement invalide');
     }
 
-    const { url, anonKey } = this.resolveFunctionConfig();
-
-    let response: Response;
+    // Use the existing supabase client instead of creating our own
     try {
-      response = await this.fetchImpl(`${url}/functions/v1/create-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${anonKey}`,
-          apikey: anonKey,
-        },
-        body: JSON.stringify(request),
+      const { supabase } = await import('../lib/supabase-client');
+      const { data, error } = await supabase.functions.invoke('create-payment', {
+        body: request
       });
+
+      if (error) {
+        this.logger.error('Erreur lors de la création du paiement:', error);
+        throw new Error(`Erreur de création de paiement: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('Aucune donnée reçue du service de paiement');
+      }
+
+      return {
+        success: true,
+        payment_url: data.payment_url,
+        payment_token: data.payment_token,
+        order_id: data.order_id,
+        payment_id: data.payment_id
+      };
     } catch (error) {
-      this.logger.error('Erreur réseau lors de la création du paiement:', error as Error);
-      throw new Error('Impossible de contacter le service de paiement');
+      this.logger.error('Erreur lors de la création du paiement:', error as Error);
+      throw error;
     }
-
-    const { data, text } = await this.readResponsePayload(response);
-
-    if (!response.ok) {
-      const message = this.extractErrorMessage(data, text);
-      throw new Error(message ? `${PAYMENT_ERROR_MESSAGE}: ${message}` : PAYMENT_ERROR_MESSAGE);
-    }
-
-    if (!data || data.success !== true) {
-      const message = this.extractErrorMessage(data, text);
-      throw new Error(message ?? PAYMENT_ERROR_MESSAGE);
-    }
-
-    if (typeof data.payment_token !== 'string' || !data.payment_token) {
-      throw new Error('Réponse de paiement invalide');
-    }
-
-    return {
-      success: true,
-      payment_url: typeof data.payment_url === 'string' ? data.payment_url : undefined,
-      payment_token: data.payment_token,
-      payment_id: typeof data.payment_id === 'string' ? data.payment_id : undefined,
-    };
   }
 
   async verifyPayment(paymentToken: string, orderId?: string, saveMethod?: boolean, paymentDetails?: any): Promise<PaymentVerification> {
