@@ -49,9 +49,33 @@ export default function BookingConfirmation() {
   const verifyPaymentAndFetchTickets = async (token: string) => {
     try {
       setVerifyingPayment(true);
+      
+      // Check if we're coming from PaymentSuccess (which already verified the payment)
+      const fromPaymentSuccess = sessionStorage.getItem('paymentVerified');
+      if (fromPaymentSuccess === token) {
+        console.log('🎯 Payment already verified, skipping re-verification');
+        sessionStorage.removeItem('paymentVerified'); // Clean up
+        toast.success('🎉 Paiement confirmé !');
+        setTimeout(() => {
+          fetchTickets();
+        }, 500);
+        return;
+      }
+      
+      // If not from PaymentSuccess, try to fetch tickets first (they might already exist)
+      console.log('🔍 Checking if tickets already exist before verification...');
+      try {
+        await fetchTickets();
+        // If fetchTickets succeeded without errors, tickets exist, no need to verify
+        console.log('✅ Tickets already exist, skipping payment verification');
+        return;
+      } catch (fetchError) {
+        console.log('📋 Tickets not found, proceeding with payment verification...');
+      }
+      
       console.log('Verifying payment with token:', token);
       
-      // Verify payment first (we don't have payment details here, so we can't save the method)
+      // Only verify payment if tickets don't exist yet
       const result = await paymentService.verifyPayment(token, bookingId);
       console.log('Payment verification result:', result);
       console.log('Payment verification details:', {
@@ -74,8 +98,16 @@ export default function BookingConfirmation() {
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
-      toast.error('Erreur lors de la vérification du paiement');
-      fetchTickets(); // Still try to fetch tickets
+      
+      // If verification times out but we have a token, still try to fetch tickets
+      if (error.message && error.message.includes('timeout')) {
+        console.log('⏰ Verification timeout, trying to fetch tickets anyway...');
+        toast.success('🎫 Chargement de vos billets...');
+        fetchTickets();
+      } else {
+        toast.error('Erreur lors de la vérification du paiement');
+        fetchTickets(); // Still try to fetch tickets
+      }
     } finally {
       setVerifyingPayment(false);
     }

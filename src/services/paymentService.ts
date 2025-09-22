@@ -132,12 +132,25 @@ class PaymentService {
         console.log('Sending as payment_token (Paydunya)');
       }
 
-      const { data, error } = await supabase.functions.invoke('verify-payment', {
+      // Add timeout to the function call to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Payment verification timeout')), 4000); // 4 second timeout
+      });
+
+      const verificationPromise = supabase.functions.invoke('verify-payment', {
         body: payload
       });
 
+      const { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+
       if (error) {
         console.error('Payment verification error:', error);
+        
+        // Handle timeout specifically
+        if (error.message && error.message.includes('timeout')) {
+          throw new Error('Payment verification is taking longer than expected. Please check your tickets page directly.');
+        }
+        
         throw new Error(`Verification Error: ${error.message}`);
       }
 
@@ -194,7 +207,7 @@ class PaymentService {
             await notificationTriggers.onOrderCreated({
               order_id: orderId,
               user_id: orderData.user_id,
-              event_title: orderData.events?.title || 'Événement',
+              event_title: (Array.isArray(orderData.events) ? orderData.events[0]?.title : (orderData.events as any)?.title) || 'Événement',
               total_amount: orderData.total,
               currency: orderData.currency,
               ticket_count: ticketCount

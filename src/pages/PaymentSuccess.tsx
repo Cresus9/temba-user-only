@@ -33,22 +33,22 @@ export default function PaymentSuccess() {
     try {
       setLoading(true);
       
-      // Add timeout to prevent infinite loading - reduced to 10 seconds
+      // Add timeout to prevent infinite loading - reduced to 5 seconds
       const timeoutId = setTimeout(() => {
         console.log('⏰ Verification timeout - redirecting anyway');
         setLoading(false);
         setSuccess(true);
         toast.success('Paiement traité - Redirection vers vos billets...');
         navigate(`/booking/confirmation/${orderId}?token=${token}`);
-      }, 7000); // 7 second timeout (reduced)
+      }, 5000); // 5 second timeout (reduced from 7)
       
-      // Add even quicker fallback - 3 seconds for immediate redirect option
+      // Add even quicker fallback - 2 seconds for immediate redirect option
       const quickTimeoutId = setTimeout(() => {
         console.log('🚀 Quick redirect - payment likely succeeded');
         // Don't stop the verification, but show user they can skip
         if (loading) {
           toast.success('Paiement traité! Cliquez ici pour voir vos billets', {
-            duration: 4000,
+            duration: 6000,
             onClick: () => {
               clearTimeout(timeoutId);
               clearTimeout(quickTimeoutId);
@@ -56,7 +56,7 @@ export default function PaymentSuccess() {
             }
           });
         }
-      }, 3000); // 3 second quick option
+      }, 2000); // 2 second quick option (reduced from 3)
       
       // Get payment details from localStorage
       const storedPaymentDetails = localStorage.getItem('paymentDetails');
@@ -123,6 +123,9 @@ export default function PaymentSuccess() {
           : 'Paiement confirmé avec succès !';
         toast.success(statusMessage);
         
+        // Mark payment as verified to avoid duplicate verification on booking confirmation page
+        sessionStorage.setItem('paymentVerified', token!);
+        
         // Clean up localStorage after successful verification
         if (storedPaymentDetails) {
           localStorage.removeItem('paymentDetails');
@@ -151,8 +154,17 @@ export default function PaymentSuccess() {
         name: error.name
       });
       
+      // Handle timeout errors specifically
+      if (error.message && error.message.includes('timeout')) {
+        console.log('⏰ Timeout error - redirecting to tickets anyway');
+        setSuccess(true);
+        toast.success('Vérification en cours... Redirection vers vos billets');
+        setTimeout(() => {
+          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+        }, 1000);
+      }
       // If verification succeeded but other requests failed, still redirect
-      if (error.message && error.message.includes('already exist')) {
+      else if (error.message && error.message.includes('already exist')) {
         console.log('🎫 Tickets already exist - redirecting to confirmation');
         setSuccess(true);
         toast.success('Billets déjà créés - redirection vers la confirmation');
@@ -191,23 +203,31 @@ export default function PaymentSuccess() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Vérification du paiement
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             Confirmation de votre transaction...
           </p>
           
-          {/* Manual skip button */}
-          <div className="mt-6">
+          {/* Progress indicator */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+            <div className="bg-indigo-600 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+          </div>
+          
+          {/* Manual skip button - more prominent */}
+          <div className="mt-4">
             <button
               onClick={() => {
                 console.log('🚀 Manual skip - redirecting to tickets');
                 navigate(`/booking/confirmation/${orderId}?token=${token}`);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:text-indigo-700 underline"
+              className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium"
             >
-              Voir mes billets directement
+              Voir mes billets maintenant
             </button>
-            <p className="text-xs text-gray-500 mt-2">
-              Si la vérification prend trop de temps
+            <p className="text-sm text-gray-500 mt-3">
+              La vérification continue en arrière-plan
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Redirection automatique dans quelques secondes...
             </p>
           </div>
         </div>
