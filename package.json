@@ -5,12 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:staging": "VITE_ENVIRONMENT=staging vite",
     "build": "vite build",
+    "build:staging": "VITE_ENVIRONMENT=staging vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "preview:staging": "VITE_ENVIRONMENT=staging vite preview",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "staging": "./scripts/switch-to-staging.sh && npm run dev:staging",
+    "production": "./scripts/switch-to-production.sh && npm run dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",

@@ -2,9 +2,28 @@ import React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 import { AUTH_CONFIG } from '../config/auth';
+import { STAGING_CONFIG, isStaging } from '../config/staging';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://uwmlagvsivxqocklxbbo.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bWxhZ3ZzaXZ4cW9ja2x4YmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyNzMwMjYsImV4cCI6MjA1MTg0OTAyNn0.ylTM28oYPVjotPmEn9TSZGPy4EQW2pbWgNLRqWYduLc';
+// Environment-aware configuration
+const getSupabaseConfig = () => {
+  // Check if we're in staging environment
+  if (isStaging()) {
+    console.log('🚀 Using STAGING Supabase configuration');
+    return {
+      url: STAGING_CONFIG.SUPABASE_URL,
+      anonKey: STAGING_CONFIG.SUPABASE_ANON_KEY
+    };
+  }
+  
+  // Production configuration (fallback to hardcoded values if env vars not set)
+  console.log('🌍 Using PRODUCTION Supabase configuration');
+  return {
+    url: import.meta.env.VITE_SUPABASE_URL || 'https://uwmlagvsivxqocklxbbo.supabase.co',
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bWxhZ3ZzaXZ4cW9ja2x4YmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyNzMwMjYsImV4cCI6MjA1MTg0OTAyNn0.ylTM28oYPVjotPmEn9TSZGPy4EQW2pbWgNLRqWYduLc'
+  };
+};
+
+const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseConfig();
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
