@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { TicketType } from '../../types/event';
 import TicketTypeCard from './TicketTypeCard';
-import BookingSummary from './BookingSummary';
-import TicketReviewModal from './TicketReviewModal';
+import FloatingCartSummary from './FloatingCartSummary';
 import { useAuth } from '../../context/AuthContext';
+import { usePersistentCart } from '../../hooks/usePersistentCart';
 import toast from 'react-hot-toast';
 
 interface BookingFormProps {
@@ -23,32 +23,39 @@ export default function BookingForm({
   onReviewOpen,
   onReviewClose
 }: BookingFormProps) {
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [selectedTickets, setSelectedTickets] = useState<{ [key: string]: number }>(
-    ticketTypes.reduce((acc, ticket) => ({ ...acc, [ticket.id]: 0 }), {})
-  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Use persistent cart hook
+  const {
+    selectedTickets,
+    updateQuantity,
+    clearCart,
+    hasItems,
+    totalItems
+  } = usePersistentCart(
+    eventId,
+    ticketTypes.reduce((acc, ticket) => ({ ...acc, [ticket.id]: 0 }), {})
+  );
 
   const isPaused = (t: TicketType) => t.sales_enabled === false || t.is_paused === true || t.on_sale === false || t.is_active === false || t.status === 'PAUSED';
 
   // Reset any quantities for paused tickets whenever types change
   React.useEffect(() => {
-    setSelectedTickets(prev => {
-      const next = { ...prev };
-      let changed = false;
-      for (const t of ticketTypes) {
-        if (isPaused(t) && next[t.id] > 0) {
-          next[t.id] = 0;
-          changed = true;
-        }
+    let shouldUpdate = false;
+    for (const t of ticketTypes) {
+      if (isPaused(t) && (selectedTickets[t.id] || 0) > 0) {
+        updateQuantity(t.id, 0);
+        shouldUpdate = true;
       }
-      return changed ? next : prev;
-    });
-  }, [ticketTypes]);
+    }
+    if (shouldUpdate) {
+      toast.error('Certaines catégories de billets ont été suspendues et ont été retirées du panier.');
+    }
+  }, [ticketTypes, selectedTickets, updateQuantity]);
 
   const handleQuantityChange = (ticketId: string, quantity: number) => {
     const ticket = ticketTypes.find(t => t.id === ticketId);
@@ -69,10 +76,7 @@ export default function BookingForm({
       return;
     }
 
-    setSelectedTickets(prev => ({
-      ...prev,
-      [ticketId]: quantity
-    }));
+    updateQuantity(ticketId, quantity);
     setError('');
   };
 
@@ -89,9 +93,7 @@ export default function BookingForm({
     };
   };
 
-  const handleReviewOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleProceedToCheckout = () => {
     if (!user) {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
@@ -99,19 +101,16 @@ export default function BookingForm({
 
     // Remove any paused tickets from selection
     let hadPaused = false;
-    setSelectedTickets(prev => {
-      const next = { ...prev };
-      for (const t of ticketTypes) {
-        if (isPaused(t) && next[t.id] > 0) {
-          next[t.id] = 0;
-          hadPaused = true;
-        }
+    for (const t of ticketTypes) {
+      if (isPaused(t) && (selectedTickets[t.id] || 0) > 0) {
+        updateQuantity(t.id, 0);
+        hadPaused = true;
       }
-      return next;
-    });
+    }
 
     if (hadPaused) {
       toast.error('Certaines catégories de billets ont été suspendues et ont été retirées du panier.');
+      return; // Return early to let user see the updated cart
     }
 
     // Validate at least one active ticket is selected
@@ -121,13 +120,6 @@ export default function BookingForm({
       return;
     }
 
-    if (onReviewOpen) {
-      onReviewOpen();
-    }
-    setIsReviewModalOpen(true);
-  };
-
-  const handleConfirmOrder = () => {
     const totals = calculateTotals();
     
     // Navigate to checkout with order details
@@ -139,11 +131,11 @@ export default function BookingForm({
         eventId
       }
     });
+  };
 
-    setIsReviewModalOpen(false);
-    if (onReviewClose) {
-      onReviewClose();
-    }
+  const handleClearCart = () => {
+    clearCart();
+    toast.success('Panier vidé');
   };
 
   const availableTickets = ticketTypes.filter(ticket => 
@@ -164,7 +156,7 @@ export default function BookingForm({
 
   return (
     <>
-      <form onSubmit={handleReviewOrder} className="space-y-6">
+      <div className="space-y-6">
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
             <AlertCircle className="h-5 w-5" />
@@ -183,40 +175,17 @@ export default function BookingForm({
             />
           ))}
         </div>
+      </div>
 
-        {Object.values(selectedTickets).some(qty => qty > 0) && (
-          <BookingSummary
-            selectedTickets={selectedTickets}
-            ticketTypes={ticketTypes}
-            currency={currency}
-            eventId={eventId}
-          />
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !Object.values(selectedTickets).some(qty => qty > 0)}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Ticket className="h-5 w-5" />
-          Vérifier la commande
-        </button>
-      </form>
-
-      {/* Review Order Modal */}
-      <TicketReviewModal
-        isOpen={isReviewModalOpen}
-        onClose={() => {
-          setIsReviewModalOpen(false);
-          if (onReviewClose) {
-            onReviewClose();
-          }
-        }}
-        onConfirm={handleConfirmOrder}
+      {/* Floating Cart Summary */}
+      <FloatingCartSummary
         selectedTickets={selectedTickets}
         ticketTypes={ticketTypes}
         currency={currency}
         eventId={eventId}
+        onQuantityChange={handleQuantityChange}
+        onProceedToCheckout={handleProceedToCheckout}
+        onClearCart={handleClearCart}
       />
     </>
   );

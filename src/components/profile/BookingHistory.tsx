@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
+import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { generatePDF } from '../../utils/ticketService';
 import { useAuth } from '../../context/AuthContext';
@@ -200,18 +200,21 @@ export default function BookingHistory() {
         {bookings.map((booking) => (
           <div 
             key={booking.id}
-            className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
+            className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-200"
           >
             {/* Booking Header */}
             <div 
-              className="p-4 sm:p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              className="p-4 sm:p-6 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-all duration-200 group"
               onClick={() => handleBookingClick(booking.id)}
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
-                    {booking.event.title}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                      {booking.event.title}
+                    </h3>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                  </div>
                   <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 flex-shrink-0" />
@@ -231,16 +234,21 @@ export default function BookingHistory() {
                   <p className="text-lg font-semibold text-gray-900">
                     {formatCurrency(booking.total, booking.event.currency)}
                   </p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    booking.status === 'COMPLETED' 
-                      ? 'bg-green-100 text-green-800'
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'COMPLETED' 
+                        ? 'bg-green-100 text-green-800'
                       : booking.status === 'PENDING'
                       ? 'bg-yellow-100 text-yellow-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
                     {booking.status === 'COMPLETED' ? 'Terminée' : 
                      booking.status === 'PENDING' ? 'En attente' : 'Annulée'}
-                  </span>
+                    </span>
+                    <span className="text-xs text-gray-400 group-hover:text-indigo-500 transition-colors">
+                      Cliquer pour voir les détails
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

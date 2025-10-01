@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { orderService } from '../../services/orderService';
 import { paymentMethodService } from '../../services/paymentMethodService';
 import { SavedPaymentMethod } from '../../types/payment';
+import { clearCartForEvent } from '../../utils/cartUtils';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase-client';
 import { useFeeCalculation } from '../../hooks/useFeeCalculation';
@@ -24,6 +25,7 @@ export default function CheckoutForm({
   eventId,
   onSuccess 
 }: CheckoutFormProps) {
+
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
@@ -248,6 +250,7 @@ export default function CheckoutForm({
         localStorage.setItem('paymentDetails', JSON.stringify({
           orderId: result.orderId,
           paymentToken: result.paymentToken,
+          eventId: eventId, // Store eventId for cart clearing
           ...paymentDetailsForStorage
         }));
 
@@ -263,6 +266,12 @@ export default function CheckoutForm({
           window.location.href = result.paymentUrl;
         }
       } else if (result.orderId) {
+        // Clear cart after successful order creation
+        const cleared = clearCartForEvent(eventId, 'CheckoutForm');
+        if (cleared) {
+          toast.success('🛒 Panier vidé après commande créée');
+        }
+        
         // Fallback to success page
         onSuccess(result.orderId);
         toast.success('Commande créée avec succès !');

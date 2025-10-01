@@ -14,6 +14,28 @@ export default function GuestOrderVerification() {
   const navigate = useNavigate();
   const maxRetries = 3;
 
+  // Function to clear cart for specific event
+  const clearCartForOrder = (eventId: string) => {
+    try {
+      const cartData = localStorage.getItem('temba_cart_selections');
+      if (cartData) {
+        const cartState = JSON.parse(cartData);
+        if (cartState[eventId]) {
+          delete cartState[eventId];
+          if (Object.keys(cartState).length === 0) {
+            localStorage.removeItem('temba_cart_selections');
+          } else {
+            localStorage.setItem('temba_cart_selections', JSON.stringify(cartState));
+          }
+          window.dispatchEvent(new Event('cartUpdated'));
+          console.log('🛒 Cart cleared for event:', eventId);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
+  };
+
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -46,6 +68,9 @@ export default function GuestOrderVerification() {
           if (paymentResult.success) {
             setVerified(true);
             toast.success('Paiement vérifié avec succès !');
+
+            // Clear cart after successful payment verification
+            clearCartForOrder(orderData.eventId);
 
             // Redirect to guest tickets page after a short delay
             setTimeout(() => {

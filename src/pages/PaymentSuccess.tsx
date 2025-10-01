@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Check, Loader, AlertCircle } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
+import { clearCartForEvent } from '../utils/cartUtils';
 import toast from 'react-hot-toast';
 
 export default function PaymentSuccess() {
@@ -129,6 +130,19 @@ export default function PaymentSuccess() {
         // Clean up localStorage after successful verification
         if (storedPaymentDetails) {
           localStorage.removeItem('paymentDetails');
+        }
+        
+        // Clear cart after successful payment
+        const eventId = storedPaymentDetails?.eventId;
+        console.log('🛒 PaymentSuccess: Stored payment details:', storedPaymentDetails);
+        
+        if (eventId) {
+          const cleared = clearCartForEvent(eventId, 'PaymentSuccess');
+          if (cleared) {
+            toast.success('🛒 Panier vidé après paiement réussi');
+          }
+        } else {
+          console.log('🛒 PaymentSuccess: No eventId found in payment details, cannot clear cart');
         }
         
         // Clear both timeouts since verification succeeded

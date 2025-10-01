@@ -278,7 +278,7 @@ export default function EnhancedFestivalTicket({
       
       {/* QR Code Enlargement Modal */}
       {showQRModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9998] p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full">
             <div className="text-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Code QR du billet</h3>

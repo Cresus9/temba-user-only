@@ -18,6 +18,28 @@ export default function GuestCheckoutForm({
   eventId,
   onSuccess
 }: GuestCheckoutFormProps) {
+  // Function to clear cart for specific event
+  const clearCartForEvent = (eventId: string) => {
+    try {
+      const cartData = localStorage.getItem('temba_cart_selections');
+      if (cartData) {
+        const cartState = JSON.parse(cartData);
+        if (cartState[eventId]) {
+          delete cartState[eventId];
+          if (Object.keys(cartState).length === 0) {
+            localStorage.removeItem('temba_cart_selections');
+          } else {
+            localStorage.setItem('temba_cart_selections', JSON.stringify(cartState));
+          }
+          window.dispatchEvent(new Event('cartUpdated'));
+          console.log('🛒 Cart cleared for event:', eventId);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -77,6 +99,7 @@ export default function GuestCheckoutForm({
         localStorage.setItem('paymentDetails', JSON.stringify({
           orderId: result.orderId,
           paymentToken: result.paymentToken,
+          eventId: eventId, // Store eventId for cart clearing
           ...paymentDetails
         }));
 
@@ -92,6 +115,9 @@ export default function GuestCheckoutForm({
           window.location.href = result.paymentUrl;
         }
       } else if (result.orderId) {
+        // Clear cart after successful order creation
+        clearCartForEvent(eventId);
+        
         // Fallback to success page
         onSuccess(result.orderId);
         toast.success('Commande créée avec succès !');

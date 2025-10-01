@@ -61,7 +61,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Email</h3>
-                <p className="text-gray-600">support@temba.com</p>
+                <p className="text-gray-600">info@tembas.com</p>
               </div>
             </div>
 
@@ -71,7 +71,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Téléphone</h3>
-                <p className="text-gray-600">+226 76 46 57 38</p>
+                <p className="text-gray-600">+226 74 75 08 15</p>
               </div>
             </div>
 
@@ -81,7 +81,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Adresse</h3>
-                <p className="text-gray-600">123 Innovation Hub, Ouagadougou, Burkina Faso</p>
+                <p className="text-gray-600">Secteur 23, Zone 1, Section KC, Parcelle 09-10<br />Ouagadougou, Burkina Faso</p>
               </div>
             </div>
 

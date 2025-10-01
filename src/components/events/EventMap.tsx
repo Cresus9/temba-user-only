@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { MapPin, Navigation } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -24,6 +24,16 @@ const customIcon = new Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// Component to handle map invalidation when modal state changes
+function InvalidateOnOpen({ isOpen }: { isOpen: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const id = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(id);
+  }, [isOpen, map]);
+  return null;
+}
 
 export default function EventMap({ 
   latitude, 
@@ -59,8 +69,8 @@ export default function EventMap({
           zoom={15}
           scrollWheelZoom={!isDisabled}
           dragging={!isDisabled}
-          style={{ height: '100%', width: '100%', zIndex: 0 }}
-          className={isModalOpen ? 'pointer-events-none' : ''}
+          style={{ height: '100%', width: '100%', zIndex: 1 }}
+          className={isModalOpen ? 'pointer-events-none opacity-75' : ''}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -77,12 +87,15 @@ export default function EventMap({
               </div>
             </Popup>
           </Marker>
+          {/* Fix map sizing issues when modal state changes */}
+          <InvalidateOnOpen isOpen={!isModalOpen} />
         </MapContainer>
 
         {isModalOpen && (
           <div 
-            className="absolute inset-0 bg-black/50 transition-opacity"
-            style={{ pointerEvents: 'none', zIndex: 2 }}
+            className="map-overlay absolute inset-0 bg-black/30 backdrop-blur-[1px] transition-all duration-200"
+            style={{ pointerEvents: 'auto', zIndex: 2 }}
+            title="Map interactions disabled while modal is open"
           />
         )}
       </div>

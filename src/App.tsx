@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import AppRoutes from './routes';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineWarning from './components/common/OfflineWarning';
+import AppBanner from './components/AppBanner';
 import { useEvents } from './context/EventContext';
 import { imageCacheWarmer } from './utils/imageCacheWarmer';
 
@@ -31,6 +32,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-50 to-indigo-50">
+        <AppBanner />
         <Navbar />
         <main className="flex-grow">
           <AppRoutes />

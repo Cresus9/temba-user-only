@@ -53,6 +53,30 @@ export default function EnhancedBookingConfirmation() {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [addedToCalendar, setAddedToCalendar] = useState(false);
 
+  // Function to clear cart for current event
+  const clearCartForCurrentEvent = () => {
+    try {
+      const cartData = localStorage.getItem('temba_cart_selections');
+      if (cartData) {
+        const cartState = JSON.parse(cartData);
+        // Try to find the event ID from tickets data
+        const eventId = tickets.length > 0 ? tickets[0].event.id : null;
+        if (eventId && cartState[eventId]) {
+          delete cartState[eventId];
+          if (Object.keys(cartState).length === 0) {
+            localStorage.removeItem('temba_cart_selections');
+          } else {
+            localStorage.setItem('temba_cart_selections', JSON.stringify(cartState));
+          }
+          window.dispatchEvent(new Event('cartUpdated'));
+          console.log('🛒 Cart cleared for event:', eventId);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
+  };
+
   useEffect(() => {
     if (bookingId) {
       const token = searchParams.get('token');
@@ -96,6 +120,10 @@ export default function EnhancedBookingConfirmation() {
       
       if (result.success) {
         toast.success('🎉 Paiement vérifié avec succès !');
+        
+        // Clear cart after successful payment verification
+        clearCartForCurrentEvent();
+        
         setTimeout(() => {
           fetchTickets();
         }, 1000);
@@ -504,7 +532,7 @@ export default function EnhancedBookingConfirmation() {
 
       {/* Share Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998] p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Partager vos billets</h3>
             

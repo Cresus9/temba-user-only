@@ -5,10 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
 import toast from 'react-hot-toast';
 import NotificationBell from './NotificationBell';
+import GlobalCartIndicator from './GlobalCartIndicator';
+import GlobalFloatingCart from './GlobalFloatingCart';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isGlobalCartOpen, setIsGlobalCartOpen] = useState(false);
   const { user, profile, isAuthenticated, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -28,6 +31,11 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
+      
+      // Clear all carts on logout for privacy
+      localStorage.removeItem('temba_cart_selections');
+      window.dispatchEvent(new Event('cartUpdated'));
+      
       setDropdownOpen(false);
       setIsOpen(false);
       navigate('/login');
@@ -58,6 +66,7 @@ export default function Navbar() {
 
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
+                <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} />
                 <NotificationBell />
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -121,17 +130,20 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden rounded-lg p-2 hover:bg-gray-100 focus:outline-none transition-colors"
-          >
-            {isOpen ? (
-              <X className="h-6 w-6 text-gray-600" />
-            ) : (
-              <Menu className="h-6 w-6 text-gray-600" />
-            )}
-          </button>
+          {/* Mobile cart and menu buttons */}
+          <div className="md:hidden flex items-center space-x-2">
+            <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} />
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="rounded-lg p-2 hover:bg-gray-100 focus:outline-none transition-colors"
+            >
+              {isOpen ? (
+                <X className="h-6 w-6 text-gray-600" />
+              ) : (
+                <Menu className="h-6 w-6 text-gray-600" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
@@ -206,6 +218,12 @@ export default function Navbar() {
           </div>
         )}
       </div>
+
+      {/* Global Floating Cart */}
+      <GlobalFloatingCart
+        isOpen={isGlobalCartOpen}
+        onClose={() => setIsGlobalCartOpen(false)}
+      />
     </nav>
   );
 }

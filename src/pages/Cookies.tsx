@@ -46,7 +46,7 @@ export default function Cookies() {
 
           <h2>Contact</h2>
           <p>
-            Si vous avez des questions sur notre Politique de Cookies, veuillez nous contacter à <a href="mailto:support@temba.com">support@temba.com</a>.
+            Si vous avez des questions sur notre Politique de Cookies, veuillez nous contacter à <a href="mailto:info@tembas.com">info@tembas.com</a>.
           </p>
         </div>
       </div>

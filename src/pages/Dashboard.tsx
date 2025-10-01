@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Ticket, 
   Calendar,
@@ -20,6 +20,7 @@ import type { DashboardStats } from '../services/userService';
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -190,10 +191,11 @@ export default function Dashboard() {
               {dashboardData.recentOrders.map((order) => (
                 <div 
                   key={order.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors"
+                  onClick={() => navigate(`/profile/bookings`)}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all duration-200 cursor-pointer group"
                 >
                   <div className="mb-4 md:mb-0">
-                    <h3 className="font-medium text-gray-900">{order.eventName}</h3>
+                    <h3 className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">{order.eventName}</h3>
                     <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
@@ -221,7 +223,7 @@ export default function Dashboard() {
                          order.status === 'PENDING' ? 'En attente' : 'Annulée'}
                       </span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
                   </div>
                 </div>
               ))}

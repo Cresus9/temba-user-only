@@ -6,6 +6,62 @@
 :root {
   --primary: #4f46e5;
   --primary-dark: #4338ca;
+  
+  /* Z-Index Scale */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-overlay: 400;
+  --z-modal-backdrop: 9998;
+  --z-modal: 9999;
+  --z-modal-content: 10000;
+  --z-tooltip: 10001;
+  --z-toast: 10002;
+}
+
+/* App Download Reminder Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.4s ease-out;
 }
 
 body {
@@ -73,6 +129,107 @@ p { @apply text-sm md:text-base leading-relaxed; }
   width: 100%;
   height: 100%;
   z-index: 1;
+}
+
+/* Ensure Leaflet controls don't interfere with high z-index modals */
+.leaflet-control-container {
+  z-index: 1000 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 700 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 650 !important;
+}
+
+/* Force all Leaflet elements to stay below modals */
+.leaflet-container,
+.leaflet-control-container,
+.leaflet-popup-pane,
+.leaflet-tooltip-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tile-pane {
+  z-index: 1 !important;
+  position: relative !important;
+}
+
+/* Modal isolation */
+.modal-backdrop {
+  isolation: isolate;
+  z-index: 99999 !important;
+  position: fixed !important;
+}
+
+/* Hide map completely when modal is open */
+body.modal-open .leaflet-container {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.modal-open .leaflet-control-container {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Ensure map overlay properly blocks all interactions */
+.map-overlay {
+  cursor: not-allowed;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Ensure modal content is always opaque and above everything */
+.modal-content {
+  background-color: white !important;
+  position: relative !important;
+  z-index: 100001 !important;
+  isolation: isolate !important;
+}
+
+/* Floating cart styles */
+.floating-cart {
+  /* Ensure it doesn't interfere with mobile scrolling */
+  touch-action: manipulation;
+}
+
+/* Smooth transitions for cart animations */
+.cart-bounce {
+  animation: cartBounce 0.6s ease-in-out;
+}
+
+@keyframes cartBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Global floating cart animations */
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .leaflet-popup-content-wrapper {

@@ -1,15 +1,41 @@
-import React from 'react';
-import { Apple, Play } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Apple, Play, Globe } from 'lucide-react';
 
 export default function AppDownload() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   const handleAppStoreDownload = () => {
     // TODO: Replace with actual App Store link
     window.open('https://apps.apple.com', '_blank');
   };
 
   const handleGooglePlayDownload = () => {
-    // TODO: Replace with actual Google Play link
-    window.open('https://play.google.com', '_blank');
+    // Official Temba app on Google Play Store
+    window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
+  };
+
+  const handleInstallWebApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setShowInstallPrompt(false);
+      }
+    }
   };
 
   return (
@@ -55,6 +81,20 @@ export default function AppDownload() {
                   <div className="text-xs sm:text-sm lg:text-base font-bold">Google Play</div>
                 </div>
               </button>
+
+              {/* Web App Install Button */}
+              {showInstallPrompt && (
+                <button
+                  onClick={handleInstallWebApp}
+                  className="group flex items-center gap-2 sm:gap-3 lg:gap-4 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 bg-white/90 backdrop-blur-sm text-gray-900 rounded-lg sm:rounded-xl lg:rounded-2xl hover:bg-white hover:scale-105 transition-all duration-300 font-semibold shadow-xl border border-white/20"
+                >
+                  <Globe className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="text-left">
+                    <div className="text-xs lg:text-sm text-gray-600 font-normal">Installer l'</div>
+                    <div className="text-xs sm:text-sm lg:text-base font-bold">App Web</div>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -118,6 +118,6 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 ## Support
 
 Pour obtenir de l'aide:
-- Email: support@temba.com
+- Email: info@tembas.com
 - Créez une issue dans le dépôt
 - Utilisez le système de chat de support intégré à l'application

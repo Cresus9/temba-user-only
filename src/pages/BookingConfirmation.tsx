@@ -35,6 +35,30 @@ export default function BookingConfirmation() {
   const [downloadingTicket, setDownloadingTicket] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
 
+  // Function to clear cart for current event
+  const clearCartForCurrentEvent = () => {
+    try {
+      const cartData = localStorage.getItem('temba_cart_selections');
+      if (cartData) {
+        const cartState = JSON.parse(cartData);
+        // Try to find the event ID from tickets data
+        const eventId = tickets.length > 0 ? tickets[0].event.id : null;
+        if (eventId && cartState[eventId]) {
+          delete cartState[eventId];
+          if (Object.keys(cartState).length === 0) {
+            localStorage.removeItem('temba_cart_selections');
+          } else {
+            localStorage.setItem('temba_cart_selections', JSON.stringify(cartState));
+          }
+          window.dispatchEvent(new Event('cartUpdated'));
+          console.log('🛒 Cart cleared for event:', eventId);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
+  };
+
   useEffect(() => {
     if (bookingId) {
       const token = searchParams.get('token');
@@ -88,6 +112,10 @@ export default function BookingConfirmation() {
       
       if (result.success) {
         toast.success('Paiement vérifié avec succès !');
+        
+        // Clear cart after successful payment verification
+        clearCartForCurrentEvent();
+        
         // Wait a moment for tickets to be created, then fetch them
         setTimeout(() => {
           fetchTickets();

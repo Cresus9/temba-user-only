@@ -109,15 +109,15 @@ export default function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center gap-3 text-gray-300">
               <MapPin className="h-5 w-5 text-indigo-400 flex-shrink-0" />
-              <span className="text-sm">123 Innovation Hub, Ouagadougou, Burkina Faso</span>
+              <span className="text-sm">Secteur 23, Zone 1, Section KC, Parcelle 09-10, Ouagadougou</span>
             </div>
             <div className="flex items-center gap-3 text-gray-300">
               <Phone className="h-5 w-5 text-indigo-400 flex-shrink-0" />
-              <span className="text-sm">+226 76 46 57 38</span>
+              <span className="text-sm">+226 74 75 08 15</span>
             </div>
             <div className="flex items-center gap-3 text-gray-300">
               <Mail className="h-5 w-5 text-indigo-400 flex-shrink-0" />
-              <span className="text-sm">support@temba.com</span>
+              <span className="text-sm">info@tembas.com</span>
             </div>
           </div>
         </div>

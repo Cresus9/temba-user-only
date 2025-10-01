@@ -167,8 +167,8 @@ Deno.serve(async (req) => {
       store: {
         name: "Temba",
         tagline: "Plateforme de Billetterie d'Événements",
-        phone: "+226 76 46 57 38",
-        postal_address: "Ouagadougou, Burkina Faso",
+        phone: "+226 74 75 08 15",
+        postal_address: "Secteur 23, Zone 1, Section KC, Parcelle 09-10, Ouagadougou, Burkina Faso",
         website_url: baseUrl
       },
       custom_data: {
