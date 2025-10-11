@@ -73,15 +73,30 @@ Deno.serve(async (req) => {
       paymentError = result.error;
       console.log("Looking up payment by internal_token:", internal_token);
     } else if (payment_token) {
-      // Fallback: try to find by Paydunya token (stored in transaction_id field)
-      const result = await supabase
-        .from("payments")
-        .select("*")
-        .eq("transaction_id", payment_token)
-        .single();
-      payment = result.data;
-      paymentError = result.error;
-      console.log("Looking up payment by payment_token:", payment_token);
+      // Check if this is a Stripe token (starts with "stripe-token-")
+      const isStripeToken = payment_token.startsWith("stripe-token-");
+      
+      if (isStripeToken) {
+        // For Stripe tokens, look in the token field (not transaction_id)
+        const result = await supabase
+          .from("payments")
+          .select("*")
+          .eq("token", payment_token)
+          .single();
+        payment = result.data;
+        paymentError = result.error;
+        console.log("Looking up Stripe payment by token:", payment_token);
+      } else {
+        // For PayDunya tokens, look in transaction_id field
+        const result = await supabase
+          .from("payments")
+          .select("*")
+          .eq("transaction_id", payment_token)
+          .single();
+        payment = result.data;
+        paymentError = result.error;
+        console.log("Looking up PayDunya payment by transaction_id:", payment_token);
+      }
     }
 
     if (paymentError || !payment) {
