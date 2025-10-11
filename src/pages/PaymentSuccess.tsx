@@ -101,9 +101,14 @@ export default function PaymentSuccess() {
         VITE_PAYDUNYA_MODE: import.meta.env.VITE_PAYDUNYA_MODE
       });
       
-      // Check if the function indicates test mode or if we're in dev environment
-      const isTestMode = result.test_mode || import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
-      const isSuccessful = result.success && (result.status === 'completed' || (isTestMode && result.status === 'pending'));
+      // Check if the function indicates test mode - FORCE LIVE MODE for production
+      const isTestMode = result.test_mode || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
+      const isStripeToken = token?.startsWith('stripe-') ?? false;
+      const isSuccessful = result.success && (
+        result.status === 'completed' ||
+        (isStripeToken && ['pending', 'processing'].includes(result.status)) ||
+        (isTestMode && result.status === 'pending')
+      );
       
       console.log('Test mode check:', {
         isTestMode,
@@ -119,7 +124,9 @@ export default function PaymentSuccess() {
       
       if (isSuccessful) {
         setSuccess(true);
-        const statusMessage = isTestMode && result.status === 'pending' 
+        const statusMessage = isStripeToken && ['pending', 'processing'].includes(result.status)
+          ? 'Paiement carte en cours de finalisation - vos billets seront disponibles sous peu !'
+          : isTestMode && result.status === 'pending' 
           ? 'Paiement en attente (mode test) - Billets créés !'
           : 'Paiement confirmé avec succès !';
         toast.success(statusMessage);

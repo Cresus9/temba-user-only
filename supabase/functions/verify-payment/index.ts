@@ -45,8 +45,8 @@ Deno.serve(async (req) => {
       throw new Error("Missing payment token (payment_token or internal_token) or order ID");
     }
 
-    // Get Paydunya configuration
-    const paydunyaMode = Deno.env.get("PAYDUNYA_MODE") || "test";
+    // Get Paydunya configuration - FORCE LIVE MODE for production
+    const paydunyaMode = Deno.env.get("PAYDUNYA_MODE") || "live";
     const PAYDUNYA_CONFIG = {
       masterKey: paydunyaMasterKey,
       privateKey: paydunyaPrivateKey,
@@ -89,13 +89,77 @@ Deno.serve(async (req) => {
       throw new Error("Payment record not found");
     }
 
-    // Use the Paydunya token for verification
+    console.log("Found payment record:", {
+      payment_id: payment.id,
+      provider: payment.provider,
+      status: payment.status
+    });
+
+    // ✅ NEW: Handle Stripe payments differently
+    if (payment.provider === "stripe") {
+      console.log("🔷 Verifying Stripe payment...");
+      
+      // For Stripe, we can trust our webhook status
+      // The webhook already verified the payment and created tickets
+      if (payment.status === "completed" || payment.status === "succeeded") {
+        console.log("✅ Stripe payment already verified by webhook");
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: "completed",
+            message: "Payment verified successfully (Stripe)",
+            payment_id: payment.id,
+            order_id: payment.order_id,
+            provider: "stripe"
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
+      } else if (payment.status === "pending") {
+        console.log("⏳ Stripe payment still pending webhook confirmation");
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            status: "pending",
+            message: "Payment is being processed. Please wait...",
+            payment_id: payment.id,
+            order_id: payment.order_id,
+            provider: "stripe"
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
+      } else {
+        console.log("❌ Stripe payment failed or cancelled");
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            status: payment.status,
+            message: `Payment ${payment.status}`,
+            payment_id: payment.id,
+            order_id: payment.order_id,
+            provider: "stripe"
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
+      }
+    }
+
+    // PayDunya verification flow (existing logic)
+    console.log("🔶 Verifying PayDunya payment...");
     const paydunyaTransactionToken = payment.transaction_id;
     if (!paydunyaTransactionToken) {
       throw new Error("Paydunya token not found in payment record");
     }
 
-    console.log("Found payment record:", {
+    console.log("PayDunya payment details:", {
       payment_id: payment.id,
       payment_token: payment.token,
       paydunya_token: paydunyaTransactionToken,
@@ -144,8 +208,8 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    // If payment is completed or pending in test mode, update order and create tickets
-    if (status === "completed" || (paydunyaMode === "test" && status === "pending")) {
+    // If payment is completed, update order and create tickets (live mode)
+    if (status === "completed") {
       console.log(`🎫 Processing completed payment for order ${order_id}, status: ${status}, mode: ${paydunyaMode}`);
       
       // Check if tickets already exist for this order to prevent duplicates
@@ -229,21 +293,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 🎯 TEST MODE RESPONSE: Include clear test mode indicators
-    const isTestModeSuccess = paydunyaMode === "test" && status === "pending";
-    const responseMessage = isTestModeSuccess 
-      ? "🧪 Test Mode: Payment pending but tickets generated automatically!"
-      : status === "completed" 
-        ? "Payment verified successfully" 
-        : `Payment status: ${status}`;
+    // 🎯 LIVE MODE RESPONSE: Include clear status indicators
+    const responseMessage = status === "completed" 
+      ? "🚀 Live Mode: Payment verified successfully" 
+      : `Payment status: ${status}`;
     
     return new Response(
       JSON.stringify({
-        success: status === "completed" || (paydunyaMode === "test" && status === "pending"),
-        status: status === "completed" || (paydunyaMode === "test" && status === "pending") ? "completed" : status,
+        success: status === "completed",
+        status: status,
         payment_id: payment.id,
         order_id,
-        test_mode: paydunyaMode === "test",
+        test_mode: false, // Always false in live mode
         message: responseMessage
       }),
       {

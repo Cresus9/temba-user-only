@@ -88,6 +88,16 @@ class OrderService {
       console.log('Input ticket quantities:', input.ticketQuantities);
       console.log('Generated ticket lines:', ticketLines);
 
+      // For card payments, we stop here—the Stripe flow will create the payment intent.
+      if (input.paymentMethod === 'CARD') {
+        return {
+          orderId: orderData.id,
+          paymentUrl: undefined,
+          paymentToken: undefined,
+          success: true
+        };
+      }
+
       const paymentRequest: CreatePaymentRequest = {
         idempotency_key: `payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         user_id: user.id,
