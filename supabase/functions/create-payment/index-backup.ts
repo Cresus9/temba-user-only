@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("🚀 LIVE Payment Function Started");
+    console.log("Create payment function started");
 
     // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const paydunyaPrivateKey = Deno.env.get("PAYDUNYA_PRIVATE_KEY");
     const paydunyaPublicKey = Deno.env.get("PAYDUNYA_PUBLIC_KEY");
     const paydunyaToken = Deno.env.get("PAYDUNYA_TOKEN");
-    const paydunyaMode = Deno.env.get("PAYDUNYA_MODE") || "live";
+    const paydunyaMode = Deno.env.get("PAYDUNYA_MODE") || "test";
 
     console.log("Environment check:", {
       supabaseUrl: !!supabaseUrl,
@@ -178,14 +178,14 @@ Deno.serve(async (req) => {
       }
     };
 
-    console.log("🔒 Calling Paydunya LIVE API - Payment ID:", paymentRecord.id);
+    console.log("Calling Paydunya API with payload:", JSON.stringify(paydunyaPayload, null, 2));
 
-    // Use live Paydunya API (production mode)
+    // Determine Paydunya API URL based on mode
     const paydunyaApiUrl = paydunyaMode === "live" 
       ? "https://app.paydunya.com/api/v1/checkout-invoice/create"
       : "https://app.paydunya.com/sandbox-api/v1/checkout-invoice/create";
 
-    console.log("🚀 Using Paydunya LIVE API:", paydunyaApiUrl, "Mode:", paydunyaMode);
+    console.log("Using Paydunya API URL:", paydunyaApiUrl, "Mode:", paydunyaMode);
 
     // Call Paydunya API
     const paydunyaResponse = await fetch(paydunyaApiUrl, {
@@ -227,20 +227,27 @@ Deno.serve(async (req) => {
         })
         .eq("id", paymentRecord.id);
 
-      console.log("✅ LIVE Payment created successfully:", {
+      console.log("Payment created successfully:", {
         payment_id: paymentRecord.id,
-        paydunya_token: paydunyaToken?.substring(0, 10) + "...", // Hide full token in logs
-        has_invoice_url: !!invoiceUrl
+        paydunya_token: paydunyaToken,
+        invoice_url: invoiceUrl
       });
 
-      // Use the invoice URL from Paydunya (live mode)
-      const paymentUrl = invoiceUrl;
+      // For test mode, if no invoice URL is provided, create a fallback
+      let paymentUrl = invoiceUrl;
+      if (!paymentUrl && paydunyaMode === "test") {
+        // In test mode, redirect to success page directly with Paydunya token
+        const orderParam = payload.order_id || payload.event_id;
+        const tokenForUrl = paydunyaToken || `test_${paymentToken.slice(0, 10)}`;
+        paymentUrl = `${baseUrl}/payment/success?order=${orderParam}&token=${tokenForUrl}`;
+        console.log("Using fallback payment URL for test mode:", paymentUrl);
+      }
 
       return new Response(
         JSON.stringify({
           success: true,
           payment_url: paymentUrl,
-          payment_token: paydunyaToken,
+          payment_token: paydunyaToken || `test_${paymentToken.slice(0, 10)}`,
           payment_id: paymentRecord.id
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

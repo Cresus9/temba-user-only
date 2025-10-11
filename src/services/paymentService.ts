@@ -38,6 +38,8 @@ export interface PaymentVerification {
   payment_id?: string;
   order_id?: string;
   message: string;
+  test_mode?: boolean;
+  provider?: string;
 }
 
 class PaymentService {
@@ -107,87 +109,146 @@ class PaymentService {
 
   async verifyPayment(paymentToken: string, orderId?: string, saveMethod?: boolean, paymentDetails?: any): Promise<PaymentVerification> {
     try {
-      // Determine if token looks like UUID (internal_token) or Paydunya token (payment_token)
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentToken);
-      const isPaydunyaTestToken = paymentToken.startsWith('test_');
-      
+      const normalizedToken = paymentToken || '';
+      const isStripeToken = normalizedToken.startsWith('stripe-');
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedToken);
+
       console.log('Token analysis:', {
-        token: paymentToken,
+        token: normalizedToken,
+        isStripeToken,
         isUUID,
-        isPaydunyaTestToken,
-        length: paymentToken.length
+        length: normalizedToken.length
       });
 
-      // Prepare payload for the deployed function
-      const payload: any = {
-        order_id: orderId || ''
-      };
+      let result: PaymentVerification;
 
-      // Send token in the appropriate field based on format
-      if (isUUID) {
-        payload.internal_token = paymentToken;
-        console.log('Sending as internal_token (UUID)');
-      } else {
-        payload.payment_token = paymentToken;
-        console.log('Sending as payment_token (Paydunya)');
-      }
+      // For Stripe tokens, call the new verify-payment endpoint with payment_token
+      if (isStripeToken) {
+        const payload: any = {
+          payment_token: normalizedToken,
+          order_id: orderId || ''
+        };
 
-      // Add timeout to the function call to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Payment verification timeout')), 4000); // 4 second timeout
-      });
+        console.log('Calling verify-payment with Stripe token:', payload);
 
-      const verificationPromise = supabase.functions.invoke('verify-payment', {
-        body: payload
-      });
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Payment verification timeout')), 4000);
+        });
 
-      const { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+        const verificationPromise = supabase.functions.invoke('verify-payment', {
+          body: payload
+        });
 
-      if (error) {
-        console.error('Payment verification error:', error);
-        
-        // Handle timeout specifically
-        if (error.message && error.message.includes('timeout')) {
-          throw new Error('Payment verification is taking longer than expected. Please check your tickets page directly.');
+        const { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.error('Payment verification error:', error);
+
+          if (error.message && error.message.includes('timeout')) {
+            throw new Error('Payment verification is taking longer than expected. Please check your tickets page directly.');
+          }
+
+          throw new Error(`Verification Error: ${error.message}`);
         }
-        
-        throw new Error(`Verification Error: ${error.message}`);
+
+        if (!data) {
+          throw new Error('No response data from verification service');
+        }
+
+        // New response format uses 'state' instead of 'status'
+        const responseState = data.state || data.status || 'unknown';
+        const responseSuccess = data.success || false;
+
+        console.log('Verification response from deployed function:', {
+          success: responseSuccess,
+          state: responseState,
+          provider: data.provider,
+          payment_id: data.payment_id,
+          order_id: data.order_id,
+          message: data.message
+        });
+
+        // Map 'state' to 'status' for backward compatibility
+        const mappedStatus = responseState === 'succeeded' ? 'completed' : responseState;
+
+        result = {
+          success: responseSuccess,
+          status: mappedStatus,
+          payment_id: data.payment_id,
+          order_id: data.order_id || orderId,
+          message: data.message || (responseState === 'succeeded' ? 'Payment verified successfully' : `Payment status: ${responseState}`)
+        };
+      } else {
+        const payload: any = {
+          order_id: orderId || ''
+        };
+
+        if (isUUID) {
+          payload.internal_token = normalizedToken;
+          console.log('Sending as internal_token (UUID)');
+        } else {
+          payload.payment_token = normalizedToken;
+          console.log('Sending as payment_token (Paydunya)');
+        }
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Payment verification timeout')), 4000);
+        });
+
+        const verificationPromise = supabase.functions.invoke('verify-payment', {
+          body: payload
+        });
+
+        const { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.error('Payment verification error:', error);
+
+          if (error.message && error.message.includes('timeout')) {
+            throw new Error('Payment verification is taking longer than expected. Please check your tickets page directly.');
+          }
+
+          throw new Error(`Verification Error: ${error.message}`);
+        }
+
+        if (!data) {
+          throw new Error('No response data from verification service');
+        }
+
+        // New response format uses 'state' instead of 'status'
+        const responseState = data.state || data.status || 'unknown';
+        const responseSuccess = data.success || false;
+
+        // Map 'state' to 'status' for backward compatibility
+        const mappedStatus = responseState === 'succeeded' ? 'completed' : responseState;
+
+        result = {
+          success: responseSuccess,
+          status: mappedStatus,
+          payment_id: data.payment_id,
+          order_id: data.order_id || orderId,
+          test_mode: data.test_mode,
+          message: data.message || (responseState === 'succeeded' ? 'Payment verified successfully' : `Payment status: ${responseState}`)
+        };
+
+        console.log('Verification response from deployed function:', {
+          success: responseSuccess,
+          status: mappedStatus,
+          test_mode: data.test_mode,
+          message: data.message
+        });
       }
 
-      if (!data) {
-        throw new Error('No response data from verification service');
-      }
-
-      const result = {
-        success: data.success,
-        status: data.status,
-        payment_id: data.payment_id,
-        order_id: data.order_id || orderId,
-        test_mode: data.test_mode,
-        message: data.message || (data.status === 'completed' ? 'Payment verified successfully' : `Payment status: ${data.status}`)
-      };
-
-      console.log('Verification response from deployed function:', {
-        success: data.success,
-        status: data.status,
-        test_mode: data.test_mode,
-        message: data.message
-      });
-
-      // If payment was successful and user wants to save the method
       if (result.success && result.status === 'completed' && saveMethod && paymentDetails) {
         try {
           await this.saveSuccessfulPaymentMethod(paymentDetails);
         } catch (saveError) {
           console.error('Error saving payment method:', saveError);
-          // Don't fail the verification if saving fails
         }
       }
 
-      // Trigger notification for successful payment
       if (result.success && result.status === 'completed' && orderId) {
         try {
-          // Get order details for notification
           const { data: orderData } = await supabase
             .from('orders')
             .select(`
@@ -203,7 +264,7 @@ class PaymentService {
 
           if (orderData && orderData.user_id) {
             const ticketCount = orderData.order_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 1;
-            
+
             await notificationTriggers.onOrderCreated({
               order_id: orderId,
               user_id: orderData.user_id,
@@ -215,7 +276,6 @@ class PaymentService {
           }
         } catch (notificationError) {
           console.error('Error creating order confirmation notification:', notificationError);
-          // Don't fail the verification if notification fails
         }
       }
 
@@ -225,6 +285,7 @@ class PaymentService {
       throw new Error(error.message || 'Failed to verify payment');
     }
   }
+
 
   private async saveSuccessfulPaymentMethod(paymentDetails: any): Promise<void> {
     try {

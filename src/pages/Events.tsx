@@ -5,6 +5,7 @@ import EventCard from '../components/EventCard';
 import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
+import { CategoryService } from '../services/categoryService';
 
 const initialFilters = {
   search: '',
@@ -52,15 +53,9 @@ export default function Events() {
       const uniqueLocations = [...new Set(eventsData?.map(e => e.location) || [])];
       setLocations(uniqueLocations);
 
-      // Get unique categories
-      const { data: categoriesData } = await supabase
-        .from('events')
-        .select('categories')
-        .eq('status', 'PUBLISHED');
-      
-      const uniqueCategories = [...new Set(
-        categoriesData?.flatMap(e => e.categories || []) || []
-      )];
+      // Load available categories from centralized service
+      const categoryRecords = await CategoryService.fetchCategories();
+      const uniqueCategories = categoryRecords.map(category => category.name);
       setCategories(uniqueCategories);
     } catch (error) {
       console.error('Erreur lors du chargement des lieux et catégories:', error);

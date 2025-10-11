@@ -103,15 +103,16 @@ export default function GuestCheckoutForm({
           ...paymentDetails
         }));
 
-        // Check if we're in test mode
-        const isTestMode = import.meta.env.DEV || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
+        // Check if we're in test mode - FORCE LIVE MODE for production
+        const isTestMode = import.meta.env.VITE_PAYDUNYA_MODE === 'test';
         
         if (isTestMode) {
           // In test mode, redirect directly to success page with payment token
           const successUrl = `${window.location.origin}/payment/success?order=${result.orderId}&token=${result.paymentToken}`;
           window.location.href = successUrl;
         } else {
-          // In production, redirect to Paydunya payment page
+          // In LIVE mode, redirect to Paydunya payment page for real payment
+          console.log('🚀 LIVE MODE: Redirecting to Paydunya payment page');
           window.location.href = result.paymentUrl;
         }
       } else if (result.orderId) {

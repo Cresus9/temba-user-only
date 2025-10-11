@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
@@ -25,10 +25,11 @@ export default function Checkout() {
   // Get state from location
   const state = location.state as CheckoutState;
 
-  // Redirect to events if no state
-  if (!state?.tickets || !state?.totals || !state?.eventId) {
-    navigate('/events');
-    return null;
+  const hasValidState = Boolean(state?.tickets && state?.totals && state?.eventId);
+
+  // Redirect to events if no state (render Navigate to avoid setState during render warning)
+  if (!hasValidState) {
+    return <Navigate to="/events" replace />;
   }
 
   const handleGuestSuccess = async (orderId: string, verificationToken: string) => {
