@@ -4,11 +4,11 @@ import { loadStripe } from '@stripe/stripe-js';
 const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 if (!stripePublishableKey) {
-  throw new Error('Missing VITE_STRIPE_PUBLISHABLE_KEY environment variable');
+  console.warn('⚠️ Missing VITE_STRIPE_PUBLISHABLE_KEY environment variable - Stripe payments will not work');
 }
 
-// Initialize Stripe
-export const stripePromise = loadStripe(stripePublishableKey);
+// Initialize Stripe (will be null if key is missing)
+export const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 // Stripe configuration
 export const stripeConfig = {
