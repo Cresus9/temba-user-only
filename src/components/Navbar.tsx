@@ -66,7 +66,8 @@ export default function Navbar() {
 
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} />
+                {/* TEMPORARILY HIDDEN: Cart feature - Payment system stabilization */}
+                {/* <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} /> */}
                 <NotificationBell />
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -132,7 +133,8 @@ export default function Navbar() {
 
           {/* Mobile cart and menu buttons */}
           <div className="md:hidden flex items-center space-x-2">
-            <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} />
+            {/* TEMPORARILY HIDDEN: Cart feature - Payment system stabilization */}
+            {/* <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} /> */}
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="rounded-lg p-2 hover:bg-gray-100 focus:outline-none transition-colors"
@@ -219,11 +221,12 @@ export default function Navbar() {
         )}
       </div>
 
+      {/* TEMPORARILY HIDDEN: Cart feature - Payment system stabilization */}
       {/* Global Floating Cart */}
-      <GlobalFloatingCart
+      {/* <GlobalFloatingCart
         isOpen={isGlobalCartOpen}
         onClose={() => setIsGlobalCartOpen(false)}
-      />
+      /> */}
     </nav>
   );
 }
