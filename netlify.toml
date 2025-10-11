@@ -34,4 +34,4 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co wss://uwmlagvsivxqocklxbbo.supabase.co; script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+    Content-Security-Policy = "default-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co wss://uwmlagvsivxqocklxbbo.supabase.co https://api.stripe.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; frame-src https://js.stripe.com;"
