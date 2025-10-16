@@ -136,6 +136,7 @@ export default function Footer() {
               <Link to="/terms" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">Conditions</Link>
               <Link to="/privacy" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">Confidentialité</Link>
               <Link to="/cookies" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">Cookies</Link>
+              <Link to="/account-deletion" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">Supprimer le compte</Link>
             </div>
           </div>
         </div>

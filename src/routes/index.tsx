@@ -28,6 +28,7 @@ import Privacy from '../pages/Privacy';
 import Contact from '../pages/Contact';
 import Cookies from '../pages/Cookies';
 import About from '../pages/About';
+import AccountDeletion from '../pages/AccountDeletion';
 
 // Test Components
 import CategoryTest from '../components/CategoryTest';
@@ -76,6 +77,7 @@ export default function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/about" element={<About />} />
+        <Route path="/account-deletion" element={<AccountDeletion />} />
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />

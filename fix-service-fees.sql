@@ -119,3 +119,4 @@ $$;
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION calculate_service_fees(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION calculate_service_fees(uuid, jsonb) TO anon;
+
