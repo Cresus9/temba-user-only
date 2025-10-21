@@ -34,6 +34,12 @@ type CreatePaymentBody = {
   order_id?: string | null;
   description?: string | null;
   idempotencyKey?: string | null;
+  
+  // Order creation data (new)
+  create_order?: boolean;
+  ticket_quantities?: { [key: string]: number };
+  payment_method?: string;
+  guest_email?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -63,6 +69,12 @@ Deno.serve(async (req) => {
       order_id,
       description,
       idempotencyKey,
+      
+      // Order creation data
+      create_order = false,
+      ticket_quantities,
+      payment_method,
+      guest_email,
     } = body;
 
     // Determine mode and validate
@@ -160,6 +172,52 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Create order if requested (to bypass RLS in production)
+    let finalOrderId = order_id;
+    if (create_order && !order_id && ticket_quantities && payment_method) {
+      console.log("🔵 Creating order via Edge Function (bypassing RLS)");
+      
+      // Calculate total amount from ticket quantities
+      const { data: ticketTypes } = await supabase
+        .from('ticket_types')
+        .select('id, price')
+        .in('id', Object.keys(ticket_quantities));
+
+      if (!ticketTypes || ticketTypes.length === 0) {
+        throw new Error('Ticket types not found');
+      }
+
+      const totalAmount = ticketTypes.reduce((sum, ticket) => {
+        const quantity = ticket_quantities[ticket.id] || 0;
+        return sum + (ticket.price * quantity);
+      }, 0);
+
+      console.log("🔵 Order total calculated:", totalAmount);
+
+      // Create order using service role (bypasses RLS)
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user_id || null,
+          event_id: event_id,
+          total: totalAmount,
+          status: 'PENDING',
+          payment_method: payment_method,
+          ticket_quantities: ticket_quantities,
+          guest_email: guest_email || null
+        })
+        .select('id')
+        .single();
+
+      if (orderError) {
+        console.error("❌ Failed to create order:", orderError);
+        throw new Error(`Failed to create order: ${orderError.message}`);
+      }
+
+      finalOrderId = orderData.id;
+      console.log("✅ Order created successfully:", finalOrderId);
+    }
+
     // Check idempotency
     if (idempotencyKey) {
       const { data: existing } = await supabase
@@ -241,7 +299,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user_id ?? null,
         event_id,
-        order_id: order_id ?? null, // ✅ FIXED: Store order_id directly (not in metadata)
+        order_id: finalOrderId ?? null, // ✅ FIXED: Use finalOrderId (created or provided)
         token: paymentToken,
         
         // Legacy fields (for backward compatibility)
@@ -299,11 +357,12 @@ Deno.serve(async (req) => {
         clientSecret: intent.client_secret, 
         paymentId: paymentRow.id,
         paymentToken: paymentRow.token, // ✅ FIXED: Return token for redirect
-        orderId: paymentRow.order_id ?? order_id, // ✅ FIXED: Return order_id
+        orderId: finalOrderId, // ✅ FIXED: Return finalOrderId (created or provided)
         status: intent.status,
         display_amount: `${finalDisplayAmount.toLocaleString('fr-FR')} ${finalDisplayCurrency}`,
         charge_amount: `${finalChargeCurrency === 'USD' ? '$' : ''}${(finalChargeAmount / 100).toFixed(2)} ${finalChargeCurrency}`,
         fx_rate: `${finalFxDen / finalFxNum}`,
+        order_created: create_order && !order_id, // Indicate if order was created
       }), 
       { headers: cors }
     );

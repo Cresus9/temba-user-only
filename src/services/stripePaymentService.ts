@@ -80,6 +80,10 @@ class StripePaymentService {
       description?: string;
       idempotencyKey?: string;
       fx_margin_bps?: number;
+      create_order?: boolean;
+      ticket_quantities?: { [key: string]: number };
+      payment_method?: string;
+      guest_email?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -98,6 +102,10 @@ class StripePaymentService {
           order_id: options.order_id,
           description: options.description,
           idempotencyKey: options.idempotencyKey,
+          create_order: options.create_order,
+          ticket_quantities: options.ticket_quantities,
+          payment_method: options.payment_method,
+          guest_email: options.guest_email,
         },
       });
 
@@ -129,6 +137,10 @@ class StripePaymentService {
       description?: string;
       idempotencyKey?: string;
       amount_is_minor?: boolean;
+      create_order?: boolean;
+      ticket_quantities?: { [key: string]: number };
+      payment_method?: string;
+      guest_email?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -142,6 +154,10 @@ class StripePaymentService {
           order_id: options.order_id,
           description: options.description,
           idempotencyKey: options.idempotencyKey,
+          create_order: options.create_order,
+          ticket_quantities: options.ticket_quantities,
+          payment_method: options.payment_method,
+          guest_email: options.guest_email,
         },
       });
 

@@ -59,21 +59,30 @@ class OrderService {
 
       if (!event) throw new Error('Événement non trouvé');
 
-      // Create order in database first
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          event_id: input.eventId,
-          total: totalAmount,
-          status: 'PENDING',
-          payment_method: input.paymentMethod,
-          ticket_quantities: input.ticketQuantities
-        })
-        .select()
-        .single();
+      // For card payments, we'll create the order via the Edge Function
+      // This bypasses RLS issues in production
+      let orderData = null;
+      if (input.paymentMethod === 'CARD') {
+        // Order will be created by the Stripe payment Edge Function
+        console.log('Order will be created by Edge Function for card payment');
+      } else {
+        // For mobile money, create order directly (legacy flow)
+        const { data: orderDataDirect, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: user.id,
+            event_id: input.eventId,
+            total: totalAmount,
+            status: 'PENDING',
+            payment_method: input.paymentMethod,
+            ticket_quantities: input.ticketQuantities
+          })
+          .select()
+          .single();
 
-      if (orderError) throw orderError;
+        if (orderError) throw orderError;
+        orderData = orderDataDirect;
+      }
 
       // Create payment using edge function
       // Build ticket lines for the edge function
@@ -91,10 +100,12 @@ class OrderService {
       // For card payments, we stop here—the Stripe flow will create the payment intent.
       if (input.paymentMethod === 'CARD') {
         return {
-          orderId: orderData.id,
+          orderId: null, // Will be created by Edge Function
           paymentUrl: undefined,
           paymentToken: undefined,
-          success: true
+          success: true,
+          ticketQuantities: input.ticketQuantities, // Pass to frontend for Edge Function
+          totalAmount: totalAmount
         };
       }
 

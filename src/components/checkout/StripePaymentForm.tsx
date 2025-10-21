@@ -63,14 +63,14 @@ export default function StripePaymentForm({
     setPaymentStatus('processing');
 
     try {
-      // Step 1: Create order using orderService (which skips PayDunya for CARD method)
-      console.log('📝 [STRIPE STEP 1] Creating order...');
+      // Step 1: Get order data (order will be created by Edge Function)
+      console.log('📝 [STRIPE STEP 1] Preparing order data...');
       console.log('Order params:', { eventId, ticketQuantities: tickets, paymentMethod: 'CARD' });
       
       const orderResult = await orderService.createOrder({
         eventId,
         ticketQuantities: tickets,
-        paymentMethod: 'CARD', // This triggers the early return in orderService (no PayDunya)
+        paymentMethod: 'CARD', // This returns orderId: null and ticket data
         paymentDetails: {
           provider: 'stripe',
           cardNumber: '****',
@@ -82,19 +82,15 @@ export default function StripePaymentForm({
 
       console.log('📦 [STRIPE STEP 1] Order result:', orderResult);
 
-      if (!orderResult.success || !orderResult.orderId) {
-        console.error('❌ [STRIPE STEP 1] Order creation failed:', orderResult);
-        throw new Error(orderResult.error || 'Échec de la création de la commande');
+      if (!orderResult.success) {
+        console.error('❌ [STRIPE STEP 1] Order preparation failed:', orderResult);
+        throw new Error(orderResult.error || 'Échec de la préparation de la commande');
       }
 
-      const orderId = orderResult.orderId;
-      // Generate our own payment token since orderService doesn't return one for CARD
-      const paymentToken = `stripe-${orderId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      console.log('✅ [STRIPE STEP 1] Order created successfully');
-      console.log('Order ID:', orderId);
-      console.log('Payment Token:', paymentToken);
-      console.log('PayDunya was skipped (CARD payment method)');
+      // Order will be created by Edge Function, so we don't have an orderId yet
+      console.log('✅ [STRIPE STEP 1] Order data prepared successfully');
+      console.log('Ticket quantities:', orderResult.ticketQuantities);
+      console.log('Total amount:', orderResult.totalAmount);
 
       // Step 2: Create Stripe payment intent WITH order_id
       console.log('💳 [STRIPE STEP 2] Creating Stripe PaymentIntent...');
@@ -112,7 +108,7 @@ export default function StripePaymentForm({
           effectiveRate: fxQuote.effective_xof_per_usd
         });
         
-        // Use pre-calculated FX quote
+        // Use pre-calculated FX quote with order creation
         paymentResponse = await stripePaymentService.createPaymentAdvanced(
           xofAmountMinor,
           fxQuote.usd_cents,
@@ -122,10 +118,13 @@ export default function StripePaymentForm({
           eventId,
           {
             user_id: userId,
-            order_id: orderId, // ✅ Pass order_id to Stripe function
+            order_id: null, // Will be created by Edge Function
             description: paymentDescription,
             idempotencyKey,
             fx_margin_bps: fxQuote.margin_bps,
+            create_order: true, // ✅ NEW: Create order via Edge Function
+            ticket_quantities: orderResult.ticketQuantities,
+            payment_method: 'CARD'
           }
         );
       } else {
@@ -134,17 +133,20 @@ export default function StripePaymentForm({
           currency: 'XOF'
         });
         
-        // Use simple mode with auto-conversion
+        // Use simple mode with auto-conversion and order creation
         paymentResponse = await stripePaymentService.createPaymentSimple(
           xofAmountMinor,
           'XOF',
           eventId,
           {
             user_id: userId,
-            order_id: orderId, // ✅ Pass order_id to Stripe function
+            order_id: null, // Will be created by Edge Function
             description: paymentDescription,
             idempotencyKey,
             amount_is_minor: true,
+            create_order: true, // ✅ NEW: Create order via Edge Function
+            ticket_quantities: orderResult.ticketQuantities,
+            payment_method: 'CARD'
           }
         );
       }
@@ -154,9 +156,10 @@ export default function StripePaymentForm({
       console.log('Client Secret:', paymentResponse.clientSecret ? '✅ Present' : '❌ Missing');
       console.log('Payment ID:', paymentResponse.paymentId);
       console.log('🔗 Order linked to payment:', {
-        orderId: orderId,
+        orderId: paymentResponse.orderId, // ✅ Use orderId from Edge Function response
         paymentId: paymentResponse.paymentId,
-        paymentToken: paymentResponse.paymentToken || paymentToken
+        paymentToken: paymentResponse.paymentToken,
+        orderCreated: paymentResponse.order_created
       });
 
       if (!paymentResponse.clientSecret) {
@@ -195,15 +198,16 @@ export default function StripePaymentForm({
         console.log('PaymentIntent ID:', paymentIntent.id);
         setPaymentStatus('success');
         
-        // Use paymentToken from Stripe response or our generated token
-        const finalPaymentToken = paymentResponse.paymentToken || paymentToken;
+        // Use paymentToken from Stripe response
+        const finalPaymentToken = paymentResponse.paymentToken;
         
         console.log('🎉 [SUCCESS] Calling success handler with:');
         console.log('- Payment ID:', paymentResponse.paymentId);
-        console.log('- Order ID:', orderId);
+        console.log('- Order ID:', paymentResponse.orderId);
         console.log('- Payment Token:', finalPaymentToken);
+        console.log('- Order Created:', paymentResponse.order_created);
         
-        onSuccess(paymentResponse.paymentId, orderId, finalPaymentToken);
+        onSuccess(paymentResponse.paymentId, paymentResponse.orderId, finalPaymentToken);
         toast.success('Paiement réussi !');
       } else {
         console.warn('⚠️ [STRIPE STEP 3] Payment not succeeded');
