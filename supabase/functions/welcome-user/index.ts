@@ -21,12 +21,12 @@ serve(async (req) => {
     // Get the request body
     const { record, old_record, eventType } = await req.json()
 
-    console.log('Webhook triggered:', { eventType, userId: record?.id })
+    console.log('Webhook déclenché:', { eventType, userId: record?.id })
 
     // Only process new user signups
     if (eventType !== 'INSERT' || !record) {
       return new Response(
-        JSON.stringify({ message: 'Not a new user signup' }),
+        JSON.stringify({ message: 'Pas un nouvel utilisateur' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -44,7 +44,7 @@ serve(async (req) => {
       
       profile = profileData
     } catch (error) {
-      console.log('No profile found for user:', userId)
+      console.log('Aucun profil trouvé pour l\'utilisateur:', userId)
     }
 
     // Prepare welcome data
@@ -58,12 +58,12 @@ serve(async (req) => {
     await createWelcomeNotification(supabase, userId, userName)
 
     // Log the welcome event
-    console.log(`Welcome message sent to: ${userEmail} (${userName})`)
+    console.log(`Message de bienvenue envoyé à: ${userEmail} (${userName})`)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Welcome message sent successfully',
+        message: 'Message de bienvenue envoyé avec succès',
         user: { id: userId, email: userEmail, name: userName }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -194,7 +194,7 @@ async function createWelcomeNotification(supabase: any, userId: string, userName
     if (error) {
       console.error('Error creating welcome notification:', error)
     } else {
-      console.log('Welcome notification created successfully for user:', userId)
+      console.log('Notification de bienvenue créée avec succès pour l\'utilisateur:', userId)
     }
   } catch (error) {
     console.error('Error creating welcome notification:', error)
