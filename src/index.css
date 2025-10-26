@@ -1,3 +1,6 @@
+/* Import browser compatibility fallbacks first */
+@import './styles/browser-fallbacks.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

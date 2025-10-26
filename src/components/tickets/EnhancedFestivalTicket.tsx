@@ -85,126 +85,130 @@ export default function EnhancedFestivalTicket({
   const colors = getTicketTypeColor(ticketType);
 
   return (
-    <div className={`relative max-w-4xl mx-auto ${className}`}>
+    <div className={`relative max-w-4xl mx-auto px-2 sm:px-4 ${className}`}>
       {/* Ticket Container */}
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
         {/* Header with Event Image */}
-        <div className="relative h-48 md:h-56 overflow-hidden">
+        <div className="relative h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
           {eventImage && (
             <>
               <img
                 src={eventImage}
                 alt={eventTitle}
-                className={`w-full h-full object-cover transition-opacity duration-500 ${
-                  imageLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
+                className={`w-full h-full object-cover object-center transition-all duration-700 ${
+                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                } sm:scale-100 scale-90`}
                 onLoad={() => setImageLoaded(true)}
+                loading="lazy"
               />
               {!imageLoaded && (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse" />
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 animate-pulse" />
               )}
             </>
           )}
           
-          {/* Gradient Overlay */}
-          <div className={`absolute inset-0 bg-gradient-to-r ${colors.bg} opacity-85`} />
+          {/* Enhanced Gradient Overlay */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-80`} />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
           
           {/* Ticket Type Badge */}
-          <div className="absolute top-6 left-6">
-            <div className={`inline-flex items-center gap-2 px-4 py-2 ${colors.badge} rounded-full text-sm font-semibold shadow-lg`}>
-              {ticketType.toLowerCase().includes('vip') && <Star className="h-4 w-4" />}
-              <Ticket className="h-4 w-4" />
-              {ticketType}
+          <div className="absolute top-3 sm:top-6 left-3 sm:left-6">
+            <div className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 ${colors.badge} rounded-lg text-xs sm:text-sm font-semibold shadow-lg backdrop-blur-sm border border-white/20 max-w-[calc(50%-0.75rem)] sm:max-w-none`}>
+              {ticketType.toLowerCase().includes('vip') && <Star className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />}
+              <Ticket className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate sm:truncate-none text-xs sm:text-sm">{ticketType}</span>
             </div>
           </div>
 
           {/* Price Badge */}
           {price && (
-            <div className="absolute top-6 right-6">
-              <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-lg font-bold text-gray-900 shadow-lg">
-                {formatPrice(price, currency)}
+            <div className="absolute top-3 sm:top-6 right-3 sm:right-6">
+              <div className="bg-white/95 backdrop-blur-md px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold text-gray-900 shadow-lg border border-white/30 max-w-[calc(50%-0.75rem)] sm:max-w-none">
+                <span className="truncate sm:truncate-none block text-xs sm:text-sm">{formatPrice(price, currency)}</span>
               </div>
             </div>
           )}
 
           {/* Event Title */}
-          <div className="absolute bottom-6 left-6 right-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">
-              {eventTitle}
-            </h1>
-            <div className="flex items-center gap-4 text-white/90">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span className="text-sm font-medium">{formatDate(eventDate)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm font-medium">{eventTime}</span>
+          <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6">
+            <div className="backdrop-blur-sm bg-black/25 rounded-xl p-3 sm:p-4 border border-white/15">
+              <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white mb-2 leading-tight break-words drop-shadow-lg line-clamp-2 sm:line-clamp-none">
+                {eventTitle}
+              </h1>
+              <div className="flex flex-col gap-2 text-white/95">
+                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 backdrop-blur-sm">
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-medium truncate sm:truncate-none">{formatDate(eventDate)}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 backdrop-blur-sm">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-medium truncate sm:truncate-none">{eventTime}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Ticket Body */}
-        <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
             {/* Left Column - Essential Info */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Ticket Holder */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <User className="h-7 w-7 text-indigo-600" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-5 w-5 sm:h-7 sm:w-7 text-indigo-600" />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium">Détenteur du billet</p>
-                    <p className="text-xl font-bold text-gray-900 capitalize">{ticketHolder}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium">Détenteur du billet</p>
+                    <p className="text-lg sm:text-xl font-bold text-gray-900 capitalize break-words">{ticketHolder}</p>
                   </div>
                 </div>
               </div>
 
               {/* Event Location */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
-                    <MapPin className="h-7 w-7 text-red-500" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-5 w-5 sm:h-7 sm:w-7 text-red-500" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500 font-medium mb-1">Lieu de l'événement</p>
-                    <p className="text-lg font-semibold text-gray-900 leading-relaxed">{eventLocation}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium mb-2">Lieu de l'événement</p>
+                    <p className="text-sm sm:text-base font-semibold text-gray-900 leading-relaxed break-words hyphens-auto line-clamp-3">{eventLocation}</p>
                   </div>
                 </div>
               </div>
 
               {/* Event Date & Time */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Calendar className="h-7 w-7 text-blue-600" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Calendar className="h-5 w-5 sm:h-7 sm:w-7 text-blue-600" />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium">Date & Heure</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatDate(eventDate)}</p>
-                    <p className="text-lg font-semibold text-gray-900">{eventTime}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-500 font-medium">Date & Heure</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900 break-words">{formatDate(eventDate)}</p>
+                    <p className="text-sm sm:text-lg font-semibold text-gray-900 break-words">{eventTime}</p>
                   </div>
                 </div>
               </div>
 
               {/* Ticket ID */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
-                      <Ticket className="h-7 w-7 text-gray-600" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Ticket className="h-5 w-5 sm:h-7 sm:w-7 text-gray-600" />
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500 font-medium">ID du billet</p>
-                      <p className="text-xl font-mono font-bold text-gray-900">#{ticketId.slice(0, 8).toUpperCase()}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500 font-medium">ID du billet</p>
+                      <p className="text-lg sm:text-xl font-mono font-bold text-gray-900 break-all">#{ticketId.slice(0, 8).toUpperCase()}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Shield className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Vérifié</span>
+                  <div className="flex items-center gap-2 text-green-600 flex-shrink-0">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-xs sm:text-sm font-semibold">Vérifié</span>
                   </div>
                 </div>
               </div>
@@ -212,41 +216,41 @@ export default function EnhancedFestivalTicket({
 
             {/* Right Column - QR Code */}
             <div className="flex flex-col justify-center h-full">
-              <div className="bg-white border border-gray-200 rounded-xl p-8 h-full flex flex-col justify-center">
-                <div className="text-center mb-8">
-                  <h4 className="text-lg font-bold text-gray-900 mb-2">SCANNER POUR VÉRIFIER</h4>
-                  <p className="text-sm text-gray-600">Valable pour une entrée unique</p>
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 lg:p-8 h-full flex flex-col justify-center">
+                <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+                  <h4 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-2 break-words leading-tight">SCANNER POUR VÉRIFIER</h4>
+                  <p className="text-xs sm:text-sm text-gray-600 break-words leading-relaxed">Valable pour une entrée unique</p>
                 </div>
                 
                 <div className="flex-1 flex items-center justify-center">
                   <div 
-                    className="bg-gray-50 p-8 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors group relative"
+                    className="bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors group relative max-w-full"
                     onClick={() => setShowQRModal(true)}
                     title="Cliquez pour agrandir le QR code"
                   >
                     <ResponsiveQRCode
                       ticketId={ticketId}
-                      baseSize={220}
+                      baseSize={180}
                       level="H"
                       includeMargin={false}
                       fgColor="#000000"
                       bgColor="#ffffff"
                     />
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-xl">
-                      <div className="bg-black/70 text-white px-3 py-1 rounded-full text-xs font-medium">
+                      <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
                         Cliquez pour agrandir
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8 text-center space-y-4">
-                  <p className="text-sm text-gray-500 font-mono">
+                <div className="mt-4 sm:mt-6 lg:mt-8 text-center space-y-3 sm:space-y-4">
+                  <p className="text-xs sm:text-sm text-gray-500 font-mono break-all leading-tight">
                     ID: {ticketId.slice(0, 8).toUpperCase()}
                   </p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-semibold">
-                    <Shield className="h-4 w-4" />
-                    Sécurisé & Authentique
+                  <div className="inline-flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-50 text-green-700 rounded-full text-xs sm:text-sm font-semibold">
+                    <Shield className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="break-words leading-tight">Sécurisé & Authentique</span>
                   </div>
                 </div>
               </div>

@@ -37,11 +37,11 @@ export default function ResponsiveQRCode({
 
   return (
     <div className={`flex justify-center ${className}`} data-qr-code="true">
-      {/* Mobile: Larger QR code */}
+      {/* Mobile: Responsive QR code */}
       <div className="block sm:hidden">
         <QRCodeSVG
           value={qrData}
-          size={Math.max(baseSize + 40, 260)} // Minimum 260px on mobile
+          size={Math.min(Math.max(baseSize, 200), 280)} // Between 200-280px on mobile
           level={level}
           includeMargin={includeMargin}
           fgColor={fgColor}

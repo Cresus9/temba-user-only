@@ -34,15 +34,19 @@ export default function FestivalTicket({
   return (
     <div className="bg-white rounded-lg overflow-hidden">
       {/* Event Banner */}
-      <div className="relative h-40 bg-gradient-to-r from-red-800 to-red-600">
+      <div className="relative h-48 sm:h-56 bg-gradient-to-br from-red-800 to-red-600 overflow-hidden">
         <img
           src={eventImage}
           alt={eventTitle}
-          className="w-full h-full object-cover opacity-30"
+          className="w-full h-full object-cover object-center opacity-40 transition-all duration-500 scale-90 sm:scale-100"
+          loading="lazy"
         />
-        <div className="absolute inset-0 p-6 text-white">
-          <h1 className="text-2xl font-bold mb-2">{eventTitle}</h1>
-          <p className="text-lg opacity-90">{eventDate}</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        <div className="absolute inset-0 p-4 sm:p-6 text-white">
+          <div className="backdrop-blur-sm bg-black/25 rounded-lg p-3 sm:p-4 border border-white/15">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold mb-2 break-words drop-shadow-lg leading-tight line-clamp-2 sm:line-clamp-none">{eventTitle}</h1>
+            <p className="text-xs sm:text-sm opacity-95 break-words leading-relaxed">{eventDate}</p>
+          </div>
         </div>
       </div>
 
@@ -76,19 +80,19 @@ export default function FestivalTicket({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-gray-400" />
-              <div>
+            <div className="flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
                 <p className="text-gray-500">Lieu</p>
-                <p className="font-medium">{eventLocation}</p>
+                <p className="font-medium break-words">{eventLocation}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-gray-400" />
-              <div>
+            <div className="flex items-start gap-3">
+              <User className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
                 <p className="text-gray-500">Détenteur du billet</p>
-                <p className="font-medium">{ticketHolder || 'Non assigné'}</p>
+                <p className="font-medium break-words">{ticketHolder || 'Non assigné'}</p>
               </div>
             </div>
           </div>
