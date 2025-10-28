@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Clock, User, Ticket, Star, Shield } from 'lucide-react';
+import { Calendar, MapPin, Clock, User, Ticket, Star, Shield, Send } from 'lucide-react';
 import ResponsiveQRCode from './ResponsiveQRCode';
+import TransferTicketModal from './TransferTicketModal';
 
 interface EnhancedFestivalTicketProps {
   ticketHolder: string;
@@ -19,6 +20,11 @@ interface EnhancedFestivalTicketProps {
   purchaseDate?: string;
   eventCategory?: string;
   specialInstructions?: string;
+  ticketStatus?: string; // NEW: Add ticket status prop
+  scannedAt?: string; // NEW: Add scan timestamp
+  scannedBy?: string; // NEW: Add scanner name
+  scanLocation?: string; // NEW: Add scan location
+  onTransferComplete?: () => void;
 }
 
 export default function EnhancedFestivalTicket({
@@ -37,10 +43,17 @@ export default function EnhancedFestivalTicket({
   orderNumber,
   purchaseDate,
   eventCategory,
-  specialInstructions
+  specialInstructions,
+  ticketStatus = 'VALID', // NEW: Default to VALID
+  scannedAt, // NEW: Add scan timestamp
+  scannedBy, // NEW: Add scanner name
+  scanLocation, // NEW: Add scan location
+  onTransferComplete
 }: EnhancedFestivalTicketProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -86,6 +99,84 @@ export default function EnhancedFestivalTicket({
 
   return (
     <div className={`relative max-w-4xl mx-auto px-2 sm:px-4 ${className}`}>
+      {/* Ticket Status Banner - Show for all tickets */}
+      <div className={`mb-4 p-4 rounded-xl border ${
+        ticketStatus === 'USED' 
+          ? 'bg-green-50 border-green-200' 
+          : ticketStatus === 'VALID'
+          ? 'bg-blue-50 border-blue-200'
+          : 'bg-yellow-50 border-yellow-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+              ticketStatus === 'USED' 
+                ? 'bg-green-500' 
+                : ticketStatus === 'VALID'
+                ? 'bg-blue-500'
+                : 'bg-yellow-500'
+            }`}>
+              {ticketStatus === 'USED' ? (
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              ) : ticketStatus === 'VALID' ? (
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <span className={`font-medium ${
+              ticketStatus === 'USED' 
+                ? 'text-green-800' 
+                : ticketStatus === 'VALID'
+                ? 'text-blue-800'
+                : 'text-yellow-800'
+            }`}>
+              {ticketStatus === 'USED' 
+                ? 'Billet utilisé' 
+                : ticketStatus === 'VALID'
+                ? 'Billet valide'
+                : 'Billet non valide'}
+            </span>
+          </div>
+          <div className={`text-right text-sm ${
+            ticketStatus === 'USED' 
+              ? 'text-green-700' 
+              : ticketStatus === 'VALID'
+              ? 'text-blue-700'
+              : 'text-yellow-700'
+          }`}>
+            {ticketStatus === 'USED' ? (
+              <>
+                {scanLocation ? (
+                  <div>Scanné à {scanLocation}</div>
+                ) : (
+                  <div>Scanné à Ticket Scanner</div>
+                )}
+                {scannedAt ? (
+                  <div>
+                    {new Date(scannedAt).toLocaleDateString('fr-FR')}, {new Date(scannedAt).toLocaleTimeString('fr-FR')}
+                    {scannedBy && ` par ${scannedBy}`}
+                  </div>
+                ) : (
+                  <div>Date de scan non disponible</div>
+                )}
+              </>
+            ) : ticketStatus === 'VALID' ? (
+              <div>Prêt à être utilisé</div>
+            ) : (
+              <div>Statut: {ticketStatus}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+
       {/* Ticket Container */}
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
         {/* Header with Event Image */}
@@ -244,6 +335,7 @@ export default function EnhancedFestivalTicket({
                   </div>
                 </div>
 
+
                 <div className="mt-4 sm:mt-6 lg:mt-8 text-center space-y-3 sm:space-y-4">
                   <p className="text-xs sm:text-sm text-gray-500 font-mono break-all leading-tight">
                     ID: {ticketId.slice(0, 8).toUpperCase()}
@@ -268,8 +360,26 @@ export default function EnhancedFestivalTicket({
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-600">Ticket Valide</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  ticketStatus === 'USED' 
+                    ? 'bg-red-400' 
+                    : ticketStatus === 'VALID' 
+                    ? 'bg-green-400 animate-pulse' 
+                    : 'bg-yellow-400'
+                }`}></div>
+                <span className={`text-sm font-medium ${
+                  ticketStatus === 'USED' 
+                    ? 'text-red-600' 
+                    : ticketStatus === 'VALID' 
+                    ? 'text-green-600' 
+                    : 'text-yellow-600'
+                }`}>
+                  {ticketStatus === 'USED' 
+                    ? 'Ticket Utilisé' 
+                    : ticketStatus === 'VALID' 
+                    ? 'Ticket Valide' 
+                    : 'Ticket Non Valide'}
+                </span>
               </div>
             </div>
           </div>
@@ -314,6 +424,18 @@ export default function EnhancedFestivalTicket({
           </div>
         </div>
       )}
+
+      {/* Transfer Ticket Modal */}
+      <TransferTicketModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        ticketId={ticketId}
+        ticketTitle={eventTitle}
+        onTransferComplete={() => {
+          setShowTransferModal(false);
+          onTransferComplete?.();
+        }}
+      />
     </div>
   );
 }

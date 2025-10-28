@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Ticket, Bell, CreditCard, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
@@ -8,10 +8,12 @@ import BookingHistory from '../components/profile/BookingHistory';
 import Notifications from '../components/profile/Notifications';
 import PaymentMethods from '../components/profile/PaymentMethods';
 import AccountSettings from '../components/profile/AccountSettings';
-import TransferRequests from '../components/tickets/TransferRequests';
+import TransferredTicketsList from '../components/tickets/TransferredTicketsList';
+import SentTicketsList from '../components/tickets/SentTicketsList';
 
 export default function Profile() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,7 +21,8 @@ export default function Profile() {
   const navigation = [
     { name: t('profile.menu.profile_info', { default: 'Informations du Profil' }), path: '/profile', icon: User },
     { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
-    { name: t('profile.menu.transfer_requests', { default: 'Demandes de Transfert' }), path: '/profile/transfers', icon: Ticket },
+    { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Ticket },
+    { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Ticket },
     { name: t('profile.menu.notifications', { default: 'Notifications' }), path: '/profile/notifications', icon: Bell },
     { name: t('profile.menu.payment_methods', { default: 'Méthodes de Paiement' }), path: '/profile/payments', icon: CreditCard },
     { name: t('profile.menu.account_settings', { default: 'Paramètres du Compte' }), path: '/profile/settings', icon: Settings },
@@ -89,7 +92,8 @@ export default function Profile() {
           <Routes>
             <Route path="/" element={<ProfileInfo />} />
             <Route path="/bookings" element={<BookingHistory />} />
-            <Route path="/transfers" element={<TransferRequests />} />
+            <Route path="/transfers" element={<TransferredTicketsList />} />
+            <Route path="/sent" element={<SentTicketsList />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/payments" element={<PaymentMethods />} />
             <Route path="/settings" element={<AccountSettings />} />

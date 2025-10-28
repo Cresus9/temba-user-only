@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle, ChevronRight, Send, User, Ticket } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { generatePDF } from '../../utils/ticketService';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +35,8 @@ interface Booking {
     scan_location?: string;
     scanned_by?: string;
     scanned_by_name?: string;
+    isTransferred?: boolean;
+    transferStatus?: string | null;
   }>;
 }
 
@@ -45,7 +47,7 @@ export default function BookingHistory() {
   const navigate = useNavigate();
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
-  const [transferTicket, setTransferTicket] = useState<{id: string, eventTitle: string} | null>(null);
+  const [transferTicket, setTransferTicket] = useState<{ticketId: string, ticketTitle: string, eventDate: string, eventTime: string, eventLocation: string} | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -56,6 +58,8 @@ export default function BookingHistory() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
+      
+      // Get all orders for the user
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -73,6 +77,7 @@ export default function BookingHistory() {
           ),
           tickets (
             id,
+            user_id,
             qr_code,
             status,
             scanned_at,
@@ -89,8 +94,32 @@ export default function BookingHistory() {
 
       if (ordersError) throw ordersError;
 
+      // Get all transferred ticket IDs for this user
+      const { data: transfers } = await supabase
+        .from('ticket_transfers')
+        .select('ticket_id, status')
+        .eq('sender_id', user.id);
+
+      const transferredTicketIds = new Set(transfers?.map(t => t.ticket_id) || []);
+
+      // Process orders and mark transferred tickets
+      const processedOrders = orders?.map(order => ({
+        ...order,
+        tickets: order.tickets.map(ticket => ({
+          ...ticket,
+          isTransferred: transferredTicketIds.has(ticket.id),
+          transferStatus: transfers?.find(t => t.ticket_id === ticket.id)?.status || null
+        }))
+      })) || [];
+
+      console.log('Booking History Debug:', {
+        totalOrders: orders?.length || 0,
+        transferredTickets: transferredTicketIds.size,
+        processedOrders: processedOrders.length
+      });
+
       // Get scanner names in a separate query
-      const scannerIds = orders?.flatMap(order => 
+      const scannerIds = processedOrders?.flatMap(order => 
         order.tickets
           .filter(ticket => ticket.scanned_by)
           .map(ticket => ticket.scanned_by)
@@ -109,7 +138,7 @@ export default function BookingHistory() {
         }), {});
       }
 
-      const formattedBookings = orders?.map(order => ({
+      const formattedBookings = processedOrders?.map(order => ({
         ...order,
         tickets: order.tickets.map(ticket => ({
           ...ticket,
@@ -284,70 +313,217 @@ export default function BookingHistory() {
                 {booking.tickets.map((ticket) => (
                   <div 
                     key={ticket.id}
-                    className="bg-white rounded-lg p-4 border border-gray-200"
+                    className={`bg-white rounded-lg p-4 border border-gray-200 ${ticket.isTransferred ? 'relative' : ''}`}
                   >
-                    {/* Ticket Status Banner */}
-                    <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
-                      ticket.status === 'USED' 
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-yellow-50 text-yellow-700'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        {ticket.status === 'USED' ? (
-                          <CheckCircle className="h-5 w-5" />
-                        ) : (
-                          <XCircle className="h-5 w-5" />
-                        )}
-                        <span className="font-medium">
-                          {ticket.status === 'USED' ? 'Billet utilisé' : 'Billet non utilisé'}
-                        </span>
-                      </div>
-                      {ticket.status === 'USED' && (
-                        <div className="text-sm">
-                          <p>Scanné à {ticket.scan_location}</p>
-                          <p>
-                            {new Date(ticket.scanned_at!).toLocaleString()} 
-                            {ticket.scanned_by_name && ` par ${ticket.scanned_by_name}`}
-                          </p>
+                    {/* Transfer Status Banner */}
+                    {ticket.isTransferred && (
+                      <div className="mb-4 p-3 rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
+                        <div className="flex items-center gap-2">
+                          <Send className="h-5 w-5" />
+                          <span className="font-medium">
+                            Billet transféré - Détails non accessibles
+                          </span>
                         </div>
+                        <p className="text-sm mt-1">
+                          Ce billet a été transféré et n'est plus accessible. Seul le destinataire peut l'utiliser.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Ticket Status Banner - only show if not transferred */}
+                    {!ticket.isTransferred && (
+                      <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
+                        ticket.status === 'USED' 
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-yellow-50 text-yellow-700'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {ticket.status === 'USED' ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : (
+                            <XCircle className="h-5 w-5" />
+                          )}
+                          <span className="font-medium">
+                            {ticket.status === 'USED' ? 'Billet utilisé' : 'Billet non utilisé'}
+                          </span>
+                        </div>
+                        {ticket.status === 'USED' && (
+                          <div className="text-sm">
+                            <p>Scanné à {ticket.scan_location}</p>
+                            <p>
+                              {new Date(ticket.scanned_at!).toLocaleString()} 
+                              {ticket.scanned_by_name && ` par ${ticket.scanned_by_name}`}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div id={`ticket-${ticket.id}`} data-ticket className={ticket.isTransferred ? 'blur-sm pointer-events-none' : ''}>
+                      {ticket.isTransferred ? (
+                        // Show a restricted version for transferred tickets
+                        <div className="relative max-w-4xl mx-auto px-2 sm:px-4">
+                          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+                            {/* Header */}
+                            <div className="relative h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
+                              <img
+                                src={booking.event.image_url}
+                                alt={booking.event.title}
+                                className="w-full h-full object-cover object-center scale-90 sm:scale-100"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                              <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
+                              
+                              <div className="absolute top-4 left-4 right-4">
+                                <div className="backdrop-blur-sm bg-black/20 rounded-xl p-3 border border-white/20">
+                                  <h1 className="text-white font-bold text-lg sm:text-xl lg:text-2xl line-clamp-2 sm:line-clamp-none leading-tight">
+                                    {booking.event.title}
+                                  </h1>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-white/90 text-sm">
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                      <span className="leading-tight">{new Date(booking.event.date).toLocaleDateString('fr-FR')}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                      <span className="leading-tight">{booking.event.time}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                      <span className="leading-tight line-clamp-1">{booking.event.location}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-4 sm:p-6 lg:p-8">
+                              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                                <div className="flex-1">
+                                  <div className="flex flex-wrap gap-2 mb-4">
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 backdrop-blur-sm shadow-xl border border-white/20">
+                                      {ticket.ticket_type.name}
+                                    </span>
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 backdrop-blur-sm shadow-xl border border-white/20">
+                                      Transféré
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                      <User className="h-4 w-4 text-gray-500" />
+                                      <span className="text-sm text-gray-600">Détenteur: {user?.name || 'Utilisateur'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <Ticket className="h-4 w-4 text-gray-500" />
+                                      <span className="text-sm text-gray-600">Type: {ticket.ticket_type.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <Calendar className="h-4 w-4 text-gray-500" />
+                                      <span className="text-sm text-gray-600">Date: {new Date(booking.event.date).toLocaleDateString('fr-FR')}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* QR Code Placeholder */}
+                                <div className="flex-shrink-0">
+                                  <div className="w-32 h-32 bg-gray-200 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300">
+                                    <div className="text-center">
+                                      <Send className="h-8 w-8 text-gray-400 mx-auto mb-1" />
+                                      <p className="text-xs text-gray-500 font-medium">Transféré</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Send className="h-5 w-5 text-purple-600" />
+                                  <span className="font-semibold text-purple-800">Billet transféré</span>
+                                </div>
+                                <p className="text-sm text-purple-700">
+                                  Ce billet a été transféré à un autre utilisateur. Vous ne pouvez plus l'utiliser pour l'entrée à l'événement.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Show full ticket for non-transferred tickets
+                        <EnhancedFestivalTicket
+                          ticketHolder={user?.name || ''}
+                          ticketType={ticket.ticket_type.name}
+                          ticketId={ticket.id}
+                          eventTitle={booking.event.title}
+                          eventDate={booking.event.date}
+                          eventTime={booking.event.time}
+                          eventLocation={booking.event.location}
+                          qrCode={ticket.qr_code}
+                          eventImage={booking.event.image_url}
+                          price={ticket.ticket_type.price}
+                          currency="XOF"
+                          orderNumber={booking.id}
+                          purchaseDate={booking.created_at}
+                          eventCategory="Concert"
+                          specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
+                          ticketStatus={ticket.status} // NEW: Pass ticket status
+                          scannedAt={ticket.scanned_at} // NEW: Pass scan timestamp
+                          scannedBy={ticket.scanned_by_name} // NEW: Pass scanner name
+                          scanLocation={ticket.scan_location} // NEW: Pass scan location
+                        />
                       )}
                     </div>
 
-                    <div id={`ticket-${ticket.id}`} data-ticket>
-                      <EnhancedFestivalTicket
-                        ticketHolder={user?.name || ''}
-                        ticketType={ticket.ticket_type.name}
-                        ticketId={ticket.id}
-                        eventTitle={booking.event.title}
-                        eventDate={booking.event.date}
-                        eventTime={booking.event.time}
-                        eventLocation={booking.event.location}
-                        qrCode={ticket.qr_code}
-                        eventImage={booking.event.image_url}
-                        price={ticket.ticket_type.price}
-                        currency="XOF"
-                        orderNumber={booking.id}
-                        purchaseDate={booking.created_at}
-                        eventCategory="Concert"
-                        specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
-                      />
-                    </div>
+                    {/* Overlay for transferred tickets */}
+                    {ticket.isTransferred && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                        <div className="text-center">
+                          <Send className="h-12 w-12 text-purple-400 mx-auto mb-2" />
+                          <p className="text-purple-600 font-medium">Billet transféré</p>
+                          <p className="text-sm text-purple-500">Plus accessible</p>
+                        </div>
+                      </div>
+                    )}
                     
-                    <div className="mt-4 flex justify-end">
+                    <div className="mt-4 flex justify-end gap-3">
+                      {!ticket.isTransferred && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTransferTicket({
+                              ticketId: ticket.id,
+                              ticketTitle: booking.event.title,
+                              eventDate: booking.event.date,
+                              eventTime: booking.event.time,
+                              eventLocation: booking.event.location
+                            });
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          <Send className="h-5 w-5" />
+                          Transférer le billet
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDownloadTicket(ticket, booking);
                         }}
-                        disabled={downloadingTicket === ticket.id}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        disabled={downloadingTicket === ticket.id || ticket.isTransferred}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                          ticket.isTransferred 
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        } disabled:opacity-50`}
                       >
                         {downloadingTicket === ticket.id ? (
                           <Loader className="h-5 w-5 animate-spin" />
                         ) : (
                           <Download className="h-5 w-5" />
                         )}
-                        Télécharger le billet
+                        {ticket.isTransferred ? 'Billet transféré' : 'Télécharger le billet'}
                       </button>
                     </div>
                   </div>
@@ -361,10 +537,11 @@ export default function BookingHistory() {
       {/* Transfer Ticket Modal */}
       {transferTicket && (
         <TransferTicketModal
-          ticketId={transferTicket.id}
-          eventTitle={transferTicket.eventTitle}
+          isOpen={!!transferTicket}
           onClose={() => setTransferTicket(null)}
-          onSuccess={() => {
+          ticketId={transferTicket.ticketId}
+          ticketTitle={transferTicket.ticketTitle}
+          onTransferComplete={() => {
             setTransferTicket(null);
             fetchBookings();
           }}

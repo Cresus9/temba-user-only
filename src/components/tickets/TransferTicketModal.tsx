@@ -1,147 +1,400 @@
 import React, { useState } from 'react';
-import { Mail, Send, AlertCircle, Loader } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
-import { useTranslation } from '../../context/TranslationContext';
+import { X, Send, User, Mail, Phone, MessageSquare, AlertCircle } from 'lucide-react';
+import { ticketTransferService, TransferTicketRequest } from '../../services/ticketTransferService';
 import toast from 'react-hot-toast';
 
 interface TransferTicketModalProps {
-  ticketId: string;
-  eventTitle: string;
+  isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  ticketId: string;
+  ticketTitle: string;
+  onTransferComplete: () => void;
 }
 
 export default function TransferTicketModal({
-  ticketId,
-  eventTitle,
+  isOpen,
   onClose,
-  onSuccess
+  ticketId,
+  ticketTitle,
+  onTransferComplete
 }: TransferTicketModalProps) {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    recipientEmail: '',
+    recipientPhone: '',
+    recipientName: '',
+    message: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { t } = useTranslation();
+  const [transferMethod, setTransferMethod] = useState<'email' | 'phone'>('email');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmedData, setConfirmedData] = useState<{
+    recipient: string;
+    method: 'email' | 'phone';
+    name: string;
+    message: string;
+  } | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
-    setLoading(true);
+  };
+
+  const validateForm = () => {
+    if (transferMethod === 'email') {
+      if (!formData.recipientEmail) {
+        setError('Email is required');
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.recipientEmail)) {
+        setError('Please enter a valid email address');
+        return false;
+      }
+    } else {
+      if (!formData.recipientPhone) {
+        setError('Phone number is required');
+        return false;
+      }
+      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(formData.recipientPhone.replace(/\s/g, ''))) {
+        setError('Please enter a valid phone number');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleTransfer = () => {
+    if (!validateForm()) return;
+
+    // Show confirmation step
+    setConfirmedData({
+      recipient: transferMethod === 'email' ? formData.recipientEmail : formData.recipientPhone,
+      method: transferMethod,
+      name: formData.recipientName,
+      message: formData.message
+    });
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!confirmedData) return;
+
+    setIsLoading(true);
+    setError('');
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const request: TransferTicketRequest = {
+        ticketId,
+        recipientEmail: confirmedData.method === 'email' ? confirmedData.recipient : undefined,
+        recipientPhone: confirmedData.method === 'phone' ? confirmedData.recipient : undefined,
+        recipientName: confirmedData.name,
+        message: confirmedData.message
+      };
 
-      // First check if recipient exists
-      const { data: recipient } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .eq('email', email)
-        .single();
+      const response = await ticketTransferService.transferTicket(request);
 
-      if (!recipient) {
-        throw new Error('Recipient not found. Please check the email address.');
-      }
-
-      // Create transfer record
-      const { error: transferError } = await supabase
-        .from('ticket_transfers')
-        .insert({
-          ticket_id: ticketId,
-          sender_id: user.id, // Set the sender_id to current user's ID
-          recipient_id: recipient.user_id,
-          status: 'PENDING'
+      if (response.success) {
+        if (response.instantTransfer) {
+          toast.success('Billet transféré avec succès!');
+        } else {
+          toast.success('Transfert en attente - le destinataire recevra le billet lors de son inscription!');
+        }
+        onTransferComplete();
+        onClose();
+        // Reset form
+        setFormData({
+          recipientEmail: '',
+          recipientPhone: '',
+          recipientName: '',
+          message: ''
         });
-
-      if (transferError) throw transferError;
-
-      toast.success(t('transfers.success.initiated', { default: 'Transfer initiated successfully' }));
-      onSuccess();
-    } catch (error: any) {
+      } else {
+        setError(response.error || 'Transfer failed');
+      }
+    } catch (error) {
       console.error('Transfer error:', error);
-      setError(error.message || t('transfers.error.generic', { default: 'Failed to initiate transfer' }));
-      toast.error(error.message || t('transfers.error.generic', { default: 'Failed to initiate transfer' }));
+      setError('An unexpected error occurred');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
+  const handleBackToForm = () => {
+    setShowConfirmation(false);
+    setConfirmedData(null);
+    setError('');
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Transfer Ticket</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
 
-        <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-          <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
-                  {t('transfers.title', { default: 'Transfer Ticket' })}
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Confirmation Step */}
+          {showConfirmation && confirmedData ? (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-8 w-8 text-orange-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Confirmer le transfert
                 </h3>
-
-                <p className="text-sm text-gray-600 mb-4">
-                  {t('transfers.description', { 
-                    event: eventTitle,
-                    default: `Transfer your ticket for "${eventTitle}" to another user`
-                  })}
+                <p className="text-gray-600">
+                  Veuillez vérifier les informations avant de confirmer le transfert
                 </p>
+              </div>
 
-                {error && (
-                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <AlertCircle className="h-5 w-5" />
-                    <span>{error}</span>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Billet à transférer:</span>
+                  <p className="text-gray-900 font-medium">{ticketTitle}</p>
+                </div>
+                
+                <div>
+                  <span className="text-sm font-medium text-gray-500">
+                    {confirmedData.method === 'email' ? 'Email du destinataire:' : 'Téléphone du destinataire:'}
+                  </span>
+                  <p className="text-gray-900 font-medium">{confirmedData.recipient}</p>
+                </div>
+
+                {confirmedData.name && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Nom du destinataire:</span>
+                    <p className="text-gray-900 font-medium">{confirmedData.name}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                {confirmedData.message && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('transfers.recipient_email', { default: "Recipient's Email" })}
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('transfers.email_placeholder', { default: "Enter recipient's email" })}
-                        required
-                      />
-                    </div>
+                    <span className="text-sm font-medium text-gray-500">Message:</span>
+                    <p className="text-gray-900 font-medium">{confirmedData.message}</p>
                   </div>
+                )}
+              </div>
 
-                  <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-2">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader className="h-5 w-5 animate-spin" />
-                          <span>{t('transfers.transferring', { default: 'Transferring...' })}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-5 w-5" />
-                          <span>{t('transfers.transfer', { default: 'Transfer Ticket' })}</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="mt-3 sm:mt-0 w-full sm:w-auto px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 border border-gray-300"
-                    >
-                      {t('common.cancel', { default: 'Cancel' })}
-                    </button>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Important</p>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Cette action est irréversible. Le billet sera transféré immédiatement au destinataire.
+                    </p>
                   </div>
-                </form>
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBackToForm}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  disabled={isLoading}
+                >
+                  Retour
+                </button>
+                <button
+                  onClick={handleConfirmTransfer}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Transfert...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Confirmer le transfert
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Ticket Info */}
+              <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-1">Transferring:</h3>
+            <p className="text-gray-700">{ticketTitle}</p>
+          </div>
+
+          {/* Transfer Method Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Transfer Method
+            </label>
+            <div className="flex space-x-4">
+              <button
+                type="button"
+                onClick={() => setTransferMethod('email')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                  transferMethod === 'email'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Mail className="h-4 w-4" />
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransferMethod('phone')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                  transferMethod === 'phone'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Phone className="h-4 w-4" />
+                Phone
+              </button>
+            </div>
+          </div>
+
+          {/* Recipient Details */}
+          <div className="space-y-4">
+            {/* Email or Phone Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {transferMethod === 'email' ? 'Recipient Email' : 'Recipient Phone'}
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  {transferMethod === 'email' ? (
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                <input
+                  type={transferMethod === 'email' ? 'email' : 'tel'}
+                  value={transferMethod === 'email' ? formData.recipientEmail : formData.recipientPhone}
+                  onChange={(e) => handleInputChange(
+                    transferMethod === 'email' ? 'recipientEmail' : 'recipientPhone',
+                    e.target.value
+                  )}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  placeholder={transferMethod === 'email' ? 'user@example.com' : '+226 70 12 34 56'}
+                />
+              </div>
+            </div>
+
+            {/* Recipient Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Recipient Name (Optional)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.recipientName}
+                  onChange={(e) => handleInputChange('recipientName', e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  placeholder="John Doe"
+                />
+              </div>
+            </div>
+
+            {/* Message */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message (Optional)
+              </label>
+              <div className="relative">
+                <div className="absolute top-3 left-3 pointer-events-none">
+                  <MessageSquare className="h-5 w-5 text-gray-400" />
+                </div>
+                <textarea
+                  value={formData.message}
+                  onChange={(e) => handleInputChange('message', e.target.value)}
+                  rows={3}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
+                  placeholder="Add a personal message..."
+                />
               </div>
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          {/* Warning */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Important</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  The recipient must have a Temba account. This transfer is instant and cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
         </div>
+
+        {/* Footer - Only show when not in confirmation mode */}
+        {!showConfirmation && (
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleTransfer}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Transfert...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Transférer le billet
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

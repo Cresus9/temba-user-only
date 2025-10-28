@@ -10,26 +10,39 @@ import {
   Clock,
   MapPin,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Gift,
+  User,
+  Eye,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/userService';
+import { transferredTicketsService, type TransferredTicket } from '../services/transferredTicketsService';
 import { formatCurrency } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import type { DashboardStats } from '../services/userService';
+import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
 
 export default function Dashboard() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
+  const [transferredTickets, setTransferredTickets] = useState<TransferredTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<TransferredTicket | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const data = await userService.getDashboardData();
+        const [data, transferredTicketsData] = await Promise.all([
+          userService.getDashboardData(),
+          transferredTicketsService.getTransferredTickets()
+        ]);
+        console.log('Dashboard data loaded:', { data, transferredTicketsData });
         setDashboardData(data);
+        setTransferredTickets(transferredTicketsData);
       } catch (error) {
         console.error('Erreur lors du chargement des données du tableau de bord:', error);
         toast.error('Échec du chargement des données du tableau de bord');
@@ -248,6 +261,176 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Transferred Tickets Section */}
+      {transferredTickets.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Gift className="h-6 w-6 text-purple-600" />
+                Billets reçus
+              </h2>
+              <span className="text-sm text-gray-500">
+                {transferredTickets.length} billet{transferredTickets.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            
+            <div className="space-y-4">
+              {transferredTickets.map((transfer) => (
+                <div 
+                  key={transfer.id}
+                  onClick={() => setSelectedTicket(transfer)}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all duration-200 cursor-pointer group"
+                >
+                  <div className="mb-4 md:mb-0">
+                    <h3 className="font-medium text-gray-900 group-hover:text-purple-600 transition-colors">
+                      {transfer.ticket.event.title}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {new Date(transfer.ticket.event.date).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {transfer.ticket.event.location}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm text-gray-500">
+                        {transfer.sender ? `Transféré par ${transfer.sender.name}` : 'Billet transféré'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">
+                            {transfer.ticket.ticket_type.name}
+                          </p>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            transfer.status === 'USED' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {transfer.status === 'USED' ? 'Utilisé' : 'Reçu'}
+                          </span>
+                        </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ticket Details Modal */}
+      {selectedTicket && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Gift className="h-6 w-6 text-purple-600" />
+                Billet reçu
+              </h3>
+              <button 
+                onClick={() => setSelectedTicket(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Transfer Information Banner */}
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Gift className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-purple-900">Billet transféré</h4>
+                  <div className="text-sm text-purple-700">
+                    {selectedTicket.sender && (
+                      <span>Transféré par <strong>{selectedTicket.sender.name}</strong> le {new Date(selectedTicket.created_at).toLocaleDateString()}</span>
+                    )}
+                    {selectedTicket.message && (
+                      <div className="mt-2 p-2 bg-white rounded border border-purple-200">
+                        <span className="text-purple-600 font-medium">Message: </span>
+                        <span className="text-purple-800">{selectedTicket.message}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ticket Display */}
+            <div className="relative">
+                  <EnhancedFestivalTicket
+                    ticketHolder={profile?.name || 'Utilisateur'}
+                    ticketType={selectedTicket.ticket.ticket_type.name}
+                    ticketId={selectedTicket.ticket.id}
+                    eventTitle={selectedTicket.ticket.event.title}
+                    eventDate={selectedTicket.ticket.event.date}
+                    eventTime={selectedTicket.ticket.event.time}
+                    eventLocation={selectedTicket.ticket.event.location}
+                    qrCode={selectedTicket.ticket.qr_code}
+                    eventImage={selectedTicket.ticket.event.image_url}
+                    price={selectedTicket.ticket.ticket_type.price}
+                    currency="XOF"
+                    orderNumber={selectedTicket.id}
+                    purchaseDate={selectedTicket.created_at}
+                    eventCategory="Concert"
+                    specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
+                    ticketStatus={selectedTicket.ticket.status} // NEW: Pass ticket status
+                    scannedAt={selectedTicket.ticket.scanned_at} // NEW: Pass scan timestamp
+                    scannedBy={selectedTicket.ticket.scanned_by_name} // NEW: Pass scanner name
+                    scanLocation={selectedTicket.ticket.scan_location} // NEW: Pass scan location
+                    onTransferComplete={() => {
+                      setSelectedTicket(null);
+                      // Refresh the transferred tickets list
+                      const refreshData = async () => {
+                        try {
+                          const [data, transferredTicketsData] = await Promise.all([
+                            userService.getDashboardData(),
+                            transferredTicketsService.getTransferredTickets()
+                          ]);
+                          setDashboardData(data);
+                          setTransferredTickets(transferredTicketsData);
+                        } catch (error) {
+                          console.error('Error refreshing data:', error);
+                        }
+                      };
+                      refreshData();
+                    }}
+                  />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-center gap-3 mt-6 pt-4 border-t">
+              <button
+                onClick={() => setSelectedTicket(null)}
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTicket(null);
+                  navigate('/profile/bookings');
+                }}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
+              >
+                <Eye className="h-4 w-4" />
+                Voir tous les billets
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

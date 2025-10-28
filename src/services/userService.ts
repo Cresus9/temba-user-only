@@ -48,8 +48,8 @@ class UserService {
 
     const now = new Date().toISOString();
 
-    // Get upcoming events count
-    const { data: upcomingTickets, error: ticketsError } = await supabase
+    // Get all user tickets first
+    const { data: allTickets, error: ticketsError } = await supabase
       .from('tickets')
       .select(`
         id,
@@ -60,17 +60,34 @@ class UserService {
       `)
       .eq('user_id', user.id)
       .eq('status', 'VALID')
-      .gte('event.date', now)
       .eq('event.status', 'PUBLISHED');
 
     if (ticketsError) throw ticketsError;
 
-    // Get total tickets
-    const { count: totalTickets } = await supabase
-      .from('tickets')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', 'VALID');
+    // Get transferred ticket IDs
+    const ticketIds = allTickets?.map(ticket => ticket.id) || [];
+    let transferredTicketIds: string[] = [];
+    
+    if (ticketIds.length > 0) {
+      const { data: transfers } = await supabase
+        .from('ticket_transfers')
+        .select('ticket_id')
+        .in('ticket_id', ticketIds)
+        .eq('status', 'COMPLETED');
+      
+      transferredTicketIds = transfers?.map(t => t.ticket_id) || [];
+    }
+
+    // Filter out transferred tickets
+    const userTickets = allTickets?.filter(ticket => !transferredTicketIds.includes(ticket.id)) || [];
+
+    // Get upcoming events count
+    const upcomingTickets = userTickets.filter(ticket => 
+      new Date(ticket.event.date) >= new Date(now)
+    );
+
+    // Get total tickets count
+    const totalTickets = userTickets.length;
 
     // Get money committed by the user (all non-cancelled orders)
     const { data: userOrders, error: ordersError } = await supabase
@@ -104,8 +121,8 @@ class UserService {
 
     return {
       stats: {
-        upcomingEvents: upcomingTickets?.length || 0,
-        totalTickets: totalTickets || 0,
+        upcomingEvents: upcomingTickets.length,
+        totalTickets: totalTickets,
         totalSpent
       },
       recentOrders: recentOrders?.map(order => ({

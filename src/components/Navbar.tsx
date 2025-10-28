@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Menu, X, MessageSquare } from 'lucide-react';
+import { User, Menu, X, MessageSquare, Ticket } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
 import toast from 'react-hot-toast';
@@ -87,11 +87,14 @@ export default function Navbar() {
                         Tableau de bord
                       </Link>
                       <Link
-                        to="/profile"
+                        to="/profile/bookings"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >
-                        Profil
+                        <div className="flex items-center gap-2">
+                          <Ticket className="h-4 w-4" />
+                          Mes Billets
+                        </div>
                       </Link>
                       <Link
                         to="/support"
@@ -176,11 +179,14 @@ export default function Navbar() {
                   Tableau de bord
                 </Link>
                 <Link
-                  to="/profile"
+                  to="/profile/bookings"
                   className="block text-gray-600 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
-                  Profil
+                  <div className="flex items-center gap-2">
+                    <Ticket className="h-4 w-4" />
+                    Mes Billets
+                  </div>
                 </Link>
                 <Link
                   to="/support"
