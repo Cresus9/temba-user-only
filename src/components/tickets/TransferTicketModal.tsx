@@ -43,22 +43,22 @@ export default function TransferTicketModal({
   const validateForm = () => {
     if (transferMethod === 'email') {
       if (!formData.recipientEmail) {
-        setError('Email is required');
+        setError('L\'email est requis');
         return false;
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.recipientEmail)) {
-        setError('Please enter a valid email address');
+        setError('Veuillez entrer une adresse email valide');
         return false;
       }
     } else {
       if (!formData.recipientPhone) {
-        setError('Phone number is required');
+        setError('Le numéro de téléphone est requis');
         return false;
       }
       const phoneRegex = /^\+?[1-9]\d{1,14}$/;
       if (!phoneRegex.test(formData.recipientPhone.replace(/\s/g, ''))) {
-        setError('Please enter a valid phone number');
+        setError('Veuillez entrer un numéro de téléphone valide');
         return false;
       }
     }
@@ -111,11 +111,11 @@ export default function TransferTicketModal({
           message: ''
         });
       } else {
-        setError(response.error || 'Transfer failed');
+        setError(response.error || 'Échec du transfert');
       }
     } catch (error) {
       console.error('Transfer error:', error);
-      setError('An unexpected error occurred');
+      setError('Une erreur inattendue s\'est produite');
     } finally {
       setIsLoading(false);
     }

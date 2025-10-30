@@ -38,14 +38,14 @@ serve(async (req) => {
     // Validate input
     if (!ticketId) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Ticket ID is required' }),
+        JSON.stringify({ success: false, error: 'L\'ID du billet est requis' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     if (!recipientEmail && !recipientPhone) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Recipient email or phone is required' }),
+        JSON.stringify({ success: false, error: 'L\'email ou le téléphone du destinataire est requis' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -54,7 +54,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Authorization header is required' }),
+        JSON.stringify({ success: false, error: 'L\'en-tête d\'autorisation est requis' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -63,7 +63,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
     if (userError || !user) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid authentication' }),
+        JSON.stringify({ success: false, error: 'Authentification invalide' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -80,7 +80,7 @@ serve(async (req) => {
     if (ticketError) {
       console.error('Ticket lookup error:', ticketError)
       return new Response(
-        JSON.stringify({ success: false, error: `Ticket lookup failed: ${ticketError.message}` }),
+        JSON.stringify({ success: false, error: `Échec de la recherche du billet : ${ticketError.message}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -99,7 +99,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Ticket not found or you do not have permission to transfer it',
+          error: 'Billet non trouvé ou vous n\'avez pas l\'autorisation de le transférer',
           debug: {
             ticketId,
             userId: user.id,
@@ -116,8 +116,24 @@ serve(async (req) => {
     // Check if ticket is transferable - accept multiple valid statuses (case-insensitive)
     const validStatuses = ['valid', 'active', 'confirmed', 'issued', 'VALID', 'ACTIVE', 'CONFIRMED', 'ISSUED']
     if (!validStatuses.includes(ticket.status)) {
+      // Translate status to French
+      const statusTranslations: { [key: string]: string } = {
+        'USED': 'UTILISÉ',
+        'used': 'utilisé',
+        'EXPIRED': 'EXPIRÉ',
+        'expired': 'expiré',
+        'CANCELLED': 'ANNULÉ',
+        'cancelled': 'annulé',
+        'REFUNDED': 'REMBOURSÉ',
+        'refunded': 'remboursé',
+        'PENDING': 'EN ATTENTE',
+        'pending': 'en attente'
+      };
+      
+      const translatedStatus = statusTranslations[ticket.status] || ticket.status;
+      
       return new Response(
-        JSON.stringify({ success: false, error: `This ticket cannot be transferred. Current status: ${ticket.status}` }),
+        JSON.stringify({ success: false, error: `Ce billet ne peut pas être transféré. Statut actuel : ${translatedStatus}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -189,7 +205,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to create transfer record: ${transferError.message}`,
+          error: `Échec de la création de l'enregistrement de transfert : ${transferError.message}`,
           details: transferError
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -198,10 +214,33 @@ serve(async (req) => {
 
     console.log('Transfer record created successfully:', transferData)
 
-    // Note: We don't actually transfer ticket ownership anymore
-    // Instead, we use UI restrictions to blur/hide details for transferred tickets
-    // The ticket remains with the original owner but is marked as transferred
-    console.log('Transfer record created - ticket details will be restricted in UI')
+    // If recipient is registered, transfer ticket ownership immediately
+    if (recipientUserId) {
+      console.log('Transferring ticket ownership to registered user:', recipientUserId)
+      
+      const { error: ownershipError } = await supabase
+        .from('tickets')
+        .update({ 
+          user_id: recipientUserId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ticketId)
+      
+      if (ownershipError) {
+        console.error('Failed to transfer ticket ownership:', ownershipError)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Transfert créé mais échec du transfert de propriété : ${ownershipError.message}` 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      console.log('Ticket ownership transferred successfully')
+    } else {
+      console.log('Transfer created for non-registered user - ownership will transfer on signup')
+    }
 
     // Send notifications
     try {
@@ -249,8 +288,8 @@ serve(async (req) => {
         success: true,
         transferId: transferData.id,
         message: recipientUserId 
-          ? 'Ticket transferred successfully!' 
-          : 'Transfer pending - recipient will receive ticket when they sign up',
+          ? 'Billet transféré avec succès !' 
+          : 'Transfert en attente - le destinataire recevra le billet lors de son inscription',
         instantTransfer: !!recipientUserId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -261,7 +300,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'An unexpected error occurred',
+        error: error.message || 'Une erreur inattendue s\'est produite',
         details: error.toString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

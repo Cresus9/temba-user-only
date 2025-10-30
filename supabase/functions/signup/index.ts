@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
 }
 
 interface SignupRequest {
@@ -118,23 +118,41 @@ serve(async (req) => {
       )
     }
 
-    // Create user profile
+    // Normalize email before writing
+    const normEmail = email.trim().toLowerCase()
+    
+    // Upsert profile - idempotent operation that handles duplicates gracefully
+    const nowIso = new Date().toISOString()
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert({
+      .upsert({
         user_id: authData.user.id,
         name,
-        email,
+        email: normEmail,
         phone: phone || null,
         avatar_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: nowIso,
+        created_at: nowIso,
+      }, {
+        onConflict: 'user_id',          // Critical to avoid unique violation
+        ignoreDuplicates: false,        // Perform update on conflict
       })
 
     if (profileError) {
-      console.error('Profile creation error:', profileError)
-      // Don't fail the signup if profile creation fails, but log it
+      console.error('Profile upsert error:', profileError)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Database error creating new user: ${profileError.message}` 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
+
+    // Note: Pending transfers will be claimed via AuthContext after signup
 
     // Create a session for the user
     const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({

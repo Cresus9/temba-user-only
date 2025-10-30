@@ -141,6 +141,14 @@ export default function EnhancedFestivalTicket({
                 ? 'Billet utilisé' 
                 : ticketStatus === 'VALID'
                 ? 'Billet valide'
+                : ticketStatus === 'EXPIRED'
+                ? 'Billet expiré'
+                : ticketStatus === 'CANCELLED'
+                ? 'Billet annulé'
+                : ticketStatus === 'REFUNDED'
+                ? 'Billet remboursé'
+                : ticketStatus === 'PENDING'
+                ? 'Billet en attente'
                 : 'Billet non valide'}
             </span>
           </div>
@@ -151,27 +159,35 @@ export default function EnhancedFestivalTicket({
               ? 'text-blue-700'
               : 'text-yellow-700'
           }`}>
-            {ticketStatus === 'USED' ? (
-              <>
-                {scanLocation ? (
-                  <div>Scanné à {scanLocation}</div>
-                ) : (
-                  <div>Scanné à Ticket Scanner</div>
-                )}
-                {scannedAt ? (
-                  <div>
-                    {new Date(scannedAt).toLocaleDateString('fr-FR')}, {new Date(scannedAt).toLocaleTimeString('fr-FR')}
-                    {scannedBy && ` par ${scannedBy}`}
-                  </div>
-                ) : (
-                  <div>Date de scan non disponible</div>
-                )}
-              </>
-            ) : ticketStatus === 'VALID' ? (
-              <div>Prêt à être utilisé</div>
-            ) : (
-              <div>Statut: {ticketStatus}</div>
-            )}
+              {ticketStatus === 'USED' ? (
+                <>
+                  {scanLocation ? (
+                    <div>Scanné à {scanLocation}</div>
+                  ) : (
+                    <div>Scanné à Ticket Scanner</div>
+                  )}
+                  {scannedAt ? (
+                    <div>
+                      {new Date(scannedAt).toLocaleDateString('fr-FR')}, {new Date(scannedAt).toLocaleTimeString('fr-FR')}
+                      {scannedBy && ` par ${scannedBy}`}
+                    </div>
+                  ) : (
+                    <div>Date de scan non disponible</div>
+                  )}
+                </>
+              ) : ticketStatus === 'VALID' ? (
+                <div>Prêt à être utilisé</div>
+              ) : ticketStatus === 'EXPIRED' ? (
+                <div>Statut: Expiré</div>
+              ) : ticketStatus === 'CANCELLED' ? (
+                <div>Statut: Annulé</div>
+              ) : ticketStatus === 'REFUNDED' ? (
+                <div>Statut: Remboursé</div>
+              ) : ticketStatus === 'PENDING' ? (
+                <div>Statut: En attente</div>
+              ) : (
+                <div>Statut: {ticketStatus}</div>
+              )}
           </div>
         </div>
       </div>
@@ -359,28 +375,36 @@ export default function EnhancedFestivalTicket({
                 <p>Powered by <span className="font-semibold text-indigo-600">Temba</span></p>
               </div>
               
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${
-                  ticketStatus === 'USED' 
-                    ? 'bg-red-400' 
-                    : ticketStatus === 'VALID' 
-                    ? 'bg-green-400 animate-pulse' 
-                    : 'bg-yellow-400'
-                }`}></div>
-                <span className={`text-sm font-medium ${
-                  ticketStatus === 'USED' 
-                    ? 'text-red-600' 
-                    : ticketStatus === 'VALID' 
-                    ? 'text-green-600' 
-                    : 'text-yellow-600'
-                }`}>
-                  {ticketStatus === 'USED' 
-                    ? 'Ticket Utilisé' 
-                    : ticketStatus === 'VALID' 
-                    ? 'Ticket Valide' 
-                    : 'Ticket Non Valide'}
-                </span>
-              </div>
+        <div className="flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${
+            ticketStatus === 'USED' 
+              ? 'bg-red-400' 
+              : ticketStatus === 'VALID' 
+              ? 'bg-green-400 animate-pulse' 
+              : 'bg-yellow-400'
+          }`}></div>
+          <span className={`text-sm font-medium ${
+            ticketStatus === 'USED' 
+              ? 'text-red-600' 
+              : ticketStatus === 'VALID' 
+              ? 'text-green-600' 
+              : 'text-yellow-600'
+          }`}>
+            {ticketStatus === 'USED' 
+              ? 'Ticket Utilisé' 
+              : ticketStatus === 'VALID' 
+              ? 'Ticket Valide' 
+              : ticketStatus === 'EXPIRED'
+              ? 'Ticket Expiré'
+              : ticketStatus === 'CANCELLED'
+              ? 'Ticket Annulé'
+              : ticketStatus === 'REFUNDED'
+              ? 'Ticket Remboursé'
+              : ticketStatus === 'PENDING'
+              ? 'Ticket En Attente'
+              : 'Ticket Non Valide'}
+          </span>
+        </div>
             </div>
           </div>
         </div>

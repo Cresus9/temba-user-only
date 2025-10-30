@@ -6,6 +6,7 @@ import AppRoutes from './routes';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineWarning from './components/common/OfflineWarning';
 import AppBanner from './components/AppBanner';
+import PendingTransfersNotification from './components/tickets/PendingTransfersNotification';
 import { useEvents } from './context/EventContext';
 import { imageCacheWarmer } from './utils/imageCacheWarmer';
 
@@ -40,6 +41,7 @@ function App() {
         <Footer />
         <Toaster position="top-right" />
         <OfflineWarning />
+        <PendingTransfersNotification />
       </div>
     </ErrorBoundary>
   );

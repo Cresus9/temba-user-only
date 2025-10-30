@@ -45,19 +45,19 @@ class TicketTransferService {
   async transferTicket(request: TransferTicketRequest): Promise<TransferTicketResponse> {
     try {
       // Validate input
-      if (!request.recipientEmail && !request.recipientPhone) {
-        return {
-          success: false,
-          error: 'Recipient email or phone is required'
-        };
-      }
+        if (!request.recipientEmail && !request.recipientPhone) {
+          return {
+            success: false,
+            error: 'L\'email ou le téléphone du destinataire est requis'
+          };
+        }
 
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         return {
           success: false,
-          error: 'User not authenticated'
+          error: 'Utilisateur non authentifié'
         };
       }
 
@@ -73,7 +73,7 @@ class TicketTransferService {
         console.error('Transfer ticket function error:', error);
         return {
           success: false,
-          error: 'Failed to transfer ticket'
+          error: 'Échec du transfert du billet'
         };
       }
 
@@ -83,7 +83,7 @@ class TicketTransferService {
       console.error('Transfer ticket error:', error);
       return {
         success: false,
-        error: 'An unexpected error occurred'
+        error: 'Une erreur inattendue s\'est produite'
       };
     }
   }
@@ -97,7 +97,7 @@ class TicketTransferService {
       const targetUserId = userId || user?.id;
 
       if (!targetUserId) {
-        throw new Error('User not authenticated');
+        throw new Error('Utilisateur non authentifié');
       }
 
       const { data: transfers, error } = await supabase

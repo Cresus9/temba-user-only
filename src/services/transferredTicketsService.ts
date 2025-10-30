@@ -46,22 +46,7 @@ class TransferredTicketsService {
 
       console.log('Fetching transferred tickets for user:', user.id);
 
-      // First, let's check what transfers exist for this user
-      const { data: allTransfers, error: allTransfersError } = await supabase
-        .from('ticket_transfers')
-        .select('id, recipient_id, status, created_at')
-        .eq('recipient_id', user.id);
-
-      console.log('All transfers for user:', { allTransfers, allTransfersError });
-
-      // Also check if there are any transfers at all
-      const { data: anyTransfers, error: anyTransfersError } = await supabase
-        .from('ticket_transfers')
-        .select('id, recipient_id, status, created_at')
-        .limit(10);
-
-      console.log('Any transfers in database:', { anyTransfers, anyTransfersError });
-
+      // Step 1: Get transfers (simple query that works)
       const { data: transfers, error } = await supabase
         .from('ticket_transfers')
         .select(`
@@ -75,74 +60,133 @@ class TransferredTicketsService {
           message,
           status,
           created_at,
-          updated_at,
-              ticket:tickets!ticket_transfers_ticket_id_fkey (
-                id,
-                qr_code,
-                status,
-                scanned_at,
-                scan_location,
-                scanned_by,
-                event:events!inner (
-                  title,
-                  date,
-                  time,
-                  location,
-                  image_url
-                ),
-                ticket_type:ticket_types!inner (
-                  name,
-                  price
-                )
-              )
+          updated_at
         `)
-            .eq('recipient_id', user.id)
-            .in('status', ['COMPLETED', 'USED'])
-            .order('created_at', { ascending: false });
+        .eq('recipient_id', user.id)
+        .in('status', ['COMPLETED', 'USED'])
+        .order('created_at', { ascending: false });
 
+      if (error) {
+        console.error('Error fetching transfers:', error);
+        throw error;
+      }
 
-      if (error) throw error;
+      console.log('Transfers found:', transfers?.length || 0);
 
-          // If we have transfers, try to get sender information separately
-          if (transfers && transfers.length > 0) {
-            const senderIds = [...new Set(transfers.map(t => t.sender_id))];
-            const { data: senders } = await supabase
-              .from('profiles')
-              .select('id, name, email')
-              .in('id', senderIds);
+      if (!transfers || transfers.length === 0) {
+        return [];
+      }
 
-            // Get scanner names for scanned tickets
-            const scannerIds = transfers
-              .filter(t => t.ticket.scanned_by)
-              .map(t => t.ticket.scanned_by);
-            
-            let scannerNames: Record<string, string> = {};
-            if (scannerIds.length > 0) {
-              const { data: scanners } = await supabase
-                .from('profiles')
-                .select('user_id, name')
-                .in('user_id', scannerIds);
-              
-              scannerNames = scanners?.reduce((acc, scanner) => ({
-                ...acc,
-                [scanner.user_id]: scanner.name
-              }), {}) || {};
-            }
+      // Step 2: Get ticket details separately
+      const ticketIds = transfers.map(t => t.ticket_id);
+      const { data: tickets, error: ticketsError } = await supabase
+        .from('tickets')
+        .select(`
+          id,
+          qr_code,
+          status,
+          scanned_at,
+          scan_location,
+          scanned_by,
+          event_id,
+          ticket_type_id
+        `)
+        .in('id', ticketIds);
 
-            // Add sender info and scanner names to transfers
-            const transfersWithSenders = transfers.map(transfer => ({
-              ...transfer,
-              sender: senders?.find(s => s.id === transfer.sender_id) || { name: 'Utilisateur', email: '' },
-              ticket: {
-                ...transfer.ticket,
-                scanned_by_name: transfer.ticket.scanned_by ? scannerNames[transfer.ticket.scanned_by] : undefined
-              }
-            }));
+      if (ticketsError) {
+        console.error('Error fetching tickets:', ticketsError);
+        throw ticketsError;
+      }
 
-            return transfersWithSenders;
-          }
+      // Step 3: Get event details
+      const eventIds = [...new Set(tickets?.map(t => t.event_id).filter(Boolean) || [])];
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+          id,
+          title,
+          date,
+          time,
+          location,
+          image_url
+        `)
+        .in('id', eventIds);
 
-      return transfers || [];
+      if (eventsError) {
+        console.error('Error fetching events:', eventsError);
+        throw eventsError;
+      }
+
+      // Step 4: Get ticket type details
+      const ticketTypeIds = [...new Set(tickets?.map(t => t.ticket_type_id).filter(Boolean) || [])];
+      const { data: ticketTypes, error: ticketTypesError } = await supabase
+        .from('ticket_types')
+        .select(`
+          id,
+          name,
+          price
+        `)
+        .in('id', ticketTypeIds);
+
+      if (ticketTypesError) {
+        console.error('Error fetching ticket types:', ticketTypesError);
+        throw ticketTypesError;
+      }
+
+      // Step 5: Get sender information
+      const senderIds = [...new Set(transfers.map(t => t.sender_id))];
+      const { data: senders, error: sendersError } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', senderIds);
+
+      if (sendersError) {
+        console.error('Error fetching senders:', sendersError);
+        throw sendersError;
+      }
+
+      // Step 6: Get scanner names for scanned tickets
+      const scannerIds = tickets
+        ?.filter(t => t.scanned_by)
+        .map(t => t.scanned_by) || [];
+      
+      let scannerNames: Record<string, string> = {};
+      if (scannerIds.length > 0) {
+        const { data: scanners, error: scannersError } = await supabase
+          .from('profiles')
+          .select('user_id, name')
+          .in('user_id', scannerIds);
+        
+        if (!scannersError && scanners) {
+          scannerNames = scanners.reduce((acc, scanner) => ({
+            ...acc,
+            [scanner.user_id]: scanner.name
+          }), {});
+        }
+      }
+
+      // Step 7: Combine all data
+      const enrichedTransfers = transfers.map(transfer => {
+        const ticket = tickets?.find(t => t.id === transfer.ticket_id);
+        const event = events?.find(e => e.id === ticket?.event_id);
+        const ticketType = ticketTypes?.find(tt => tt.id === ticket?.ticket_type_id);
+        const sender = senders?.find(s => s.user_id === transfer.sender_id);
+
+        return {
+          ...transfer,
+          sender: sender || { name: 'Utilisateur', email: '' },
+          ticket: ticket ? {
+            ...ticket,
+            event: event || { title: 'Unknown Event', date: '', time: '', location: '', image_url: '' },
+            ticket_type: ticketType || { name: 'Unknown Type', price: 0 },
+            scanned_by_name: ticket.scanned_by ? scannerNames[ticket.scanned_by] : undefined
+          } : null
+        };
+      }).filter(transfer => transfer.ticket !== null);
+
+      console.log('Enriched transfers:', enrichedTransfers.length);
+      return enrichedTransfers as TransferredTicket[];
+
     } catch (error) {
       console.error('Error fetching transferred tickets:', error);
       return [];
@@ -155,12 +199,15 @@ class TransferredTicketsService {
       if (!user) return 0;
 
       const { count, error } = await supabase
-          .from('ticket_transfers')
-          .select('*', { count: 'exact', head: true })
-          .eq('recipient_id', user.id)
-          .in('status', ['COMPLETED', 'USED']);
+        .from('ticket_transfers')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .in('status', ['COMPLETED', 'USED']);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching transferred tickets count:', error);
+        return 0;
+      }
 
       return count || 0;
     } catch (error) {
