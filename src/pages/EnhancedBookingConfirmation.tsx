@@ -18,10 +18,12 @@ interface Ticket {
   id: string;
   qr_code: string;
   ticket_type: {
+    id: string;
     name: string;
     price: number;
   };
   event: {
+    id: string;
     title: string;
     date: string;
     time: string;
@@ -124,12 +126,17 @@ export default function EnhancedBookingConfirmation() {
         // Clear cart after successful payment verification
         clearCartForCurrentEvent();
         
+        // Wait a bit longer for tickets to be created after verification
         setTimeout(() => {
           fetchTickets();
-        }, 1000);
+        }, 2000); // Increased from 1000ms to 2000ms
       } else {
-        toast.error('⚠️ Échec de la vérification du paiement');
-        fetchTickets();
+        console.log('⚠️ Payment verification returned success=false:', result);
+        // Even if verification says failed, tickets might still exist
+        // Try fetching tickets after a short delay
+        setTimeout(() => {
+          fetchTickets();
+        }, 1500);
       }
     } catch (error: any) {
       console.error('Payment verification error:', error);
@@ -148,21 +155,34 @@ export default function EnhancedBookingConfirmation() {
     }
   };
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (retryCount = 0) => {
+    let ticketsData: any[] | null = null;
+    
     try {
       setLoading(true);
       
+      if (!bookingId) {
+        throw new Error('ID de réservation manquant');
+      }
+      
+      // Get token from URL params for payment lookup fallback and verification
+      const token = searchParams.get('token');
+      
+      console.log('🔍 Fetching tickets for order:', bookingId);
+      
       // Fetch tickets
-      const { data: ticketsData, error: ticketsError } = await supabase
+      const { data: tickets, error: ticketsError } = await supabase
         .from('tickets')
         .select(`
           id,
           qr_code,
-          ticket_type:ticket_type_id (
+          ticket_type:ticket_types!inner (
+            id,
             name,
             price
           ),
-          event:event_id (
+          event:events!inner (
+            id,
             title,
             date,
             time,
@@ -173,9 +193,265 @@ export default function EnhancedBookingConfirmation() {
         `)
         .eq('order_id', bookingId);
 
-      if (ticketsError) throw ticketsError;
+      if (ticketsError) {
+        console.error('❌ Error fetching tickets:', ticketsError);
+        throw ticketsError;
+      }
+      
+      ticketsData = tickets;
+      console.log('📋 Tickets query result:', { count: ticketsData?.length || 0, ticketsData });
+      
       if (!ticketsData || ticketsData.length === 0) {
-        throw new Error('Aucun billet trouvé pour cette réservation');
+        // Check payment status to see if it's still processing
+        // Note: orders table doesn't have payment_id, so we query payments by order_id
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('id, status, event_id, user_id')
+          .eq('id', bookingId)
+          .single();
+        
+        // Get payment from payments table using order_id
+        let paymentData = null;
+        const { data: paymentByOrderId, error: paymentError } = await supabase
+          .from('payments')
+          .select('id, status, provider, order_id, transaction_id')
+          .eq('order_id', bookingId)
+          .maybeSingle();
+        
+        // If no payment found by order_id, try to find by token (from URL params)
+        if (!paymentByOrderId && token) {
+          console.log('⚠️ No payment found by order_id, trying token lookup:', token);
+          const { data: paymentByToken } = await supabase
+            .from('payments')
+            .select('id, status, provider, order_id, transaction_id')
+            .eq('token', token)
+            .maybeSingle();
+          
+          if (paymentByToken) {
+            console.log('✅ Found payment by token, but order_id is missing. Payment ID:', paymentByToken.id);
+            // If payment exists but order_id is missing, update it
+            if (!paymentByToken.order_id && bookingId) {
+              console.log('🔧 Updating payment with order_id...');
+              await supabase
+                .from('payments')
+                .update({ order_id: bookingId })
+                .eq('id', paymentByToken.id);
+              paymentData = { ...paymentByToken, order_id: bookingId };
+            } else {
+              paymentData = paymentByToken;
+            }
+          }
+        }
+        
+        // If still no payment found, try finding by event_id and user_id (fallback)
+        if (!paymentData && orderData) {
+          console.log('⚠️ No payment found by order_id or token, trying event_id + user_id lookup...');
+          const { data: paymentByEvent } = await supabase
+            .from('payments')
+            .select('id, status, provider, order_id, transaction_id')
+            .eq('event_id', orderData.event_id)
+            .eq('user_id', orderData.user_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (paymentByEvent) {
+            console.log('✅ Found payment by event_id + user_id. Payment ID:', paymentByEvent.id);
+            // Update payment with order_id if missing
+            if (!paymentByEvent.order_id && bookingId) {
+              console.log('🔧 Updating payment with order_id...');
+              await supabase
+                .from('payments')
+                .update({ order_id: bookingId })
+                .eq('id', paymentByEvent.id);
+              paymentData = { ...paymentByEvent, order_id: bookingId };
+            } else {
+              paymentData = paymentByEvent;
+            }
+          } else {
+            paymentData = paymentByOrderId; // Use null if nothing found
+          }
+        } else {
+          paymentData = paymentByOrderId;
+        }
+        
+        console.log('💳 Payment status check:', { 
+          orderStatus: orderData?.status, 
+          paymentStatus: paymentData?.status, 
+          provider: paymentData?.provider,
+          paymentId: paymentData?.id,
+          hasOrderId: !!paymentData?.order_id,
+          paymentError: paymentError?.message
+        });
+        
+        // If order is COMPLETED but payment is not found or still pending, trigger verification
+        if (orderData?.status === 'COMPLETED') {
+          if (!paymentData) {
+            // Order is COMPLETED but no payment found - tickets might already exist
+            // Check if tickets exist directly (webhook might have created them)
+            console.log('⚠️ Order is COMPLETED but no payment found - checking if tickets exist anyway...');
+            // Continue to show "no tickets" message - tickets should exist if order is COMPLETED
+            // This might indicate a data inconsistency
+          } else if (paymentData.status === 'pending' || paymentData.status === 'processing') {
+            console.log('🔍 Order is COMPLETED but payment still pending - triggering verification...');
+            
+            // Trigger payment verification to sync status and create tickets
+            try {
+              const verifyToken = token || paymentData.transaction_id || paymentData.id;
+              if (verifyToken && paymentData.provider === 'pawapay') {
+                const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-pawapay-payment', {
+                  body: {
+                    payment_id: paymentData.id,
+                    payment_token: verifyToken,
+                    order_id: bookingId
+                  }
+                });
+                
+                if (!verifyError && verifyResult?.success) {
+                  console.log('✅ Payment verified successfully, retrying ticket fetch...');
+                  // Retry immediately after verification
+                  setTimeout(() => {
+                    fetchTickets(retryCount);
+                  }, 1000);
+                  return;
+                } else {
+                  console.error('❌ Payment verification failed:', verifyError || verifyResult);
+                  
+                  // Check if verification explicitly failed (not just processing)
+                  if (verifyResult?.state === 'failed') {
+                    const errorMessage = verifyResult?.message || 'Le paiement a échoué. Veuillez réessayer.';
+                    toast.error(errorMessage, {
+                      duration: 8000,
+                      icon: '❌'
+                    });
+                    setTickets([]);
+                    setLoading(false);
+                    return; // Stop retrying - payment failed
+                  }
+                  
+                  // If state is 'processing', continue to retry logic below
+                  // Otherwise, log and continue
+                }
+              } else if (verifyToken) {
+                // Try unified verify-payment for other providers
+                const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-payment', {
+                  body: {
+                    payment_id: paymentData.id,
+                    payment_token: verifyToken,
+                    order_id: bookingId
+                  }
+                });
+                
+                if (!verifyError && verifyResult?.success) {
+                  console.log('✅ Payment verified successfully, retrying ticket fetch...');
+                  setTimeout(() => {
+                    fetchTickets(retryCount);
+                  }, 1000);
+                  return;
+                } else if (verifyResult?.state === 'failed') {
+                  // Unified verify-payment also returned failed
+                  const errorMessage = verifyResult?.message || 'Le paiement a échoué. Veuillez réessayer.';
+                  toast.error(errorMessage, {
+                    duration: 8000,
+                    icon: '❌'
+                  });
+                  setTickets([]);
+                  setLoading(false);
+                  return; // Stop retrying - payment failed
+                }
+              }
+            } catch (verifyErr) {
+              console.error('Verification error:', verifyErr);
+            }
+          } else if (paymentData.status === 'completed') {
+            // Payment is completed but no tickets - call admin_finalize_payment to create them
+            console.log('✅ Payment is completed but no tickets found - triggering ticket creation...');
+            try {
+              const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_finalize_payment', {
+                p_payment_id: paymentData.id
+              });
+              
+              if (!rpcError && rpcResult?.success) {
+                console.log('✅ Tickets created via RPC, retrying fetch...');
+                setTimeout(() => {
+                  fetchTickets(retryCount);
+                }, 1000);
+                return;
+              } else {
+                console.error('❌ admin_finalize_payment failed:', rpcError || rpcResult);
+              }
+            } catch (rpcErr) {
+              console.error('RPC error:', rpcErr);
+            }
+          }
+        }
+        
+        // If payment is processing (pawaPay waiting for confirmation), show waiting message and auto-retry
+        // BUT: Only retry if payment status is actually processing/pending (not failed)
+        if (paymentData?.status === 'processing' || paymentData?.status === 'pending') {
+          // Double-check: if payment status is 'failed', don't retry
+          if (paymentData.status === 'failed') {
+            toast.error('Le paiement a échoué. Veuillez réessayer ou contacter le support.', {
+              duration: 8000,
+              icon: '❌'
+            });
+            setTickets([]);
+            setLoading(false);
+            return;
+          }
+          
+          console.log('⏳ Payment is processing, will auto-retry...');
+          toast('⏳ Paiement en cours de traitement. Les billets seront disponibles une fois confirmé.', {
+            duration: 5000,
+            icon: '⏳'
+          });
+          
+          // Auto-retry up to 10 times (30 seconds total)
+          if (retryCount < 10) {
+            setTimeout(() => {
+              fetchTickets(retryCount + 1);
+            }, 3000); // Retry every 3 seconds
+            return;
+          } else {
+            // After 10 retries, show message but don't throw error
+            toast('⏳ Paiement toujours en traitement. Vos billets apparaîtront automatiquement une fois le paiement confirmé.', {
+              duration: 8000,
+              icon: '⏳'
+            });
+            setTickets([]);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If payment status is 'failed', stop immediately
+        if (paymentData?.status === 'failed') {
+          toast.error('Le paiement a échoué. Veuillez réessayer ou contacter le support.', {
+            duration: 8000,
+            icon: '❌'
+          });
+          setTickets([]);
+          setLoading(false);
+          return;
+        }
+        
+        // If no tickets found and payment is not processing, retry once
+        if (retryCount === 0) {
+          console.log('⏳ No tickets found, retrying after 2 seconds...');
+          setTimeout(() => {
+            fetchTickets(1);
+          }, 2000);
+          return;
+        }
+        
+        // Final attempt failed - show helpful message
+        toast('⏳ Les billets sont en cours de création. Veuillez actualiser la page dans quelques instants.', {
+          duration: 6000,
+          icon: '⏳'
+        });
+        setTickets([]);
+        setLoading(false);
+        return;
       }
 
       // Fetch order summary
@@ -196,11 +472,55 @@ export default function EnhancedBookingConfirmation() {
           booking_date: orderData.created_at
         });
       }
+      
+      setLoading(false);
     } catch (error: any) {
       console.error('Erreur lors du chargement des billets:', error);
-      toast.error(error.message || 'Échec du chargement des billets');
+      
+      // Check if this is a "no tickets" error and payment might be processing
+      if (error.message?.includes('Aucun billet trouvé') || !ticketsData || ticketsData.length === 0) {
+        // Check payment status one more time
+        try {
+          // Query payment directly by order_id (orders table doesn't have payment_id)
+          const { data: paymentData } = await supabase
+            .from('payments')
+            .select('id, status, provider')
+            .eq('order_id', bookingId)
+            .maybeSingle();
+          
+          if (paymentData && (paymentData.status === 'processing' || paymentData.status === 'pending')) {
+            // Payment is processing - auto-retry
+            if (retryCount < 10) {
+              toast('⏳ Paiement en cours de traitement. Vérification des billets...', {
+                duration: 3000,
+                icon: '⏳'
+              });
+              setTimeout(() => {
+                fetchTickets(retryCount + 1);
+              }, 3000);
+              return;
+            } else {
+              // After 10 retries, show message but don't throw error
+              toast('⏳ Paiement toujours en traitement. Vos billets apparaîtront automatiquement une fois le paiement confirmé.', {
+                duration: 8000,
+                icon: '⏳'
+              });
+              setTickets([]);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (checkError) {
+          console.error('Error checking payment status:', checkError);
+        }
+      }
+      
+      // Only show error toast if not a retry attempt and not a processing payment
+      if (retryCount === 0) {
+        toast.error(error.message || 'Échec du chargement des billets');
+      }
+      
       setTickets([]);
-    } finally {
       setLoading(false);
     }
   };

@@ -11,6 +11,8 @@ This index provides a comprehensive overview of all Temba platform documentation
 - [API Reference](./API-REFERENCE.md) - Complete API documentation
 - [Architecture](./ARCHITECTURE.md) - System design and components
 - [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
+- [Mobile Ticket Transfer Guide](./MOBILE-TICKET-TRANSFER-GUIDE.md) - Complete ticket transfer implementation for mobile apps
+- [Mes Billets Logic](./MES-BILLETS-LOGIC.md) - How "My Tickets" fetching works and restrictions applied
 
 ### For DevOps
 - [Deployment Guide](./DEPLOYMENT.md) - Production deployment procedures
@@ -76,6 +78,103 @@ This index provides a comprehensive overview of all Temba platform documentation
 - Real-time notifications and UI components
 - Database schema and RLS policies
 - Edge Functions and workflows
+
+### 📱 Mobile Integration
+
+#### [Phone Authentication Implementation](./PHONE-AUTHENTICATION-IMPLEMENTATION-REPORT.md)
+**Purpose**: Complete phone signup/login implementation guide
+**Audience**: Mobile developers, Backend developers
+**Content**:
+- Complete system architecture
+- Backend Edge Functions implementation
+- Database schema and API endpoints
+- Frontend patterns (web)
+- Mobile app implementation guide (React Native)
+- Complete code examples
+- Error handling and security
+- Testing checklist
+
+#### [Phone Auth Quick Reference](./PHONE-AUTH-QUICK-REFERENCE.md)
+**Purpose**: Quick API reference for phone authentication
+**Audience**: Mobile developers
+**Content**:
+- API endpoints and request/response examples
+- Phone normalization functions
+- Code snippets for common operations
+- Error messages and handling
+- Quick implementation checklist
+
+#### [Mobile Integration Guide](./MOBILE-INTEGRATION.md)
+**Purpose**: Complete mobile app integration
+**Audience**: Mobile developers, Product Managers
+**Content**:
+- React Native setup and configuration
+- Backend integration with Supabase
+- Complete UI component implementation
+- State management with Redux
+- Real-time updates and notifications
+- Testing and deployment procedures
+
+#### [Mobile Architecture Diagram](./MOBILE-ARCHITECTURE-DIAGRAM.md)
+**Purpose**: Mobile app architecture visualization
+**Audience**: Mobile developers, Architects
+**Content**:
+- System architecture diagrams
+- Data flow visualization
+- Component hierarchy
+- Navigation structure
+- Database schema (mobile view)
+- Implementation phases
+
+#### [Mobile Implementation Example](./MOBILE-IMPLEMENTATION-EXAMPLE.md)
+**Purpose**: Working code examples and implementation
+**Audience**: Mobile developers, New team members
+**Content**:
+- Complete working code examples
+- Step-by-step implementation guide
+- Testing utilities and procedures
+- Production build configuration
+- Key features implementation
+
+#### [Mobile Transfer Displays](./MOBILE-TRANSFER-DISPLAYS.md)
+**Purpose**: UI components for ticket display states
+**Audience**: Mobile developers, UI/UX designers
+**Content**:
+- Sent tickets component (blurred preview)
+- Received tickets component (full access)
+- Enhanced festival ticket component
+- Modal implementations
+- Complete styling and interactions
+
+#### [Mobile Ticket States Visual](./MOBILE-TICKET-STATES-VISUAL.md)
+**Purpose**: Visual guide for ticket display states
+**Audience**: Mobile developers, Designers, Product Managers
+**Content**:
+- Visual representations of all ticket states
+- Color coding system and status indicators
+- Touch interactions and accessibility features
+- State transition diagrams
+- Mobile-specific design elements
+
+#### [Unregistered User Flow](./UNREGISTERED-USER-FLOW.md)
+**Purpose**: Complete implementation for unregistered users
+**Audience**: Mobile developers, Backend developers, Product Managers
+**Content**:
+- Transfer to unregistered users
+- Pending transfer system
+- Signup with transfer detection
+- Claim pending transfers
+- Complete backend implementation
+
+#### [Unregistered User Visual Flow](./UNREGISTERED-USER-VISUAL-FLOW.md)
+**Purpose**: Visual guide for unregistered user experience
+**Audience**: Mobile developers, Designers, Product Managers
+**Content**:
+- Complete user journey visualization
+- Mobile app flow diagrams
+- Backend data flow
+- Security and validation features
+- User feedback and notifications
 
 ### 🔧 Operational Documentation
 
@@ -143,6 +242,7 @@ This index provides a comprehensive overview of all Temba platform documentation
 - ✅ **API Reference** - Complete
 - ✅ **Payment System** - Complete
 - ✅ **Ticket Transfer System** - Complete
+- ✅ **Mobile Integration** - Complete
 - ✅ **Development Guide** - Complete
 - ✅ **Deployment Guide** - Complete
 - ✅ **Testing Guide** - Complete

@@ -1,3 +1,9 @@
 [functions]
 [functions.send-email]
 verify_jwt = false
+
+[functions.pawapay-webhook]
+verify_jwt = false
+
+[functions.verify-pawapay-payment]
+verify_jwt = false

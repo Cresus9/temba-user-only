@@ -12,6 +12,7 @@ import { useFeeCalculation } from '../../hooks/useFeeCalculation';
 import StripeElementsProvider from './StripeElementsProvider';
 import StripePaymentForm from './StripePaymentForm';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
+import { pawapayService } from '../../services/pawapayService';
 
 interface CheckoutFormProps {
   tickets: { [key: string]: number };
@@ -29,7 +30,7 @@ export default function CheckoutForm({
   onSuccess 
 }: CheckoutFormProps) {
 
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('card'); // Default to card - mobile money temporarily disabled
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('card'); // Default to card
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
   const [selectedSavedMethod, setSelectedSavedMethod] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function CheckoutForm({
   const [formData, setFormData] = useState({
     provider: '',
     phone: '',
+    preAuthorisationCode: '', // OTP code for Orange Money (required for ORANGE_BFA)
     cardNumber: '',
     expiryDate: '',
     cvv: '',
@@ -187,7 +189,7 @@ export default function CheckoutForm({
       console.log('💾 [CHECKOUT] Storing payment details in localStorage:', paymentDetails);
       localStorage.setItem('paymentDetails', JSON.stringify(paymentDetails));
 
-      // Redirect to payment success page (same as PayDunya flow)
+      // Redirect to payment success page
       const successUrl = `${window.location.origin}/payment/success?order=${orderId}&token=${paymentToken}`;
       console.log('🔄 [CHECKOUT] Redirecting to:', successUrl);
       window.location.href = successUrl;
@@ -214,19 +216,47 @@ export default function CheckoutForm({
 
     // Validate new payment method
     if (paymentMethod === 'mobile_money') {
+      console.log('🔍 [VALIDATE] Mobile money validation:', {
+        provider: formData.provider,
+        phone: formData.phone,
+        hasProvider: !!formData.provider,
+        hasPhone: !!formData.phone
+      });
+      
       if (!formData.provider) {
+        console.error('❌ [VALIDATE] Missing provider');
         toast.error('Veuillez sélectionner un fournisseur de paiement');
         return false;
       }
       if (!formData.phone) {
+        console.error('❌ [VALIDATE] Missing phone');
         toast.error('Veuillez entrer votre numéro de téléphone');
         return false;
       }
       // Validate phone number format
       const phoneRegex = /^\+?[0-9]{8,}$/;
-      if (!phoneRegex.test(formData.phone.replace(/\s+/g, ''))) {
+      const cleanedPhone = formData.phone.replace(/\s+/g, '');
+      if (!phoneRegex.test(cleanedPhone)) {
+        console.error('❌ [VALIDATE] Invalid phone format:', cleanedPhone);
         toast.error('Veuillez entrer un numéro de téléphone valide');
         return false;
+      }
+      console.log('✅ [VALIDATE] Phone format valid');
+      // Check if pre-authorization code field is visible and required
+      const preAuthField = document.getElementById('pre-auth-field');
+      if (preAuthField && !preAuthField.classList.contains('hidden')) {
+        // Field is visible, so it's required
+        const otpInput = preAuthField.querySelector('input') as HTMLInputElement | null;
+        if (!formData.preAuthorisationCode || formData.preAuthorisationCode.trim().length === 0) {
+          otpInput?.focus();
+          return false;
+        }
+        // Validate OTP format (should be numeric, 4-10 digits)
+        const otpRegex = /^[0-9]{4,10}$/;
+        if (!otpRegex.test(formData.preAuthorisationCode.trim())) {
+          otpInput?.focus();
+          return false;
+        }
       }
     } else {
       if (!formData.cardNumber || !formData.expiryDate || !formData.cvv || !formData.cardholderName) {
@@ -262,14 +292,34 @@ export default function CheckoutForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔵 [FORM] Submit triggered', { 
+      paymentMethod, 
+      isProcessing,
+      provider: formData.provider,
+      phone: formData.phone,
+      user: !!user,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (isProcessing) {
+      console.warn('⚠️ [FORM] Already processing, ignoring submit');
+      return;
+    }
+    
     if (!user) {
+      console.error('❌ [FORM] No user');
       toast.error('Veuillez vous connecter pour continuer');
       return;
     }
 
-    if (!validateForm()) {
+    const validationResult = validateForm();
+    console.log('🔍 [FORM] Validation result:', validationResult);
+    if (!validationResult) {
+      console.error('❌ [FORM] Validation failed');
       return;
     }
+    
+    console.log('✅ [FORM] Validation passed, starting payment...');
 
     try {
       setIsProcessing(true);
@@ -298,7 +348,8 @@ export default function CheckoutForm({
         actualPaymentMethod = paymentMethod === 'mobile_money' ? 'MOBILE_MONEY' : 'CARD';
         paymentDetails = paymentMethod === 'mobile_money' ? {
           provider: formData.provider,
-          phone: formData.phone
+          phone: formData.phone,
+          preAuthorisationCode: formData.preAuthorisationCode // Include OTP if provided
         } : {
           cardNumber: formData.cardNumber,
           expiryDate: formData.expiryDate,
@@ -310,60 +361,167 @@ export default function CheckoutForm({
         };
       }
       
-      const result = await orderService.createOrder({
+      // ═══════════════════════════════════════════════════════
+      // ✅ STRIPE CODE PATH - UNTOUCHED (Card payments)
+      // ═══════════════════════════════════════════════════════
+      if (actualPaymentMethod === 'CARD') {
+        // Card payments continue using existing Stripe flow through orderService
+        const result = await orderService.createOrder({
+          eventId,
+          ticketQuantities: tickets,
+          paymentMethod: actualPaymentMethod,
+          paymentDetails
+        });
+
+        if (result.success && result.paymentUrl) {
+          // Stripe may return paymentUrl for redirects (if needed)
+          // Store payment details for saving after successful payment
+          const shouldSave = useNewMethod && formData.saveMethod;
+          const paymentDetailsForStorage = {
+            method: 'credit_card',
+            saveMethod: shouldSave,
+            cardNumber: paymentDetails.cardNumber,
+            cardholderName: paymentDetails.cardholderName || user?.email?.split('@')[0] || 'Card Holder'
+          };
+
+          localStorage.setItem('paymentDetails', JSON.stringify({
+            orderId: result.orderId,
+            paymentToken: result.paymentToken,
+            eventId: eventId,
+            ...paymentDetailsForStorage
+          }));
+
+          // Stripe typically uses in-page forms, but handle redirect if provided
+          if (result.paymentUrl) {
+            window.location.href = result.paymentUrl;
+          }
+        } else if (result.orderId) {
+          // Clear cart after successful order creation
+          const cleared = clearCartForEvent(eventId, 'CheckoutForm');
+          if (cleared) {
+            toast.success('🛒 Panier vidé après commande créée');
+          }
+          
+          // Fallback to success page
+          onSuccess(result.orderId);
+          toast.success('Commande créée avec succès !');
+        } else {
+          throw new Error('Aucun ID de commande retourné');
+        }
+        return; // Exit early for card payments
+      }
+
+      // ═══════════════════════════════════════════════════════
+      // ⚠️ MOBILE MONEY CODE PATH - NOW USES PAWAPAY
+      // ═══════════════════════════════════════════════════════
+      // Create order first
+      const orderResult = await orderService.createOrder({
         eventId,
         ticketQuantities: tickets,
         paymentMethod: actualPaymentMethod,
         paymentDetails
       });
 
-      if (result.success && result.paymentUrl) {
-        // Store payment details for saving after successful payment (only for new methods)
+      if (!orderResult.success || !orderResult.orderId) {
+        throw new Error('Failed to create order');
+      }
+
+      // Prepare ticket lines for pawaPay
+      const ticketLines = pricedSelections.map(selection => ({
+        ticket_type_id: selection.ticket_type_id,
+        quantity: selection.quantity,
+        price_major: selection.price,
+        currency: 'XOF'
+      }));
+
+      // Create pawaPay payment
+      const idempotencyKey = `pawapay-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const pawapayResponse = await pawapayService.createPayment({
+        idempotency_key: idempotencyKey,
+        user_id: user?.id,
+        buyer_email: user?.email,
+        event_id: eventId,
+        order_id: orderResult.orderId,
+        ticket_lines: ticketLines,
+        amount_major: grandTotal,
+        currency: 'XOF',
+        method: 'mobile_money',
+        phone: paymentDetails.phone,
+        provider: paymentDetails.provider, // orange-money-bf, mtn-mobile-money, moov-money, etc.
+        preAuthorisationCode: paymentDetails.preAuthorisationCode || undefined, // OTP for second attempt (if provided)
+        return_url: `${window.location.origin}/payment/success?order=${orderResult.orderId}`,
+        cancel_url: `${window.location.origin}/payment/cancelled?order=${orderResult.orderId}`,
+        description: `Billets d'événement - ${eventId}`
+      });
+
+      // ✅ BEST CASE: Payment URL redirect available (no OTP needed!)
+      if (pawapayResponse.has_payment_redirect && pawapayResponse.payment_url) {
+        console.log('🚀 Redirecting to pawaPay payment page (no OTP needed)');
+        
+        // Store payment details for saving after successful payment
         const shouldSave = useNewMethod && formData.saveMethod;
         const paymentDetailsForStorage = {
-          method: actualPaymentMethod === 'MOBILE_MONEY' ? 'mobile_money' : 'credit_card',
+          method: 'mobile_money',
           saveMethod: shouldSave,
-          ...(actualPaymentMethod === 'MOBILE_MONEY' ? {
-            provider: paymentDetails.provider,
-            phone: paymentDetails.phone
-          } : {
-            cardNumber: paymentDetails.cardNumber,
-            cardholderName: paymentDetails.cardholderName || user?.email?.split('@')[0] || 'Card Holder'
-          })
+          provider: paymentDetails.provider,
+          phone: paymentDetails.phone
         };
 
         localStorage.setItem('paymentDetails', JSON.stringify({
-          orderId: result.orderId,
-          paymentToken: result.paymentToken,
-          eventId: eventId, // Store eventId for cart clearing
+          orderId: orderResult.orderId,
+          paymentToken: pawapayResponse.transaction_id || pawapayResponse.payment_token,
+          paymentId: pawapayResponse.payment_id,
+          eventId: eventId,
+          provider: 'pawapay',
           ...paymentDetailsForStorage
         }));
 
-        // Check if we're in test mode - FORCE LIVE MODE for production
-        const isTestMode = import.meta.env.VITE_PAYDUNYA_MODE === 'test';
-        
-        if (isTestMode) {
-          // In test mode, redirect directly to success page with payment token
-          const successUrl = `${window.location.origin}/payment/success?order=${result.orderId}&token=${result.paymentToken}`;
-          window.location.href = successUrl;
-        } else {
-          // In LIVE mode, redirect to Paydunya payment page for real payment
-          console.log('🚀 LIVE MODE: Redirecting to Paydunya payment page');
-          window.location.href = result.paymentUrl;
-        }
-      } else if (result.orderId) {
-        // Clear cart after successful order creation
-        const cleared = clearCartForEvent(eventId, 'CheckoutForm');
-        if (cleared) {
-          toast.success('🛒 Panier vidé après commande créée');
-        }
-        
-        // Fallback to success page
-        onSuccess(result.orderId);
-        toast.success('Commande créée avec succès !');
-      } else {
-        throw new Error('Aucun ID de commande retourné');
+        // Use window.location.assign for smoother flow (same tab)
+        window.location.assign(pawapayResponse.payment_url);
+        return; // Exit - user will be redirected
       }
+
+      // ⚠️ PRE_AUTH_REQUIRED: Show OTP field (fallback case)
+      if (pawapayResponse.requires_pre_auth || pawapayResponse.error === 'PRE_AUTH_REQUIRED') {
+        // Show the pre-authorization code field
+        const preAuthField = document.getElementById('pre-auth-field');
+        if (preAuthField) {
+          preAuthField.classList.remove('hidden');
+          preAuthField.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Show helpful message with hint about auto-SMS
+        setIsProcessing(false);
+        return; // Don't proceed, wait for user to enter OTP and retry
+      }
+
+      // ❌ ERROR: Payment creation failed
+      if (!pawapayResponse.success) {
+        throw new Error(pawapayResponse.error || pawapayResponse.error_message || 'Failed to create pawaPay payment');
+      }
+
+      // ✅ SUCCESS without redirect: Store and redirect to success page
+      const shouldSave = useNewMethod && formData.saveMethod;
+      const paymentDetailsForStorage = {
+        method: 'mobile_money',
+        saveMethod: shouldSave,
+        provider: paymentDetails.provider,
+        phone: paymentDetails.phone
+      };
+
+      localStorage.setItem('paymentDetails', JSON.stringify({
+        orderId: orderResult.orderId,
+        paymentToken: pawapayResponse.transaction_id || pawapayResponse.payment_token,
+        paymentId: pawapayResponse.payment_id,
+        eventId: eventId,
+        provider: 'pawapay',
+        ...paymentDetailsForStorage
+      }));
+
+      // Fallback: redirect to success page if no payment URL
+      const successUrl = `${window.location.origin}/payment/success?order=${orderResult.orderId}&token=${pawapayResponse.transaction_id || pawapayResponse.payment_token}`;
+      window.location.href = successUrl;
+      return; // Exit after mobile money payment
     } catch (error: any) {
       console.error('Erreur de paiement:', error);
       toast.error(error.message || 'Échec du traitement de la commande');
@@ -372,6 +530,8 @@ export default function CheckoutForm({
     }
   };
 
+  const otpExampleAmount = Math.max(1, Math.round(grandTotal || 0));
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -379,7 +539,14 @@ export default function CheckoutForm({
           Méthode de paiement
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form 
+          onSubmit={(e) => {
+            console.log('📋 [FORM] onSubmit handler called directly!', e.type);
+            handleSubmit(e);
+          }}
+          className="space-y-6"
+          noValidate
+        >
           {/* Loading state */}
           {loadingSavedMethods && (
             <div className="flex justify-center py-4">
@@ -485,9 +652,9 @@ export default function CheckoutForm({
                 </div>
               )}
 
-              {/* Payment Method Selection - Mobile Money temporarily hidden until PayDunya verification complete */}
+              {/* Payment Method Selection */}
               <div className="flex gap-4 mb-4">
-                {/* TEMPORARILY HIDDEN: Mobile Money - Awaiting PayDunya Identity Verification
+                {/* Mobile Money Payment - Now using pawaPay */}
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('mobile_money')}
@@ -509,16 +676,20 @@ export default function CheckoutForm({
                     </p>
                   </div>
                 </button>
-                */}
 
-                {/* Card Payment - Currently the only available option */}
+                {/* Card Payment */}
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('card')}
-                  className="flex-1 flex items-center gap-3 p-4 border-2 border-blue-600 bg-blue-50 rounded-lg cursor-default"
-                  disabled
+                  className={`flex-1 flex items-center gap-3 p-4 border rounded-lg ${
+                    paymentMethod === 'card'
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
                 >
-                  <CreditCard className="h-5 w-5 text-blue-600" />
+                  <CreditCard className={`h-5 w-5 ${
+                    paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'
+                  }`} />
                   <div className="text-left">
                     <p className="font-medium text-gray-900">
                       Carte de Crédit / Débit
@@ -533,8 +704,8 @@ export default function CheckoutForm({
               {/* Info message about payment options */}
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  <strong>Paiement sécurisé par carte bancaire</strong><br />
-                  Les paiements Mobile Money seront bientôt disponibles.
+                  <strong>Paiements sécurisés</strong><br />
+                  Mobile Money via pawaPay ou Carte bancaire via Stripe.
                 </p>
               </div>
 
@@ -571,6 +742,45 @@ export default function CheckoutForm({
                       placeholder="+226 XX XX XX XX"
                       required
                     />
+                  </div>
+                  
+                  {/* Pre-authorization code - Only show if backend requires it (PRE_AUTH_REQUIRED) */}
+                  <div className="hidden" id="pre-auth-field">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Code d’autorisation (OTP) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 space-y-2">
+                      <p>Code d’autorisation (OTP) — requis pour valider le paiement</p>
+                      <p>Vérifiez d’abord vos SMS : vous avez peut-être déjà reçu l’OTP automatiquement.</p>
+                      <p>Pas de SMS ? Composez <code className="bg-blue-100 px-1 rounded font-mono">{'*144*4*6*{montant}#'}</code> sur votre téléphone Orange Money</p>
+                      <p>{'(remplacez {montant} par le total à payer.'}</p>
+                      <p>Entrez l’OTP ci-dessous pour continuer.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.preAuthorisationCode}
+                        onChange={(e) => setFormData({ ...formData, preAuthorisationCode: e.target.value })}
+                        className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Entrez le code OTP"
+                        maxLength={10}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Allow user to retry without OTP (in case payment URL becomes available)
+                          document.getElementById('pre-auth-field')?.classList.add('hidden');
+                          setFormData({ ...formData, preAuthorisationCode: '' });
+                        }}
+                        className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        title="Réessayer sans OTP"
+                      >
+                        Annuler
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -786,9 +996,39 @@ export default function CheckoutForm({
           {/* Submit button only for mobile money payments */}
           {paymentMethod === 'mobile_money' && (
             <button
-              type="submit"
+              type="button"
               disabled={isProcessing}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              onClick={(e) => {
+                console.log('🔴 [BUTTON] Clicked!', { 
+                  isProcessing, 
+                  paymentMethod, 
+                  provider: formData.provider,
+                  phone: formData.phone,
+                  user: !!user
+                });
+                
+                // Since form onSubmit isn't firing, call handleSubmit directly
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Get the form element to create a proper event
+                const form = e.currentTarget.closest('form');
+                if (form) {
+                  console.log('📋 [BUTTON] Calling handleSubmit directly');
+                  // Create a synthetic form event
+                  const syntheticEvent = {
+                    preventDefault: () => {},
+                    stopPropagation: () => {},
+                    currentTarget: form,
+                    target: form
+                  } as unknown as React.FormEvent<HTMLFormElement>;
+                  
+                  handleSubmit(syntheticEvent);
+                } else {
+                  console.error('❌ [BUTTON] Form not found!');
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
             >
               {isProcessing ? (
                 <>

@@ -43,68 +43,18 @@ export interface PaymentVerification {
 }
 
 class PaymentService {
+  /**
+   * @deprecated This method is deprecated. Use pawapayService.createPayment() for mobile money payments.
+   * Payment creation is now handled directly by:
+   * - pawaPay: pawapayService.createPayment() for mobile money
+   * - Stripe: stripePaymentService.createPaymentAdvanced() or createPaymentSimple() for cards
+   */
   async createPayment(request: CreatePaymentRequest): Promise<PaymentResponse> {
-    try {
-      console.log('Creating payment with request:', request);
-      
-      // Ensure the request is properly serialized
-      const requestBody = JSON.stringify(request);
-      console.log('Serialized request body:', requestBody);
-      
-      // Try direct fetch instead of supabase.functions.invoke
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey
-        },
-        body: requestBody
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${responseText}`);
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error(`Invalid response format: ${responseText}`);
-      }
-      
-      console.log('Payment service response:', data);
-      
-      if (!data) {
-        throw new Error('No response data from payment service');
-      }
-
-      if (!data.success) {
-        const errorMsg = data.error || 'Unknown payment error';
-        console.error('Payment creation failed:', errorMsg);
-        throw new Error(`Payment Error: ${errorMsg}`);
-      }
-      
-      return {
-        success: data.success,
-        payment_url: data.payment_url,
-        payment_token: data.payment_token,
-        payment_id: data.payment_id
-      };
-    } catch (error: any) {
-      console.error('Payment creation error:', error);
-      throw error;
-    }
+    throw new Error(
+      'PaymentService.createPayment() is deprecated. ' +
+      'For mobile money, use pawapayService.createPayment(). ' +
+      'For card payments, use stripePaymentService.createPaymentAdvanced() or createPaymentSimple().'
+    );
   }
 
   async verifyPayment(paymentToken: string, orderId?: string, saveMethod?: boolean, paymentDetails?: any): Promise<PaymentVerification> {
@@ -179,27 +129,45 @@ class PaymentService {
           message: data.message || (responseState === 'succeeded' ? 'Payment verified successfully' : `Payment status: ${responseState}`)
         };
       } else {
+        // For non-Stripe payments (pawaPay, etc.), try pawaPay-specific function first
         const payload: any = {
           order_id: orderId || ''
         };
 
         if (isUUID) {
           payload.internal_token = normalizedToken;
+          payload.payment_id = normalizedToken; // Also try as payment_id
           console.log('Sending as internal_token (UUID)');
         } else {
           payload.payment_token = normalizedToken;
-          console.log('Sending as payment_token (Paydunya)');
+          console.log('Sending as payment_token (pawaPay)');
         }
 
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Payment verification timeout')), 4000);
         });
 
-        const verificationPromise = supabase.functions.invoke('verify-payment', {
+        // Try verify-pawapay-payment first (no Stripe dependencies, faster boot)
+        let verificationPromise = supabase.functions.invoke('verify-pawapay-payment', {
           body: payload
         });
 
-        const { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+        let { data, error } = await Promise.race([verificationPromise, timeoutPromise]) as any;
+        
+        // If pawaPay function returns error (wrong provider or not found), try unified verify-payment
+        if (error && (error.message?.includes('404') || error.message?.includes('only handles pawaPay'))) {
+          console.log('Falling back to unified verify-payment function');
+          verificationPromise = supabase.functions.invoke('verify-payment', {
+            body: payload
+          });
+          const fallbackResult = await Promise.race([verificationPromise, timeoutPromise]) as any;
+          if (!fallbackResult.error && fallbackResult.data) {
+            data = fallbackResult.data;
+            error = null;
+          } else {
+            error = fallbackResult.error || error;
+          }
+        }
 
         if (error) {
           console.error('Payment verification error:', error);
@@ -222,13 +190,21 @@ class PaymentService {
         // Map 'state' to 'status' for backward compatibility
         const mappedStatus = responseState === 'succeeded' ? 'completed' : responseState;
 
+        // For "processing" state, don't throw error - it's a valid state for pawaPay
+        const isProcessing = mappedStatus === 'processing';
+        const friendlyMessage = responseState === 'succeeded' 
+          ? 'Payment verified successfully' 
+          : isProcessing 
+          ? 'Payment is being processed' 
+          : `Payment status: ${responseState}`;
+        
         result = {
-          success: responseSuccess,
+          success: responseSuccess || isProcessing, // Treat processing as success for UX
           status: mappedStatus,
           payment_id: data.payment_id,
           order_id: data.order_id || orderId,
           test_mode: data.test_mode,
-          message: data.message || (responseState === 'succeeded' ? 'Payment verified successfully' : `Payment status: ${responseState}`)
+          message: data.message || friendlyMessage
         };
 
         console.log('Verification response from deployed function:', {

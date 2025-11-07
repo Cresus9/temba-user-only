@@ -20,6 +20,32 @@ interface SignupResponse {
   error?: string;
 }
 
+// Helper function to normalize phone number to E.164 format
+function normalizePhone(phone: string): string {
+  if (!phone) return phone;
+  // Remove all non-numeric characters except +
+  let cleaned = phone.replace(/[^\d+]/g, '');
+  
+  // If no +, add country code (default to +226 for Burkina Faso)
+  if (!cleaned.startsWith('+')) {
+    cleaned = cleaned.replace(/^0+/, ''); // Remove leading zeros
+    if (!cleaned.startsWith('226')) {
+      cleaned = '+226' + cleaned;
+    } else {
+      cleaned = '+' + cleaned;
+    }
+  } else if (!cleaned.startsWith('+226') && cleaned.length >= 8) {
+    // Has + but might not have country code, ensure proper format
+    const digitsAfterPlus = cleaned.substring(1);
+    if (digitsAfterPlus.length >= 8 && !digitsAfterPlus.startsWith('226')) {
+      // Likely local number, add +226
+      cleaned = '+226' + digitsAfterPlus.replace(/^0+/, '');
+    }
+  }
+  
+  return cleaned;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -127,9 +153,9 @@ serve(async (req) => {
       .from('profiles')
       .upsert({
         user_id: authData.user.id,
-        name,
+        name,  // Always use the provided name, never fallback to email prefix
         email: normEmail,
-        phone: phone || null,
+        phone: phone ? normalizePhone(phone) : null,
         avatar_url: null,
         updated_at: nowIso,
         created_at: nowIso,

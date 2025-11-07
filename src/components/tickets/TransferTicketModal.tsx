@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send, User, Mail, Phone, MessageSquare, AlertCircle } from 'lucide-react';
 import { ticketTransferService, TransferTicketRequest } from '../../services/ticketTransferService';
+import { normalizePhone, isValidPhone } from '../../utils/phoneValidation';
 import toast from 'react-hot-toast';
 
 interface TransferTicketModalProps {
@@ -56,11 +57,14 @@ export default function TransferTicketModal({
         setError('Le numéro de téléphone est requis');
         return false;
       }
-      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(formData.recipientPhone.replace(/\s/g, ''))) {
-        setError('Veuillez entrer un numéro de téléphone valide');
+      // Normalize and validate phone using the utility
+      const normalizedPhone = normalizePhone(formData.recipientPhone);
+      if (!isValidPhone(normalizedPhone)) {
+        setError('Veuillez entrer un numéro de téléphone valide (format: +226XXXXXXXX)');
         return false;
       }
+      // Update form data with normalized phone
+      setFormData(prev => ({ ...prev, recipientPhone: normalizedPhone }));
     }
     return true;
   };
@@ -88,7 +92,7 @@ export default function TransferTicketModal({
       const request: TransferTicketRequest = {
         ticketId,
         recipientEmail: confirmedData.method === 'email' ? confirmedData.recipient : undefined,
-        recipientPhone: confirmedData.method === 'phone' ? confirmedData.recipient : undefined,
+        recipientPhone: confirmedData.method === 'phone' ? normalizePhone(confirmedData.recipient) : undefined,
         recipientName: confirmedData.name,
         message: confirmedData.message
       };

@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase-client';
-import { paymentService, CreatePaymentRequest } from './paymentService';
 import { notificationTriggers } from './notificationTriggers';
 
 export interface CreateOrderInput {
@@ -84,20 +83,9 @@ class OrderService {
         orderData = orderDataDirect;
       }
 
-      // Create payment using edge function
-      // Build ticket lines for the edge function
-      const ticketLines = ticketTypes.map(ticket => ({
-        ticket_type_id: ticket.id,
-        quantity: input.ticketQuantities[ticket.id] || 0,
-        price_major: ticket.price,
-        currency: event.currency
-      })).filter(line => line.quantity > 0);
-
-      console.log('Ticket types from database:', ticketTypes);
-      console.log('Input ticket quantities:', input.ticketQuantities);
-      console.log('Generated ticket lines:', ticketLines);
-
-      // For card payments, we stop here—the Stripe flow will create the payment intent.
+      // ═══════════════════════════════════════════════════════
+      // ✅ CARD PAYMENTS - Order created by Stripe Edge Function
+      // ═══════════════════════════════════════════════════════
       if (input.paymentMethod === 'CARD') {
         return {
           orderId: null, // Will be created by Edge Function
@@ -109,37 +97,16 @@ class OrderService {
         };
       }
 
-      const paymentRequest: CreatePaymentRequest = {
-        idempotency_key: `payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        user_id: user.id,
-        event_id: input.eventId,
-        order_id: orderData.id,
-        ticket_lines: ticketLines,
-        amount_major: totalAmount,
-        currency: event.currency,
-        method: input.paymentMethod === 'MOBILE_MONEY' ? 'mobile_money' : 'credit_card',
-        phone: input.paymentDetails?.phone || profile.phone,
-        provider: input.paymentDetails?.provider,
-        save_method: false,
-        return_url: `${window.location.origin}/payment/success`,
-        cancel_url: `${window.location.origin}/payment/cancelled`,
-        description: `Tickets for ${event.title}`
-      };
-
-      console.log('Creating payment with request:', paymentRequest);
-      const paymentResponse = await paymentService.createPayment(paymentRequest);
-
-      if (!paymentResponse.success) {
-        // Delete the order if payment creation failed
-        await supabase.from('orders').delete().eq('id', orderData.id);
-        throw new Error(paymentResponse.error || 'Failed to create payment');
-      }
-
-
+      // ═══════════════════════════════════════════════════════
+      // ⚠️ MOBILE MONEY - Order created, payment will be created by pawaPay
+      // ═══════════════════════════════════════════════════════
+      // For mobile money, order is already created above
+      // Payment will be created by pawaPay in CheckoutForm
+      // Just return the order ID - pawaPay payment happens separately
       return {
         orderId: orderData.id,
-        paymentUrl: paymentResponse.payment_url,
-        paymentToken: paymentResponse.payment_token,
+        paymentUrl: undefined, // Will be created by pawaPay
+        paymentToken: undefined, // Will be created by pawaPay
         success: true
       };
     } catch (error: any) {

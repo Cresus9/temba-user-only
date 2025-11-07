@@ -104,17 +104,30 @@ export default function PaymentSuccess() {
       // Check if the function indicates test mode - FORCE LIVE MODE for production
       const isTestMode = result.test_mode || import.meta.env.VITE_PAYDUNYA_MODE === 'test';
       const isStripeToken = token?.startsWith('stripe-') ?? false;
+      const isPawapayPayment = !isStripeToken; // pawaPay for mobile money
+      
+      // Payment is considered successful if:
+      // 1. Explicitly successful (completed)
+      // 2. Stripe pending/processing (will be confirmed)
+      // 3. pawaPay processing (payment initiated, waiting for confirmation)
+      // 4. Test mode pending
       const isSuccessful = result.success && (
         result.status === 'completed' ||
         (isStripeToken && ['pending', 'processing'].includes(result.status)) ||
+        (isPawapayPayment && ['pending', 'processing'].includes(result.status)) || // pawaPay processing is valid
         (isTestMode && result.status === 'pending')
       );
+      
+      // Also consider "processing" state as valid even if success=false (for pawaPay)
+      const isProcessing = !result.success && result.status === 'processing' && isPawapayPayment;
       
       console.log('Test mode check:', {
         isTestMode,
         resultSuccess: result.success,
         resultStatus: result.status,
         isSuccessful,
+        isProcessing,
+        isPawapayPayment,
         resultTestMode: result.test_mode,
         envDEV: import.meta.env.DEV,
         envPaydunyaMode: import.meta.env.VITE_PAYDUNYA_MODE
@@ -122,10 +135,12 @@ export default function PaymentSuccess() {
       
       console.log('Full verification result:', JSON.stringify(result, null, 2));
       
-      if (isSuccessful) {
+      if (isSuccessful || isProcessing) {
         setSuccess(true);
         const statusMessage = isStripeToken && ['pending', 'processing'].includes(result.status)
           ? 'Paiement carte en cours de finalisation - vos billets seront disponibles sous peu !'
+          : isProcessing || (isPawapayPayment && result.status === 'processing')
+          ? 'Paiement mobile money en cours de traitement - vos billets seront disponibles une fois confirmé !'
           : isTestMode && result.status === 'pending' 
           ? 'Paiement en attente (mode test) - Billets créés !'
           : 'Paiement confirmé avec succès !';
@@ -156,8 +171,8 @@ export default function PaymentSuccess() {
         clearTimeout(timeoutId);
         clearTimeout(quickTimeoutId);
         
-        // Redirect immediately since verification succeeded
-        console.log('✅ Verification successful - redirecting immediately');
+        // Redirect immediately since verification succeeded (or processing)
+        console.log('✅ Verification successful/processing - redirecting immediately');
         setTimeout(() => {
           navigate(`/booking/confirmation/${orderId}?token=${token}`);
         }, 1000); // Reduced to 1 second

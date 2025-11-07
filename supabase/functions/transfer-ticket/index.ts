@@ -68,10 +68,22 @@ serve(async (req) => {
       )
     }
 
-    // Get ticket details (simplified query without events join first)
+    // Get ticket details with event information
     const { data: tickets, error: ticketError } = await supabase
       .from('tickets')
-      .select('id, user_id, event_id, status')
+      .select(`
+        id, 
+        user_id, 
+        event_id, 
+        status,
+        event:events!inner (
+          id,
+          title,
+          date,
+          time,
+          location
+        )
+      `)
       .eq('id', ticketId)
       .eq('user_id', user.id)
 
@@ -158,18 +170,65 @@ serve(async (req) => {
         finalRecipientName = finalRecipientName || recipientUser.name
       }
     } else if (recipientPhone) {
-      const { data: recipientUser, error: recipientError } = await supabase
-        .from('profiles')
-        .select('user_id, name')
-        .eq('phone', recipientPhone)
-        .single()
+      // Normalize phone number for consistent lookup (remove spaces, ensure + prefix)
+      const normalizedPhone = recipientPhone.replace(/\s/g, '').startsWith('+') 
+        ? recipientPhone.replace(/\s/g, '')
+        : '+' + recipientPhone.replace(/\s/g, '')
       
-      console.log('Recipient lookup by phone:', { recipientUser, recipientError })
+      console.log('Looking up recipient by phone:', { original: recipientPhone, normalized: normalizedPhone })
       
-      if (recipientUser) {
-        recipientUserId = recipientUser.user_id  // ✅ Use user_id, not id
-        finalRecipientName = finalRecipientName || recipientUser.name
+      // Try multiple phone formats to find the user
+      const phoneVariations = [
+        normalizedPhone,                    // +22675581026
+        normalizedPhone.replace(/^\+/, ''),  // 22675581026
+        normalizedPhone.replace(/^\+226/, '+226'), // Ensure +226 prefix
+      ]
+      
+      // Remove duplicates
+      const uniqueVariations = [...new Set(phoneVariations)]
+      
+      for (const phoneVar of uniqueVariations) {
+        console.log(`Trying phone lookup with format: ${phoneVar}`)
+        
+        const { data: recipientUser, error: recipientError } = await supabase
+          .from('profiles')
+          .select('user_id, name, phone')
+          .eq('phone', phoneVar)
+          .maybeSingle() // Use maybeSingle to avoid errors if not found
+        
+        if (recipientUser && !recipientError) {
+          console.log('Found recipient user:', { userId: recipientUser.user_id, name: recipientUser.name, phone: recipientUser.phone })
+          recipientUserId = recipientUser.user_id
+          finalRecipientName = finalRecipientName || recipientUser.name
+          break // Found user, stop searching
+        }
       }
+      
+      // If still not found, try case-insensitive search using ILIKE (PostgreSQL specific)
+      if (!recipientUserId) {
+        console.log('Trying case-insensitive phone lookup...')
+        const { data: allProfiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, name, phone')
+        
+        if (allProfiles && !profilesError) {
+          // Find matching phone by normalizing both
+          const normalizedSearch = normalizedPhone.replace(/^\+/, '').toLowerCase()
+          const matchingProfile = allProfiles.find(p => {
+            if (!p.phone) return false
+            const normalizedProfile = p.phone.replace(/^\+/, '').replace(/\s/g, '').toLowerCase()
+            return normalizedProfile === normalizedSearch
+          })
+          
+          if (matchingProfile) {
+            console.log('Found recipient via case-insensitive search:', { userId: matchingProfile.user_id, name: matchingProfile.name, phone: matchingProfile.phone })
+            recipientUserId = matchingProfile.user_id
+            finalRecipientName = finalRecipientName || matchingProfile.name
+          }
+        }
+      }
+      
+      console.log('Final recipient lookup result:', { recipientUserId, finalRecipientName, searchedWith: normalizedPhone })
     }
 
     console.log('Final recipient info:', { recipientUserId, finalRecipientName })
@@ -180,13 +239,20 @@ serve(async (req) => {
       // We'll create the transfer with null recipient_id and they'll get it when they sign up
     }
 
+    // Normalize phone number before storing
+    let normalizedRecipientPhone = recipientPhone 
+      ? (recipientPhone.replace(/\s/g, '').startsWith('+') 
+          ? recipientPhone.replace(/\s/g, '')
+          : '+' + recipientPhone.replace(/\s/g, ''))
+      : null
+    
     // Create transfer record with our implementation schema
     const transferRecord = {
       ticket_id: ticketId,
       sender_id: user.id,
       recipient_id: recipientUserId, // null if user doesn't exist yet
       recipient_email: recipientEmail || null,
-      recipient_phone: recipientPhone || null,
+      recipient_phone: normalizedRecipientPhone, // Store normalized phone
       recipient_name: finalRecipientName,
       message: message || null,
       status: recipientUserId ? 'COMPLETED' : 'PENDING' // PENDING if user doesn't exist yet
@@ -247,9 +313,14 @@ serve(async (req) => {
       // Get sender info
       const { data: sender } = await supabase
         .from('profiles')
-        .select('name, email')
-        .eq('id', user.id)
+        .select('user_id, name, email')
+        .eq('user_id', user.id)
         .single()
+
+      // Get event details
+      const eventTitle = tickets[0]?.event?.title || 'un événement'
+      const eventDate = tickets[0]?.event?.date || ''
+      const eventTime = tickets[0]?.event?.time || ''
 
       // Create notification for recipient if they have an account
       if (recipientUserId) {
@@ -259,23 +330,50 @@ serve(async (req) => {
             user_id: recipientUserId,
             type: 'ticket_received',
             title: 'Ticket Transferred to You',
-            message: `${sender?.name || 'Someone'} transferred a ticket for "${ticket.events?.title || 'Unknown Event'}" to you`,
+            message: `${sender?.name || 'Quelqu\'un'} vous a transféré un billet pour "${eventTitle}"`,
             data: {
               ticket_id: ticketId,
               from_user: sender?.name,
-              event_title: ticket.events?.title,
+              event_title: eventTitle,
               message: message
             }
           })
       }
 
-      // TODO: Send email/SMS notifications for external recipients
+      // Send SMS notification if recipient phone is provided
+      if (normalizedRecipientPhone) {
+        try {
+          await sendTransferSMS(
+            normalizedRecipientPhone,
+            sender?.name || 'Quelqu\'un',
+            eventTitle,
+            eventDate,
+            eventTime,
+            transferData.id
+          )
+          console.log('SMS notification sent successfully to:', normalizedRecipientPhone)
+        } catch (smsError) {
+          console.error('SMS notification error (non-blocking):', smsError)
+          // Don't fail the transfer if SMS fails
+        }
+      }
+
+      // Send email notification if recipient email is provided and user is not registered
+      if (recipientEmail && !recipientUserId) {
+        try {
+          // TODO: Implement email notification for unregistered users
+          console.log('Email notification would be sent to:', recipientEmail)
+        } catch (emailError) {
+          console.error('Email notification error (non-blocking):', emailError)
+        }
+      }
+
       console.log('Transfer completed successfully:', {
         ticketId,
         fromUser: user.id,
         toUser: recipientUserId,
         toEmail: recipientEmail,
-        toPhone: recipientPhone
+        toPhone: normalizedRecipientPhone
       })
 
     } catch (notificationError) {
@@ -307,3 +405,79 @@ serve(async (req) => {
     )
   }
 })
+
+/**
+ * Helper function to send SMS notification for ticket transfer
+ */
+async function sendTransferSMS(
+  phoneNumber: string,
+  senderName: string,
+  eventTitle: string,
+  eventDate: string,
+  eventTime: string,
+  transferId: string
+): Promise<void> {
+  const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
+  const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN')
+  const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER')
+  const baseUrl = 'https://tembas.com'
+
+  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+    console.warn('Twilio configuration missing - skipping SMS notification')
+    return
+  }
+
+  // Format event date for SMS
+  let formattedDate = ''
+  if (eventDate) {
+    try {
+      const date = new Date(eventDate)
+      formattedDate = date.toLocaleDateString('fr-FR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      })
+    } catch (e) {
+      formattedDate = eventDate
+    }
+  }
+
+  // Create SMS message - works for both registered and unregistered users
+  const smsMessage = `🎫 ${senderName} vous a transféré un billet pour "${eventTitle}"${formattedDate ? ` (${formattedDate}${eventTime ? ` à ${eventTime}` : ''})` : ''}. Connectez-vous si vous avez un compte, ou inscrivez-vous avec le même numéro pour récupérer votre billet : ${baseUrl}/signup`
+
+  // Send SMS via Twilio API
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`
+  
+  const formData = new URLSearchParams()
+  formData.append('To', phoneNumber)
+  formData.append('From', twilioPhoneNumber)
+  formData.append('Body', smsMessage)
+
+  console.log('Sending transfer SMS via Twilio:', {
+    to: phoneNumber,
+    from: twilioPhoneNumber,
+    messageLength: smsMessage.length
+  })
+
+  const twilioResponse = await fetch(twilioUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: formData.toString(),
+  })
+
+  if (!twilioResponse.ok) {
+    const errorText = await twilioResponse.text()
+    console.error('Twilio API error response:', {
+      status: twilioResponse.status,
+      statusText: twilioResponse.statusText,
+      error: errorText
+    })
+    throw new Error(`Failed to send SMS: ${twilioResponse.status} - ${errorText}`)
+  }
+
+  const twilioData = await twilioResponse.json()
+  console.log('Transfer SMS sent successfully:', twilioData.sid)
+}

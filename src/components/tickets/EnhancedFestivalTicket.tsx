@@ -73,6 +73,13 @@ export default function EnhancedFestivalTicket({
   };
 
   const getTicketTypeColor = (type: string) => {
+    if (!type || typeof type !== 'string') {
+      return {
+        bg: 'from-gray-400 to-gray-500',
+        text: 'text-gray-900',
+        badge: 'bg-gray-100 text-gray-800'
+      };
+    }
     const lowerType = type.toLowerCase();
     if (lowerType.includes('vip') || lowerType.includes('premium')) {
       return {

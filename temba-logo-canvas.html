@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temba Logo - Canvas</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .logo-item {
+            text-align: center;
+        }
+        
+        .logo-item h3 {
+            margin-bottom: 10px;
+            color: #4b5563;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        canvas {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>🎫 Temba Logo - Canvas Rendering</h1>
+        
+        <div class="logo-container">
+            <!-- Small Logo -->
+            <div class="logo-item">
+                <h3>Small (0.5x)</h3>
+                <canvas id="logo-small"></canvas>
+            </div>
+            
+            <!-- Medium Logo (Default) -->
+            <div class="logo-item">
+                <h3>Medium (1x) - Default</h3>
+                <canvas id="logo-medium"></canvas>
+            </div>
+            
+            <!-- Large Logo -->
+            <div class="logo-item">
+                <h3>Large (2x)</h3>
+                <canvas id="logo-large"></canvas>
+            </div>
+            
+            <!-- High Quality -->
+            <div class="logo-item">
+                <h3>High Quality (2x scale)</h3>
+                <canvas id="logo-hq"></canvas>
+            </div>
+        </div>
+        
+        <button onclick="downloadAll()">Download All Logos</button>
+    </div>
+
+    <script>
+        // Helper function for rounded rectangles (for older browsers)
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+
+        /**
+         * Draws the Temba logo on a canvas
+         * @param {HTMLCanvasElement} canvas - The canvas element
+         * @param {Object} options - Configuration options
+         */
+        function drawTembaLogo(canvas, options = {}) {
+            const {
+                size = 1,
+                shadow = true,
+                textColor = '#ffffff',
+                highQuality = false
+            } = options;
+            
+            const baseWidth = 200;
+            const baseHeight = 60;
+            const scale = highQuality ? 2 : 1;
+            
+            // Set canvas size
+            canvas.width = baseWidth * size * scale;
+            canvas.height = baseHeight * size * scale;
+            canvas.style.width = (baseWidth * size) + 'px';
+            canvas.style.height = (baseHeight * size) + 'px';
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Scale for high DPI
+            if (highQuality) {
+                ctx.scale(scale, scale);
+            }
+            
+            // Enable high-quality rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dimensions
+            const iconSize = 48 * size;
+            const fontSize = 24 * size;
+            const gap = 8 * size;
+            const cornerRadius = 8 * size;
+            const height = 60 * size;
+            const width = baseWidth * size;
+            
+            // 1. Icon background (gradient)
+            const iconX = 0;
+            const iconY = (height - iconSize) / 2;
+            
+            // Create gradient (orange to red)
+            const gradient = ctx.createLinearGradient(
+                iconX, iconY,
+                iconX + iconSize, iconY + iconSize
+            );
+            gradient.addColorStop(0, '#f97316'); // orange-500
+            gradient.addColorStop(1, '#ef4444'); // red-500
+            
+            // Add shadow if enabled
+            if (shadow) {
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 6 * size;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 3 * size;
+            }
+            
+            // Draw rounded rectangle
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(iconX, iconY, iconSize, iconSize, cornerRadius);
+            ctx.fill();
+            
+            // 2. Letter "T" in icon
+            ctx.shadowColor = 'transparent';
+            ctx.fillStyle = textColor;
+            ctx.font = `bold ${iconSize * 0.6}px Inter, system-ui, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('T', iconX + iconSize / 2, iconY + iconSize / 2);
+            
+            // 3. "TEMBA" text
+            ctx.fillStyle = textColor;
+            ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('TEMBA', iconX + iconSize + gap, height / 2);
+        }
+        
+        // Draw logos in different sizes
+        drawTembaLogo(document.getElementById('logo-small'), { size: 0.5 });
+        drawTembaLogo(document.getElementById('logo-medium'), { size: 1 });
+        drawTembaLogo(document.getElementById('logo-large'), { size: 2 });
+        drawTembaLogo(document.getElementById('logo-hq'), { size: 1, highQuality: true });
+        
+        // Download function
+        function downloadCanvas(canvas, filename) {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        function downloadAll() {
+            const canvases = [
+                { id: 'logo-small', name: 'temba-logo-small.png' },
+                { id: 'logo-medium', name: 'temba-logo-medium.png' },
+                { id: 'logo-large', name: 'temba-logo-large.png' },
+                { id: 'logo-hq', name: 'temba-logo-hq.png' }
+            ];
+            
+            canvases.forEach(({ id, name }) => {
+                setTimeout(() => {
+                    downloadCanvas(document.getElementById(id), name);
+                }, canvases.indexOf({ id, name }) * 200);
+            });
+        }
+        
+        // Individual download functions
+        document.getElementById('logo-small').addEventListener('click', () => {
+            downloadCanvas(document.getElementById('logo-small'), 'temba-logo-small.png');
+        });
+        
+        document.getElementById('logo-medium').addEventListener('click', () => {
+            downloadCanvas(document.getElementById('logo-medium'), 'temba-logo-medium.png');
+        });
+        
+        document.getElementById('logo-large').addEventListener('click', () => {
+            downloadCanvas(document.getElementById('logo-large'), 'temba-logo-large.png');
+        });
+        
+        document.getElementById('logo-hq').addEventListener('click', () => {
+            downloadCanvas(document.getElementById('logo-hq'), 'temba-logo-hq.png');
+        });
+    </script>
+</body>
+</html>
+

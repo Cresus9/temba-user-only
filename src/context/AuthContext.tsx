@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
 import { authService } from '../services/authService';
@@ -42,6 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
+  const lastCheckRef = useRef<string | null>(null); // Track last check to prevent duplicate calls
+  const checkingRef = useRef(false); // Prevent concurrent calls
 
   useEffect(() => {
     // Check for existing session
@@ -72,6 +74,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+  
+  // Check for pending transfers after user and profile are set (separate effect to avoid loops)
+  useEffect(() => {
+    if (!user || checkingRef.current) {
+      return;
+    }
+
+    // Create a unique key for this user/profile combination
+    const checkKey = `${user.email}-${profile?.phone || 'no-phone'}`;
+    
+    // Only check if this is a new user/profile combination
+    if (lastCheckRef.current === checkKey) {
+      return; // Already checked for this user/profile
+    }
+
+    // Mark as checking and update last check
+    checkingRef.current = true;
+    lastCheckRef.current = checkKey;
+
+    // Perform the check
+    checkPendingTransfers().finally(() => {
+      checkingRef.current = false;
+    });
+
+    // Cleanup on unmount or user change
+    return () => {
+      if (!user) {
+        setPendingTransfers([]);
+        lastCheckRef.current = null;
+        checkingRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email, profile?.phone]); // Only depend on email and phone, not full objects
 
   const loadProfile = async (userId: string) => {
     try {
@@ -83,17 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
       setProfile(data);
-      
-      // Check for pending transfers after profile is loaded
-      await checkPendingTransfers();
     } catch (error) {
       console.error('Erreur lors du chargement du profil:', error);
       toast.error('Échec du chargement du profil utilisateur');
       setProfile(null);
-      
-      // Even if profile loading fails, check for pending transfers
-      // This is important for users who might have pending transfers but no profile yet
-      await checkPendingTransfers();
     } finally {
       setLoading(false);
     }
@@ -148,11 +177,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const checkPendingTransfers = async () => {
+  const checkPendingTransfers = useCallback(async () => {
     if (!user) {
-      console.log('🔍 checkPendingTransfers: No user, skipping');
       return;
     }
+
+    // Prevent concurrent calls
+    if (checkingRef.current) {
+      return;
+    }
+
+    // Prevent duplicate calls with same user email
+    const checkKey = `${user.email}-${profile?.phone || 'no-phone'}`;
+    if (lastCheckRef.current === checkKey) {
+      return;
+    }
+
+    checkingRef.current = true;
+    lastCheckRef.current = checkKey;
 
     console.log('🔍 checkPendingTransfers: Checking for user:', user.email, 'phone:', profile?.phone);
 
@@ -174,10 +216,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('status', 'PENDING')
         .eq('recipient_email', user.email);
 
-      console.log('🔍 checkPendingTransfers: Raw transfers result:', transfers, 'error:', error);
-
       if (error) {
         console.error('Error fetching pending transfers:', error);
+        checkingRef.current = false;
         return;
       }
 
@@ -243,16 +284,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
         );
 
-        console.log('🔍 checkPendingTransfers: Enriched transfers:', enrichedTransfers);
         setPendingTransfers(enrichedTransfers);
       } else {
-        console.log('🔍 checkPendingTransfers: No transfers found, setting empty array');
         setPendingTransfers([]);
       }
     } catch (error) {
       console.error('Error checking pending transfers:', error);
+    } finally {
+      checkingRef.current = false;
     }
-  };
+  }, [user, profile?.phone]);
 
   const claimPendingTransfer = async (transferId: string): Promise<boolean> => {
     if (!user) return false;

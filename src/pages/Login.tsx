@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Ticket } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Ticket, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { detectInputType, getPhoneInfo, isValidPhone } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -21,23 +22,46 @@ export default function Login() {
   const from = state?.redirectTo || state?.from?.pathname || '/dashboard';
   const prefilledEmail = state?.email || '';
 
+  // Detect if input is email or phone
+  const inputType = detectInputType(emailOrPhone);
+  const isPhone = inputType === 'phone';
+  const isEmail = inputType === 'email';
+
   // Set email from state if provided
   React.useEffect(() => {
     if (prefilledEmail) {
-      setEmail(prefilledEmail);
+      setEmailOrPhone(prefilledEmail);
     }
   }, [prefilledEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Validate input
+    if (!emailOrPhone.trim()) {
+      setError('Veuillez entrer votre email ou numéro de téléphone');
+      return;
+    }
+
+    if (!password) {
+      setError('Veuillez entrer votre mot de passe');
+      return;
+    }
+
+    // Validate input type
+    if (inputType === 'unknown') {
+      setError('Veuillez entrer une adresse email valide ou un numéro de téléphone');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(emailOrPhone, password);
       
-      if (rememberMe) {
-        localStorage.setItem('rememberedEmail', email);
+      if (rememberMe && isEmail) {
+        localStorage.setItem('rememberedEmail', emailOrPhone);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
@@ -48,8 +72,9 @@ export default function Login() {
       toast.success('Connexion réussie !');
     } catch (error: any) {
       console.error('Erreur de connexion:', error);
-      setError(error.response?.data?.message || 'Email ou mot de passe invalide');
-      toast.error(error.response?.data?.message || 'Email ou mot de passe invalide');
+      const errorMsg = error.message || 'Email/téléphone ou mot de passe invalide';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -81,21 +106,46 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Adresse email
+              <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700 mb-2">
+                Email ou numéro de téléphone
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                {isPhone ? (
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                ) : (
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                )}
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="emailOrPhone"
+                  type="text"
+                  value={emailOrPhone}
+                  onChange={(e) => setEmailOrPhone(e.target.value)}
                   className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="nom@exemple.com"
+                  placeholder={isPhone ? "+XXX XXXX XXXX" : "nom@exemple.com"}
+                  autoComplete={isEmail ? "email" : "tel"}
                   required
                 />
               </div>
+              {emailOrPhone && (
+                <div className="mt-1">
+                  {isPhone && isValidPhone(emailOrPhone) ? (
+                    (() => {
+                      const phoneInfo = getPhoneInfo(emailOrPhone);
+                      return (
+                        <p className="text-xs text-green-600">
+                          📱 {phoneInfo.countryName || 'Téléphone'} ({phoneInfo.normalized})
+                        </p>
+                      );
+                    })()
+                  ) : isPhone ? (
+                    <p className="text-xs text-red-600">⚠️ Format de téléphone invalide</p>
+                  ) : isEmail ? (
+                    <p className="text-xs text-gray-500">📧 Connexion par email</p>
+                  ) : inputType === 'unknown' ? (
+                    <p className="text-xs text-red-600">⚠️ Format invalide</p>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <div>

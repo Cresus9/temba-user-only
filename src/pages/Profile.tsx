@@ -10,16 +10,35 @@ import PaymentMethods from '../components/profile/PaymentMethods';
 import AccountSettings from '../components/profile/AccountSettings';
 import TransferredTicketsList from '../components/tickets/TransferredTicketsList';
 import SentTicketsList from '../components/tickets/SentTicketsList';
+import MyTickets from '../components/profile/MyTickets';
+import { formatPhoneForDisplay } from '../utils/phoneValidation';
 
 export default function Profile() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Get display name: prefer profile name, fallback to phone or email
+  const displayName = profile?.name || 
+                     (profile?.phone ? formatPhoneForDisplay(profile.phone) : null) ||
+                     profile?.email?.split('@')[0] ||
+                     user?.email?.split('@')[0] ||
+                     'Utilisateur';
+  
+  // Get display identifier: prefer phone if available, otherwise email
+  const displayIdentifier = profile?.phone ? formatPhoneForDisplay(profile.phone) : (profile?.email || user?.email || '');
+  
+  // Get avatar initial: from name first letter, or phone/email first character
+  const avatarInitial = profile?.name?.[0]?.toUpperCase() || 
+                        profile?.phone?.[1]?.toUpperCase() || // + sign, so use second char
+                        displayIdentifier[0]?.toUpperCase() || 
+                        'U';
+
   const navigation = [
     { name: t('profile.menu.profile_info', { default: 'Informations du Profil' }), path: '/profile', icon: User },
+    { name: 'Mes Billets', path: '/profile/my-tickets', icon: Ticket },
     { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
     { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Ticket },
     { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Ticket },
@@ -45,12 +64,15 @@ export default function Profile() {
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
               <span className="text-2xl font-bold text-indigo-600">
-                {user?.email?.[0].toUpperCase()}
+                {avatarInitial}
               </span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{user?.email}</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
               <p className="text-sm text-gray-600">
+                {displayIdentifier !== displayName && (
+                  <span className="block mb-1">{displayIdentifier}</span>
+                )}
                 {t('profile.menu.member_since', { 
                   year: new Date(user?.created_at || '').getFullYear(),
                   default: `Membre depuis ${new Date(user?.created_at || '').getFullYear()}`
@@ -91,6 +113,7 @@ export default function Profile() {
         <main className="flex-1 min-h-[600px] bg-white rounded-xl shadow-sm p-6">
           <Routes>
             <Route path="/" element={<ProfileInfo />} />
+            <Route path="/my-tickets" element={<MyTickets />} />
             <Route path="/bookings" element={<BookingHistory />} />
             <Route path="/transfers" element={<TransferredTicketsList />} />
             <Route path="/sent" element={<SentTicketsList />} />

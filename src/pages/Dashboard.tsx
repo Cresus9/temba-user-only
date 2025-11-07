@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/userService';
 import { transferredTicketsService, type TransferredTicket } from '../services/transferredTicketsService';
 import { formatCurrency } from '../utils/formatters';
+import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
 import type { DashboardStats } from '../services/userService';
 import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
@@ -96,7 +97,7 @@ export default function Dashboard() {
           <div className="flex flex-col gap-6">
             <div className="space-y-2">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                Bienvenue, {profile?.name || 'Invité'} ! 👋
+                Bienvenue, {profile?.name || (profile?.phone ? formatPhoneForDisplay(profile.phone) : null) || profile?.email?.split('@')[0] || 'Invité'} ! 👋
               </h1>
               <p className="text-indigo-100 text-sm sm:text-base">
                 Suivez vos événements, billets et réservations en un seul endroit

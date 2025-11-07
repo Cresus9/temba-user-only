@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, User, Phone, CreditCard, Wallet, AlertCircle, Loader } from 'lucide-react';
 import { orderService } from '../../services/orderService';
+import { pawapayService } from '../../services/pawapayService';
+import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
 
 interface GuestCheckoutFormProps {
@@ -18,6 +20,7 @@ export default function GuestCheckoutForm({
   eventId,
   onSuccess
 }: GuestCheckoutFormProps) {
+  const otpExampleAmount = Math.max(1, Math.round(totalAmount || 0));
   // Function to clear cart for specific event
   const clearCartForEvent = (eventId: string) => {
     try {
@@ -45,6 +48,7 @@ export default function GuestCheckoutForm({
     email: '',
     phone: '',
     provider: '',
+    preAuthorisationCode: '', // OTP code for Orange Money (required for ORANGE_BFA)
     cardNumber: '',
     expiryDate: '',
     cvv: '',
@@ -55,76 +59,178 @@ export default function GuestCheckoutForm({
   });
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [submitting, setSubmitting] = useState(false);
+  const [pricedSelections, setPricedSelections] = useState<Array<{ ticket_type_id: string; quantity: number; price: number }>>([]);
+
+  // Fetch ticket prices
+  useEffect(() => {
+    const loadPrices = async () => {
+      const ids = Object.keys(tickets);
+      if (ids.length === 0) { setPricedSelections([]); return; }
+      const { data } = await supabase.from('ticket_types').select('id, price').in('id', ids);
+      const map = new Map((data || []).map((t: any) => [t.id, Number(t.price || 0)]));
+      setPricedSelections(Object.entries(tickets).map(([id, q]) => ({ ticket_type_id: id, quantity: Number(q), price: map.get(id) || 0 })));
+    };
+    loadPrices();
+  }, [tickets]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      const result = await orderService.createGuestOrder({
+      // ═══════════════════════════════════════════════════════
+      // ✅ CARD PAYMENTS - Use existing guest order flow
+      // ═══════════════════════════════════════════════════════
+      if (paymentMethod === 'card') {
+        const result = await orderService.createGuestOrder({
+          email: formData.email,
+          name: formData.name,
+          phone: formData.phone,
+          eventId,
+          ticketQuantities: tickets,
+          paymentMethod: 'CARD',
+          paymentDetails: {
+            cardNumber: formData.cardNumber,
+            expiryDate: formData.expiryDate,
+            cvv: formData.cvv,
+            cardholderName: formData.cardholderName || formData.name,
+            billingAddress: formData.billingAddress,
+            billingCity: formData.billingCity,
+            billingCountry: formData.billingCountry
+          }
+        });
+
+        if (result.success && result.paymentUrl) {
+          // Stripe flow for guests
+          localStorage.setItem('paymentDetails', JSON.stringify({
+            orderId: result.orderId,
+            paymentToken: result.paymentToken,
+            eventId: eventId,
+            method: 'credit_card'
+          }));
+
+          if (result.paymentUrl) {
+            window.location.href = result.paymentUrl;
+          }
+        } else if (result.orderId) {
+          clearCartForEvent(eventId);
+          onSuccess(result.orderId);
+          toast.success('Commande créée avec succès !');
+        } else {
+          throw new Error('Aucun ID de commande retourné');
+        }
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════
+      // ⚠️ MOBILE MONEY - Use pawaPay for guest checkout
+      // ═══════════════════════════════════════════════════════
+      // Create guest order first
+      const orderResult = await orderService.createGuestOrder({
         email: formData.email,
         name: formData.name,
         phone: formData.phone,
         eventId,
         ticketQuantities: tickets,
-        paymentMethod: paymentMethod === 'mobile_money' ? 'MOBILE_MONEY' : 'CARD',
-        paymentDetails: paymentMethod === 'mobile_money' ? {
+        paymentMethod: 'MOBILE_MONEY',
+        paymentDetails: {
           provider: formData.provider,
-          phone: formData.phone
-        } : {
-          cardNumber: formData.cardNumber,
-          expiryDate: formData.expiryDate,
-          cvv: formData.cvv,
-          cardholderName: formData.cardholderName || formData.name,
-          billingAddress: formData.billingAddress,
-          billingCity: formData.billingCity,
-          billingCountry: formData.billingCountry
+          phone: formData.phone,
+          preAuthorisationCode: formData.preAuthorisationCode || undefined
         }
       });
 
-      if (result.success && result.paymentUrl) {
-        // Store payment details (guests can't save methods, but we store for consistency)
-        const paymentDetails = {
-          method: paymentMethod === 'mobile_money' ? 'mobile_money' : 'credit_card',
-          saveMethod: false, // Guests can't save payment methods
-          ...(paymentMethod === 'mobile_money' ? {
-            provider: formData.provider,
-            phone: formData.phone
-          } : {
-            cardNumber: formData.cardNumber,
-            cardholderName: formData.cardholderName || formData.name
-          })
-        };
+      if (!orderResult.success || !orderResult.orderId) {
+        throw new Error('Failed to create guest order');
+      }
 
+      // Prepare ticket lines for pawaPay
+      const ticketLines = pricedSelections.map(selection => ({
+        ticket_type_id: selection.ticket_type_id,
+        quantity: selection.quantity,
+        price_major: selection.price,
+        currency: 'XOF'
+      }));
+
+      // Calculate total
+      const subtotal = pricedSelections.reduce((sum, it) => sum + it.price * it.quantity, 0);
+      const serviceFee = subtotal * 0.02; // 2% service fee
+      const grandTotal = subtotal + serviceFee;
+
+      // Create pawaPay payment
+      const idempotencyKey = `pawapay-guest-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const pawapayResponse = await pawapayService.createPayment({
+        idempotency_key: idempotencyKey,
+        user_id: undefined, // Guest checkout
+        buyer_email: formData.email,
+        event_id: eventId,
+        order_id: orderResult.orderId,
+        ticket_lines: ticketLines,
+        amount_major: grandTotal,
+        currency: 'XOF',
+        method: 'mobile_money',
+        phone: formData.phone,
+        provider: formData.provider, // Map to pawaPay format
+        preAuthorisationCode: formData.preAuthorisationCode || undefined, // OTP for second attempt (if provided)
+        return_url: `${window.location.origin}/payment/success?order=${orderResult.orderId}`,
+        cancel_url: `${window.location.origin}/payment/cancelled?order=${orderResult.orderId}`,
+        description: `Billets d'événement (Invité) - ${eventId}`
+      });
+
+      // ✅ BEST CASE: Payment URL redirect available (no OTP needed!)
+      if (pawapayResponse.has_payment_redirect && pawapayResponse.payment_url) {
+        console.log('🚀 Redirecting guest to pawaPay payment page (no OTP needed)');
+        
+        // Store payment details
         localStorage.setItem('paymentDetails', JSON.stringify({
-          orderId: result.orderId,
-          paymentToken: result.paymentToken,
-          eventId: eventId, // Store eventId for cart clearing
-          ...paymentDetails
+          orderId: orderResult.orderId,
+          paymentToken: pawapayResponse.transaction_id || pawapayResponse.payment_token,
+          paymentId: pawapayResponse.payment_id,
+          eventId: eventId,
+          provider: 'pawapay',
+          method: 'mobile_money',
+          isGuest: true
         }));
 
-        // Check if we're in test mode - FORCE LIVE MODE for production
-        const isTestMode = import.meta.env.VITE_PAYDUNYA_MODE === 'test';
-        
-        if (isTestMode) {
-          // In test mode, redirect directly to success page with payment token
-          const successUrl = `${window.location.origin}/payment/success?order=${result.orderId}&token=${result.paymentToken}`;
-          window.location.href = successUrl;
-        } else {
-          // In LIVE mode, redirect to Paydunya payment page for real payment
-          console.log('🚀 LIVE MODE: Redirecting to Paydunya payment page');
-          window.location.href = result.paymentUrl;
-        }
-      } else if (result.orderId) {
-        // Clear cart after successful order creation
-        clearCartForEvent(eventId);
-        
-        // Fallback to success page
-        onSuccess(result.orderId);
-        toast.success('Commande créée avec succès !');
-      } else {
-        throw new Error('Aucun ID de commande retourné');
+        // Use window.location.assign for smoother flow (same tab)
+        window.location.assign(pawapayResponse.payment_url);
+        return; // Exit - user will be redirected
       }
+
+      // ⚠️ PRE_AUTH_REQUIRED: Show OTP field (fallback case)
+      if (pawapayResponse.requires_pre_auth || pawapayResponse.error === 'PRE_AUTH_REQUIRED') {
+        // Show the pre-authorization code field
+        const preAuthField = document.getElementById('pre-auth-field-guest');
+        if (preAuthField) {
+          preAuthField.classList.remove('hidden');
+          preAuthField.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Show helpful message with hint about auto-SMS
+        setSubmitting(false);
+        return; // Don't proceed, wait for user to enter OTP and retry
+      }
+
+      // ❌ ERROR: Payment creation failed
+      if (!pawapayResponse.success) {
+        throw new Error(pawapayResponse.error || pawapayResponse.error_message || 'Failed to create pawaPay payment');
+      }
+
+      // ✅ SUCCESS without redirect: Store and redirect to success page
+      localStorage.setItem('paymentDetails', JSON.stringify({
+        orderId: orderResult.orderId,
+        paymentToken: pawapayResponse.transaction_id || pawapayResponse.payment_token,
+        paymentId: pawapayResponse.payment_id,
+        eventId: eventId,
+        provider: 'pawapay',
+        method: 'mobile_money',
+        isGuest: true
+      }));
+
+      // Fallback: redirect to success page if no payment URL
+      const successUrl = `${window.location.origin}/payment/success?order=${orderResult.orderId}&token=${pawapayResponse.transaction_id || pawapayResponse.payment_token}`;
+      window.location.href = successUrl;
+      return;
     } catch (error: any) {
       console.error('Erreur de paiement invité:', error);
       toast.error(error.message || 'Échec du traitement de la commande');
@@ -192,6 +298,45 @@ export default function GuestCheckoutForm({
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="+226 XX XX XX XX"
                 />
+              </div>
+            </div>
+            
+            {/* Pre-authorization code - Only show if backend requires it (PRE_AUTH_REQUIRED) */}
+            <div className="hidden" id="pre-auth-field-guest">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Code d’autorisation (OTP) <span className="text-red-500">*</span>
+              </label>
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 space-y-2">
+                <p>Code d’autorisation (OTP) — requis pour valider le paiement</p>
+                <p>Vérifiez d’abord vos SMS : vous avez peut-être déjà reçu l’OTP automatiquement.</p>
+                <p>Pas de SMS ? Composez <code className="bg-blue-100 px-1 rounded font-mono">{'*144*4*6*{montant}#'}</code> sur votre téléphone Orange Money</p>
+                <p>{'(remplacez {montant} par le total à payer.'}</p>
+                <p>Entrez l’OTP ci-dessous pour continuer.</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.preAuthorisationCode}
+                  onChange={(e) => setFormData({ ...formData, preAuthorisationCode: e.target.value })}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Entrez le code OTP"
+                  maxLength={10}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Allow user to retry without OTP (in case payment URL becomes available)
+                    document.getElementById('pre-auth-field-guest')?.classList.add('hidden');
+                    setFormData({ ...formData, preAuthorisationCode: '' });
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  title="Réessayer sans OTP"
+                >
+                  Annuler
+                </button>
               </div>
             </div>
           </div>

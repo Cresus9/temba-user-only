@@ -88,9 +88,22 @@ serve(async (req) => {
       )
     }
 
+    // Get user profile to check phone number
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('phone, email')
+      .eq('user_id', user.id)
+      .single()
+
     // Verify the user is the intended recipient
-    const isEmailMatch = transfer.recipient_email === user.email
-    const isPhoneMatch = transfer.recipient_phone && user.user_metadata?.phone === transfer.recipient_phone
+    const isEmailMatch = transfer.recipient_email && (
+      transfer.recipient_email === user.email || 
+      transfer.recipient_email === profile?.email
+    )
+    const isPhoneMatch = transfer.recipient_phone && (
+      profile?.phone === transfer.recipient_phone ||
+      (user.user_metadata?.phone && user.user_metadata.phone === transfer.recipient_phone)
+    )
 
     if (!isEmailMatch && !isPhoneMatch) {
       return new Response(
