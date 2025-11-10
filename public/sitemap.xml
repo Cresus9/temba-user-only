@@ -2,21 +2,68 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://tembas.com/</loc>
-    <lastmod>2025-11-10T00:00:00.000Z</lastmod>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://tembas.com/events</loc>
-    <lastmod>2025-11-10T00:00:00.000Z</lastmod>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://tembas.com/categories</loc>
-    <lastmod>2025-11-10T00:00:00.000Z</lastmod>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://tembas.com/profile/my-tickets</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/support</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/about</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/contact</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/privacy</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.1</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/terms</loc>
+    <lastmod>2025-11-10T05:05:15.573Z</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.1</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/events/560eba92-a66d-41e5-95cc-c266e6994588</loc>
+    <lastmod>2025-10-25T17:19:17.010Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://tembas.com/events/889e61fc-ee25-4945-889a-29ec270bd4e2</loc>
+    <lastmod>2025-10-25T17:19:17.010Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>
-
