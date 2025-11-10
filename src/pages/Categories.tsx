@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Search, Filter } from 'lucide-react';
 import CategoryList from '../components/categories/CategoryList';
 import { useCategoryStore } from '../stores/categoryStore';
 import { EventCategory } from '../types/event';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Categories() {
   const { categories, loading, error, fetchCategories } = useCategoryStore();
@@ -47,6 +48,47 @@ export default function Categories() {
     window.location.href = `/categories/${categoryId}`;
   };
 
+  const collectionSchema = useMemo(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Catégories d’événements',
+    url: 'https://tembas.com/categories',
+    description:
+      'Parcourez les catégories d’événements sur Temba pour trouver concerts, festivals, spectacles et activités au Burkina Faso.',
+    hasPart: categories.map((category) => ({
+      '@type': 'CollectionPage',
+      name: category.name,
+      url: `https://tembas.com/categories/${category.id}`,
+      description: category.description || undefined,
+    })),
+  }), [categories]);
+
+  const breadcrumbSchema = useMemo(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Accueil',
+        item: 'https://tembas.com/',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Catégories',
+        item: 'https://tembas.com/categories',
+      },
+    ],
+  }), []);
+
+  const structuredData = useMemo(() => {
+    const data = [];
+    if (breadcrumbSchema) data.push(breadcrumbSchema);
+    if (collectionSchema) data.push(collectionSchema);
+    return data.length ? data : undefined;
+  }, [breadcrumbSchema, collectionSchema]);
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -76,6 +118,20 @@ export default function Categories() {
 
   return (
     <div>
+      <PageSEO
+        title="Catégories d’événements"
+        description="Retrouvez toutes les catégories d’événements disponibles sur Temba : concerts, festivals, clubs, conférences et plus encore au Burkina Faso."
+        canonicalUrl="https://tembas.com/categories"
+        ogImage="https://tembas.com/temba-app.png"
+        keywords={[
+          'catégories événements Burkina Faso',
+          'sorties Ouagadougou',
+          'concerts par catégorie',
+          'festivals Burkina',
+          'agenda culturel FCFA',
+        ]}
+        structuredData={structuredData}
+      />
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-slate-800 via-indigo-800 to-indigo-900 py-12 md:py-16">
         <div className="absolute inset-0 bg-black/15"></div>

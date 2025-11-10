@@ -83,7 +83,7 @@ export default function EventDetails() {
       : `https://tembas.com${event.image_url}`;
   }, [event?.image_url]);
 
-  const structuredData = useMemo(() => {
+  const eventSchema = useMemo(() => {
     if (!event || !eventUrl) return undefined;
 
     return {
@@ -126,6 +126,42 @@ export default function EventDetails() {
     eventUrl,
     ogImage,
   ]);
+
+  const breadcrumbSchema = useMemo(() => {
+    if (!eventUrl || !event?.title) return undefined;
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Accueil',
+          item: 'https://tembas.com/',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Événements',
+          item: 'https://tembas.com/events',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: event.title,
+          item: eventUrl,
+        },
+      ],
+    };
+  }, [event?.title, eventUrl]);
+
+  const structuredData = useMemo(() => {
+    const data = [];
+    if (breadcrumbSchema) data.push(breadcrumbSchema);
+    if (eventSchema) data.push(eventSchema);
+    return data.length ? data : undefined;
+  }, [breadcrumbSchema, eventSchema]);
 
   const description = useMemo(() => {
     if (!event) return undefined;

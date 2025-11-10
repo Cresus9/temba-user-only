@@ -128,6 +128,35 @@ export default function Events() {
     };
   }, [events]);
 
+  const breadcrumbSchema = useMemo(
+    () => ({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Accueil',
+          item: 'https://tembas.com/',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Événements',
+          item: 'https://tembas.com/events',
+        },
+      ],
+    }),
+    []
+  );
+
+  const structuredData = useMemo(() => {
+    const data = [];
+    if (breadcrumbSchema) data.push(breadcrumbSchema);
+    if (itemListStructuredData) data.push(itemListStructuredData);
+    return data.length ? data : undefined;
+  }, [breadcrumbSchema, itemListStructuredData]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <PageSEO
@@ -143,7 +172,7 @@ export default function Events() {
           'festivals Burkina Faso',
           'événements culturels FCFA',
         ]}
-        structuredData={itemListStructuredData}
+        structuredData={structuredData}
       />
       {/* Back button */}
       <button
