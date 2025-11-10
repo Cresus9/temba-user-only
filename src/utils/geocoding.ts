@@ -13,7 +13,7 @@ const geocodingResponseSchema = z.array(z.object({
   lat: z.string(),
   lon: z.string(),
   display_name: z.string()
-})).min(1);
+}));
 
 export async function geocodeAddress(address: string): Promise<GeocodingResult> {
   // Check cache first
@@ -32,19 +32,25 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
     }
 
     const data = await response.json();
-    
-    // Validate response
-    const validatedData = geocodingResponseSchema.parse(data);
+
+    const parsed = geocodingResponseSchema.safeParse(data);
+
+    if (!parsed.success || parsed.data.length === 0) {
+      console.warn('Geocoding: no results for address', address, parsed.success ? parsed.data : parsed.error.issues);
+      throw new Error('No geocoding results');
+    }
+
+    const firstResult = parsed.data[0];
     const result = {
-      latitude: parseFloat(validatedData[0].lat),
-      longitude: parseFloat(validatedData[0].lon)
+      latitude: parseFloat(firstResult.lat),
+      longitude: parseFloat(firstResult.lon)
     };
 
     // Cache the result
     geocodingCache.set(address, result);
     return result;
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error('Geocoding error:', { address, error });
     // Return default coordinates for Ouagadougou
     return { latitude: 12.3714, longitude: -1.5197 };
   }

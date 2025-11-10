@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../context/TranslationContext';
 import { useEvents } from '../context/EventContext';
@@ -10,6 +10,7 @@ import CategoryList from '../components/categories/CategoryList';
 import AppDownload from '../components/home/AppDownload';
 import HowItWorks from '../components/home/HowItWorks';
 import { imagePreloader } from '../utils/imagePreloader';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Home() {
   const { t } = useTranslation();
@@ -31,8 +32,51 @@ export default function Home() {
     }
   }, [featuredEvents]);
 
+  const structuredData = useMemo(
+    () => [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Temba',
+        url: 'https://tembas.com/',
+        logo: 'https://tembas.com/temba-app.png',
+        sameAs: [
+          'https://www.facebook.com/temba',
+          'https://www.instagram.com/temba',
+          'https://www.linkedin.com/company/temba',
+        ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Temba',
+        url: 'https://tembas.com/',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://tembas.com/events?query={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+    []
+  );
+
   return (
     <div>
+      <PageSEO
+        title="Billetterie d’événements au Burkina Faso"
+        description="Achetez vos billets en ligne pour des concerts, festivals et événements culturels au Burkina Faso. Paiement sécurisé en FCFA, transferts instantanés et support local."
+        canonicalUrl="https://tembas.com/"
+        ogImage="https://tembas.com/temba-app.png"
+        keywords={[
+          'billets Burkina Faso',
+          'billetterie en ligne',
+          'événements à Ouagadougou',
+          'concerts Burkina Faso',
+          'festivals Afrique de l’Ouest',
+        ]}
+        structuredData={structuredData}
+      />
       {/* Banner Section */}
       <Banner />
 
@@ -90,7 +134,7 @@ export default function Home() {
               Explorez les événements par catégorie et trouvez ceux qui correspondent à vos intérêts
             </p>
           </div>
-          <CategoryList showSubcategories={true} />
+          <CategoryList />
         </div>
       </section>
 

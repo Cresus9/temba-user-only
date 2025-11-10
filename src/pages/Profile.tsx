@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { User, Ticket, Bell, CreditCard, Settings, LogOut } from 'lucide-react';
+import { User, Ticket, Bell, CreditCard, Settings, LogOut, ClipboardList, Inbox, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
 import ProfileInfo from '../components/profile/ProfileInfo';
@@ -47,14 +47,14 @@ export default function Profile() {
       title: t('profile.menu.section_tickets', { default: 'Billets' }),
       items: [
         { name: 'Mes Billets', path: '/profile/my-tickets', icon: Ticket },
-        { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
+        { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: ClipboardList },
       ],
     },
     {
       title: t('profile.menu.section_transfers', { default: 'Transferts' }),
       items: [
-        { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Ticket },
-        { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Ticket },
+        { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Inbox },
+        { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Send },
       ],
     },
     {

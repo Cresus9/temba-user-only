@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Calendar, MapPin, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import EventCard from '../components/EventCard';
@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import toast from 'react-hot-toast';
 import { CategoryService } from '../services/categoryService';
+import PageSEO from '../components/SEO/PageSEO';
 
 const initialFilters = {
   search: '',
@@ -112,8 +113,38 @@ export default function Events() {
     setFilters(initialFilters);
   };
 
+  const itemListStructuredData = useMemo(() => {
+    if (!events.length) return undefined;
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      itemListElement: events.slice(0, 12).map((event, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `https://tembas.com/events/${event.id}`,
+        name: event.title,
+      })),
+    };
+  }, [events]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <PageSEO
+        title="Événements au Burkina Faso"
+        description="Explorez tous les concerts, festivals, spectacles et événements professionnels disponibles sur Temba. Filtrez par ville, date ou catégorie et achetez vos billets en quelques minutes."
+        canonicalUrl="https://tembas.com/events"
+        ogImage="https://tembas.com/temba-app.png"
+        ogType="website"
+        keywords={[
+          'événements Burkina Faso',
+          'agenda Ouagadougou',
+          'billets concerts Burkina',
+          'festivals Burkina Faso',
+          'événements culturels FCFA',
+        ]}
+        structuredData={itemListStructuredData}
+      />
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}

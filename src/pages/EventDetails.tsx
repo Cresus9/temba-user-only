@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Share2, Heart } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
@@ -8,6 +8,7 @@ import EventMap from '../components/events/EventMap';
 import { geocodeAddress } from '../utils/geocoding';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
+import PageSEO from '../components/SEO/PageSEO';
 
 interface EventLocation {
   latitude: number;
@@ -70,6 +71,70 @@ export default function EventDetails() {
     fetchEvent();
   }, [id, user, navigate]);
 
+  const eventUrl = useMemo(
+    () => (event?.id ? `https://tembas.com/events/${event.id}` : undefined),
+    [event?.id]
+  );
+
+  const ogImage = useMemo(() => {
+    if (!event?.image_url) return undefined;
+    return event.image_url.startsWith('http')
+      ? event.image_url
+      : `https://tembas.com${event.image_url}`;
+  }, [event?.image_url]);
+
+  const structuredData = useMemo(() => {
+    if (!event || !eventUrl) return undefined;
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Event',
+      name: event.title,
+      description: event.description,
+      startDate: event.time ? `${event.date}T${event.time}` : event.date,
+      eventStatus: 'https://schema.org/EventScheduled',
+      image: ogImage ? [ogImage] : undefined,
+      location: {
+        '@type': 'Place',
+        name: event.location,
+        address: event.location,
+      },
+      organizer: {
+        '@type': 'Organization',
+        name: 'Temba',
+        url: 'https://tembas.com/',
+      },
+      offers: (event.ticket_types || []).map((ticketType) => ({
+        '@type': 'Offer',
+        url: eventUrl,
+        price: ticketType.price,
+        priceCurrency: event.currency,
+        availability:
+          ticketType.available && ticketType.available > 0
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/SoldOut',
+      })),
+    };
+  }, [
+    event?.title,
+    event?.description,
+    event?.time,
+    event?.date,
+    event?.location,
+    event?.ticket_types,
+    event?.currency,
+    eventUrl,
+    ogImage,
+  ]);
+
+  const description = useMemo(() => {
+    if (!event) return undefined;
+    return (
+      event.description?.replace(/\s+/g, ' ').trim().slice(0, 160) ||
+      `Achetez vos billets pour ${event.title} à ${event.location}.`
+    );
+  }, [event?.description, event?.title, event?.location]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -87,7 +152,25 @@ export default function EventDetails() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <>
+      {eventUrl && (
+        <PageSEO
+          title={event.title}
+          description={description}
+          canonicalUrl={eventUrl}
+          ogType="event"
+          ogImage={ogImage}
+          keywords={[
+            event.title,
+            event.location,
+            'billets',
+            'événement Burkina Faso',
+            'sortir à Ouagadougou',
+          ]}
+          structuredData={structuredData}
+        />
+      )}
+      <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Event Header */}
       <div className="relative h-[400px] rounded-xl overflow-hidden mb-8">
         <img
@@ -210,5 +293,6 @@ export default function EventDetails() {
         </div>
       </div>
     </div>
+    </>
   );
 }

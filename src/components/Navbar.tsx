@@ -87,7 +87,7 @@ export default function Navbar() {
                         Tableau de bord
                       </Link>
                       <Link
-                        to="/profile/bookings"
+                        to="/profile/my-tickets"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >
@@ -179,7 +179,7 @@ export default function Navbar() {
                   Tableau de bord
                 </Link>
                 <Link
-                  to="/profile/bookings"
+                  to="/profile/my-tickets"
                   className="block text-gray-600 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
