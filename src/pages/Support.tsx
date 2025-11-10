@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Plus, Clock, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import NewTicketModal from '../components/support/NewTicketModal';
 import { useTranslation } from '../context/TranslationContext';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 interface SupportTicket {
   id: string;
@@ -79,6 +80,57 @@ export default function Support() {
     }
   };
 
+  const breadcrumbSchema = useMemo(
+    () => ({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Accueil',
+          item: 'https://tembas.com/',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Support',
+          item: 'https://tembas.com/support',
+        },
+      ],
+    }),
+    []
+  );
+
+  const customerServiceSchema = useMemo(
+    () => ({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Support Temba',
+      url: 'https://tembas.com/support',
+      description:
+        'Consultez et gérez vos tickets d’assistance Temba. Créez un ticket, suivez son statut et échangez avec notre équipe support.',
+      potentialAction: {
+        '@type': 'CommunicateAction',
+        target: 'https://tembas.com/support',
+        agent: {
+          '@type': 'Organization',
+          name: 'Temba',
+        },
+        recipient: {
+          '@type': 'Audience',
+          audienceType: 'Customer',
+        },
+      },
+    }),
+    []
+  );
+
+  const structuredData = useMemo(() => [breadcrumbSchema, customerServiceSchema], [
+    breadcrumbSchema,
+    customerServiceSchema,
+  ]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -89,6 +141,19 @@ export default function Support() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <PageSEO
+        title="Support"
+        description="Accédez à votre espace support Temba : suivez vos tickets d’assistance, ouvrez une nouvelle demande et consultez l’historique de vos échanges."
+        canonicalUrl="https://tembas.com/support"
+        ogImage="https://tembas.com/temba-app.png"
+        keywords={[
+          'support Temba',
+          'assistance billets',
+          'service client billetterie',
+          'tickets support Temba',
+        ]}
+        structuredData={structuredData}
+      />
       {/* Back button */}
       <Link
         to="/dashboard"

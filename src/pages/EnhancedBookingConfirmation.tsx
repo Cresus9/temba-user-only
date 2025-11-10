@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Check, Download, Loader, ArrowLeft, Share2, Calendar, 
@@ -13,6 +13,7 @@ import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket
 import toast from 'react-hot-toast';
 import { generatePDF } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
+import PageSEO from '../components/SEO/PageSEO';
 
 interface Ticket {
   id: string;
@@ -54,6 +55,110 @@ export default function EnhancedBookingConfirmation() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [addedToCalendar, setAddedToCalendar] = useState(false);
+
+  const firstTicket = tickets[0] || null;
+
+  const pageTitle = firstTicket
+    ? `Confirmation – ${firstTicket.event.title}`
+    : 'Confirmation de réservation';
+
+  const pageDescription = firstTicket && orderSummary
+    ? `Vos billets pour ${firstTicket.event.title} le ${new Date(firstTicket.event.date).toLocaleDateString('fr-FR')} à ${firstTicket.event.location}. Montant total : ${orderSummary.total_amount} ${orderSummary.currency}.`
+    : 'Consultez la confirmation de votre réservation et téléchargez vos billets sur Temba.';
+
+  const breadcrumbSchema = useMemo(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Accueil',
+        item: 'https://tembas.com/',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Mes billets',
+        item: 'https://tembas.com/profile/my-tickets',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: firstTicket?.event?.title || 'Confirmation',
+        item: `https://tembas.com/profile/bookings/${bookingId ?? ''}`,
+      },
+    ],
+  }), [firstTicket?.event?.title, bookingId]);
+
+  const orderSchema = useMemo(() => {
+    if (!orderSummary || !tickets.length || !bookingId) return undefined;
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Order',
+      orderNumber: bookingId,
+      priceCurrency: orderSummary.currency,
+      price: orderSummary.total_amount,
+      acceptedOffer: tickets.map((ticket) => ({
+        '@type': 'Offer',
+        itemOffered: {
+          '@type': 'Event',
+          name: ticket.event.title,
+          startDate: ticket.event.time
+            ? `${ticket.event.date}T${ticket.event.time}`
+            : ticket.event.date,
+          location: {
+            '@type': 'Place',
+            name: ticket.event.location,
+          },
+        },
+        price: ticket.ticket_type.price,
+        priceCurrency: orderSummary.currency,
+      })),
+      orderedItem: tickets.map((ticket, index) => ({
+        '@type': 'OrderItem',
+        orderItemNumber: `${index + 1}`,
+        orderedItem: {
+          '@type': 'EventReservation',
+          reservationStatus: 'https://schema.org/ReservationConfirmed',
+          reservationFor: {
+            '@type': 'Event',
+            name: ticket.event.title,
+            startDate: ticket.event.time
+              ? `${ticket.event.date}T${ticket.event.time}`
+              : ticket.event.date,
+            location: {
+              '@type': 'Place',
+              name: ticket.event.location,
+            },
+          },
+          ticketToken: ticket.qr_code,
+          ticketNumber: ticket.id,
+        },
+      })),
+      seller: {
+        '@type': 'Organization',
+        name: 'Temba',
+        url: 'https://tembas.com/',
+      },
+      customer: {
+        '@type': 'Person',
+        name: profile?.name || user?.email || 'Client Temba',
+        email: profile?.email || user?.email || undefined,
+        telephone: profile?.phone || undefined,
+      },
+      paymentMethod: orderSummary.payment_method || undefined,
+      orderDate: orderSummary.booking_date,
+    };
+  }, [orderSummary, tickets, bookingId, profile?.name, profile?.email, profile?.phone, user?.email]);
+
+  const structuredData = useMemo(() => {
+    const data = [];
+    if (breadcrumbSchema) data.push(breadcrumbSchema);
+    if (orderSchema) data.push(orderSchema);
+    return data.length ? data : undefined;
+  }, [breadcrumbSchema, orderSchema]);
 
   // Function to clear cart for current event
   const clearCartForCurrentEvent = () => {
@@ -651,6 +756,18 @@ export default function EnhancedBookingConfirmation() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <PageSEO
+        title={pageTitle}
+        description={pageDescription}
+        canonicalUrl={`https://tembas.com/profile/bookings/${bookingId ?? ''}`}
+        ogImage={firstTicket?.event?.image_url}
+        keywords={[
+          'confirmation billet temba',
+          'réservation événement',
+          firstTicket?.event?.title || 'billet Temba',
+        ]}
+        structuredData={structuredData}
+      />
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

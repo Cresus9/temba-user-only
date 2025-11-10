@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -44,8 +45,64 @@ export default function Contact() {
     }
   };
 
+  const structuredData = useMemo(
+    () => [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Accueil',
+            item: 'https://tembas.com/',
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Contact',
+            item: 'https://tembas.com/contact',
+          },
+        ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'ContactPage',
+        name: 'Contact Temba',
+        url: 'https://tembas.com/contact',
+        description:
+          'Contactez l’équipe Temba pour toute question sur vos billets, les événements ou le support client.',
+        contactPoint: [
+          {
+            '@type': 'ContactPoint',
+            telephone: '+22674750815',
+            contactType: 'customer service',
+            areaServed: 'BF',
+            availableLanguage: ['French'],
+            email: 'info@tembas.com',
+          },
+        ],
+        mainEntityOfPage: 'https://tembas.com/contact',
+      },
+    ],
+    []
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <PageSEO
+        title="Contact"
+        description="Besoin d’aide ? Contactez l’équipe Temba par email, téléphone ou via notre formulaire pour toute question sur vos billets et événements."
+        canonicalUrl="https://tembas.com/contact"
+        ogImage="https://tembas.com/temba-app.png"
+        keywords={[
+          'contact Temba',
+          'service client billetterie',
+          'assistance billets Burkina',
+          'support Temba',
+        ]}
+        structuredData={structuredData}
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Contact Information */}
         <div>
