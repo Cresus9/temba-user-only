@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
             .from("orders")
             .update({
               status: "COMPLETED",
+              visible_in_history: true,
               updated_at: new Date().toISOString(),
             })
             .eq("id", payment.order_id);
@@ -243,6 +244,27 @@ Deno.serve(async (req) => {
         console.error("❌ Failed to update payment as failed:", failErr);
       } else {
         console.log("✅ Payment marked as failed:", intent.id);
+
+        const { data: failedPayment } = await supabase
+          .from("payments")
+          .select("order_id")
+          .eq("stripe_payment_intent_id", intent.id)
+          .maybeSingle();
+
+        if (failedPayment?.order_id) {
+          const { error: orderFailErr } = await supabase
+            .from("orders")
+            .update({
+              status: "CANCELLED",
+              visible_in_history: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", failedPayment.order_id);
+
+          if (orderFailErr) {
+            console.error("❌ Failed to mark order as cancelled:", orderFailErr);
+          }
+        }
       }
 
       if (webhookLog?.id) {

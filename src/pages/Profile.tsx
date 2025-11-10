@@ -36,15 +36,35 @@ export default function Profile() {
                         displayIdentifier[0]?.toUpperCase() || 
                         'U';
 
-  const navigation = [
-    { name: t('profile.menu.profile_info', { default: 'Informations du Profil' }), path: '/profile', icon: User },
-    { name: 'Mes Billets', path: '/profile/my-tickets', icon: Ticket },
-    { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
-    { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Ticket },
-    { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Ticket },
-    { name: t('profile.menu.notifications', { default: 'Notifications' }), path: '/profile/notifications', icon: Bell },
-    { name: t('profile.menu.payment_methods', { default: 'Méthodes de Paiement' }), path: '/profile/payments', icon: CreditCard },
-    { name: t('profile.menu.account_settings', { default: 'Paramètres du Compte' }), path: '/profile/settings', icon: Settings },
+  const navigationSections = [
+    {
+      title: null,
+      items: [
+        { name: t('profile.menu.profile_info', { default: 'Informations du Profil' }), path: '/profile', icon: User },
+      ],
+    },
+    {
+      title: t('profile.menu.section_tickets', { default: 'Billets' }),
+      items: [
+        { name: 'Mes Billets', path: '/profile/my-tickets', icon: Ticket },
+        { name: t('profile.menu.booking_history', { default: 'Historique des Réservations' }), path: '/profile/bookings', icon: Ticket },
+      ],
+    },
+    {
+      title: t('profile.menu.section_transfers', { default: 'Transferts' }),
+      items: [
+        { name: t('profile.menu.transferred_tickets', { default: 'Billets Reçus' }), path: '/profile/transfers', icon: Ticket },
+        { name: t('profile.menu.sent_tickets', { default: 'Billets Envoyés' }), path: '/profile/sent', icon: Ticket },
+      ],
+    },
+    {
+      title: t('profile.menu.section_account', { default: 'Compte' }),
+      items: [
+        { name: t('profile.menu.notifications', { default: 'Notifications' }), path: '/profile/notifications', icon: Bell },
+        { name: t('profile.menu.payment_methods', { default: 'Méthodes de Paiement' }), path: '/profile/payments', icon: CreditCard },
+        { name: t('profile.menu.account_settings', { default: 'Paramètres du Compte' }), path: '/profile/settings', icon: Settings },
+      ],
+    },
   ];
 
   const handleLogout = async () => {
@@ -81,24 +101,35 @@ export default function Profile() {
             </div>
           </div>
 
-          <nav className="space-y-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <nav className="space-y-6">
+            {navigationSections.map((section, index) => (
+              <div key={section.title ?? `section-${index}`}>
+                {section.title && (
+                  <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {section.title}
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${
+                          isActive
+                            ? 'bg-indigo-50 text-indigo-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"

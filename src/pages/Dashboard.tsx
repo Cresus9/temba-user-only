@@ -229,12 +229,14 @@ export default function Dashboard() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         order.status === 'COMPLETED'
                           ? 'bg-green-100 text-green-800'
-                          : order.status === 'PENDING'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          : order.status === 'AWAITING_PAYMENT'
+                            ? 'bg-yellow-100 text-yellow-800'
+                          : order.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-200 text-gray-700'
                       }`}>
                         {order.status === 'COMPLETED' ? 'Terminée' : 
-                         order.status === 'PENDING' ? 'En attente' : 'Annulée'}
+                         order.status === 'AWAITING_PAYMENT' ? 'En attente' : 'Annulée'}
                       </span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />

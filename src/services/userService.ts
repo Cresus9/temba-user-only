@@ -94,7 +94,7 @@ class UserService {
       .from('orders')
       .select('total, status')
       .eq('user_id', user.id)
-      .neq('status', 'CANCELLED');
+      .eq('status', 'COMPLETED');
 
     if (ordersError) throw ordersError;
 
@@ -119,13 +119,15 @@ class UserService {
 
     if (recentError) throw recentError;
 
+    const visibleRecentOrders = (recentOrders || []).filter(order => ['COMPLETED', 'CANCELLED'].includes(order.status || ''));
+
     return {
       stats: {
         upcomingEvents: upcomingTickets.length,
         totalTickets: totalTickets,
         totalSpent
       },
-      recentOrders: recentOrders?.map(order => ({
+      recentOrders: visibleRecentOrders.map(order => ({
         id: order.id,
         eventName: order.event_title,
         total: order.total,

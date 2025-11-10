@@ -58,8 +58,8 @@ export default function GuestOrderVerification() {
         throw new Error(orderData.error || 'Échec de la vérification de la commande');
       }
 
-      // If order is pending, verify payment
-      if (orderData.orderStatus === 'PENDING') {
+      // If order is awaiting payment, verify payment
+      if (orderData.orderStatus === 'AWAITING_PAYMENT') {
         try {
           // Verify payment using the token
           const paymentResult = await paymentService.verifyPayment(token);

@@ -276,7 +276,23 @@ Deno.serve(async (req) => {
         orderId
       });
 
-      // Finalize on success (idempotent) - this creates tickets
+      // Handle failed payments by cancelling the order
+      if (orderId && newStatus === "failed") {
+        const { error: orderFailError } = await supabase
+          .from("orders")
+          .update({
+            status: "CANCELLED",
+            visible_in_history: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", orderId);
+
+        if (orderFailError) {
+          console.error("❌ Failed to mark order as cancelled:", orderFailError);
+        }
+      }
+
+      // Finalize on success (idempotent) - this creates tickets and marks order visible
       if (newStatus === "completed" && orderId) {
         console.log("🎫 Calling admin_finalize_payment to create tickets...");
         const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_finalize_payment", { p_payment_id: paymentId });

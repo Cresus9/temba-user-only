@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 interface Order {
   id: string;
   total: number;
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status: 'AWAITING_PAYMENT' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
   created_at: string;
   user_name: string;
   user_email: string;
@@ -347,7 +347,7 @@ export default function OrderManagement() {
           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="all">{t('admin.orders.filters.all_status', { default: 'Tous les Statuts' })}</option>
-          <option value="PENDING">{t('admin.orders.status.pending', { default: 'En Attente' })}</option>
+          <option value="AWAITING_PAYMENT">{t('admin.orders.status.pending', { default: 'En Attente' })}</option>
           <option value="COMPLETED">{t('admin.orders.status.completed', { default: 'Terminée' })}</option>
           <option value="CANCELLED">{t('admin.orders.status.cancelled', { default: 'Annulée' })}</option>
         </select>
@@ -417,9 +417,11 @@ export default function OrderManagement() {
                       <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                         order.status === 'COMPLETED' 
                           ? 'bg-green-100 text-green-800'
-                          : order.status === 'PENDING'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          : order.status === 'AWAITING_PAYMENT'
+                            ? 'bg-yellow-100 text-yellow-800'
+                          : order.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-200 text-gray-700'
                       }`}>
                         {t(`admin.orders.status.${order.status.toLowerCase()}`, { default: order.status })}
                       </span>
@@ -442,7 +444,7 @@ export default function OrderManagement() {
                             <RefreshCcw className="h-5 w-5" />
                           </button>
                         )}
-                        {order.status === 'PENDING' && (
+                        {order.status === 'AWAITING_PAYMENT' && (
                           <button
                             onClick={() => handleStatusChange(order.id, 'CANCELLED')}
                             className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"

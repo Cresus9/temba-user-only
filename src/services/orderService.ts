@@ -72,9 +72,10 @@ class OrderService {
             user_id: user.id,
             event_id: input.eventId,
             total: totalAmount,
-            status: 'PENDING',
+            status: 'AWAITING_PAYMENT',
             payment_method: input.paymentMethod,
-            ticket_quantities: input.ticketQuantities
+            ticket_quantities: input.ticketQuantities,
+            visible_in_history: false
           })
           .select()
           .single();

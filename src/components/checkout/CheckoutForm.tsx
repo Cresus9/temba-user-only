@@ -13,6 +13,7 @@ import StripeElementsProvider from './StripeElementsProvider';
 import StripePaymentForm from './StripePaymentForm';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { pawapayService } from '../../services/pawapayService';
+import { formatCurrency } from '../../utils/formatters';
 
 interface CheckoutFormProps {
   tickets: { [key: string]: number };
@@ -980,15 +981,15 @@ export default function CheckoutForm({
             <div className="border-t border-gray-200 pt-4">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>Sous-total</span>
-                <span>{currency} {subtotal.toFixed(2)}</span>
+                <span>{formatCurrency(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>Frais de service</span>
-                <span>{currency} {buyerFees.toFixed(2)}</span>
+                <span>{formatCurrency(buyerFees, currency)}</span>
               </div>
               <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2">
                 <span>Total</span>
-                <span>{currency} {grandTotal.toFixed(2)}</span>
+                <span>{formatCurrency(grandTotal, currency)}</span>
               </div>
             </div>
           )}
@@ -1036,7 +1037,7 @@ export default function CheckoutForm({
                   <span>Traitement en cours...</span>
                 </>
               ) : (
-                <>Payer {currency} {grandTotal.toFixed(2)}</>
+                <>Payer {formatCurrency(grandTotal, currency)}</>
               )}
             </button>
           )}

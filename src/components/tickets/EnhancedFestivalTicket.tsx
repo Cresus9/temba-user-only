@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, MapPin, Clock, User, Ticket, Star, Shield, Send } from 'lucide-react';
 import ResponsiveQRCode from './ResponsiveQRCode';
 import TransferTicketModal from './TransferTicketModal';
+import { formatCurrency } from '../../utils/formatters';
 
 interface EnhancedFestivalTicketProps {
   ticketHolder: string;
@@ -64,13 +65,7 @@ export default function EnhancedFestivalTicket({
     });
   };
 
-  const formatPrice = (amount: number, curr: string) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: curr,
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatPrice = (amount: number, curr: string = 'XOF') => formatCurrency(amount, curr);
 
   const getTicketTypeColor = (type: string) => {
     if (!type || typeof type !== 'string') {

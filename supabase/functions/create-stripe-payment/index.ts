@@ -201,10 +201,11 @@ Deno.serve(async (req) => {
           user_id: user_id || null,
           event_id: event_id,
           total: totalAmount,
-          status: 'PENDING',
+          status: 'AWAITING_PAYMENT',
           payment_method: payment_method,
           ticket_quantities: ticket_quantities,
-          guest_email: guest_email || null
+          guest_email: guest_email || null,
+          visible_in_history: false
         })
         .select('id')
         .single();

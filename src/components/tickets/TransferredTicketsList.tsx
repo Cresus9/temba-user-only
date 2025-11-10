@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import EnhancedFestivalTicket from './EnhancedFestivalTicket';
+import { formatCurrency } from '../../utils/formatters';
 
 interface TransferredTicketsListProps {
   onTicketClick?: (ticket: TransferredTicket) => void;
@@ -163,11 +164,7 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
                   <div className="text-sm text-gray-500">Type de billet</div>
                   <div className="font-semibold text-gray-900">{ticket.ticket.ticket_type.name}</div>
                   <div className="text-sm text-gray-600">
-                    {new Intl.NumberFormat('fr-FR', {
-                      style: 'currency',
-                      currency: 'XOF',
-                      minimumFractionDigits: 0
-                    }).format(ticket.ticket.ticket_type.price)}
+                    {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
                   </div>
                   {/* Transfer Status */}
                   <div className="mt-2">

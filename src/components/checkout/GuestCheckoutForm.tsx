@@ -4,6 +4,7 @@ import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../../utils/formatters';
 
 interface GuestCheckoutFormProps {
   tickets: { [key: string]: number };
@@ -548,15 +549,15 @@ export default function GuestCheckoutForm({
           <div className="border-t border-gray-200 pt-4">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>Sous-total</span>
-              <span>{currency} {totalAmount}</span>
+              <span>{formatCurrency(totalAmount, currency)}</span>
             </div>
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>Frais de traitement (2%)</span>
-              <span>{currency} {(totalAmount * 0.02).toFixed(2)}</span>
+              <span>{formatCurrency(totalAmount * 0.02, currency)}</span>
             </div>
             <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2">
               <span>Total</span>
-              <span>{currency} {(totalAmount * 1.02).toFixed(2)}</span>
+              <span>{formatCurrency(totalAmount * 1.02, currency)}</span>
             </div>
           </div>
 
@@ -571,7 +572,7 @@ export default function GuestCheckoutForm({
                 <span>Traitement en cours...</span>
               </>
             ) : (
-              <>Payer {currency} {(totalAmount * 1.02).toFixed(2)}</>
+              <>Payer {formatCurrency(totalAmount * 1.02, currency)}</>
             )}
           </button>
         </form>

@@ -4,6 +4,7 @@ import { CreditCard, AlertCircle, Loader, Check } from 'lucide-react';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { orderService } from '../../services/orderService';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../../utils/formatters';
 
 interface StripePaymentFormProps {
   xofAmountMinor: number;
@@ -228,14 +229,7 @@ export default function StripePaymentForm({
     }
   };
 
-  const formatXOFAmount = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'XOF',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatXOFAmount = (amount: number) => formatCurrency(amount, 'XOF');
 
   const formatUSDAmount = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -255,11 +249,11 @@ export default function StripePaymentForm({
             <>
               <div className="flex justify-between">
                 <span className="text-gray-600">Sous-total :</span>
-                <span className="font-medium">{currency} {subtotal.toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Frais de service :</span>
-                <span className="font-medium">{currency} {serviceFees.toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(serviceFees, currency)}</span>
               </div>
               <div className="border-t border-blue-200 pt-2 mt-2">
                 <div className="flex justify-between">

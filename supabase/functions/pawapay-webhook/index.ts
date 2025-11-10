@@ -354,6 +354,7 @@ async function handleSuccessfulPayment(
       .from("orders")
       .update({
         status: "COMPLETED",
+        visible_in_history: true,
         updated_at: new Date().toISOString()
       })
       .eq("id", orderId);
@@ -403,7 +404,8 @@ async function handleFailedPayment(
     await supabase
       .from("orders")
       .update({
-        status: "FAILED",
+        status: "CANCELLED",
+        visible_in_history: false,
         updated_at: new Date().toISOString()
       })
       .eq("id", orderId);

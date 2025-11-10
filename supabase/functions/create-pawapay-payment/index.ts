@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
     } else {
       // Already has country code, but ensure no extra leading zeros after 226
       const afterCountryCode = cleanedPhone.substring(3);
-      cleanedPhone = '226' + afterCountryCode.replace(/^0+/, '');
+      cleanedPhone = '226' + afterCountryCode;
     }
     
     const formattedPhone = cleanedPhone;

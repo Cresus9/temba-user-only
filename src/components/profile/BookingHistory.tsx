@@ -90,6 +90,7 @@ export default function BookingHistory() {
           )
         `)
         .eq('user_id', user.id)
+        .eq('visible_in_history', true)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -267,12 +268,14 @@ export default function BookingHistory() {
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       booking.status === 'COMPLETED' 
                         ? 'bg-green-100 text-green-800'
-                      : booking.status === 'PENDING'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
+                      : booking.status === 'AWAITING_PAYMENT'
+                        ? 'bg-yellow-100 text-yellow-800'
+                      : booking.status === 'CANCELLED'
+                        ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-200 text-gray-700'
+                    }`}>
                     {booking.status === 'COMPLETED' ? 'Terminée' : 
-                     booking.status === 'PENDING' ? 'En attente' : 'Annulée'}
+                     booking.status === 'AWAITING_PAYMENT' ? 'En attente' : 'Annulée'}
                     </span>
                     <span className="text-xs text-gray-400 group-hover:text-indigo-500 transition-colors">
                       Cliquer pour voir les détails

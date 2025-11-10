@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import EnhancedFestivalTicket from './EnhancedFestivalTicket';
+import { formatCurrency } from '../../utils/formatters';
 
 interface SentTicket {
   id: string;
@@ -301,11 +302,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                   <div className="text-sm text-gray-500">Type de billet</div>
                   <div className="font-semibold text-gray-900">{ticket.ticket.ticket_type.name}</div>
                   <div className="text-sm text-gray-600">
-                    {new Intl.NumberFormat('fr-FR', {
-                      style: 'currency',
-                      currency: 'XOF',
-                      minimumFractionDigits: 0
-                    }).format(ticket.ticket.ticket_type.price)}
+                    {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
                   </div>
                 </div>
                 
@@ -407,11 +404,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                       <span className="font-medium">{selectedTicket.ticket.ticket_type.name}</span>
                       <span className="font-semibold text-gray-900">
-                        {new Intl.NumberFormat('fr-FR', {
-                          style: 'currency',
-                          currency: 'XOF',
-                          minimumFractionDigits: 0
-                        }).format(selectedTicket.ticket.ticket_type.price)}
+                        {formatCurrency(selectedTicket.ticket.ticket_type.price, 'XOF')}
                       </span>
                     </div>
                   </div>
