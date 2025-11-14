@@ -80,14 +80,14 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
             id,
             qr_code,
             status,
-            event:events!inner (
+            event:events (
               title,
               date,
               time,
               location,
               image_url
             ),
-            ticket_type:ticket_types!inner (
+            ticket_type:ticket_types (
               name,
               price
             )
@@ -230,11 +230,11 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
           >
             <div className="flex flex-col lg:flex-row lg:items-center gap-4">
               {/* Event Image */}
-              {ticket.ticket.event.image_url && (
+              {ticket.ticket?.event?.image_url && (
                 <div className="w-full lg:w-32 h-32 lg:h-24 rounded-lg overflow-hidden flex-shrink-0">
                   <img
                     src={ticket.ticket.event.image_url}
-                    alt={ticket.ticket.event.title}
+                    alt={ticket.ticket.event?.title || 'Événement'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                 </div>
@@ -244,30 +244,32 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                    {ticket.ticket.event.title}
+                    {ticket.ticket?.event?.title || 'Événement introuvable'}
                   </h3>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
                     {getStatusText(ticket.status)}
                   </span>
                 </div>
                 
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{formatDate(ticket.ticket.event.date)}</span>
+                {ticket.ticket?.event && (
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{formatDate(ticket.ticket.event.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{ticket.ticket.event.time}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{ticket.ticket.event.time}</span>
+                    
+                    <div className="flex items-start gap-1">
+                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{ticket.ticket.event.location}</span>
                     </div>
                   </div>
-                  
-                  <div className="flex items-start gap-1">
-                    <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span className="line-clamp-2">{ticket.ticket.event.location}</span>
-                  </div>
-                </div>
+                )}
 
                 {/* Transfer Info */}
                 <div className="mt-3 flex items-center gap-4 text-sm">
@@ -297,26 +299,28 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
               </div>
 
               {/* Ticket Type & Actions */}
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:items-end">
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">Type de billet</div>
-                  <div className="font-semibold text-gray-900">{ticket.ticket.ticket_type.name}</div>
-                  <div className="text-sm text-gray-600">
-                    {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
+              {ticket.ticket?.ticket_type && (
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:items-end">
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Type de billet</div>
+                    <div className="font-semibold text-gray-900">{ticket.ticket.ticket_type.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
+                    </div>
                   </div>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTicketClick(ticket);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Voir le billet
+                  </button>
                 </div>
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTicketClick(ticket);
-                  }}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                >
-                  <Eye className="h-4 w-4" />
-                  Voir le billet
-                </button>
-              </div>
+              )}
             </div>
           </div>
         ))}
@@ -390,25 +394,27 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                 </div>
 
                 {/* Event Info */}
-                <div className="bg-white rounded-lg p-6 mb-6 text-left">
-                  <h5 className="font-semibold text-gray-900 mb-3">{selectedTicket.ticket.event.title}</h5>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>{formatDate(selectedTicket.ticket.event.date)} à {selectedTicket.ticket.event.time}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      <span>{selectedTicket.ticket.event.location}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <span className="font-medium">{selectedTicket.ticket.ticket_type.name}</span>
-                      <span className="font-semibold text-gray-900">
-                        {formatCurrency(selectedTicket.ticket.ticket_type.price, 'XOF')}
-                      </span>
+                {selectedTicket.ticket?.event && selectedTicket.ticket?.ticket_type && (
+                  <div className="bg-white rounded-lg p-6 mb-6 text-left">
+                    <h5 className="font-semibold text-gray-900 mb-3">{selectedTicket.ticket.event.title}</h5>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>{formatDate(selectedTicket.ticket.event.date)} à {selectedTicket.ticket.event.time}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                        <span>{selectedTicket.ticket.event.location}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                        <span className="font-medium">{selectedTicket.ticket.ticket_type.name}</span>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(selectedTicket.ticket.ticket_type.price, 'XOF')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Status */}
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">

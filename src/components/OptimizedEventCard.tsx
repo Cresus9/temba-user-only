@@ -124,8 +124,8 @@ export default function OptimizedEventCard({
             <span className="truncate">{event.location}</span>
           </div>
 
-          {/* Ticket availability */}
-          {event.capacity && event.tickets_sold !== undefined && (
+          {/* Ticket availability - Only show if 80%+ sold */}
+          {event.capacity && event.tickets_sold !== undefined && (event.tickets_sold / event.capacity) >= 0.8 && (
             <div className="flex items-center">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z" />

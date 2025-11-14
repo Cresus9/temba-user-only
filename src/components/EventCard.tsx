@@ -110,24 +110,24 @@ const EventCard = memo(({
             </div>
           </div>
 
-          {/* Availability Indicator */}
-          <div className="mb-2 flex-shrink-0">
-            <div className="flex items-center justify-between text-xs mb-0.5">
-              <span className="text-gray-600 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {tickets_sold} / {capacity}
-              </span>
-              {availabilityPercentage >= 80 && (
+          {/* Availability Indicator - Only show if 80%+ sold */}
+          {availabilityPercentage >= 80 && (
+            <div className="mb-2 flex-shrink-0">
+              <div className="flex items-center justify-between text-xs mb-0.5">
+                <span className="text-gray-600 flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {tickets_sold} / {capacity}
+                </span>
                 <span className="text-red-600 font-medium text-xs">Vente rapide</span>
-              )}
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 transition-all duration-300"
+                  style={{ width: `${Math.min(availabilityPercentage, 100)}%` }}
+                />
+              </div>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-indigo-600 transition-all duration-300"
-                style={{ width: `${Math.min(availabilityPercentage, 100)}%` }}
-              />
-            </div>
-          </div>
+          )}
 
           {/* Call to Action */}
           <footer className="mt-auto flex-shrink-0">
