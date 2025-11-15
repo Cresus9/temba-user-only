@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // App Store Icon Component
 const AppStoreIcon = ({ className }: { className?: string }) => (
@@ -32,8 +33,10 @@ export default function AppDownload() {
   }, []);
 
   const handleAppStoreDownload = () => {
-    // TODO: Replace with actual App Store link
-    window.open('https://apps.apple.com', '_blank');
+    toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
+      icon: '🍎',
+      duration: 4000,
+    });
   };
 
   const handleGooglePlayDownload = () => {

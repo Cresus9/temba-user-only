@@ -1,5 +1,6 @@
 import React from 'react';
 import { Smartphone, Download, Star } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface InlineAppPromoProps {
   className?: string;
@@ -11,8 +12,10 @@ export default function InlineAppPromo({ className = "" }: InlineAppPromoProps) 
   };
 
   const handleDownloadiOS = () => {
-    // TODO: Replace with actual App Store link when available
-    window.open('https://apps.apple.com', '_blank');
+    toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
+      icon: '🍎',
+      duration: 4000,
+    });
   };
 
   return (

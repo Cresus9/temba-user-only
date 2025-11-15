@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AppBanner() {
   const [isVisible, setIsVisible] = useState(false);
@@ -40,8 +41,10 @@ export default function AppBanner() {
     if (/android/i.test(userAgent)) {
       window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-      // TODO: Replace with actual App Store link when available
-      window.open('https://apps.apple.com', '_blank');
+      toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
+        icon: '🍎',
+        duration: 4000,
+      });
     } else {
       // Default to Google Play
       window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');

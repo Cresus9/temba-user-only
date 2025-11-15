@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AppDownloadReminder() {
   const [isVisible, setIsVisible] = useState(false);
@@ -56,8 +57,10 @@ export default function AppDownloadReminder() {
   };
 
   const handleDownloadiOS = () => {
-    // TODO: Replace with actual App Store link when available
-    window.open('https://apps.apple.com', '_blank');
+    toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
+      icon: '🍎',
+      duration: 4000,
+    });
     handleDismiss();
   };
 
