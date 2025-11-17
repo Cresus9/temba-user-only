@@ -60,7 +60,8 @@ export default function MyTickets() {
       }
 
       // Step 1: Get all valid tickets owned by the user
-      const { data: allTickets, error: ticketsError } = await supabase
+      // First, let's get all tickets without the event status filter to debug
+      const { data: allTicketsRaw, error: rawError } = await supabase
         .from('tickets')
         .select(`
           id,
@@ -70,7 +71,8 @@ export default function MyTickets() {
           event_id,
           ticket_type_id,
           order_id,
-          event:events!inner (
+          created_at,
+          event:events (
             id,
             title,
             date,
@@ -80,28 +82,72 @@ export default function MyTickets() {
             image_url,
             status
           ),
-          ticket_type:ticket_types!inner (
+          ticket_type:ticket_types (
             id,
             name,
             price
           ),
           order:orders (
             id,
-            created_at
+            created_at,
+            status,
+            payment_method,
+            total
           )
         `)
         .eq('user_id', user.id)
-        .eq('status', 'VALID')
+        .eq('status', 'VALID')  // All tickets should use VALID status for consistency
         .is('scanned_at', null)
-        .eq('event.status', 'PUBLISHED')
         .order('created_at', { ascending: false });
 
-      if (ticketsError) {
-        console.error('Error fetching tickets:', ticketsError);
-        throw ticketsError;
+      if (rawError) {
+        console.error('Error fetching tickets (raw):', rawError);
+        throw rawError;
       }
 
+      // Debug: Log all tickets to see what we're getting
+      console.log('All tickets for user:', {
+        total: allTicketsRaw?.length || 0,
+        tickets: allTicketsRaw?.map(t => ({
+          id: t.id,
+          event_id: t.event_id,
+          event_status: t.event?.status,
+          order_id: t.order_id,
+          order_status: t.order?.status,
+          payment_method: t.order?.payment_method
+        }))
+      });
+
+      // Filter out tickets where event is missing or not published
+      // But keep tickets even if event status is not PUBLISHED for free tickets
+      const allTickets = (allTicketsRaw || []).filter(ticket => {
+        // Must have event and ticket_type
+        if (!ticket.event || !ticket.ticket_type) {
+          console.warn('Ticket missing event or ticket_type:', ticket.id);
+          return false;
+        }
+        // Check if this is a free ticket (payment_method = 'FREE_TICKET' or total = 0)
+        const isFreeTicket = ticket.order?.payment_method === 'FREE_TICKET' || 
+                            ticket.order?.payment_method?.toUpperCase().includes('FREE') ||
+                            (ticket.order && !ticket.order.total); // total is 0 or null
+        
+        // For free tickets, show them regardless of event status
+        // For other tickets, only show if event is PUBLISHED
+        if (isFreeTicket) {
+          console.log('Free ticket found:', { ticket_id: ticket.id, payment_method: ticket.order?.payment_method });
+          return true; // Show free tickets regardless of event status
+        }
+        return ticket.event.status === 'PUBLISHED';
+      });
+
+      console.log('Filtered tickets:', {
+        total: allTickets.length,
+        free_tickets: allTickets.filter(t => t.order?.payment_method === 'FREE_TICKET').length,
+        published_tickets: allTickets.filter(t => t.event?.status === 'PUBLISHED').length
+      });
+
       if (!allTickets || allTickets.length === 0) {
+        console.log('No tickets found after filtering');
         setTickets([]);
         setLoading(false);
         return;
@@ -296,11 +342,22 @@ export default function MyTickets() {
                         <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       </div>
                       
-                      {/* Ticket Type Badge */}
-                      <div className="mb-3">
+                      {/* Ticket Type Badge and Free Ticket Badge */}
+                      <div className="mb-3 flex items-center gap-2 flex-wrap">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getTicketTypeColor(ticket.ticket_type.name)}`}>
                           {ticket.ticket_type.name}
                         </span>
+                        {/* Free Ticket Badge */}
+                        {(ticket.order?.payment_method === 'FREE_TICKET' || 
+                          ticket.order?.payment_method?.toUpperCase().includes('FREE') ||
+                          (ticket.order && (!ticket.order.total || ticket.order.total === 0))) && (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600">
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Billet Gratuit
+                          </span>
+                        )}
                       </div>
 
                       {/* Event Info */}
@@ -435,7 +492,20 @@ export default function MyTickets() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Détails du billet</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Détails du billet</h2>
+                  {/* Free Ticket Badge in Modal */}
+                  {(selectedTicket.order?.payment_method === 'FREE_TICKET' || 
+                    selectedTicket.order?.payment_method?.toUpperCase().includes('FREE') ||
+                    (selectedTicket.order && (!selectedTicket.order.total || selectedTicket.order.total === 0))) && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600">
+                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Billet Gratuit
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => setSelectedTicket(null)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -483,24 +553,42 @@ export default function MyTickets() {
                   Fermer
                 </button>
                 
-                {/* Transfer Button - Only show if ticket was purchased by user */}
-                {ticketOwnership.get(selectedTicket.id) && selectedTicket.status === 'VALID' && !selectedTicket.scanned_at && (
-                  <button
-                    onClick={() => {
-                      setTransferTicket({
-                        ticketId: selectedTicket.id,
-                        ticketTitle: selectedTicket.event.title,
-                        eventDate: selectedTicket.event.date,
-                        eventTime: selectedTicket.event.time,
-                        eventLocation: selectedTicket.event.location
-                      });
-                    }}
-                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-                  >
-                    <Send className="h-4 w-4" />
-                    Transférer le billet
-                  </button>
-                )}
+                {/* Transfer Button - Only show if ticket was purchased by user AND is not a free ticket */}
+                {(() => {
+                  const isFreeTicket = selectedTicket.order?.payment_method === 'FREE_TICKET' || 
+                                      selectedTicket.order?.payment_method?.toUpperCase().includes('FREE') ||
+                                      (selectedTicket.order && (!selectedTicket.order.total || selectedTicket.order.total === 0));
+                  
+                  const canTransfer = ticketOwnership.get(selectedTicket.id) && 
+                                     selectedTicket.status === 'VALID' && 
+                                     !selectedTicket.scanned_at &&
+                                     !isFreeTicket;
+                  
+                  return canTransfer ? (
+                    <button
+                      onClick={() => {
+                        setTransferTicket({
+                          ticketId: selectedTicket.id,
+                          ticketTitle: selectedTicket.event.title,
+                          eventDate: selectedTicket.event.date,
+                          eventTime: selectedTicket.event.time,
+                          eventLocation: selectedTicket.event.location
+                        });
+                      }}
+                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                    >
+                      <Send className="h-4 w-4" />
+                      Transférer le billet
+                    </button>
+                  ) : isFreeTicket ? (
+                    <div className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-500 rounded-lg font-medium cursor-not-allowed">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      Transfert non autorisé pour les billets gratuits
+                    </div>
+                  ) : null;
+                })()}
                 
                 <button
                   onClick={() => {

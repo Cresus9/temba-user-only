@@ -75,6 +75,7 @@ serve(async (req) => {
         id, 
         user_id, 
         event_id, 
+        order_id,
         status,
         event:events!inner (
           id,
@@ -124,6 +125,31 @@ serve(async (req) => {
     }
 
     const ticket = tickets[0] // Get the first (and should be only) ticket
+
+    // Check if ticket is a free ticket - prevent transfer
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('payment_method, total')
+      .eq('id', ticket.order_id)
+      .single()
+
+    if (orderError) {
+      console.error('Error fetching order:', orderError)
+    } else {
+      const isFreeTicket = order?.payment_method?.toUpperCase().includes('FREE') ||
+                          order?.total === 0 ||
+                          !order?.total
+
+      if (isFreeTicket) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Les billets gratuits ne peuvent pas être transférés' 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
     // Check if ticket is transferable - accept multiple valid statuses (case-insensitive)
     const validStatuses = ['valid', 'active', 'confirmed', 'issued', 'VALID', 'ACTIVE', 'CONFIRMED', 'ISSUED']
