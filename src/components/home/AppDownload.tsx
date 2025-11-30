@@ -33,10 +33,8 @@ export default function AppDownload() {
   }, []);
 
   const handleAppStoreDownload = () => {
-    toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
-      icon: '🍎',
-      duration: 4000,
-    });
+    // Official Temba app on Apple App Store
+    window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
   };
 
   const handleGooglePlayDownload = () => {

@@ -41,10 +41,8 @@ export default function AppBanner() {
     if (/android/i.test(userAgent)) {
       window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-      toast('📱 L\'application Temba sera bientôt disponible sur l\'App Store !', {
-        icon: '🍎',
-        duration: 4000,
-      });
+      // Official Temba app on Apple App Store
+      window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
     } else {
       // Default to Google Play
       window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
