@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Ticket, Phone } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Ticket, Phone, Loader } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { detectInputType, getPhoneInfo, isValidPhone } from '../utils/phoneValidation';
+import { detectInputType, getPhoneInfo, isValidPhone, normalizePhone } from '../utils/phoneValidation';
+import CountryCodeSelector from '../components/CountryCodeSelector';
 import toast from 'react-hot-toast';
 
+type LoginMethod = 'email' | 'phone';
+
 export default function Login() {
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('phone'); // Default to phone
+  const [countryCode, setCountryCode] = useState('+226'); // Default to Burkina Faso
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,15 +27,38 @@ export default function Login() {
   const from = state?.redirectTo || state?.from?.pathname || '/dashboard';
   const prefilledEmail = state?.email || '';
 
-  // Detect if input is email or phone
+  // Detect if input is email or phone (for validation)
   const inputType = detectInputType(emailOrPhone);
-  const isPhone = inputType === 'phone';
-  const isEmail = inputType === 'email';
+  const isPhone = loginMethod === 'phone' || inputType === 'phone';
+  const isEmail = loginMethod === 'email' || inputType === 'email';
 
-  // Set email from state if provided
+  // Set email from state if provided, or load remembered credentials
   React.useEffect(() => {
     if (prefilledEmail) {
       setEmailOrPhone(prefilledEmail);
+      // If email is prefilled, switch to email method
+      if (prefilledEmail.includes('@')) {
+        setLoginMethod('email');
+      }
+    } else {
+      // Check for remembered credentials
+      const rememberedEmail = localStorage.getItem('rememberedEmail');
+      const rememberedPhone = localStorage.getItem('rememberedPhone');
+      
+      if (rememberedEmail) {
+        setEmailOrPhone(rememberedEmail);
+        setLoginMethod('email');
+        setRememberMe(true);
+      } else if (rememberedPhone) {
+        // Extract country code and local number from remembered phone
+        const phoneInfo = getPhoneInfo(rememberedPhone);
+        if (phoneInfo.countryCode && phoneInfo.localNumber) {
+          setCountryCode(`+${phoneInfo.countryCode}`);
+          setEmailOrPhone(phoneInfo.localNumber);
+          setLoginMethod('phone');
+          setRememberMe(true);
+        }
+      }
     }
   }, [prefilledEmail]);
 
@@ -49,21 +77,43 @@ export default function Login() {
       return;
     }
 
-    // Validate input type
-    if (inputType === 'unknown') {
-      setError('Veuillez entrer une adresse email valide ou un numéro de téléphone');
-      return;
+    // Validate based on selected method
+    if (loginMethod === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailOrPhone)) {
+        setError('Veuillez entrer une adresse email valide');
+        return;
+      }
+    } else if (loginMethod === 'phone') {
+      // Combine country code with local number
+      const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
+      if (!isValidPhone(fullPhone)) {
+        setError('Format de numéro invalide. Vérifiez le numéro saisi');
+        return;
+      }
     }
 
     setIsLoading(true);
 
     try {
-      await login(emailOrPhone, password);
+      // For phone login, combine country code with local number
+      const loginValue = loginMethod === 'phone' 
+        ? `${countryCode}${emailOrPhone.replace(/\s/g, '')}`
+        : emailOrPhone;
       
-      if (rememberMe && isEmail) {
-        localStorage.setItem('rememberedEmail', emailOrPhone);
+      await login(loginValue, password);
+      
+      if (rememberMe) {
+        if (loginMethod === 'email') {
+          localStorage.setItem('rememberedEmail', emailOrPhone);
+        } else {
+          // Store phone with country code
+          const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
+          localStorage.setItem('rememberedPhone', fullPhone);
+        }
       } else {
         localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPhone');
       }
 
       // Navigate to the redirect path
@@ -105,47 +155,134 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Method Selection */}
             <div>
-              <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700 mb-2">
-                Email ou numéro de téléphone
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Méthode de connexion
               </label>
-              <div className="relative">
-                {isPhone ? (
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                ) : (
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                )}
-                <input
-                  id="emailOrPhone"
-                  type="text"
-                  value={emailOrPhone}
-                  onChange={(e) => setEmailOrPhone(e.target.value)}
-                  className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder={isPhone ? "+XXX XXXX XXXX" : "nom@exemple.com"}
-                  autoComplete={isEmail ? "email" : "tel"}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMethod('phone');
+                    setEmailOrPhone('');
+                    setCountryCode('+226');
+                    setError('');
+                  }}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                    loginMethod === 'phone'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Phone className="h-5 w-5" />
+                  <span className="font-medium">Téléphone</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMethod('email');
+                    setEmailOrPhone('');
+                    setError('');
+                  }}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                    loginMethod === 'email'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Mail className="h-5 w-5" />
+                  <span className="font-medium">Email</span>
+                </button>
               </div>
-              {emailOrPhone && (
-                <div className="mt-1">
-                  {isPhone && isValidPhone(emailOrPhone) ? (
-                    (() => {
-                      const phoneInfo = getPhoneInfo(emailOrPhone);
-                      return (
-                        <p className="text-xs text-green-600">
-                          📱 {phoneInfo.countryName || 'Téléphone'} ({phoneInfo.normalized})
+
+              {/* Email or Phone Input */}
+              <div>
+                <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700 mb-2">
+                  {loginMethod === 'email' ? 'Adresse email' : 'Numéro de téléphone'}
+                </label>
+                {loginMethod === 'phone' ? (
+                  <div className="flex">
+                    <CountryCodeSelector
+                      value={countryCode}
+                      onChange={(code) => {
+                        setCountryCode(code);
+                        setError('');
+                      }}
+                    />
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input
+                        id="emailOrPhone"
+                        type="tel"
+                        value={emailOrPhone}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^\d\s]/g, '');
+                          setEmailOrPhone(value);
+                          setError('');
+                        }}
+                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="70 12 34 56"
+                        autoComplete="tel"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      id="emailOrPhone"
+                      type="email"
+                      value={emailOrPhone}
+                      onChange={(e) => {
+                        setEmailOrPhone(e.target.value);
+                        setError('');
+                      }}
+                      className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="nom@exemple.com"
+                      autoComplete="email"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+                {emailOrPhone && (
+                  <div className="mt-2">
+                    {loginMethod === 'phone' ? (
+                      (() => {
+                        const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
+                        const isValid = isValidPhone(fullPhone);
+                        const info = isValid ? getPhoneInfo(fullPhone) : null;
+                        return isValid && info ? (
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <span>✓</span>
+                            <span>Numéro valide {info.countryName && `(${info.countryName})`}</span>
+                          </p>
+                        ) : emailOrPhone.length > 0 ? (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>Numéro invalide. Vérifiez le numéro saisi</span>
+                          </p>
+                        ) : null;
+                      })()
+                    ) : loginMethod === 'email' ? (
+                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone) ? (
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <span>✓</span>
+                          <span>Email valide</span>
                         </p>
-                      );
-                    })()
-                  ) : isPhone ? (
-                    <p className="text-xs text-red-600">⚠️ Format de téléphone invalide</p>
-                  ) : isEmail ? (
-                    <p className="text-xs text-gray-500">📧 Connexion par email</p>
-                  ) : inputType === 'unknown' ? (
-                    <p className="text-xs text-red-600">⚠️ Format invalide</p>
-                  ) : null}
-                </div>
-              )}
+                      ) : (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <span>⚠️</span>
+                          <span>Format d'email invalide</span>
+                        </p>
+                      )
+                    ) : null}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -198,10 +335,7 @@ export default function Login() {
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader className="h-5 w-5 animate-spin" />
                   <span>Connexion en cours...</span>
                 </>
               ) : (

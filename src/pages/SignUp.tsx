@@ -4,12 +4,17 @@ import { Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader, Phone } from 'lucid
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { isValidPhone, normalizePhone, getPhoneInfo, detectInputType } from '../utils/phoneValidation';
+import CountryCodeSelector from '../components/CountryCodeSelector';
 import toast from 'react-hot-toast';
 
 type SignupStep = 'form' | 'verify';
 
+type SignupMethod = 'email' | 'phone';
+
 export default function SignUp() {
   const [step, setStep] = useState<SignupStep>('form');
+  const [signupMethod, setSignupMethod] = useState<SignupMethod>('phone'); // Default to phone
+  const [countryCode, setCountryCode] = useState('+226'); // Default to Burkina Faso
   const [formData, setFormData] = useState({
     name: '',
     emailOrPhone: '',
@@ -26,11 +31,10 @@ export default function SignUp() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  // Detect input type
+  // Detect input type (for validation)
   const inputType = detectInputType(formData.emailOrPhone);
-  const isPhone = inputType === 'phone';
-  const isEmail = inputType === 'email';
-  const phoneInfo = isPhone && isValidPhone(formData.emailOrPhone) ? getPhoneInfo(formData.emailOrPhone) : null;
+  const isPhone = signupMethod === 'phone' || inputType === 'phone';
+  const isEmail = signupMethod === 'email' || inputType === 'email';
 
   // Handle sending verification code (for phone signup)
   const handleSendVerificationCode = async () => {
@@ -43,13 +47,30 @@ export default function SignUp() {
     }
 
     if (!formData.emailOrPhone.trim()) {
-      setError('Veuillez entrer votre email ou numéro de téléphone');
+      setError(signupMethod === 'email' 
+        ? 'Veuillez entrer votre adresse email' 
+        : 'Veuillez entrer votre numéro de téléphone');
       return;
     }
 
-    if (inputType === 'unknown') {
-      setError('Veuillez entrer une adresse email valide ou un numéro de téléphone');
-      return;
+    // Validate based on selected method
+    if (signupMethod === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.emailOrPhone)) {
+        setError('Veuillez entrer une adresse email valide');
+        return;
+      }
+    } else if (signupMethod === 'phone') {
+      // Combine country code with local number
+      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      if (!formData.emailOrPhone.trim()) {
+        setError('Veuillez entrer votre numéro de téléphone');
+        return;
+      }
+      if (!isValidPhone(fullPhone)) {
+        setError('Format de numéro invalide. Vérifiez le numéro saisi');
+        return;
+      }
     }
 
     if (!formData.password) {
@@ -67,22 +88,19 @@ export default function SignUp() {
       return;
     }
 
-    // If email, proceed directly to signup
-    if (isEmail) {
+    // Handle based on selected method
+    if (signupMethod === 'email') {
       await handleEmailSignup();
       return;
     }
 
-    // If phone, send OTP
-    if (isPhone) {
-      if (!isValidPhone(formData.emailOrPhone)) {
-        setError('Format de numéro invalide. Utilisez le format international: +[code pays][numéro]');
-        return;
-      }
-
+    // Phone signup - send OTP
+    if (signupMethod === 'phone') {
+      // Combine country code with local number
+      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
       setIsSendingOTP(true);
       try {
-        await authService.sendOTP(formData.emailOrPhone);
+        await authService.sendOTP(fullPhone);
         setStep('verify');
         toast.success('Code de vérification envoyé par SMS !');
       } catch (error: any) {
@@ -128,8 +146,11 @@ export default function SignUp() {
 
     setIsLoading(true);
     try {
+      // Combine country code with local number
+      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      
       // Step 1: Verify OTP
-      const isValid = await authService.verifyOTP(formData.emailOrPhone, otpCode);
+      const isValid = await authService.verifyOTP(fullPhone, otpCode);
       if (!isValid) {
         setError('Code invalide. Veuillez réessayer.');
         toast.error('Code invalide');
@@ -140,7 +161,7 @@ export default function SignUp() {
       // Step 2: Create account
       await authService.registerWithPhone({
         name: formData.name,
-        phone: formData.emailOrPhone,
+        phone: fullPhone,
         password: formData.password
       });
       
@@ -160,7 +181,9 @@ export default function SignUp() {
     setError('');
     setIsSendingOTP(true);
     try {
-      await authService.sendOTP(formData.emailOrPhone);
+      // Combine country code with local number
+      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      await authService.sendOTP(fullPhone);
       toast.success('Code renvoyé avec succès !');
     } catch (error: any) {
       setError(error.message || 'Échec de l\'envoi du code');
@@ -191,7 +214,11 @@ export default function SignUp() {
               Vérifiez votre téléphone
             </h2>
             <p className="text-gray-600">
-              Entrez le code à 6 chiffres envoyé à {phoneInfo?.normalized || formData.emailOrPhone}
+              Entrez le code à 6 chiffres envoyé à {(() => {
+                const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+                const info = getPhoneInfo(fullPhone);
+                return info?.normalized || fullPhone;
+              })()}
             </p>
           </div>
 
@@ -292,11 +319,7 @@ export default function SignUp() {
         <div className="bg-white rounded-xl shadow-sm p-8">
           <form onSubmit={(e) => {
             e.preventDefault();
-            if (isEmail) {
-              handleEmailSignup();
-            } else {
-              handleSendVerificationCode();
-            }
+            handleSendVerificationCode();
           }} className="space-y-6">
             {/* Full Name */}
             <div>
@@ -310,58 +333,147 @@ export default function SignUp() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Thierry Yabre"
+                  placeholder="Kabore Jean"
                   required
                   disabled={isLoading}
                 />
               </div>
             </div>
 
-            {/* Email or Phone Number */}
+            {/* Signup Method Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email ou numéro de téléphone
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Méthode d'inscription
               </label>
-              <div className="relative">
-                {isPhone ? (
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                ) : (
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                )}
-                <input
-                  type="text"
-                  value={formData.emailOrPhone}
-                  onChange={(e) => {
-                    setFormData({ ...formData, emailOrPhone: e.target.value });
-                    setError(''); // Clear error when user types
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignupMethod('phone');
+                    setFormData({ ...formData, emailOrPhone: '' });
+                    setCountryCode('+226'); // Reset to Burkina Faso
+                    setError('');
                   }}
-                  className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder={isPhone ? "+XXX XXXX XXXX" : "nom@exemple.com"}
-                  autoComplete={isEmail ? "email" : "tel"}
-                  required
-                  disabled={isLoading}
-                />
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                    signupMethod === 'phone'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Phone className="h-5 w-5" />
+                  <span className="font-medium">Téléphone</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignupMethod('email');
+                    setFormData({ ...formData, emailOrPhone: '' });
+                    setCountryCode('+226'); // Reset to Burkina Faso
+                    setError('');
+                  }}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                    signupMethod === 'email'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Mail className="h-5 w-5" />
+                  <span className="font-medium">Email</span>
+                </button>
               </div>
-              {formData.emailOrPhone && (
-                <div className="mt-2">
-                  {isPhone && isValidPhone(formData.emailOrPhone) && phoneInfo ? (
-                    <p className="text-xs text-gray-600">
-                      📱 Numéro de téléphone détecté - Vérification par SMS requise
-                      {phoneInfo.countryName && (
-                        <span className="ml-1">({phoneInfo.countryName})</span>
-                      )}
-                    </p>
-                  ) : isPhone ? (
-                    <p className="text-xs text-red-600">
-                      Format invalide. Utilisez le format international: +[code pays][numéro]
-                    </p>
-                  ) : isEmail ? (
-                    <p className="text-xs text-gray-600">📧 Email détecté</p>
-                  ) : inputType === 'unknown' ? (
-                    <p className="text-xs text-red-600">⚠️ Format invalide</p>
-                  ) : null}
-                </div>
-              )}
+
+              {/* Email or Phone Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {signupMethod === 'email' ? 'Adresse email' : 'Numéro de téléphone'}
+                </label>
+                {signupMethod === 'phone' ? (
+                  <div className="flex">
+                    <CountryCodeSelector
+                      value={countryCode}
+                      onChange={(code) => {
+                        setCountryCode(code);
+                        setError('');
+                      }}
+                    />
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={formData.emailOrPhone}
+                        onChange={(e) => {
+                          // Only allow digits and spaces
+                          const value = e.target.value.replace(/[^\d\s]/g, '');
+                          setFormData({ ...formData, emailOrPhone: value });
+                          setError(''); // Clear error when user types
+                        }}
+                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="70 12 34 56"
+                        autoComplete="tel"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="email"
+                      value={formData.emailOrPhone}
+                      onChange={(e) => {
+                        setFormData({ ...formData, emailOrPhone: e.target.value });
+                        setError(''); // Clear error when user types
+                      }}
+                      className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="nom@exemple.com"
+                      autoComplete="email"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+                {formData.emailOrPhone && (
+                  <div className="mt-2">
+                    {signupMethod === 'phone' ? (
+                      (() => {
+                        // Combine country code with local number
+                        const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+                        const isValid = isValidPhone(fullPhone);
+                        const info = isValid ? getPhoneInfo(fullPhone) : null;
+                        return isValid && info ? (
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <span>✓</span>
+                            <span>Numéro valide {info.countryName && `(${info.countryName})`} - Vous recevrez un code par SMS</span>
+                          </p>
+                        ) : formData.emailOrPhone.length > 0 ? (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>Numéro invalide. Vérifiez le numéro saisi</span>
+                          </p>
+                        ) : null;
+                      })()
+                    ) : signupMethod === 'email' ? (
+                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailOrPhone) ? (
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <span>✓</span>
+                          <span>Email valide</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <span>⚠️</span>
+                          <span>Format d'email invalide</span>
+                        </p>
+                      )
+                    ) : null}
+                  </div>
+                )}
+                {signupMethod === 'phone' && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    💡 Vous recevrez un code de vérification par SMS
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Password */}
@@ -434,7 +546,7 @@ export default function SignUp() {
                   </span>
                 </>
               ) : (
-                isPhone ? 'Envoyer le code de vérification' : 'Créer le compte'
+                signupMethod === 'phone' ? 'Envoyer le code de vérification' : 'Créer le compte'
               )}
             </button>
           </form>

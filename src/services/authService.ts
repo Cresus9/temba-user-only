@@ -341,6 +341,60 @@ class AuthService {
       throw new Error(error.message || 'Échec de la mise à jour du mot de passe');
     }
   }
+
+  /**
+   * Reset password using phone number and OTP verification
+   * This method calls an edge function that verifies OTP and updates the password
+   * @param phone - Phone number in E.164 format
+   * @param newPassword - New password to set
+   * @param otpCode - Optional OTP code (if not provided, assumes OTP was already verified)
+   */
+  async resetPasswordWithPhone(phone: string, newPassword: string, otpCode?: string) {
+    try {
+      if (!isValidPhone(phone)) {
+        throw new Error('Format de numéro de téléphone invalide');
+      }
+
+      // Validate password strength
+      const validation = validatePassword(newPassword);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+
+      const normalizedPhone = normalizePhone(phone);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/reset-password-phone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
+          phone: normalizedPhone,
+          newPassword: newPassword,
+          otpCode: otpCode
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to reset password' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to reset password`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Échec de la réinitialisation du mot de passe');
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('Erreur réinitialisation mot de passe par téléphone:', error);
+      throw new Error(error.message || 'Échec de la réinitialisation du mot de passe');
+    }
+  }
 }
 
 export const authService = new AuthService();
