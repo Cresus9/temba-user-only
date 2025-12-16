@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, User, Phone, CreditCard, Wallet, AlertCircle, Loader } from 'lucide-react';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
@@ -21,7 +21,6 @@ export default function GuestCheckoutForm({
   eventId,
   onSuccess
 }: GuestCheckoutFormProps) {
-  const otpExampleAmount = Math.max(1, Math.round(totalAmount || 0));
   // Function to clear cart for specific event
   const clearCartForEvent = (eventId: string) => {
     try {
@@ -73,6 +72,18 @@ export default function GuestCheckoutForm({
     };
     loadPrices();
   }, [tickets]);
+
+  // Calculate grand total for OTP USSD code display (after pricedSelections is declared)
+  // Use useMemo to recalculate when pricedSelections changes
+  const otpExampleAmount = useMemo(() => {
+    if (pricedSelections.length === 0) {
+      // Fallback to totalAmount with service fee if no priced selections yet
+      return Math.max(1, Math.round(totalAmount * 1.02));
+    }
+    const subtotal = pricedSelections.reduce((sum, it) => sum + it.price * it.quantity, 0);
+    const serviceFee = subtotal * 0.02; // 2% service fee
+    return Math.max(1, Math.round(subtotal + serviceFee));
+  }, [pricedSelections, totalAmount]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -307,12 +318,23 @@ export default function GuestCheckoutForm({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Code d’autorisation (OTP) <span className="text-red-500">*</span>
               </label>
-              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 space-y-2">
-                <p>Code d’autorisation (OTP) — requis pour valider le paiement</p>
-                <p>Vérifiez d’abord vos SMS : vous avez peut-être déjà reçu l’OTP automatiquement.</p>
-                <p>Pas de SMS ? Composez <code className="bg-blue-100 px-1 rounded font-mono">{'*144*4*6*{montant}#'}</code> sur votre téléphone Orange Money</p>
-                <p>{'(remplacez {montant} par le total à payer.'}</p>
-                <p>Entrez l’OTP ci-dessous pour continuer.</p>
+              <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg space-y-3">
+                <p className="text-sm font-medium text-blue-900">
+                  Code d'autorisation (OTP) requis pour valider le paiement
+                </p>
+                <div className="bg-white p-3 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-800 mb-2 font-medium">
+                    Composez ce code sur votre téléphone Orange Money :
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-lg font-bold text-blue-900 bg-blue-100 px-3 py-2 rounded font-mono tracking-wider text-center">
+                      *144*4*6*{otpExampleAmount}#
+                    </code>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Entrez le code OTP reçu par SMS ci-dessous
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <input

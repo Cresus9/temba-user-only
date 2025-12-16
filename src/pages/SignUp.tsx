@@ -11,6 +11,10 @@ type SignupStep = 'form' | 'verify';
 
 type SignupMethod = 'email' | 'phone';
 
+// TEMPORARY: Disable OTP verification for phone signup while Twilio is being verified
+// Set to false to require OTP verification again once Twilio verification is complete
+const REQUIRE_OTP_FOR_PHONE_SIGNUP = false;
+
 export default function SignUp() {
   const [step, setStep] = useState<SignupStep>('form');
   const [signupMethod, setSignupMethod] = useState<SignupMethod>('phone'); // Default to phone
@@ -94,10 +98,35 @@ export default function SignUp() {
       return;
     }
 
-    // Phone signup - send OTP
+    // Phone signup - send OTP or create account directly
     if (signupMethod === 'phone') {
       // Combine country code with local number
       const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      
+      // TEMPORARY: Skip OTP verification if disabled
+      if (!REQUIRE_OTP_FOR_PHONE_SIGNUP) {
+        setIsLoading(true);
+        try {
+          // Create account directly without OTP verification
+          await authService.register({
+            name: formData.name,
+            phone: fullPhone,
+            password: formData.password
+          });
+          
+          toast.success('Compte créé avec succès !');
+          navigate('/');
+        } catch (error: any) {
+          const message = error.message || 'Échec de la création du compte';
+          setError(message);
+          toast.error(message);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+      
+      // Normal OTP flow (when REQUIRE_OTP_FOR_PHONE_SIGNUP is true)
       setIsSendingOTP(true);
       try {
         await authService.sendOTP(fullPhone);
@@ -444,7 +473,7 @@ export default function SignUp() {
                         return isValid && info ? (
                           <p className="text-xs text-green-600 flex items-center gap-1">
                             <span>✓</span>
-                            <span>Numéro valide {info.countryName && `(${info.countryName})`} - Vous recevrez un code par SMS</span>
+                            <span>Numéro valide {info.countryName && `(${info.countryName})`} {REQUIRE_OTP_FOR_PHONE_SIGNUP ? '- Vous recevrez un code par SMS' : ''}</span>
                           </p>
                         ) : formData.emailOrPhone.length > 0 ? (
                           <p className="text-xs text-red-600 flex items-center gap-1">
@@ -546,7 +575,9 @@ export default function SignUp() {
                   </span>
                 </>
               ) : (
-                signupMethod === 'phone' ? 'Envoyer le code de vérification' : 'Créer le compte'
+                signupMethod === 'phone' 
+                  ? (REQUIRE_OTP_FOR_PHONE_SIGNUP ? 'Envoyer le code de vérification' : 'Créer le compte')
+                  : 'Créer le compte'
               )}
             </button>
           </form>

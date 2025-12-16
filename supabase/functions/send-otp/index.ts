@@ -188,7 +188,10 @@ serve(async (req) => {
     console.log('Sending SMS via Twilio:', {
       to: normalizedPhone,
       from: twilioPhoneNumber,
-      accountSid: twilioAccountSid ? 'Present' : 'Missing'
+      accountSid: twilioAccountSid ? 'Present' : 'Missing',
+      phoneLength: normalizedPhone.length,
+      countryCode: normalizedPhone.substring(0, 4),
+      timestamp: new Date().toISOString()
     })
 
     const twilioResponse = await fetch(twilioUrl, {
@@ -232,8 +235,23 @@ serve(async (req) => {
         error: errorText,
         phone: normalizedPhone,
         phoneLength: normalizedPhone.length,
-        phoneCountryCode: normalizedPhone.substring(0, 4)
+        phoneCountryCode: normalizedPhone.substring(0, 4),
+        timestamp: new Date().toISOString(),
+        requestId: req.headers.get('x-request-id') || 'unknown'
       })
+      
+      // Log detailed error for troubleshooting
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error('Twilio Error Details:', {
+          code: errorData.code,
+          message: errorData.message,
+          moreInfo: errorData.more_info,
+          status: errorData.status
+        });
+      } catch (e) {
+        // Error text is not JSON, log as-is
+      }
       
       return new Response(
         JSON.stringify({ 
