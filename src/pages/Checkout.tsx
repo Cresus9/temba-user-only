@@ -14,6 +14,7 @@ interface CheckoutState {
   };
   currency: string;
   eventId: string;
+  eventDateId?: string | null; // Optional: for multi-date events
 }
 
 export default function Checkout() {
@@ -69,6 +70,7 @@ export default function Checkout() {
           totalAmount={state.totals.total}
           currency={state.currency}
           eventId={state.eventId}
+          eventDateId={state.eventDateId}
           onSuccess={handleGuestSuccess}
         />
       ) : (
@@ -77,6 +79,7 @@ export default function Checkout() {
           totalAmount={state.totals.total}
           currency={state.currency}
           eventId={state.eventId}
+          eventDateId={state.eventDateId}
           onSuccess={handleAuthenticatedSuccess}
         />
       )}

@@ -7,6 +7,10 @@ import { Event } from '../types/event';
 import toast from 'react-hot-toast';
 import { CategoryService } from '../services/categoryService';
 import PageSEO from '../components/SEO/PageSEO';
+import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
+import TrendingSearches from '../components/events/TrendingSearches';
+import FeaturedEvents from '../components/events/FeaturedEvents';
+import UpcomingEvents from '../components/events/UpcomingEvents';
 
 const initialFilters = {
   search: '',
@@ -17,8 +21,7 @@ const initialFilters = {
 };
 
 export default function Events() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Removed old events state - now using CategoryEventsDisplay
   const [filters, setFilters] = useState(initialFilters);
   const [locations, setLocations] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -38,11 +41,7 @@ export default function Events() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
-  // Fetch events when filters change
-  useEffect(() => {
-    fetchEvents();
-  }, [debouncedSearch, filters.category, filters.location, filters.date]);
-
+  // Removed old fetchEvents - now handled by CategoryEventsDisplay
   const fetchLocationsAndCategories = async () => {
     try {
       // Get unique locations
@@ -63,47 +62,7 @@ export default function Events() {
     }
   };
 
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
-        .eq('status', 'PUBLISHED');
-
-      if (debouncedSearch) {
-        query = query.or(`title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`);
-      }
-      if (filters.location) {
-        query = query.ilike('location', `%${filters.location}%`);
-      }
-      if (filters.date) {
-        query = query.eq('date', filters.date);
-      }
-
-      const { data, error } = await query.order('date', { ascending: true });
-
-      if (error) throw error;
-      
-      // Filter by category client-side if category filter is applied
-      let filteredData = data || [];
-      if (filters.category) {
-        filteredData = filteredData.filter(event => 
-          event.categories && event.categories.includes(filters.category)
-        );
-      }
-      
-      setEvents(filteredData);
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-      toast.error('Échec du chargement des événements');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Removed old fetchEvents function - events are now fetched by CategoryEventsDisplay
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters(prev => ({ ...prev, search: e.target.value }));
@@ -113,20 +72,10 @@ export default function Events() {
     setFilters(initialFilters);
   };
 
+  // Simplified structured data - will be updated when we have events from components
   const itemListStructuredData = useMemo(() => {
-    if (!events.length) return undefined;
-
-    return {
-      '@context': 'https://schema.org',
-      '@type': 'ItemList',
-      itemListElement: events.slice(0, 12).map((event, index) => ({
-        '@type': 'ListItem',
-        position: index + 1,
-        url: `https://tembas.com/events/${event.id}`,
-        name: event.title,
-      })),
-    };
-  }, [events]);
+    return undefined; // Will be populated by CategoryEventsDisplay if needed
+  }, []);
 
   const breadcrumbSchema = useMemo(
     () => ({
@@ -250,34 +199,19 @@ export default function Events() {
         </div>
       </div>
 
-      {/* Events Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-xl aspect-[16/9] mb-4" />
-              <div className="space-y-3">
-                <div className="h-6 bg-gray-200 rounded w-3/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : events.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {events.map((event) => (
-            <EventCard key={event.id} {...event} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Aucun événement trouvé
-          </h3>
-          <p className="text-gray-600">
-            Essayez d'ajuster vos filtres ou termes de recherche
-          </p>
-        </div>
+      {/* Featured Events Carousel - Mobile Style */}
+      <FeaturedEvents />
+      
+      {/* Category-Based Sections - Display below Featured Events */}
+      <CategoryEventsDisplay
+        searchQuery={debouncedSearch}
+        locationFilter={filters.location}
+        dateFilter={filters.date}
+      />
+      
+      {/* Upcoming Events List - Mobile Style (if no filters) */}
+      {!debouncedSearch && !filters.location && !filters.date && !filters.category && (
+        <UpcomingEvents limit={6} />
       )}
     </div>
   );

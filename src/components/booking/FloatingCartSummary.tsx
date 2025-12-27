@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronUp, ChevronDown, X, Ticket } from 'lucide-react';
+import { ShoppingCart, ChevronUp, ChevronDown, X, Ticket, Calendar } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { TicketType } from '../../types/event';
 import { useFeeCalculation } from '../../hooks/useFeeCalculation';
@@ -9,6 +9,8 @@ interface FloatingCartSummaryProps {
   ticketTypes: TicketType[];
   currency: string;
   eventId: string;
+  selectedDateId?: string | null;
+  eventDates?: Array<{ id: string; date: string; start_time: string; end_time?: string | null }>;
   onQuantityChange: (ticketId: string, quantity: number) => void;
   onProceedToCheckout: () => void;
   onClearCart: () => void;
@@ -19,6 +21,8 @@ export default function FloatingCartSummary({
   ticketTypes,
   currency,
   eventId,
+  selectedDateId,
+  eventDates,
   onQuantityChange,
   onProceedToCheckout,
   onClearCart
@@ -135,6 +139,28 @@ export default function FloatingCartSummary({
           {/* Expanded details */}
           {isExpanded && (
             <div className="space-y-3 mb-4 border-t border-gray-100 pt-3">
+              {/* Selected Date Display */}
+              {selectedDateId && eventDates && eventDates.length > 0 && (
+                <div className="bg-indigo-50 rounded-lg p-3 mb-3 border border-indigo-200">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-indigo-600" />
+                    <span className="text-gray-700 font-medium">Date sélectionnée:</span>
+                    <span className="text-gray-900">
+                      {(() => {
+                        const selectedDate = eventDates.find(d => d.id === selectedDateId);
+                        if (!selectedDate) return '';
+                        const date = new Date(selectedDate.date);
+                        return date.toLocaleDateString('fr-FR', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short'
+                        }) + ` à ${selectedDate.start_time}`;
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               {selectedItems.map((ticket) => (
                 <div key={ticket.id} className="flex items-center justify-between text-sm">
                   <div className="flex-1">

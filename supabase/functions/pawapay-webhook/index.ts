@@ -473,6 +473,7 @@ async function generateTickets(supabase: any, orderId: string, payment: any) {
             event_id: order.event_id,
             ticket_type_id: ticketTypeId,
             order_id: orderId,
+            event_date_id: order.event_date_id || null,
             payment_id: payment.id,
             status: "VALID",
             qr_code: crypto.randomUUID(),

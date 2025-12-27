@@ -5,6 +5,7 @@ export interface CreateOrderInput {
   eventId: string;
   ticketQuantities: { [key: string]: number };
   paymentMethod: string;
+  eventDateId?: string | null;
   paymentDetails?: {
     provider?: string;
     phone?: string;
@@ -75,6 +76,7 @@ class OrderService {
             status: 'AWAITING_PAYMENT',
             payment_method: input.paymentMethod,
             ticket_quantities: input.ticketQuantities,
+            event_date_id: input.eventDateId || null,
             visible_in_history: false
           })
           .select()
@@ -123,6 +125,7 @@ class OrderService {
     eventId: string;
     ticketQuantities: { [key: string]: number };
     paymentMethod: string;
+    eventDateId?: string | null;
     paymentDetails?: {
       provider?: string;
       phone?: string;
@@ -163,7 +166,8 @@ class OrderService {
         p_event_id: input.eventId,
         p_payment_method: input.paymentMethod,
         p_ticket_quantities: input.ticketQuantities,
-        p_payment_details: input.paymentDetails || {}
+        p_payment_details: input.paymentDetails || {},
+        p_event_date_id: input.eventDateId || null
       });
 
       if (error) {

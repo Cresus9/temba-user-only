@@ -6,6 +6,7 @@ export interface CreatePawaPayPaymentRequest {
   buyer_email?: string;  // for guest checkout
   event_id: string;
   order_id?: string;  // order ID if already created
+  event_date_id?: string | null;  // NEW: For multi-date events
   ticket_lines: Array<{
     ticket_type_id: string;
     quantity: number;

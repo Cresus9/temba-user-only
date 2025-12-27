@@ -12,17 +12,21 @@ interface CreatePawaPayPaymentRequest {
   buyer_email?: string;  // for guest checkout
   event_id: string;
   order_id?: string;  // order ID if already created
-  ticket_lines: Array<{
+  event_date_id?: string | null;  // NEW: For multi-date events
+  ticket_lines?: Array<{
     ticket_type_id: string;
     quantity: number;
     price_major: number;  // major units (e.g., 5000 XOF)
     currency: string;
   }>;
+  ticket_quantities?: Record<string, number>;  // NEW: For order creation (e.g., { "ticket-type-id": 2 })
   amount_major: number;  // major units for UI
   currency: string;
   method: 'mobile_money';
   phone: string;  // required for mobile money
   provider: string;  // orange_money, mtn_mobile_money, moov_money, etc.
+  payment_method?: string;  // NEW: Required if create_order is true (e.g., 'MOBILE_MONEY')
+  create_order?: boolean;  // NEW: Create order if it doesn't exist (similar to Stripe)
   preAuthorisationCode?: string;  // OTP code for second attempt (optional)
   pre_authorisation_code?: string;  // Alternative field name
   otpCode?: string;  // Alternative field name
@@ -177,6 +181,81 @@ Deno.serve(async (req) => {
 
     console.log("Customer email resolved:", customerEmail);
 
+    // ═══════════════════════════════════════════════════════
+    // ✅ CREATE ORDER IF NEEDED (Similar to Stripe flow)
+    // ═══════════════════════════════════════════════════════
+    let finalOrderId = payload.order_id;
+    const createOrder = payload.create_order ?? false;
+    
+    if (createOrder && !finalOrderId && payload.ticket_quantities && payload.payment_method) {
+      console.log("🔵 Creating order via Edge Function (bypassing RLS)");
+      
+      // Convert ticket_lines to ticket_quantities if needed
+      let ticketQuantities = payload.ticket_quantities;
+      if (!ticketQuantities && payload.ticket_lines) {
+        ticketQuantities = {};
+        for (const line of payload.ticket_lines) {
+          ticketQuantities[line.ticket_type_id] = (ticketQuantities[line.ticket_type_id] || 0) + line.quantity;
+        }
+      }
+      
+      if (!ticketQuantities || Object.keys(ticketQuantities).length === 0) {
+        throw new Error("ticket_quantities is required when create_order is true");
+      }
+      
+      // Calculate total amount from ticket quantities
+      const { data: ticketTypes, error: ticketTypesError } = await supabase
+        .from('ticket_types')
+        .select('id, price')
+        .in('id', Object.keys(ticketQuantities));
+      
+      if (ticketTypesError) {
+        console.error("Failed to fetch ticket types:", ticketTypesError);
+        throw new Error(`Failed to fetch ticket types: ${ticketTypesError.message}`);
+      }
+      
+      if (!ticketTypes || ticketTypes.length === 0) {
+        throw new Error('Ticket types not found');
+      }
+
+      const totalAmount = ticketTypes.reduce((sum, ticket) => {
+        const quantity = ticketQuantities[ticket.id] || 0;
+        return sum + (ticket.price * quantity);
+      }, 0);
+
+      console.log("🔵 Order total calculated:", totalAmount);
+
+      // Create order using service role (bypasses RLS)
+      // IMPORTANT: Constraint requires either user_id OR guest_email, not both
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: payload.user_id || null,
+          event_id: payload.event_id,
+          total: totalAmount,
+          status: 'AWAITING_PAYMENT',
+          payment_method: payload.payment_method,
+          ticket_quantities: ticketQuantities,
+          event_date_id: payload.event_date_id || null,
+          // Only set guest_email if user_id is not provided (guest checkout)
+          guest_email: payload.user_id ? null : (payload.buyer_email || null),
+          visible_in_history: false
+        })
+        .select('id')
+        .single();
+
+      if (orderError) {
+        console.error("❌ Failed to create order:", orderError);
+        throw new Error(`Failed to create order: ${orderError.message}`);
+      }
+
+      finalOrderId = orderData.id;
+      console.log("✅ Order created successfully:", finalOrderId);
+    } else if (!finalOrderId) {
+      // If order_id is not provided and create_order is false, warn but continue
+      console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");
+    }
+
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();
     console.log("Creating payment record with token:", paymentToken);
@@ -186,7 +265,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: payload.user_id || null,
         event_id: payload.event_id,
-        order_id: payload.order_id || null,  // ✅ CRITICAL: Link payment to order
+        order_id: finalOrderId || null,  // ✅ CRITICAL: Link payment to order (created or provided)
         amount: payload.amount_major,
         currency: payload.currency,
         status: "pending",
@@ -207,8 +286,8 @@ Deno.serve(async (req) => {
     // Prepare pawaPay request
     const baseUrl = req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://temba.com";
     const callbackUrl = `${supabaseUrl}/functions/v1/pawapay-webhook`;
-    const returnUrl = payload.return_url || `${baseUrl}/payment/success?order_id=${payload.order_id || ''}&token=${paymentToken}`;
-    const cancelUrl = payload.cancel_url || `${baseUrl}/payment/cancelled?order_id=${payload.order_id || ''}`;
+    const returnUrl = payload.return_url || `${baseUrl}/payment/success?order_id=${finalOrderId || ''}&token=${paymentToken}`;
+    const cancelUrl = payload.cancel_url || `${baseUrl}/payment/cancelled?order_id=${finalOrderId || ''}`;
 
     // Map provider names to pawaPay format
     // Based on pawaPay API docs: https://docs.pawapay.io/v2/docs/providers
@@ -427,6 +506,8 @@ Deno.serve(async (req) => {
         JSON.stringify({
           payment_id: paymentRecord.id,
           deposit_id: transactionId,
+          order_id: finalOrderId,  // ✅ Include order_id (created or provided)
+          order_created: createOrder && !payload.order_id,  // ✅ Indicate if order was created
           status: responseData.status // ACCEPTED | REJECTED | DUPLICATE_IGNORED | COMPLETED (webhook/poll will finalize)
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -11,6 +11,8 @@ import AppDownload from '../components/home/AppDownload';
 import HowItWorks from '../components/home/HowItWorks';
 import { imagePreloader } from '../utils/imagePreloader';
 import PageSEO from '../components/SEO/PageSEO';
+import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
+import UpcomingEvents from '../components/events/UpcomingEvents';
 
 export default function Home() {
   const { t } = useTranslation();
@@ -100,7 +102,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Events Section */}
+      {/* Featured Events Section - Keep as is */}
       <section className="py-12 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
@@ -120,6 +122,23 @@ export default function Home() {
             </Link>
           </div>
           <EventCardList featured={true} limit={9} showNavigation={true} />
+        </div>
+      </section>
+
+      {/* New Mobile-Style Design - Category-Based Sections */}
+      <section className="py-12 md:py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Upcoming Events List - Mobile Style */}
+          <UpcomingEvents limit={6} />
+          
+          {/* Category-Based Sections - Mobile Style */}
+          <div className="mt-12">
+            <CategoryEventsDisplay
+              searchQuery=""
+              locationFilter=""
+              dateFilter=""
+            />
+          </div>
         </div>
       </section>
 

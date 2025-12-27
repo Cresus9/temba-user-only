@@ -15,6 +15,14 @@ interface EventLocation {
   longitude: number;
 }
 
+interface EventDate {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string | null;
+  status: string;
+}
+
 export default function EventDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -23,6 +31,7 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState<EventLocation | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [eventDates, setEventDates] = useState<EventDate[]>([]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -56,6 +65,43 @@ export default function EventDetails() {
         }
         
         setEvent(data);
+
+        // Fetch event dates for multi-date events
+        // Status can be 'active' (lowercase) or 'ACTIVE' (uppercase) - use case-insensitive match
+        let { data: datesData, error: datesError } = await supabase
+          .from('event_dates')
+          .select('id, date, start_time, end_time, status')
+          .eq('event_id', id)
+          .ilike('status', 'active')  // Case-insensitive match for 'active' or 'ACTIVE'
+          .order('date', { ascending: true })
+          .order('display_order', { ascending: true });
+
+        // If error or no data, try without status filter to see if it's an RLS issue
+        if (datesError || !datesData || datesData.length === 0) {
+          console.warn('No dates found with active status, trying without status filter...');
+          // Try without status filter to debug
+          const { data: allDates, error: allDatesError } = await supabase
+            .from('event_dates')
+            .select('id, date, start_time, end_time, status')
+            .eq('event_id', id)
+            .order('date', { ascending: true });
+          
+          if (allDatesError) {
+            console.error('Error fetching all event dates:', allDatesError);
+          } else {
+            console.log('Fetched all dates (including non-active):', allDates);
+            // Filter client-side for active status (case-insensitive)
+            datesData = allDates?.filter(d => 
+              d.status && d.status.toLowerCase() === 'active'
+            ) || [];
+            console.log('Filtered to active dates:', datesData);
+          }
+        }
+
+        console.log('Final event dates for display:', datesData); // Debug log
+        if (datesData && datesData.length > 0) {
+          setEventDates(datesData);
+        }
 
         const coordinates = await geocodeAddress(data.location);
         setLocation(coordinates);
@@ -219,15 +265,38 @@ export default function EventDetails() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold text-white mb-4">{event.title}</h1>
-              <div className="flex items-center gap-6 text-white/90">
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  {new Date(event.date).toLocaleDateString()}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  {event.time}
-                </span>
+              <div className="flex items-center gap-6 text-white/90 flex-wrap">
+                {eventDates.length > 1 ? (
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    {eventDates.length} dates disponibles
+                  </span>
+                ) : (
+                  <>
+                    <span className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      {eventDates.length > 0 && eventDates[0]?.date
+                        ? new Date(eventDates[0].date).toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : new Date(event.date).toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      {eventDates.length > 0 && eventDates[0]?.start_time
+                        ? eventDates[0].start_time
+                        : event.time}
+                    </span>
+                  </>
+                )}
                 <span className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
                   {event.location}

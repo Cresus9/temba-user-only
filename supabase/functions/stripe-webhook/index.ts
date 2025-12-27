@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
                     event_id: order.event_id,
                     user_id: order.user_id,
                     ticket_type_id: ticketTypeId,
+                    event_date_id: order.event_date_id || null,
                     status: "VALID",
                     payment_status: "paid",
                     payment_id: payment.id,
