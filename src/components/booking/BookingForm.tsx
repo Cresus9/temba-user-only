@@ -332,7 +332,7 @@ export default function BookingForm({
             </div>
             
             {eventDates.length > 1 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-3">
                 {eventDates.map((eventDate) => {
                   const statusLower = eventDate.status?.toLowerCase() || '';
                   const isSoldOut = statusLower === 'sold_out' || 
