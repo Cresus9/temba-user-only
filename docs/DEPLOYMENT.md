@@ -130,7 +130,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY="your_service_role_key"
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
 [[redirects]]
   from = "/*"
