@@ -61,7 +61,7 @@ export default function Footer() {
                 <Link to="/events" className="text-gray-300 hover:text-white transition-colors duration-200">Événements</Link>
               </li>
               <li>
-                <Link to="/categories" className="text-gray-300 hover:text-white transition-colors duration-200">Catégories</Link>
+                <Link to="/blog" className="text-gray-300 hover:text-white transition-colors duration-200">Blog</Link>
               </li>
               <li>
                 <Link to="/about" className="text-gray-300 hover:text-white transition-colors duration-200">À propos</Link>

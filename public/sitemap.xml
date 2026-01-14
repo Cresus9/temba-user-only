@@ -73,4 +73,21 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+
+  <!-- Blog Section Start -->
+  <url>
+    <loc>https://tembas.com/blog</loc>
+    <lastmod>2026-01-14T13:05:11.814Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- Blog Section End -->
+  <!-- Blog Posts Start -->
+  <url>
+    <loc>https://tembas.com/blog/post/le-festival-de-la-zone-1-un-succs-retentissant-avec-plus-de-7000-participants</loc>
+    <lastmod>2026-01-14T13:03:42.333935+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <!-- Blog Posts End -->
 </urlset>

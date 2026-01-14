@@ -60,8 +60,8 @@ export default function Navbar() {
             <Link to="/events" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
               Événements
             </Link>
-            <Link to="/categories" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
-              Catégories
+            <Link to="/blog" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
+              Blog
             </Link>
 
             {isAuthenticated ? (
@@ -162,11 +162,11 @@ export default function Navbar() {
               Événements
             </Link>
             <Link
-              to="/categories"
+              to="/blog"
               className="block text-gray-600 hover:text-indigo-600 transition-colors"
               onClick={() => setIsOpen(false)}
             >
-              Catégories
+              Blog
             </Link>
 
             {isAuthenticated ? (
