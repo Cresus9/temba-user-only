@@ -4,6 +4,7 @@ import './polyfills';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './context/AuthContext';
 import { EventProvider } from './context/EventContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -22,18 +23,20 @@ if (import.meta.env.DEV) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <TranslationProvider>
-        <AuthProvider>
-          <EventProvider>
-            <NotificationProvider>
-              <RealtimeProvider>
-                <App />
-              </RealtimeProvider>
-            </NotificationProvider>
-          </EventProvider>
-        </AuthProvider>
-      </TranslationProvider>
-    </BrowserRouter>
+    <HelmetProvider>
+      <BrowserRouter>
+        <TranslationProvider>
+          <AuthProvider>
+            <EventProvider>
+              <NotificationProvider>
+                <RealtimeProvider>
+                  <App />
+                </RealtimeProvider>
+              </NotificationProvider>
+            </EventProvider>
+          </AuthProvider>
+        </TranslationProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   </StrictMode>
 );

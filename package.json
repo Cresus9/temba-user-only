@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "generate:sitemap": "node scripts/generate-sitemap.mjs"
+    "generate:sitemap": "node scripts/generate-sitemap.mjs",
+    "generate:blog-sitemap": "node scripts/generate-blog-sitemap.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^5.2.0",
@@ -31,6 +32,7 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^4.0.13",
+    "react-helmet-async": "^2.0.5",
     "react-hot-toast": "^2.4.1",
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.3",
@@ -53,19 +55,19 @@
     "@vitest/coverage-v8": "^1.6.1",
     "@vitest/ui": "^1.6.1",
     "autoprefixer": "^10.4.18",
+    "core-js": "^3.35.0",
+    "es6-promise": "^4.2.8",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.35",
+    "resize-observer-polyfill": "^1.5.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
+    "url-search-params-polyfill": "^8.2.3",
     "vite": "^5.1.4",
     "vitest": "^1.6.1",
-    "core-js": "^3.35.0",
-    "resize-observer-polyfill": "^1.5.1",
-    "whatwg-fetch": "^3.6.20",
-    "url-search-params-polyfill": "^8.2.3",
-    "es6-promise": "^4.2.8"
+    "whatwg-fetch": "^3.6.20"
   }
 }

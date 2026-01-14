@@ -42,6 +42,13 @@
     <changefreq>monthly</changefreq>
     <priority>0.2</priority>
   </url>
+  <!-- Blog Section -->
+  <url>
+    <loc>https://tembas.com/blog</loc>
+    <lastmod>2026-01-14T12:00:00.000Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
   <url>
     <loc>https://tembas.com/privacy</loc>
     <lastmod>2025-11-10T05:05:15.573Z</lastmod>

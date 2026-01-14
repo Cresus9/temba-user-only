@@ -30,6 +30,14 @@ import Cookies from '../pages/Cookies';
 import About from '../pages/About';
 import AccountDeletion from '../pages/AccountDeletion';
 
+// Blog Pages
+import BlogHome from '../pages/blog/BlogHome';
+import BlogPost from '../pages/blog/BlogPost';
+import BlogCategory from '../pages/blog/BlogCategory';
+import BlogTag from '../pages/blog/BlogTag';
+import BlogAuthor from '../pages/blog/BlogAuthor';
+import BlogSearch from '../pages/blog/BlogSearch';
+
 // Test Components
 import CategoryTest from '../components/CategoryTest';
 import NotificationTester from '../components/NotificationTester';
@@ -78,6 +86,14 @@ export default function AppRoutes() {
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/about" element={<About />} />
         <Route path="/account-deletion" element={<AccountDeletion />} />
+
+        {/* Blog Routes */}
+        <Route path="/blog" element={<BlogHome />} />
+        <Route path="/blog/post/:slug" element={<BlogPost />} />
+        <Route path="/blog/category/:slug" element={<BlogCategory />} />
+        <Route path="/blog/tag/:slug" element={<BlogTag />} />
+        <Route path="/blog/author/:authorId" element={<BlogAuthor />} />
+        <Route path="/blog/search" element={<BlogSearch />} />
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />

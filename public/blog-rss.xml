@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" 
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Temba Blog - Actualités des événements en Afrique de l'Ouest</title>
+    <link>https://tembas.com/blog</link>
+    <description>Découvrez les derniers événements, festivals et concerts au Burkina Faso et en Afrique de l'Ouest</description>
+    <language>fr-BF</language>
+    <lastBuildDate>2026-01-14T12:00:00.000Z</lastBuildDate>
+    <atom:link href="https://tembas.com/blog-rss.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>https://tembas.com/temba-app.png</url>
+      <title>Temba Blog</title>
+      <link>https://tembas.com/blog</link>
+    </image>
+    
+    <!-- Blog posts will be dynamically generated -->
+    <!-- Run: npm run generate:blog-sitemap to update -->
+    
+  </channel>
+</rss>

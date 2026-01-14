@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Blog Home -->
+  <url>
+    <loc>https://tembas.com/blog</loc>
+    <lastmod>2026-01-14T12:00:00.000Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Blog Search -->
+  <url>
+    <loc>https://tembas.com/blog/search</loc>
+    <lastmod>2026-01-14T12:00:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Dynamic blog posts will be added by the generate-blog-sitemap script -->
+  <!-- Run: npm run generate:blog-sitemap -->
+  
+</urlset>

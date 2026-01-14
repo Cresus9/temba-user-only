@@ -1,4 +1,11 @@
 User-agent: *
 Allow: /
 
+# Main sitemap
 Sitemap: https://tembas.com/sitemap.xml
+
+# Blog sitemap
+Sitemap: https://tembas.com/blog-sitemap.xml
+
+# Crawl delay for good SEO practices
+Crawl-delay: 1
