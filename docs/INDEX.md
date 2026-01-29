@@ -4,6 +4,11 @@
 
 This index provides a comprehensive overview of all Temba platform documentation, organized by category and audience.
 
+## 🎯 For Investors & Executives
+
+- **[Backend Executive Summary](./BACKEND-EXECUTIVE-SUMMARY.md)** - 5-minute technical overview for investors
+- **[Backend Technical Documentation](./BACKEND-TECHNICAL-DOCUMENTATION.md)** - Comprehensive backend reference (80+ pages)
+
 ## 🎯 Quick Navigation
 
 ### For Developers

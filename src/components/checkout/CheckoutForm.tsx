@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone } from 'lucide-react';
+import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone, Gift, Ticket } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { orderService } from '../../services/orderService';
 import { paymentMethodService } from '../../services/paymentMethodService';
@@ -20,6 +20,7 @@ interface CheckoutFormProps {
   totalAmount: number;
   currency: string;
   eventId: string;
+  eventDateId?: string | null;
   onSuccess: (orderId: string) => void;
 }
 
@@ -28,6 +29,7 @@ export default function CheckoutForm({
   totalAmount, 
   currency, 
   eventId,
+  eventDateId,
   onSuccess 
 }: CheckoutFormProps) {
 
@@ -75,6 +77,9 @@ export default function CheckoutForm({
   const subtotal = pricedSelections.reduce((s, it) => s + it.price * it.quantity, 0);
   const buyerFees = fees.total_buyer_fees || 0;
   const grandTotal = subtotal + buyerFees;
+
+  // Detect if this is a FREE order (all tickets are free)
+  const isFreeOrder = grandTotal === 0 && subtotal === 0;
 
   // Format account display for better presentation
   const formatAccountDisplay = (method: SavedPaymentMethod) => {
@@ -207,6 +212,57 @@ export default function CheckoutForm({
     console.error('❌ [CHECKOUT] Stripe payment error handler called');
     console.error('Error:', error);
     toast.error(error);
+  };
+
+  // Handle FREE ticket reservation (no payment needed)
+  const handleFreeReservation = async () => {
+    console.log('🎫 [FREE] Starting free ticket reservation...');
+    
+    if (isProcessing) {
+      console.warn('⚠️ [FREE] Already processing, ignoring');
+      return;
+    }
+    
+    if (!user) {
+      console.error('❌ [FREE] No user');
+      toast.error('Veuillez vous connecter pour continuer');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      
+      // Create order with FREE_TICKET payment method
+      const result = await orderService.createFreeOrder({
+        eventId,
+        ticketQuantities: tickets,
+        eventDateId
+      });
+
+      if (!result.success || !result.orderId) {
+        throw new Error(result.error || 'Échec de la création de la commande');
+      }
+
+      console.log('✅ [FREE] Order created:', result.orderId);
+
+      // Clear cart after successful reservation
+      const cleared = clearCartForEvent(eventId, 'CheckoutForm-Free');
+      if (cleared) {
+        console.log('🛒 [FREE] Cart cleared');
+      }
+
+      // Show success message
+      toast.success('Réservation confirmée ! Vos billets gratuits sont prêts.');
+
+      // Redirect to confirmation page
+      onSuccess(result.orderId);
+      
+    } catch (error: any) {
+      console.error('❌ [FREE] Reservation error:', error);
+      toast.error(error.message || 'Échec de la réservation');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const validateForm = (): boolean => {
@@ -533,6 +589,85 @@ export default function CheckoutForm({
 
   const otpExampleAmount = Math.max(1, Math.round(grandTotal || 0));
 
+  // ═══════════════════════════════════════════════════════
+  // 🎫 FREE ORDER UI - Show simplified confirmation for free tickets
+  // ═══════════════════════════════════════════════════════
+  if (isFreeOrder) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* Free ticket header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+              <Gift className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Événement Gratuit
+            </h2>
+            <p className="text-gray-600">
+              Aucun paiement requis pour cet événement
+            </p>
+          </div>
+
+          {/* Order summary */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-indigo-600" />
+              Récapitulatif de votre réservation
+            </h3>
+            <div className="space-y-2">
+              {pricedSelections.filter(s => s.quantity > 0).map((selection) => (
+                <div key={selection.ticket_type_id} className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {selection.quantity}x Billet
+                  </span>
+                  <span className="font-medium text-green-600">Gratuit</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-200 mt-3 pt-3">
+              <div className="flex justify-between font-semibold">
+                <span>Total</span>
+                <span className="text-green-600">Gratuit</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Info message */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-blue-700">
+              <strong>📧 Confirmation par email</strong><br />
+              Vous recevrez un email de confirmation avec vos billets après la réservation.
+            </p>
+          </div>
+
+          {/* Confirm button */}
+          <button
+            type="button"
+            onClick={handleFreeReservation}
+            disabled={isProcessing}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+          >
+            {isProcessing ? (
+              <>
+                <Loader className="h-5 w-5 animate-spin" />
+                <span>Réservation en cours...</span>
+              </>
+            ) : (
+              <>
+                <Gift className="h-5 w-5" />
+                <span>Confirmer la réservation gratuite</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // 💳 PAID ORDER UI - Normal payment flow
+  // ═══════════════════════════════════════════════════════
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm p-6">

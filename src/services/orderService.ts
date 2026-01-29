@@ -118,6 +118,120 @@ class OrderService {
     }
   }
 
+  // ═══════════════════════════════════════════════════════
+  // 🎫 FREE TICKET ORDER - No payment required
+  // ═══════════════════════════════════════════════════════
+  async createFreeOrder(input: {
+    eventId: string;
+    ticketQuantities: { [key: string]: number };
+    eventDateId?: string | null;
+  }): Promise<{ success: boolean; orderId?: string; error?: string }> {
+    try {
+      console.log('🎫 [FREE ORDER] Creating free ticket order...');
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+
+      // Validate input
+      if (!input.eventId) throw new Error('ID d\'événement requis');
+      if (!input.ticketQuantities || Object.keys(input.ticketQuantities).length === 0) {
+        throw new Error('Aucun billet sélectionné');
+      }
+
+      // Verify all tickets are free (price = 0)
+      const { data: ticketTypes, error: ticketError } = await supabase
+        .from('ticket_types')
+        .select('id, price, name')
+        .in('id', Object.keys(input.ticketQuantities));
+
+      if (ticketError || !ticketTypes) {
+        throw new Error('Types de billets non trouvés');
+      }
+
+      // Check that all selected tickets are free
+      const nonFreeTickets = ticketTypes.filter(t => t.price > 0);
+      if (nonFreeTickets.length > 0) {
+        throw new Error('Certains billets ne sont pas gratuits');
+      }
+
+      // Get event details
+      const { data: event } = await supabase
+        .from('events')
+        .select('title, currency')
+        .eq('id', input.eventId)
+        .single();
+
+      if (!event) throw new Error('Événement non trouvé');
+
+      console.log('🎫 [FREE ORDER] Creating order for event:', event.title);
+
+      // Create order with COMPLETED status (no payment needed)
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          event_id: input.eventId,
+          total: 0, // Free order
+          status: 'COMPLETED', // Immediately completed
+          payment_method: 'FREE_TICKET',
+          ticket_quantities: input.ticketQuantities,
+          event_date_id: input.eventDateId || null,
+          visible_in_history: true // Show in history immediately
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('❌ [FREE ORDER] Order creation error:', orderError);
+        throw orderError;
+      }
+
+      console.log('✅ [FREE ORDER] Order created:', orderData.id);
+
+      // Create tickets immediately (same logic as webhook)
+      const ticketInserts = [];
+      for (const [ticketTypeId, quantity] of Object.entries(input.ticketQuantities)) {
+        for (let i = 0; i < Number(quantity); i++) {
+          ticketInserts.push({
+            order_id: orderData.id,
+            event_id: input.eventId,
+            user_id: user.id,
+            ticket_type_id: ticketTypeId,
+            event_date_id: input.eventDateId || null,
+            status: 'VALID',
+            payment_status: 'paid', // Mark as paid (free = paid)
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+
+      if (ticketInserts.length > 0) {
+        const { error: ticketsError } = await supabase
+          .from('tickets')
+          .insert(ticketInserts);
+
+        if (ticketsError) {
+          console.error('❌ [FREE ORDER] Ticket creation error:', ticketsError);
+          // Don't throw - order is created, just log the error
+          // Tickets might be created by a trigger
+        } else {
+          console.log(`✅ [FREE ORDER] Created ${ticketInserts.length} tickets`);
+        }
+      }
+
+      return {
+        success: true,
+        orderId: orderData.id
+      };
+    } catch (error: any) {
+      console.error('❌ [FREE ORDER] Error:', error);
+      return {
+        success: false,
+        error: error.message || 'Échec de la création de la commande gratuite'
+      };
+    }
+  }
+
   async createGuestOrder(input: {
     email: string;
     name: string;

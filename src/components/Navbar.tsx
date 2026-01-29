@@ -57,12 +57,20 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
+            <Link to="/" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
+              Accueil
+            </Link>
             <Link to="/events" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
               Événements
             </Link>
-            <Link to="/blog" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
-              Blog
-            </Link>
+            <a 
+              href="https://admin.tembas.com/login" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+            >
+              Devenir organisateur
+            </a>
 
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
@@ -155,19 +163,28 @@ export default function Navbar() {
         {isOpen && (
           <div className="md:hidden py-4 space-y-4">
             <Link
+              to="/"
+              className="block text-gray-600 hover:text-indigo-600 transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              Accueil
+            </Link>
+            <Link
               to="/events"
               className="block text-gray-600 hover:text-indigo-600 transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Événements
             </Link>
-            <Link
-              to="/blog"
+            <a
+              href="https://admin.tembas.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
               className="block text-gray-600 hover:text-indigo-600 transition-colors"
               onClick={() => setIsOpen(false)}
             >
-              Blog
-            </Link>
+              Devenir organisateur
+            </a>
 
             {isAuthenticated ? (
               <>
