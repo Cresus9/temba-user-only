@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Calendar, MapPin, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import EventCard from '../EventCard';
 import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
@@ -13,12 +13,9 @@ interface CategoryEventsDisplayProps {
   dateFilter?: string;
 }
 
-type LayoutType = 'featured' | 'horizontal' | 'grid' | 'masonry';
-
-interface CategorySection {
+interface CategorySectionData {
   category: EventCategory;
   events: Event[];
-  layout: LayoutType;
   priority: number;
 }
 
@@ -127,32 +124,18 @@ export default function CategoryEventsDisplay({
     }
   };
 
-  // Create category sections with different layouts
+  // Create category sections
   const categorySections = useMemo(() => {
-    const sections: CategorySection[] = [];
+    const sections: CategorySectionData[] = [];
 
     categories.forEach((category, index) => {
       const events = eventsByCategory.get(category.name) || [];
       
       if (events.length === 0) return;
 
-      // Determine layout based on event count and category priority
-      let layout: LayoutType = 'grid';
-      if (events.length >= 6) {
-        // Large categories: use horizontal scroll
-        layout = 'horizontal';
-      } else if (events.length >= 3 && index < 2) {
-        // Top 2 categories with 3+ events: featured layout
-        layout = 'featured';
-      } else if (events.length >= 4) {
-        // Medium categories: masonry
-        layout = 'masonry';
-      }
-
       sections.push({
         category,
         events,
-        layout,
         priority: index
       });
     });
@@ -169,7 +152,6 @@ export default function CategoryEventsDisplay({
           icon: '🎭'
         } as EventCategory,
         events: autresEvents,
-        layout: 'grid',
         priority: 999
       });
     }
@@ -225,11 +207,10 @@ export default function CategoryEventsDisplay({
 
   return (
     <div className="space-y-12">
-      {categorySections.map((section, sectionIndex) => (
+      {categorySections.map((section) => (
         <CategorySection
           key={section.category.id || section.category.name}
           section={section}
-          isFirst={sectionIndex === 0}
         />
       ))}
     </div>
@@ -238,211 +219,36 @@ export default function CategoryEventsDisplay({
 
 // Individual Category Section Component
 interface CategorySectionProps {
-  section: CategorySection;
-  isFirst: boolean;
+  section: CategorySectionData;
 }
 
-function CategorySection({ section, isFirst }: CategorySectionProps) {
-  const { category, events, layout } = section;
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-
-  const categoryColors: Record<string, string> = {
-    'Concert': 'from-purple-500 to-pink-500',
-    'Festival': 'from-orange-500 to-red-500',
-    'Théâtre': 'from-blue-500 to-indigo-500',
-    'Sport': 'from-green-500 to-emerald-500',
-    'Conférence': 'from-yellow-500 to-amber-500',
-    'Autres': 'from-gray-500 to-slate-500'
-  };
-
-  const gradientClass = categoryColors[category.name] || 'from-indigo-500 to-purple-500';
-
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -400, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 400, behavior: 'smooth' });
-    }
-  };
+function CategorySection({ section }: CategorySectionProps) {
+  const { category, events } = section;
 
   return (
-    <section className="relative group/category">
-      {/* Category Header - Ticketmaster Style */}
+    <section className="overflow-hidden">
+      {/* Category Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
           {category.name}
         </h2>
         <Link
           to={`/categories/${category.id || category.name}`}
-          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-semibold text-sm transition-colors group/link"
+          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-semibold text-sm transition-colors"
         >
           Voir tout {category.name}
-          <ArrowRight className="h-4 w-4 group-hover/link:translate-x-1 transition-transform" />
+          <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      {/* Layout Renderer */}
-      {layout === 'featured' && (
-        <FeaturedLayout events={events} category={category} />
-      )}
-      {layout === 'horizontal' && (
-        <HorizontalLayout
-          events={events}
-          category={category}
-          scrollContainerRef={scrollContainerRef}
-          scrollLeft={scrollLeft}
-          scrollRight={scrollRight}
-        />
-      )}
-      {layout === 'masonry' && (
-        <MasonryLayout events={events} category={category} />
-      )}
-      {layout === 'grid' && (
-        <GridLayout events={events} category={category} />
-      )}
+      {/* Simple Grid Layout for all */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {events.slice(0, 8).map((event) => (
+          <EventCard key={event.id} {...event} />
+        ))}
+      </div>
     </section>
   );
 }
 
-// Featured Layout - Large hero card + smaller cards
-function FeaturedLayout({ events, category }: { events: Event[]; category: EventCategory }) {
-  const featuredEvent = events[0];
-  const otherEvents = events.slice(1, 5);
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Featured Event - Large Card */}
-      <div className="lg:col-span-2">
-        <Link
-          to={`/events/${featuredEvent.id}`}
-          className="group block h-full bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
-        >
-          <div className="relative aspect-[16/9] overflow-hidden">
-            <img
-              src={featuredEvent.image_url || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea'}
-              alt={featuredEvent.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="h-4 w-4" />
-                <span className="text-sm">
-                  {new Date(featuredEvent.date).toLocaleDateString('fr-FR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-              <h3 className="text-2xl md:text-3xl font-bold mb-2 line-clamp-2">
-                {featuredEvent.title}
-              </h3>
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4" />
-                <span>{featuredEvent.location}</span>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Other Events - Grid */}
-      <div className="grid grid-cols-1 gap-4">
-        {otherEvents.map((event) => (
-          <EventCard key={event.id} {...event} className="h-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Horizontal Scroll Layout - Ticketmaster Style
-function HorizontalLayout({
-  events,
-  category,
-  scrollContainerRef,
-  scrollLeft,
-  scrollRight
-}: {
-  events: Event[];
-  category: EventCategory;
-  scrollContainerRef: React.RefObject<HTMLDivElement>;
-  scrollLeft: () => void;
-  scrollRight: () => void;
-}) {
-  return (
-    <div className="relative group/scroll">
-      {/* Scroll Buttons - Visible on category hover */}
-      <button
-        onClick={scrollLeft}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover/category:opacity-100 hover:scale-110 border border-gray-200 hover:border-indigo-500"
-        aria-label="Scroll left"
-      >
-        <ArrowRight className="h-5 w-5 text-gray-700 rotate-180" />
-      </button>
-      <button
-        onClick={scrollRight}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover/category:opacity-100 hover:scale-110 border border-gray-200 hover:border-indigo-500"
-        aria-label="Scroll right"
-      >
-        <ArrowRight className="h-5 w-5 text-gray-700" />
-      </button>
-
-      {/* Scrollable Container */}
-      <div
-        ref={scrollContainerRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 scroll-smooth"
-        style={{ scrollSnapType: 'x mandatory' }}
-      >
-        {events.map((event) => (
-          <div 
-            key={event.id} 
-            className="flex-shrink-0 w-80 snap-start"
-            style={{ scrollSnapAlign: 'start' }}
-          >
-            <EventCard {...event} className="h-full" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Masonry Layout
-function MasonryLayout({ events, category }: { events: Event[]; category: EventCategory }) {
-  // Split events into columns
-  const columns: Event[][] = [[], [], []];
-  events.forEach((event, index) => {
-    columns[index % 3].push(event);
-  });
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {columns.map((columnEvents, colIndex) => (
-        <div key={colIndex} className="space-y-4">
-          {columnEvents.map((event) => (
-            <EventCard key={event.id} {...event} className="h-full" />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Grid Layout
-function GridLayout({ events, category }: { events: Event[]; category: EventCategory }) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {events.map((event) => (
-        <EventCard key={event.id} {...event} className="h-full" />
-      ))}
-    </div>
-  );
-}
 

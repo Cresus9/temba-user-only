@@ -13,6 +13,7 @@ import { imagePreloader } from '../utils/imagePreloader';
 import PageSEO from '../components/SEO/PageSEO';
 import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
 import UpcomingEvents from '../components/events/UpcomingEvents';
+import PopularVenues from '../components/home/PopularVenues';
 
 export default function Home() {
   const { t } = useTranslation();
@@ -138,6 +139,11 @@ export default function Home() {
               locationFilter=""
               dateFilter=""
             />
+          </div>
+          
+          {/* Popular Venues - At the end */}
+          <div className="mt-12">
+            <PopularVenues />
           </div>
         </div>
       </section>

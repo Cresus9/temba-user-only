@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Calendar, MapPin, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import EventCard from '../components/EventCard';
 import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
@@ -21,12 +21,34 @@ const initialFilters = {
 };
 
 export default function Events() {
-  // Removed old events state - now using CategoryEventsDisplay
-  const [filters, setFilters] = useState(initialFilters);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filters, setFilters] = useState(() => ({
+    ...initialFilters,
+    search: searchParams.get('query') || '',
+    location: searchParams.get('location') || '',
+    category: searchParams.get('category') || '',
+    date: searchParams.get('date') || '',
+  }));
   const [locations, setLocations] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   const navigate = useNavigate();
+
+  // Initialize filters from URL params
+  useEffect(() => {
+    const query = searchParams.get('query') || '';
+    const location = searchParams.get('location') || '';
+    const category = searchParams.get('category') || '';
+    const date = searchParams.get('date') || '';
+    
+    setFilters(prev => ({
+      ...prev,
+      search: query,
+      location,
+      category,
+      date,
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     fetchLocationsAndCategories();
@@ -70,6 +92,7 @@ export default function Events() {
 
   const clearFilters = () => {
     setFilters(initialFilters);
+    setSearchParams({}); // Clear URL params
   };
 
   // Simplified structured data - will be updated when we have events from components
