@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.app.rork.temba",
+        "paths": [
+          "/event/*",
+          "/checkout/*",
+          "/category/*",
+          "/transfer/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "TEAM_ID.app.rork.temba"
+    ]
+  }
+}

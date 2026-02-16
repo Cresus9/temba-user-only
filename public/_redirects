@@ -6,5 +6,9 @@
 /favicon.ico /favicon.ico 200
 /logo.svg /logo.svg 200
 
+# Deep linking files for mobile apps
+/.well-known/assetlinks.json /.well-known/assetlinks.json 200
+/.well-known/apple-app-site-association /.well-known/apple-app-site-association 200
+
 # All other routes go to index.html for client-side routing
 /* /index.html 200
