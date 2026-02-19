@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "app.rork.temba",
       "sha256_cert_fingerprints": [
-        "PASTE_YOUR_SHA256_HERE"
+        "3D:87:B3:A6:75:4E:C7:ED:CD:F1:33:E3:B6:06:FF:E1:23:27:C1:F0:49:59:D9:EC:B9:45:AC:38:F6:6E:57:5B"
       ]
     }
   }
