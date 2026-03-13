@@ -8,6 +8,7 @@ export default function Terms() {
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Conditions d'Utilisation - Application TEMBA</h1>
           
           <p className="text-lg text-gray-500 mt-4">
+            <strong>Entreprise :</strong> EZSTAY LLC<br />
             <strong>Dernière mise à jour :</strong> 19 décembre 2024<br />
             <strong>Version de l'application :</strong> 1.0.7<br />
             <strong>Date d'effet :</strong> 19 décembre 2024
@@ -208,9 +209,11 @@ export default function Terms() {
           <h2>13. Informations de contact</h2>
           <p>Pour toute question concernant ces Conditions, veuillez nous contacter :</p>
           <ul>
-            <li><strong>E-mail :</strong> <a href="mailto:legal@temba.app">legal@temba.app</a></li>
-            <li><strong>E-mail de support :</strong> <a href="mailto:support@temba.app">support@temba.app</a></li>
-            <li><strong>Téléphone :</strong> +221777889900</li>
+            <li><strong>Entreprise :</strong> EZSTAY LLC</li>
+            <li><strong>E-mail :</strong> <a href="mailto:info@tembas.com">info@tembas.com</a></li>
+            <li><strong>E-mail de support :</strong> <a href="mailto:support@tembas.com">support@tembas.com</a></li>
+            <li><strong>Téléphone :</strong> +226 74 75 08 15</li>
+            <li><strong>Adresse :</strong> Secteur 23, Zone 1, Section KC, Parcelle 09-10, Ouagadougou, Burkina Faso</li>
           </ul>
 
           <h2>14. Divisibilité</h2>

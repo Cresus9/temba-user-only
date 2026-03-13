@@ -67,3 +67,12 @@
   [headers.values]
     Content-Type = "application/json"
     Cache-Control = "public, max-age=3600"
+
+# Edge Functions for dynamic Open Graph meta tags
+[[edge_functions]]
+  function = "og-tags"
+  path = "/event/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/ref/*"

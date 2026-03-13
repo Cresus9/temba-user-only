@@ -8,6 +8,7 @@ export default function Privacy() {
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Politique de Confidentialité - Application TEMBA</h1>
           
           <p className="text-lg text-gray-500 mt-4">
+            <strong>Entreprise :</strong> EZSTAY LLC<br />
             <strong>Dernière mise à jour :</strong> 19 décembre 2024<br />
             <strong>Version de l'application :</strong> 1.0.7<br />
             <strong>Date d'effet :</strong> 19 décembre 2024

@@ -10,6 +10,9 @@ export default function About() {
           <p className="mt-4 text-lg text-gray-500">
             Votre plateforme de confiance pour découvrir et réserver les meilleurs événements en Afrique.
           </p>
+          <p className="mt-2 text-sm text-gray-400">
+            Une entreprise EZSTAY LLC
+          </p>
         </div>
         <div className="mt-12 lg:mt-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
