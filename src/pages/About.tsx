@@ -125,48 +125,53 @@ export default function About() {
         </div>
 
         {/* Ticket Policy Section */}
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 mb-12">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <Shield className="h-8 w-8 text-red-600" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-red-800 mb-4">
-                Politique de Vente de Billets
-              </h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Ce que nous faisons
-                  </h3>
-                  <ul className="space-y-2 text-red-700">
-                    <li>• Vente primaire de billets officiels</li>
-                    <li>• Billets vendus directement par les organisateurs</li>
-                    <li>• Prix officiels sans majoration</li>
-                    <li>• Transfert gratuit entre utilisateurs</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                    Ce que nous interdisons
-                  </h3>
-                  <ul className="space-y-2 text-red-700">
-                    <li>• <strong>Revente de billets (INTERDIT)</strong></li>
-                    <li>• Scalping ou spéculation</li>
-                    <li>• Achat en masse pour revente</li>
-                    <li>• Publication sur sites de revente</li>
-                  </ul>
-                </div>
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">Notre Engagement</h2>
+            <p className="mt-2 text-gray-500">Billetterie officielle et sécurisée</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-600 mx-auto">
+                <CheckCircle className="h-6 w-6" />
               </div>
-              <p className="mt-4 text-sm text-red-600 font-medium">
-                TEMBA n'est PAS une plateforme de revente. Nous vendons uniquement des billets primaires directement auprès des organisateurs officiels.
+              <h3 className="mt-4 font-semibold text-gray-900">Vente Primaire</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Billets officiels vendus directement par les organisateurs
               </p>
-              <Link to="/terms" className="inline-block mt-4 text-red-700 underline hover:text-red-800">
-                Voir nos Conditions d'Utilisation complètes →
-              </Link>
             </div>
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 text-indigo-600 mx-auto">
+                <Shield className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Prix Officiels</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Aucune majoration, prix fixés par les organisateurs
+              </p>
+            </div>
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 text-purple-600 mx-auto">
+                <Users className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Transfert Gratuit</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Partagez vos billets gratuitement avec vos proches
+              </p>
+            </div>
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 text-gray-600 mx-auto">
+                <XCircle className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 font-semibold text-gray-900">Pas de Revente</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                La revente de billets est strictement interdite
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 text-center">
+            <Link to="/terms" className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+              Voir nos Conditions d'Utilisation →
+            </Link>
           </div>
         </div>
 
