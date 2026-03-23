@@ -5,13 +5,24 @@ export default function Terms() {
     <div className="bg-white">
       <div className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="prose prose-indigo max-w-none">
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Conditions d'Utilisation - Application TEMBA</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Conditions d'Utilisation - TEMBA</h1>
           
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 my-4">
+            <p className="text-indigo-800 font-semibold">
+              🎫 TEMBA - Plateforme Officielle de Billetterie d'Événements
+            </p>
+            <p className="text-indigo-600 text-sm mt-1">
+              Site web : <a href="https://tembas.com" className="underline">tembas.com</a> | 
+              Application mobile disponible sur <a href="https://play.google.com/store/apps/details?id=app.rork.temba" className="underline">Google Play</a> et <a href="https://apps.apple.com/us/app/temba/id6748848506" className="underline">App Store</a>
+            </p>
+          </div>
+
           <p className="text-lg text-gray-500 mt-4">
             <strong>Entreprise :</strong> EZSTAY LLC<br />
-            <strong>Dernière mise à jour :</strong> 19 décembre 2024<br />
+            <strong>Site web officiel :</strong> <a href="https://tembas.com">https://tembas.com</a><br />
+            <strong>Dernière mise à jour :</strong> 20 mars 2026<br />
             <strong>Version de l'application :</strong> 1.0.7<br />
-            <strong>Date d'effet :</strong> 19 décembre 2024
+            <strong>Date d'effet :</strong> 20 mars 2026
           </p>
 
           <h2>1. Acceptation des conditions</h2>
@@ -45,29 +56,70 @@ export default function Terms() {
             <li>Vous ne pouvez pas partager vos identifiants de compte avec d'autres personnes</li>
           </ul>
 
-          <h2>4. Utilisation acceptable</h2>
+          <h2>4. Politique de Revente de Billets (IMPORTANT)</h2>
           
-          <h3>4.1 Utilisations autorisées</h3>
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 my-4">
+            <p className="text-red-700 font-bold">⚠️ REVENTE DE BILLETS STRICTEMENT INTERDITE</p>
+          </div>
+
+          <h3>4.1 Vente Primaire Uniquement</h3>
+          <p>
+            <strong>TEMBA est une plateforme de vente de billets primaire uniquement.</strong> Nous vendons exclusivement des billets directement auprès des organisateurs d'événements officiels. TEMBA n'est PAS une plateforme de revente de billets.
+          </p>
+          
+          <h3>4.2 Interdiction de Revente</h3>
+          <p>Il est <strong>strictement interdit</strong> de :</p>
+          <ul>
+            <li><strong>Revendre des billets</strong> achetés via TEMBA à un prix supérieur au prix d'achat original</li>
+            <li><strong>Utiliser TEMBA pour acheter des billets</strong> dans le but de les revendre (scalping)</li>
+            <li><strong>Transférer des billets à des fins commerciales</strong> ou lucratives</li>
+            <li><strong>Publier des billets TEMBA</strong> sur des plateformes de revente tierces</li>
+            <li><strong>Acheter des billets en masse</strong> pour revente ultérieure</li>
+          </ul>
+
+          <h3>4.3 Sanctions pour Revente</h3>
+          <p>Toute violation de cette politique entraînera :</p>
+          <ul>
+            <li><strong>Annulation immédiate</strong> des billets concernés sans remboursement</li>
+            <li><strong>Suspension ou suppression permanente</strong> du compte utilisateur</li>
+            <li><strong>Interdiction d'accès</strong> à la plateforme TEMBA</li>
+            <li><strong>Poursuites judiciaires</strong> si nécessaire</li>
+          </ul>
+
+          <h3>4.4 Transfert Légitime de Billets</h3>
+          <p>
+            TEMBA permet le <strong>transfert gratuit de billets</strong> entre amis et famille via notre fonctionnalité de transfert intégrée. Ce transfert doit être :
+          </p>
+          <ul>
+            <li>Gratuit (sans échange d'argent)</li>
+            <li>Effectué uniquement via l'application TEMBA</li>
+            <li>Pour un usage personnel, non commercial</li>
+          </ul>
+
+          <h2>5. Utilisation acceptable</h2>
+          
+          <h3>5.1 Utilisations autorisées</h3>
           <ul>
             <li>Utiliser l'Application pour son usage prévu</li>
-            <li>Acheter des billets pour des événements légitimes</li>
+            <li>Acheter des billets pour des événements légitimes pour usage personnel</li>
             <li>Partager des informations d'événements avec des amis et la famille</li>
+            <li>Transférer gratuitement des billets via la fonctionnalité de transfert TEMBA</li>
             <li>Fournir des commentaires et des suggestions</li>
           </ul>
 
-          <h3>4.2 Utilisations interdites</h3>
+          <h3>5.2 Utilisations interdites</h3>
           <p>Vous ne pouvez pas :</p>
           <ul>
             <li>Utiliser l'Application à des fins illégales ou non autorisées</li>
             <li>Tenter d'accéder sans autorisation à nos systèmes</li>
             <li>Interférer avec ou perturber la fonctionnalité de l'Application</li>
             <li>Créer de faux comptes ou fournir de fausses informations</li>
-            <li>Revendre des billets achetés via l'Application</li>
+            <li><strong>Revendre des billets achetés via l'Application (INTERDIT)</strong></li>
             <li>Utiliser des systèmes automatisés pour accéder à l'Application</li>
             <li>Violer toute loi ou réglementation applicable</li>
           </ul>
 
-          <h2>5. Paiement et remboursements</h2>
+          <h2>6. Paiement et remboursements</h2>
           
           <h3>5.1 Traitement des paiements</h3>
           <ul>
@@ -85,7 +137,7 @@ export default function Terms() {
             <li>Les remboursements peuvent prendre 5 à 10 jours ouvrables à traiter</li>
           </ul>
 
-          <h2>6. Informations sur les événements</h2>
+          <h2>7. Informations sur les événements</h2>
           
           <h3>6.1 Exactitude</h3>
           <ul>
@@ -103,7 +155,7 @@ export default function Terms() {
             <li>Nous ne sommes pas responsables des problèmes liés aux événements</li>
           </ul>
 
-          <h2>7. Propriété intellectuelle</h2>
+          <h2>8. Propriété intellectuelle</h2>
           
           <h3>7.1 Nos droits</h3>
           <ul>
@@ -119,7 +171,7 @@ export default function Terms() {
             <li>Vous ne pouvez pas télécharger du matériel protégé par des droits d'auteur sans autorisation</li>
           </ul>
 
-          <h2>8. Confidentialité et données</h2>
+          <h2>9. Confidentialité et données</h2>
           
           <h3>8.1 Collecte de données</h3>
           <ul>
@@ -135,7 +187,7 @@ export default function Terms() {
             <li>Nous ne vendons pas vos informations personnelles à des tiers</li>
           </ul>
 
-          <h2>9. Exclusions de responsabilité et limitations</h2>
+          <h2>10. Exclusions de responsabilité et limitations</h2>
           
           <h3>9.1 Disponibilité du service</h3>
           <ul>
@@ -158,7 +210,7 @@ export default function Terms() {
             <li>Certaines juridictions n'autorisent pas les limitations de responsabilité</li>
           </ul>
 
-          <h2>10. Résiliation</h2>
+          <h2>11. Résiliation</h2>
           
           <h3>10.1 Résiliation de compte</h3>
           <ul>
@@ -174,7 +226,7 @@ export default function Terms() {
             <li>Ces Conditions restent en vigueur jusqu'à la résiliation</li>
           </ul>
 
-          <h2>11. Modifications des conditions</h2>
+          <h2>12. Modifications des conditions</h2>
           
           <h3>11.1 Mises à jour</h3>
           <ul>
@@ -190,7 +242,7 @@ export default function Terms() {
             <li>Vérifiez la date "Dernière mise à jour" pour les Conditions actuelles</li>
           </ul>
 
-          <h2>12. Droit applicable</h2>
+          <h2>13. Droit applicable</h2>
           
           <h3>12.1 Juridiction</h3>
           <ul>
@@ -206,7 +258,7 @@ export default function Terms() {
             <li>Certains litiges peuvent nécessiter un arbitrage</li>
           </ul>
 
-          <h2>13. Informations de contact</h2>
+          <h2>14. Informations de contact</h2>
           <p>Pour toute question concernant ces Conditions, veuillez nous contacter :</p>
           <ul>
             <li><strong>Entreprise :</strong> EZSTAY LLC</li>
@@ -216,12 +268,12 @@ export default function Terms() {
             <li><strong>Adresse :</strong> Secteur 23, Zone 1, Section KC, Parcelle 09-10, Ouagadougou, Burkina Faso</li>
           </ul>
 
-          <h2>14. Divisibilité</h2>
+          <h2>15. Divisibilité</h2>
           <p>
             Si une disposition de ces Conditions est jugée inapplicable, les dispositions restantes resteront en vigueur. La disposition inapplicable sera modifiée dans la mesure minimale nécessaire pour la rendre applicable.
           </p>
 
-          <h2>15. Accord complet</h2>
+          <h2>16. Accord complet</h2>
           <p>
             Ces Conditions, ainsi que notre Politique de Confidentialité, constituent l'accord complet entre vous et nous concernant l'Application. Tout accord ou compréhension antérieur est remplacé.
           </p>
