@@ -94,7 +94,7 @@ export default function GuestCheckoutForm({
       // ✅ CARD PAYMENTS - Use existing guest order flow
       // ═══════════════════════════════════════════════════════
       if (paymentMethod === 'card') {
-        const result = await orderService.createGuestOrder({
+        const result: any = await orderService.createGuestOrder({
           email: formData.email,
           name: formData.name,
           phone: formData.phone,
@@ -109,7 +109,7 @@ export default function GuestCheckoutForm({
             billingAddress: formData.billingAddress,
             billingCity: formData.billingCity,
             billingCountry: formData.billingCountry
-          }
+          } as any
         });
 
         if (result.success && result.paymentUrl) {
@@ -138,7 +138,7 @@ export default function GuestCheckoutForm({
       // ⚠️ MOBILE MONEY - Use pawaPay for guest checkout
       // ═══════════════════════════════════════════════════════
       // Create guest order first
-      const orderResult = await orderService.createGuestOrder({
+      const orderResult: any = await orderService.createGuestOrder({
         email: formData.email,
         name: formData.name,
         phone: formData.phone,
@@ -149,7 +149,7 @@ export default function GuestCheckoutForm({
           provider: formData.provider,
           phone: formData.phone,
           preAuthorisationCode: formData.preAuthorisationCode || undefined
-        }
+        } as any
       });
 
       if (!orderResult.success || !orderResult.orderId) {
@@ -170,7 +170,7 @@ export default function GuestCheckoutForm({
       const grandTotal = subtotal + serviceFee;
 
       // Create pawaPay payment
-      const idempotencyKey = `pawapay-guest-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const idempotencyKey = `web-pawapay-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const pawapayResponse = await pawapayService.createPayment({
         idempotency_key: idempotencyKey,
         user_id: undefined, // Guest checkout
@@ -240,8 +240,14 @@ export default function GuestCheckoutForm({
       }));
 
       // Fallback: redirect to success page if no payment URL
-      const successUrl = `${window.location.origin}/payment/success?order=${orderResult.orderId}&token=${pawapayResponse.transaction_id || pawapayResponse.payment_token}`;
-      window.location.href = successUrl;
+      const paymentId = pawapayResponse.payment_id;
+      if (!paymentId) {
+        throw new Error('payment_id manquant dans la réponse pawaPay');
+      }
+      const statusUrl = `${window.location.origin}/payment/${encodeURIComponent(
+        paymentId
+      )}?order_id=${encodeURIComponent(orderResult.orderId)}&provider=pawapay`;
+      window.location.href = statusUrl;
       return;
     } catch (error: any) {
       console.error('Erreur de paiement invité:', error);

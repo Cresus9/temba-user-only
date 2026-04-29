@@ -20,6 +20,7 @@ import BookingConfirmation from '../pages/BookingConfirmation';
 import EnhancedBookingConfirmation from '../pages/EnhancedBookingConfirmation';
 import PaymentSuccess from '../pages/PaymentSuccess';
 import PaymentCancelled from '../pages/PaymentCancelled';
+import PaymentStatus from '../pages/PaymentStatus';
 import Support from '../pages/Support';
 import TicketDetails from '../pages/TicketDetails';
 import Notifications from '../pages/Notifications';
@@ -46,6 +47,8 @@ import NotificationDebugger from '../components/NotificationDebugger';
 // Guest Pages
 import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
 import GuestOrderVerification from '../components/checkout/GuestOrderVerification';
+import ReferralLanding from '../pages/ReferralLanding';
+import ReferralProgram from '../pages/profile/ReferralProgram';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -86,6 +89,12 @@ export default function AppRoutes() {
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/about" element={<About />} />
         <Route path="/account-deletion" element={<AccountDeletion />} />
+        <Route path="/ref/:code" element={<ReferralLanding />} />
+        <Route path="/referrals" element={
+          <RequireAuth>
+            <ReferralProgram />
+          </RequireAuth>
+        } />
 
         {/* Blog Routes */}
         <Route path="/blog" element={<BlogHome />} />
@@ -108,6 +117,7 @@ export default function AppRoutes() {
         {/* Payment Routes */}
         <Route path="/payment/success" element={<PaymentSuccess />} />
         <Route path="/payment/cancelled" element={<PaymentCancelled />} />
+        <Route path="/payment/:paymentId" element={<PaymentStatus />} />
 
         {/* Protected User Routes */}
         <Route path="/dashboard" element={

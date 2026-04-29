@@ -1,3 +1,4 @@
+import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { supabase } from '../lib/supabase-client';
 
 export interface FXQuote {
@@ -41,26 +42,50 @@ export interface StripePaymentError {
 }
 
 class StripePaymentService {
+  private buildFXQuote(xofAmountMinor: number, marginBps: number, baseXofPerUsd: number): FXQuote {
+    const safeMarginBps = Math.min(500, Math.max(0, Math.round(marginBps)));
+    const effectiveXofPerUsd = Math.max(1, Math.round(baseXofPerUsd * (1 + safeMarginBps / 10000)));
+    const usdCents = Math.max(1, Math.round((xofAmountMinor * 100) / effectiveXofPerUsd));
+    return {
+      usd_cents: usdCents,
+      fx_num: 100,
+      fx_den: effectiveXofPerUsd,
+      fx_locked_at: new Date().toISOString(),
+      margin_bps: safeMarginBps,
+      base_xof_per_usd: baseXofPerUsd,
+      effective_xof_per_usd: effectiveXofPerUsd,
+      display_amount: `${xofAmountMinor.toLocaleString('fr-FR')} FCFA`,
+      charge_amount: `$${(usdCents / 100).toFixed(2)} USD`,
+    };
+  }
+
   /**
    * Get FX quote for XOF to USD conversion
    */
   async getFXQuote(xofAmountMinor: number, marginBps: number = 150): Promise<FXQuote> {
     try {
-      const { data, error } = await supabase.functions.invoke('fx-quote', {
-        body: {
-          xof_amount_minor: xofAmountMinor,
-          margin_bps: marginBps,
-        },
-      });
+      // Fetch directly from DB (same source table used server-side), then compute on client.
+      const { data: fxRate, error } = await supabase
+        .from('fx_rates')
+        .select('rate_decimal, valid_from')
+        .eq('from_currency', 'USD')
+        .eq('to_currency', 'XOF')
+        .eq('is_active', true)
+        .lte('valid_from', new Date().toISOString())
+        .order('valid_from', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (error) {
-        throw new Error(`FX quote failed: ${error.message}`);
+      if (!error && fxRate?.rate_decimal) {
+        const base = Math.max(1, Math.round(Number(fxRate.rate_decimal)));
+        return this.buildFXQuote(xofAmountMinor, marginBps, base);
       }
 
-      return data;
+      // Non-blocking fallback aligned with backend default
+      return this.buildFXQuote(xofAmountMinor, marginBps, 566);
     } catch (error: any) {
       console.error('FX Quote error:', error);
-      throw new Error(error.message || 'Failed to get FX quote');
+      return this.buildFXQuote(xofAmountMinor, marginBps, 566);
     }
   }
 
@@ -87,31 +112,25 @@ class StripePaymentService {
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
-        body: {
-          display_amount_minor: displayAmountMinor,
-          display_currency: 'XOF',
-          charge_amount_minor: chargeAmountMinor,
-          charge_currency: 'USD',
-          fx_num: fxNum,
-          fx_den: fxDen,
-          fx_locked_at: fxLockedAt,
-          fx_margin_bps: options.fx_margin_bps || 150,
-          event_id: eventId,
-          user_id: options.user_id,
-          order_id: options.order_id,
-          description: options.description,
-          idempotencyKey: options.idempotencyKey,
-          create_order: options.create_order,
-          ticket_quantities: options.ticket_quantities,
-          payment_method: options.payment_method,
-          guest_email: options.guest_email,
-        },
+      const data = await postEdgeFunctionAnon<StripePaymentResponse>('create-stripe-payment', {
+        display_amount_minor: displayAmountMinor,
+        display_currency: 'XOF',
+        charge_amount_minor: chargeAmountMinor,
+        charge_currency: 'USD',
+        fx_num: fxNum,
+        fx_den: fxDen,
+        fx_locked_at: fxLockedAt,
+        fx_margin_bps: options.fx_margin_bps || 150,
+        event_id: eventId,
+        user_id: options.user_id,
+        order_id: options.order_id,
+        description: options.description,
+        idempotencyKey: options.idempotencyKey,
+        create_order: options.create_order,
+        ticket_quantities: options.ticket_quantities,
+        payment_method: options.payment_method,
+        guest_email: options.guest_email,
       });
-
-      if (error) {
-        throw new Error(`Payment creation failed: ${error.message}`);
-      }
 
       if (!data?.clientSecret || !data?.paymentId) {
         throw new Error('Invalid response from Stripe payment function');
@@ -144,26 +163,20 @@ class StripePaymentService {
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
-        body: {
-          amount,
-          currency,
-          event_id: eventId,
-          amount_is_minor: options.amount_is_minor || false,
-          user_id: options.user_id,
-          order_id: options.order_id,
-          description: options.description,
-          idempotencyKey: options.idempotencyKey,
-          create_order: options.create_order,
-          ticket_quantities: options.ticket_quantities,
-          payment_method: options.payment_method,
-          guest_email: options.guest_email,
-        },
+      const data = await postEdgeFunctionAnon<StripePaymentResponse>('create-stripe-payment', {
+        amount,
+        currency,
+        event_id: eventId,
+        amount_is_minor: options.amount_is_minor || false,
+        user_id: options.user_id,
+        order_id: options.order_id,
+        description: options.description,
+        idempotencyKey: options.idempotencyKey,
+        create_order: options.create_order,
+        ticket_quantities: options.ticket_quantities,
+        payment_method: options.payment_method,
+        guest_email: options.guest_email,
       });
-
-      if (error) {
-        throw new Error(`Payment creation failed: ${error.message}`);
-      }
 
       if (!data?.clientSecret || !data?.paymentId) {
         throw new Error('Invalid response from Stripe payment function');
@@ -222,7 +235,7 @@ class StripePaymentService {
    * Generate unique idempotency key
    */
   generateIdempotencyKey(): string {
-    return `stripe-payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `web-stripe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 

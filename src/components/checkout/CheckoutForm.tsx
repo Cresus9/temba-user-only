@@ -157,7 +157,9 @@ export default function CheckoutForm({
           console.log('✅ FX Quote fetched successfully:', quote);
         } catch (error: any) {
           console.error('❌ Failed to fetch FX quote:', error);
-          toast.error('Failed to get exchange rate. Please try again.');
+          toast('Taux de change indisponible pour le moment. Vous pouvez continuer le paiement.', {
+            icon: 'ℹ️',
+          });
         } finally {
           setLoadingFxQuote(false);
         }
@@ -195,10 +197,12 @@ export default function CheckoutForm({
       console.log('💾 [CHECKOUT] Storing payment details in localStorage:', paymentDetails);
       localStorage.setItem('paymentDetails', JSON.stringify(paymentDetails));
 
-      // Redirect to payment success page
-      const successUrl = `${window.location.origin}/payment/success?order=${orderId}&token=${paymentToken}`;
-      console.log('🔄 [CHECKOUT] Redirecting to:', successUrl);
-      window.location.href = successUrl;
+      // Redirect to unified payment status page (webhook + realtime source of truth)
+      const statusUrl = `${window.location.origin}/payment/${encodeURIComponent(
+        paymentId
+      )}?order_id=${encodeURIComponent(orderId)}&provider=stripe`;
+      console.log('🔄 [CHECKOUT] Redirecting to:', statusUrl);
+      window.location.href = statusUrl;
       
     } catch (error: any) {
       console.error('❌ [CHECKOUT] Error handling Stripe payment success:', error);
@@ -492,7 +496,7 @@ export default function CheckoutForm({
       }));
 
       // Create pawaPay payment
-      const idempotencyKey = `pawapay-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const idempotencyKey = `web-pawapay-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const pawapayResponse = await pawapayService.createPayment({
         idempotency_key: idempotencyKey,
         user_id: user?.id,
@@ -576,8 +580,14 @@ export default function CheckoutForm({
       }));
 
       // Fallback: redirect to success page if no payment URL
-      const successUrl = `${window.location.origin}/payment/success?order=${orderResult.orderId}&token=${pawapayResponse.transaction_id || pawapayResponse.payment_token}`;
-      window.location.href = successUrl;
+      const paymentId = pawapayResponse.payment_id;
+      if (!paymentId) {
+        throw new Error('payment_id manquant dans la réponse pawaPay');
+      }
+      const statusUrl = `${window.location.origin}/payment/${encodeURIComponent(
+        paymentId
+      )}?order_id=${encodeURIComponent(orderResult.orderId)}&provider=pawapay`;
+      window.location.href = statusUrl;
       return; // Exit after mobile money payment
     } catch (error: any) {
       console.error('Erreur de paiement:', error);
@@ -944,7 +954,7 @@ export default function CheckoutForm({
                   {!loadingFxQuote && !fxQuote && paymentMethod === 'card' && (
                     <div className="flex items-center p-4 bg-red-50 border border-red-200 rounded-lg">
                       <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
-                      <span className="text-red-700">Failed to get exchange rate. Please try again.</span>
+                      <span className="text-red-700">Taux de change indisponible pour le moment.</span>
                     </div>
                   )}
 
@@ -973,7 +983,7 @@ export default function CheckoutForm({
                     <div className="space-y-4">
                       <div className="flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <AlertCircle className="w-5 h-5 mr-2 text-yellow-600" />
-                        <span className="text-yellow-700">Using basic card form. Exchange rate will be calculated at payment time.</span>
+                        <span className="text-yellow-700">Formulaire carte basique activé. Le taux sera appliqué au moment du paiement.</span>
                       </div>
                       
                       <div>

@@ -15,8 +15,34 @@ export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('order');
   const token = searchParams.get('token');
+  const paymentId = searchParams.get('payment_id');
 
   useEffect(() => {
+    if (paymentId) {
+      navigate(`/payment/${encodeURIComponent(paymentId)}?order_id=${encodeURIComponent(orderId || '')}&provider=pawapay`, {
+        replace: true,
+      });
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem('paymentDetails');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.paymentId && (parsed?.orderId === orderId || !orderId)) {
+          navigate(
+            `/payment/${encodeURIComponent(parsed.paymentId)}?order_id=${encodeURIComponent(
+              parsed.orderId || orderId || ''
+            )}&provider=${encodeURIComponent(parsed.provider || 'pawapay')}`,
+            { replace: true }
+          );
+          return;
+        }
+      }
+    } catch {
+      // ignore localStorage parse issues
+    }
+
     if (!orderId || !token) {
       setError('Paramètres de paiement manquants');
       setLoading(false);
@@ -28,7 +54,7 @@ export default function PaymentSuccess() {
       hasVerifiedRef.current = true;
       verifyPayment();
     }
-  }, [orderId, token]);
+  }, [orderId, token, paymentId, navigate]);
 
   const verifyPayment = async () => {
     try {

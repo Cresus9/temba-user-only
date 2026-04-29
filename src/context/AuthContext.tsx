@@ -3,6 +3,8 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
 import { authService } from '../services/authService';
 import { ticketTransferService } from '../services/ticketTransferService';
+import { referralService } from '../services/referralService';
+import { creditService } from '../services/creditService';
 import toast from 'react-hot-toast';
 
 interface AuthState {
@@ -108,6 +110,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.email, profile?.phone]); // Only depend on email and phone, not full objects
+
+  // Post-auth referral parity with mobile:
+  // 1) track pending referral code, 2) grant signup bonus, 3) refresh credit wallet.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token || cancelled) return;
+      await referralService.flushPendingReferralAfterAuth();
+      if (cancelled) return;
+
+      const signupBonus = await referralService.grantSignupBonus();
+      if (!signupBonus.ok && signupBonus.message && !signupBonus.message.toLowerCase().includes('already')) {
+        console.warn('[referral] grant-signup-bonus:', signupBonus.message);
+      }
+      if (cancelled) return;
+
+      await creditService.getBalance();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const loadProfile = async (userId: string) => {
     try {
