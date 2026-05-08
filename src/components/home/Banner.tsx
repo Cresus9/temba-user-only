@@ -164,11 +164,26 @@ export default function Banner() {
             onClick={isClickable ? handleBannerClick : undefined}
             style={{ minHeight: '180px' }}
           >
+            {/* Blurred backdrop — fills the letterbox space when the image
+                aspect ratio doesn't match the container. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 scale-110"
+              style={{
+                backgroundImage: `url(${currentBanner.image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(28px) saturate(140%)',
+              }}
+            />
+            <div aria-hidden className="absolute inset-0 bg-ink/35" />
+
+            {/* Foreground image — full poster, never cropped */}
             <img
               key={currentBanner.id}
               src={currentBanner.image_url}
               alt={currentBanner.title}
-              className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500"
+              className="absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-500"
               loading="lazy"
             />
 
