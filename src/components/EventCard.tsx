@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Users } from 'lucide-react';
+import { MapPin, Users, Tag } from 'lucide-react';
 import { Event } from '../types/event';
 import { formatCurrency } from '../utils/formatters';
-import Image from './common/Image';
+import PosterMedia from './common/PosterMedia';
 
 interface EventCardProps extends Event {
   className?: string;
@@ -31,109 +31,94 @@ const EventCard = memo(({
   const eventDate = new Date(date);
   const isUpcoming = eventDate > new Date();
 
+  const formattedDate = eventDate.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  });
+
   return (
-    <Link 
+    <Link
       to={`/events/${id}`}
-      className={`group block h-full bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${className}`}
+      className={`group block h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-300 ${className}`}
       aria-label={`Voir les détails de l'événement ${title}`}
     >
       <article className="flex flex-col h-full">
-        {/* Image Container */}
-        <div className="relative aspect-[4/3] overflow-hidden flex-shrink-0">
-          <Image
+        {/* Image — full poster, blurred backdrop fills the frame */}
+        <div className="relative flex-shrink-0">
+          <PosterMedia
             src={image_url}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            aspect="aspect-square"
             fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
-            width={400}
-            height={300}
+            width={500}
+            height={500}
             quality={85}
             priority={priority}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/50 to-transparent" />
-          
-          {/* Status Badge */}
-          {status !== 'PUBLISHED' && (
-            <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium bg-black/50 text-white">
-              {status}
-            </div>
-          )}
+            className="group-hover:[&_img]:scale-[1.03] [&_img]:transition-transform [&_img]:duration-500 [&_img]:ease-out"
+          >
+            {/* Status — only when non-published */}
+            {status !== 'PUBLISHED' && (
+              <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide uppercase bg-ink/80 text-paper z-10 backdrop-blur-sm">
+                {status}
+              </div>
+            )}
 
-          {/* Categories */}
-          {categories.length > 0 && (
-            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-              {categories.slice(0, 1).map((category) => (
-                <span
-                  key={category}
-                  className="px-2 py-0.5 rounded text-xs font-medium bg-white/90 text-gray-800"
-                >
-                  {category}
-                </span>
-              ))}
-              {categories.length > 1 && (
-                <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/90 text-gray-800">
-                  +{categories.length - 1}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Price Badge */}
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-xs font-medium bg-white text-gray-900 shadow-sm">
-            {formatCurrency(price, currency)}
-          </div>
+            {/* Single category pill — bottom right, brand orange */}
+            {categories.length > 0 && (
+              <div className="absolute bottom-2.5 right-2.5 z-10 inline-flex items-center gap-1 pl-2 pr-2.5 py-1 rounded-full bg-accent text-paper text-[11px] font-semibold shadow-card">
+                <Tag className="h-2.5 w-2.5" />
+                <span className="leading-none">{categories[0]}</span>
+              </div>
+            )}
+          </PosterMedia>
         </div>
 
-        {/* Content */}
+        {/* Content — compact */}
         <div className="flex flex-col flex-1 p-3 min-h-0">
-          <header className="mb-2">
-            <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2 leading-tight">
-              {title}
-            </h3>
-            <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed flex-1">
-              {description}
-            </p>
-          </header>
+          <p className="text-[10px] uppercase tracking-[0.12em] font-bold text-accent mb-1">
+            {formattedDate} · {time}
+          </p>
 
-          <div className="space-y-1 mb-2 flex-shrink-0">
-            <div className="flex items-center gap-2 text-gray-600 text-xs">
-              <Calendar className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{eventDate.toLocaleDateString()}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600 text-xs">
-              <Clock className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{time}</span>
-            </div>
-            <div className="flex items-start gap-2 text-gray-600 text-xs">
-              <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
-              <span className="line-clamp-2 leading-relaxed">{location}</span>
-            </div>
+          <h3
+            className="text-[13px] font-bold text-ink mb-1.5 line-clamp-2 leading-snug tracking-tight"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+          >
+            {title}
+          </h3>
+
+          <div className="flex items-center gap-1 text-[11px] text-ink-mute mb-2.5">
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{location}</span>
           </div>
 
-          {/* Availability Indicator - Only show if 80%+ sold */}
+          {/* Availability — only when 80%+ sold */}
           {availabilityPercentage >= 80 && (
-            <div className="mb-2 flex-shrink-0">
-              <div className="flex items-center justify-between text-xs mb-0.5">
-                <span className="text-gray-600 flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {tickets_sold} / {capacity}
+            <div className="mb-2.5 flex-shrink-0">
+              <div className="flex items-center justify-between text-[10px] mb-0.5">
+                <span className="text-ink-mute flex items-center gap-0.5">
+                  <Users className="h-2.5 w-2.5" />
+                  {tickets_sold}/{capacity}
                 </span>
-                <span className="text-red-600 font-medium text-xs">Vente rapide</span>
+                <span className="text-accent font-semibold">Vente rapide</span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-0.5 bg-line rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-indigo-600 transition-all duration-300"
+                  className="h-full bg-accent transition-all duration-500"
                   style={{ width: `${Math.min(availabilityPercentage, 100)}%` }}
                 />
               </div>
             </div>
           )}
 
-          {/* Call to Action */}
-          <footer className="mt-auto flex-shrink-0">
-            <button className="w-full text-center py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">
-              {isUpcoming ? 'Obtenir des billets' : 'Voir les détails'}
-            </button>
+          {/* Footer — price + CTA */}
+          <footer className="mt-auto flex-shrink-0 flex items-center justify-between pt-2.5 border-t border-line">
+            <p className="text-[13px] font-bold text-ink leading-none tracking-tight">
+              {formatCurrency(price, currency)}
+            </p>
+            <span className="text-[12px] font-semibold text-ink group-hover:text-brand transition-colors inline-flex items-center gap-0.5">
+              {isUpcoming ? 'Réserver' : 'Détails'}
+              <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+            </span>
           </footer>
         </div>
       </article>

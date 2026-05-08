@@ -178,86 +178,165 @@ export default function PaymentStatus() {
   };
 
   if (!paymentId) {
-    return <div className="p-8 text-center text-red-600">Identifiant de paiement manquant.</div>;
+    return (
+      <div className="min-h-[60vh] grid place-items-center px-4">
+        <div className="max-w-md text-center">
+          <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+          <h2 className="text-ink mb-2">Identifiant manquant</h2>
+          <p className="text-[14px] text-ink-mute">
+            Aucun identifiant de paiement détecté dans l'URL.
+          </p>
+        </div>
+      </div>
+    );
   }
 
+  // Tiny ticket-style code chip header — used across all phases for continuity
+  const evtCode = paymentId.slice(0, 8).toUpperCase();
+
+  const Header = ({ subtitle }: { subtitle: string }) => (
+    <div className="px-5 py-3 bg-cream border-b border-line flex items-center justify-between">
+      <span className="eyebrow !text-ink">{subtitle}</span>
+      <span
+        className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+      >
+        PAY · {evtCode}
+      </span>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+      <div className="w-full max-w-md rounded-xl2 border border-line bg-paper shadow-pop overflow-hidden">
         {phase === 'waiting' && (
-          <div className="text-center space-y-3">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
-            <h1 className="text-xl font-semibold text-gray-900">Paiement en cours</h1>
-            <p className="text-sm text-gray-600">{message}</p>
-          </div>
+          <>
+            <Header subtitle="Paiement en cours" />
+            <div className="p-7 text-center space-y-4">
+              <div className="grid place-items-center w-14 h-14 rounded-full bg-brand-50 mx-auto">
+                <Loader2 className="h-6 w-6 animate-spin text-brand" />
+              </div>
+              <h1
+                className="text-ink text-[20px] font-bold tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                Paiement en cours
+              </h1>
+              <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
+              <p className="text-[11px] text-ink-mute/70">
+                Cette opération peut prendre jusqu'à 30 secondes.
+              </p>
+            </div>
+          </>
         )}
 
         {phase === 'otp' && (
-          <div className="space-y-4">
-            <h1 className="text-xl font-semibold text-gray-900 text-center">Code OTP requis</h1>
-            <p className="text-sm text-gray-600 text-center">{message}</p>
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-              <p className="text-xs text-blue-900 mb-2">Composez le code USSD, puis entrez l’OTP reçu :</p>
-              <div className="flex gap-2">
-                <code className="flex-1 rounded bg-white px-2 py-1 text-sm font-mono">{ussdCode}</code>
-                <button
-                  type="button"
-                  className="rounded border px-2 py-1 text-xs"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(ussdCode);
-                    toast.success('Code USSD copié');
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-                <a href={dialerHref} className="rounded border px-2 py-1 text-xs inline-flex items-center">
-                  <Phone className="h-3.5 w-3.5" />
-                </a>
+          <>
+            <Header subtitle="Code OTP requis" />
+            <div className="p-6 space-y-4">
+              <p className="text-[13px] text-ink-mute leading-relaxed text-center">{message}</p>
+
+              <div className="rounded-lg border border-brand/20 bg-brand-50 p-3">
+                <p className="text-[11px] font-medium text-brand-800 mb-2">
+                  Composez le code USSD, puis entrez l'OTP reçu :
+                </p>
+                <div className="flex gap-1.5">
+                  <code
+                    className="flex-1 rounded bg-paper border border-line px-2.5 py-1.5 text-[13px] font-bold text-ink tabular-nums"
+                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                  >
+                    {ussdCode}
+                  </code>
+                  <button
+                    type="button"
+                    className="grid place-items-center w-8 h-8 rounded border border-line bg-paper text-ink hover:border-brand/40 hover:text-brand transition-colors"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(ussdCode);
+                      toast.success('Code USSD copié');
+                    }}
+                    aria-label="Copier le code USSD"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <a
+                    href={dialerHref}
+                    className="grid place-items-center w-8 h-8 rounded border border-line bg-paper text-ink hover:border-brand/40 hover:text-brand transition-colors"
+                    aria-label="Composer le code"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                  </a>
+                </div>
               </div>
+
+              <input
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="w-full h-11 rounded-lg border border-line bg-paper px-3 text-[14px] text-ink placeholder:text-ink-mute focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow tabular-nums"
+                placeholder="Entrez le code OTP"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+              />
+
+              <button
+                type="button"
+                disabled={busy || !otpCode}
+                onClick={handleOtpSubmit}
+                className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy ? 'Validation…' : 'Valider OTP'}
+              </button>
             </div>
-            <input
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2"
-              placeholder="Entrez le code OTP"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-            />
-            <button
-              type="button"
-              disabled={busy || !otpCode}
-              onClick={handleOtpSubmit}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-60"
-            >
-              {busy ? 'Validation...' : 'Valider OTP'}
-            </button>
-          </div>
+          </>
         )}
 
         {phase === 'success' && (
-          <div className="text-center space-y-3">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
-            <h1 className="text-xl font-semibold text-gray-900">Paiement confirmé</h1>
-            <p className="text-sm text-gray-600">{message}</p>
-            <button
-              type="button"
-              onClick={() => navigate(`/booking/confirmation/${orderId}`)}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white"
-            >
-              Voir mes billets
-            </button>
-          </div>
+          <>
+            <Header subtitle="Paiement confirmé" />
+            <div className="p-7 text-center space-y-4">
+              <div className="grid place-items-center w-14 h-14 rounded-full bg-green-50 mx-auto ring-1 ring-green-200">
+                <CheckCircle2 className="h-7 w-7 text-green-600" />
+              </div>
+              <h1
+                className="text-ink text-[20px] font-bold tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                Paiement confirmé
+              </h1>
+              <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
+              <button
+                type="button"
+                onClick={() => navigate(`/booking/confirmation/${orderId}`)}
+                className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
+              >
+                Voir mes billets →
+              </button>
+            </div>
+          </>
         )}
 
         {phase === 'failed' && (
-          <div className="text-center space-y-3">
-            <AlertCircle className="mx-auto h-10 w-10 text-red-600" />
-            <h1 className="text-xl font-semibold text-gray-900">Paiement échoué</h1>
-            <p className="text-sm text-gray-600">{message}</p>
-            <Link to="/checkout" className="inline-block rounded-lg border px-4 py-2 text-sm">
-              Retour au paiement
-            </Link>
-          </div>
+          <>
+            <Header subtitle="Paiement échoué" />
+            <div className="p-7 text-center space-y-4">
+              <div className="grid place-items-center w-14 h-14 rounded-full bg-red-50 mx-auto ring-1 ring-red-200">
+                <AlertCircle className="h-7 w-7 text-red-600" />
+              </div>
+              <h1
+                className="text-ink text-[20px] font-bold tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                Paiement échoué
+              </h1>
+              <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
+              <Link
+                to="/checkout"
+                className="inline-flex items-center justify-center w-full h-11 rounded-lg border border-line bg-paper text-ink text-[14px] font-bold hover:border-brand/40 hover:text-brand transition-colors"
+              >
+                Retour au paiement
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </div>

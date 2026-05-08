@@ -1,16 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Ticket, Phone, Loader } from 'lucide-react';
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Phone,
+  Loader,
+  Check,
+  ArrowRight,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { detectInputType, getPhoneInfo, isValidPhone, normalizePhone } from '../utils/phoneValidation';
+import { detectInputType, getPhoneInfo, isValidPhone } from '../utils/phoneValidation';
 import CountryCodeSelector from '../components/CountryCodeSelector';
+import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
 
 type LoginMethod = 'email' | 'phone';
 
+const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+
+const labelClass = 'block text-[11px] font-bold uppercase tracking-[0.18em] text-ink-mute mb-2';
+const inputBase =
+  'block w-full py-2.5 text-[14px] text-ink placeholder:text-ink-mute/70 bg-paper border border-line rounded-xl2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors disabled:opacity-60';
+
 export default function Login() {
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>('phone'); // Default to phone
-  const [countryCode, setCountryCode] = useState('+226'); // Default to Burkina Faso
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('phone');
+  const [countryCode, setCountryCode] = useState('+226');
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,35 +39,25 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get redirect path and any additional state
   const state = location.state as any;
   const from = state?.redirectTo || state?.from?.pathname || '/dashboard';
   const prefilledEmail = state?.email || '';
 
-  // Detect if input is email or phone (for validation)
-  const inputType = detectInputType(emailOrPhone);
-  const isPhone = loginMethod === 'phone' || inputType === 'phone';
-  const isEmail = loginMethod === 'email' || inputType === 'email';
-
-  // Set email from state if provided, or load remembered credentials
   React.useEffect(() => {
     if (prefilledEmail) {
       setEmailOrPhone(prefilledEmail);
-      // If email is prefilled, switch to email method
       if (prefilledEmail.includes('@')) {
         setLoginMethod('email');
       }
     } else {
-      // Check for remembered credentials
       const rememberedEmail = localStorage.getItem('rememberedEmail');
       const rememberedPhone = localStorage.getItem('rememberedPhone');
-      
+
       if (rememberedEmail) {
         setEmailOrPhone(rememberedEmail);
         setLoginMethod('email');
         setRememberMe(true);
       } else if (rememberedPhone) {
-        // Extract country code and local number from remembered phone
         const phoneInfo = getPhoneInfo(rememberedPhone);
         if (phoneInfo.countryCode && phoneInfo.localNumber) {
           setCountryCode(`+${phoneInfo.countryCode}`);
@@ -65,8 +72,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    // Validate input
+
     if (!emailOrPhone.trim()) {
       setError('Veuillez entrer votre email ou numéro de téléphone');
       return;
@@ -77,7 +83,6 @@ export default function Login() {
       return;
     }
 
-    // Validate based on selected method
     if (loginMethod === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailOrPhone)) {
@@ -85,7 +90,6 @@ export default function Login() {
         return;
       }
     } else if (loginMethod === 'phone') {
-      // Combine country code with local number
       const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
       if (!isValidPhone(fullPhone)) {
         setError('Format de numéro invalide. Vérifiez le numéro saisi');
@@ -96,18 +100,17 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // For phone login, combine country code with local number
-      const loginValue = loginMethod === 'phone' 
-        ? `${countryCode}${emailOrPhone.replace(/\s/g, '')}`
-        : emailOrPhone;
-      
+      const loginValue =
+        loginMethod === 'phone'
+          ? `${countryCode}${emailOrPhone.replace(/\s/g, '')}`
+          : emailOrPhone;
+
       await login(loginValue, password);
-      
+
       if (rememberMe) {
         if (loginMethod === 'email') {
           localStorage.setItem('rememberedEmail', emailOrPhone);
         } else {
-          // Store phone with country code
           const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
           localStorage.setItem('rememberedPhone', fullPhone);
         }
@@ -116,13 +119,11 @@ export default function Login() {
         localStorage.removeItem('rememberedPhone');
       }
 
-      // Navigate to the redirect path
       navigate(from, { replace: true });
-      
       toast.success('Connexion réussie !');
-    } catch (error: any) {
-      console.error('Erreur de connexion:', error);
-      const errorMsg = error.message || 'Email/téléphone ou mot de passe invalide';
+    } catch (err: any) {
+      console.error('Erreur de connexion:', err);
+      const errorMsg = err.message || 'Email/téléphone ou mot de passe invalide';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -130,246 +131,239 @@ export default function Login() {
     }
   };
 
-  return (
-    <div className="min-h-[80vh] flex">
-      {/* Left Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <Link to="/" className="inline-block mb-4">
-              <img src="/logo.svg" alt="Temba Logo" className="h-10 w-auto mx-auto" />
-            </Link>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Bienvenue
-            </h2>
-            <p className="text-gray-600">
-              Connectez-vous pour accéder à votre compte
-            </p>
-          </div>
+  const switchMethod = (m: LoginMethod) => {
+    setLoginMethod(m);
+    setEmailOrPhone('');
+    setError('');
+    if (m === 'phone') setCountryCode('+226');
+  };
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-              <AlertCircle className="h-5 w-5" />
-              <span>{error}</span>
+  return (
+    <AuthShell
+      eyebrow="Espace client"
+      title="Bon retour."
+      subtitle="Connectez-vous pour retrouver vos billets, vos commandes et vos transferts."
+      illustration="party"
+      posterEyebrow="Tickets · 226"
+      posterHeadline="On vous attendait."
+      posterSub="Retrouvez vos billets, vos commandes et vos transferts — tout est resté à sa place."
+      posterTagline="La file est ouverte"
+    >
+      {/* Error banner */}
+      {error && (
+        <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl2 flex items-start gap-2.5 text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span className="text-[13px] leading-relaxed">{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Method segmented toggle */}
+        <div>
+          <p className={labelClass}>Méthode de connexion</p>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-cream rounded-xl2 border border-line">
+            <button
+              type="button"
+              onClick={() => switchMethod('phone')}
+              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] font-bold transition-all ${
+                loginMethod === 'phone'
+                  ? 'bg-paper text-brand shadow-card ring-1 ring-line'
+                  : 'text-ink-mute hover:text-ink'
+              }`}
+            >
+              <Phone className="h-4 w-4" />
+              Téléphone
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMethod('email')}
+              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] font-bold transition-all ${
+                loginMethod === 'email'
+                  ? 'bg-paper text-brand shadow-card ring-1 ring-line'
+                  : 'text-ink-mute hover:text-ink'
+              }`}
+            >
+              <Mail className="h-4 w-4" />
+              Email
+            </button>
+          </div>
+        </div>
+
+        {/* Email or Phone input */}
+        <div>
+          <label htmlFor="emailOrPhone" className={labelClass}>
+            {loginMethod === 'email' ? 'Adresse email' : 'Numéro de téléphone'}
+          </label>
+          {loginMethod === 'phone' ? (
+            <div className="flex">
+              <CountryCodeSelector
+                value={countryCode}
+                onChange={(code) => {
+                  setCountryCode(code);
+                  setError('');
+                }}
+              />
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                <input
+                  id="emailOrPhone"
+                  type="tel"
+                  value={emailOrPhone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^\d\s]/g, '');
+                    setEmailOrPhone(value);
+                    setError('');
+                  }}
+                  className={`${inputBase} pl-10 pr-3 rounded-l-none tabular-nums`}
+                  style={{ fontFamily: monoFamily }}
+                  placeholder="70 12 34 56"
+                  autoComplete="tel"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+              <input
+                id="emailOrPhone"
+                type="email"
+                value={emailOrPhone}
+                onChange={(e) => {
+                  setEmailOrPhone(e.target.value);
+                  setError('');
+                }}
+                className={`${inputBase} pl-10 pr-3`}
+                placeholder="nom@exemple.com"
+                autoComplete="email"
+                required
+                disabled={isLoading}
+              />
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Method Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Méthode de connexion
-              </label>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginMethod('phone');
-                    setEmailOrPhone('');
-                    setCountryCode('+226');
-                    setError('');
-                  }}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                    loginMethod === 'phone'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Phone className="h-5 w-5" />
-                  <span className="font-medium">Téléphone</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginMethod('email');
-                    setEmailOrPhone('');
-                    setError('');
-                  }}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                    loginMethod === 'email'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Mail className="h-5 w-5" />
-                  <span className="font-medium">Email</span>
-                </button>
-              </div>
-
-              {/* Email or Phone Input */}
-              <div>
-                <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700 mb-2">
-                  {loginMethod === 'email' ? 'Adresse email' : 'Numéro de téléphone'}
-                </label>
-                {loginMethod === 'phone' ? (
-                  <div className="flex">
-                    <CountryCodeSelector
-                      value={countryCode}
-                      onChange={(code) => {
-                        setCountryCode(code);
-                        setError('');
-                      }}
-                    />
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        id="emailOrPhone"
-                        type="tel"
-                        value={emailOrPhone}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^\d\s]/g, '');
-                          setEmailOrPhone(value);
-                          setError('');
-                        }}
-                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="70 12 34 56"
-                        autoComplete="tel"
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      id="emailOrPhone"
-                      type="email"
-                      value={emailOrPhone}
-                      onChange={(e) => {
-                        setEmailOrPhone(e.target.value);
-                        setError('');
-                      }}
-                      className="block w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="nom@exemple.com"
-                      autoComplete="email"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                )}
-                {emailOrPhone && (
-                  <div className="mt-2">
-                    {loginMethod === 'phone' ? (
-                      (() => {
-                        const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
-                        const isValid = isValidPhone(fullPhone);
-                        const info = isValid ? getPhoneInfo(fullPhone) : null;
-                        return isValid && info ? (
-                          <p className="text-xs text-green-600 flex items-center gap-1">
-                            <span>✓</span>
-                            <span>Numéro valide {info.countryName && `(${info.countryName})`}</span>
-                          </p>
-                        ) : emailOrPhone.length > 0 ? (
-                          <p className="text-xs text-red-600 flex items-center gap-1">
-                            <span>⚠️</span>
-                            <span>Numéro invalide. Vérifiez le numéro saisi</span>
-                          </p>
-                        ) : null;
-                      })()
-                    ) : loginMethod === 'email' ? (
-                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone) ? (
-                        <p className="text-xs text-green-600 flex items-center gap-1">
-                          <span>✓</span>
-                          <span>Email valide</span>
-                        </p>
-                      ) : (
-                        <p className="text-xs text-red-600 flex items-center gap-1">
-                          <span>⚠️</span>
-                          <span>Format d'email invalide</span>
-                        </p>
-                      )
-                    ) : null}
-                  </div>
-                )}
-              </div>
+          {/* Validation hint */}
+          {emailOrPhone && (
+            <div className="mt-2">
+              {loginMethod === 'phone'
+                ? (() => {
+                    const fullPhone = `${countryCode}${emailOrPhone.replace(/\s/g, '')}`;
+                    const isValid = isValidPhone(fullPhone);
+                    const info = isValid ? getPhoneInfo(fullPhone) : null;
+                    return isValid && info ? (
+                      <p className="text-[11px] text-brand flex items-center gap-1.5 font-semibold">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                        Numéro valide{info.countryName ? ` · ${info.countryName}` : ''}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-red-600 flex items-center gap-1.5 font-semibold">
+                        <AlertCircle className="h-3 w-3" />
+                        Numéro invalide
+                      </p>
+                    );
+                  })()
+                : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone) ? (
+                    <p className="text-[11px] text-brand flex items-center gap-1.5 font-semibold">
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                      Email valide
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-red-600 flex items-center gap-1.5 font-semibold">
+                      <AlertCircle className="h-3 w-3" />
+                      Format d'email invalide
+                    </p>
+                  )}
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                  Se souvenir de moi
-                </label>
-              </div>
-              <Link to="/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                Mot de passe oublié ?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <Loader className="h-5 w-5 animate-spin" />
-                  <span>Connexion en cours...</span>
-                </>
-              ) : (
-                "Se connecter"
-              )}
-            </button>
-
-            <p className="text-center text-sm text-gray-600">
-              Vous n'avez pas de compte ?{' '}
-              <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
-                S'inscrire
-              </Link>
-            </p>
-          </form>
+          )}
         </div>
-      </div>
 
-      {/* Right Side - Image */}
-      <div className="hidden lg:block lg:w-1/2 relative">
-        <img
-          src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
-          alt="Login background"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/90 to-indigo-800/90" />
-        <div className="absolute inset-0 flex items-center justify-center p-12">
-          <div className="max-w-md text-white">
-            <h2 className="text-3xl font-bold mb-6">Vivez les Meilleurs Événements en Afrique</h2>
-            <p className="text-lg text-indigo-100">
-              Rejoignez des milliers de participants et découvrez des concerts, festivals et expériences culturelles incroyables.
-            </p>
+        {/* Password */}
+        <div>
+          <label htmlFor="password" className={labelClass}>
+            Mot de passe
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`${inputBase} pl-10 pr-11`}
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
         </div>
+
+        {/* Remember me + forgot */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-brand focus:ring-brand border-line rounded"
+            />
+            <span className="text-[13px] text-ink">Se souvenir de moi</span>
+          </label>
+          <Link
+            to="/forgot-password"
+            className="text-[13px] font-semibold text-brand hover:text-brand-700 transition-colors"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl2 text-[14px] font-bold text-paper bg-brand hover:bg-brand-700 active:bg-brand-800 transition-colors shadow-card disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <Loader className="h-4 w-4 animate-spin" />
+              Connexion en cours...
+            </>
+          ) : (
+            <>
+              Se connecter
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </form>
+
+      {/* Footer link */}
+      <div className="mt-6 pt-5 border-t border-line">
+        <p className="text-center text-[13px] text-ink-mute">
+          Pas encore de compte ?{' '}
+          <Link
+            to="/signup"
+            className="font-bold text-brand hover:text-brand-700 transition-colors"
+          >
+            Créer un compte
+          </Link>
+        </p>
       </div>
-    </div>
+
+      {/* Tiny security strip */}
+      <p
+        className="mt-5 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute/70"
+        style={{ fontFamily: monoFamily }}
+      >
+        🔒 Connexion chiffrée · Vos données restent privées
+      </p>
+    </AuthShell>
   );
 }

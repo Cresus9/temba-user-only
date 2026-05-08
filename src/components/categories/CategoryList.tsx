@@ -81,66 +81,69 @@ export default function CategoryList() {
   const canGoNext = currentIndex < maxIndex;
 
   if (useGridLayout) {
-    // 2x2 Grid layout for small screens
     return (
       <div className="grid grid-cols-2 gap-3">
         {CATEGORIES.map((category) => (
-          <div key={category.id}>
-            <CategoryCard
-              {...category}
-              eventCount={getEventCount(category.id)}
-            />
-          </div>
+          <CategoryCard
+            key={category.id}
+            {...category}
+            eventCount={getEventCount(category.id)}
+          />
         ))}
       </div>
     );
   }
 
-  // Horizontal scroll layout for larger screens
+  const showCarousel = CATEGORIES.length > categoriesPerView;
+
+  // If we have ≤ 4 categories, just render them as a clean grid (no carousel needed)
+  if (!showCarousel) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {CATEGORIES.map((category) => (
+          <CategoryCard
+            key={category.id}
+            {...category}
+            eventCount={getEventCount(category.id)}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Horizontal scroll layout (only when > 4 categories)
+  const arrowBase =
+    'absolute top-1/2 -translate-y-1/2 z-10 grid place-items-center w-10 h-10 rounded-full transition-all duration-200 shadow-card';
+  const arrowActive = 'bg-paper text-ink border border-line hover:border-ink hover:shadow-card-hover';
+  const arrowDisabled = 'bg-paper text-ink-mute border border-line cursor-not-allowed opacity-50';
+
   return (
     <div className="relative group">
-      {/* Navigation Arrows */}
-      {CATEGORIES.length > categoriesPerView && (
-        <>
-          {/* Previous Button */}
-          <button
-            onClick={handlePrevious}
-            disabled={!canGoPrevious}
-            className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full shadow-lg border flex items-center justify-center transition-all duration-200 ${
-              canGoPrevious 
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 hover:shadow-xl opacity-90 hover:opacity-100' 
-                : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed opacity-50'
-            }`}
-            aria-label="Catégories précédentes"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+      <button
+        onClick={handlePrevious}
+        disabled={!canGoPrevious}
+        className={`${arrowBase} -left-4 ${canGoPrevious ? arrowActive : arrowDisabled}`}
+        aria-label="Catégories précédentes"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <button
+        onClick={handleNext}
+        disabled={!canGoNext}
+        className={`${arrowBase} -right-4 ${canGoNext ? arrowActive : arrowDisabled}`}
+        aria-label="Catégories suivantes"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
 
-          {/* Next Button */}
-          <button
-            onClick={handleNext}
-            disabled={!canGoNext}
-            className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full shadow-lg border flex items-center justify-center transition-all duration-200 ${
-              canGoNext 
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 hover:shadow-xl opacity-90 hover:opacity-100' 
-                : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed opacity-50'
-            }`}
-            aria-label="Catégories suivantes"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-
-      {/* Categories Container */}
-      <div 
+      <div
         ref={scrollContainerRef}
         className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {CATEGORIES.map((category) => (
-          <div 
-            key={category.id} 
+          <div
+            key={category.id}
             className="flex-shrink-0 w-1/2 lg:w-1/3 xl:w-1/4 snap-start"
             style={{ minWidth: 'calc(25% - 0.75rem)' }}
           >
@@ -152,23 +155,20 @@ export default function CategoryList() {
         ))}
       </div>
 
-      {/* Progress Indicators */}
-      {CATEGORIES.length > categoriesPerView && (
-        <div className="flex justify-center mt-6 gap-2">
-          {Array.from({ length: Math.ceil(CATEGORIES.length / categoriesPerView) }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => scrollToIndex(i * categoriesPerView)}
-              className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                Math.floor(currentIndex / categoriesPerView) === i
-                  ? 'bg-indigo-600 w-6'
-                  : 'bg-gray-300 hover:bg-gray-400'
-              }`}
-              aria-label={`Aller à la page ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex justify-center mt-5 gap-1.5">
+        {Array.from({ length: Math.ceil(CATEGORIES.length / categoriesPerView) }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => scrollToIndex(i * categoriesPerView)}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              Math.floor(currentIndex / categoriesPerView) === i
+                ? 'bg-brand w-6'
+                : 'bg-line hover:bg-ink-mute w-1.5'
+            }`}
+            aria-label={`Aller à la page ${i + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

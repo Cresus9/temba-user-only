@@ -47,56 +47,76 @@ export default function HomeSearch() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-4xl mx-auto">
-        <div className="animate-pulse">
-          <div className="flex gap-4">
-            <div className="flex-1 h-14 bg-white/10 rounded-xl"></div>
-            <div className="w-48 h-14 bg-white/10 rounded-xl"></div>
-            <div className="w-16 h-14 bg-white rounded-xl"></div>
-          </div>
-        </div>
+      <div className="w-full max-w-3xl">
+        <div className="animate-pulse h-[68px] bg-paper border border-line rounded-2xl shadow-card" />
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
-      <div className="flex gap-4">
-        {/* Search Input - Takes up most of the width */}
-        <div className="flex-1 relative group">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/80 group-focus-within:text-white transition-colors" />
+    <form onSubmit={handleSubmit} className="w-full max-w-2xl">
+      <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-0 bg-paper border border-line rounded-2xl shadow-card hover:shadow-card-hover transition-shadow duration-300 p-1.5">
+        {/* Search */}
+        <div className="flex-1 relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-ink-mute pointer-events-none" />
           <input
             type="text"
-            placeholder="Rechercher des événements..."
+            placeholder="Concert, artiste, festival…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-white/30 bg-white/10 backdrop-blur-md text-white placeholder-white/60 transition-all duration-200 hover:bg-white/15 shadow-lg"
+            className="w-full h-10 pl-10 pr-3 rounded-xl bg-transparent text-[14px] text-ink placeholder-ink-mute focus:outline-none"
           />
         </div>
 
-        {/* Location Button - Medium width */}
-        <div className="relative group w-48">
-          <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/80 group-focus-within:text-white transition-colors pointer-events-none" />
+        {/* Divider */}
+        <div className="hidden sm:block w-px bg-line my-2" />
+
+        {/* Location */}
+        <div className="relative sm:w-48">
+          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-ink-mute pointer-events-none" />
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-white/30 bg-white/10 backdrop-blur-md text-white appearance-none cursor-pointer transition-all duration-200 hover:bg-white/15 shadow-lg"
+            className="w-full h-10 pl-10 pr-8 rounded-xl bg-transparent text-[14px] text-ink appearance-none cursor-pointer focus:outline-none"
           >
-            <option value="" className="text-gray-900">Tous les lieux</option>
+            <option value="">Tous les lieux</option>
             {locations.map((loc) => (
-              <option key={loc} value={loc} className="text-gray-900">{loc}</option>
+              <option key={loc} value={loc}>{loc}</option>
             ))}
           </select>
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-mute"
+            viewBox="0 0 20 20" fill="currentColor"
+          >
+            <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 011.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+          </svg>
         </div>
 
-        {/* Search Button - Compact, icon only */}
+        {/* Submit */}
         <button
           type="submit"
-          className="w-16 h-14 bg-white text-gray-900 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-lg flex items-center justify-center group"
+          className="h-10 sm:ml-1.5 px-4 sm:px-5 rounded-xl bg-brand text-paper text-[13px] font-semibold hover:bg-brand-700 active:bg-brand-800 transition-colors flex items-center justify-center gap-1.5 shadow-card"
           aria-label="Rechercher des événements"
         >
-          <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
+          <Search className="h-4 w-4" />
+          <span className="sm:inline">Rechercher</span>
         </button>
+      </div>
+
+      {/* Trending searches hint */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-mute">
+        <span className="font-semibold text-ink">Populaires :</span>
+        {['Afro Vibes', 'Festival', 'Ouagadougou', 'Cinéma'].map((term) => (
+          <button
+            key={term}
+            type="button"
+            onClick={() => setQuery(term)}
+            className="px-2.5 py-0.5 rounded-full border border-line bg-paper hover:border-brand hover:text-brand transition-colors"
+          >
+            {term}
+          </button>
+        ))}
       </div>
     </form>
   );

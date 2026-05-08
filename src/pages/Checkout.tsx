@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
 import CheckoutForm from '../components/checkout/CheckoutForm';
@@ -44,65 +44,95 @@ export default function Checkout() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Back button */}
-      <Link
-        to="/events"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        Retour aux événements
-      </Link>
+    <div>
+      {/* — — — Title band (cream) — — — */}
+      <section className="bg-cream bg-grain border-b border-line">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
+          <Link
+            to="/events"
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors mb-3"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Retour aux événements
+          </Link>
 
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Finaliser votre achat
-        </h1>
-        <p className="text-gray-600">
-          Choisissez votre méthode de paiement pour sécuriser vos billets
-        </p>
-      </div>
-
-      {/* Checkout Form */}
-      {isGuest ? (
-        <GuestCheckoutForm
-          tickets={state.tickets}
-          totalAmount={state.totals.total}
-          currency={state.currency}
-          eventId={state.eventId}
-          eventDateId={state.eventDateId}
-          onSuccess={handleGuestSuccess}
-        />
-      ) : (
-        <CheckoutForm
-          tickets={state.tickets}
-          totalAmount={state.totals.total}
-          currency={state.currency}
-          eventId={state.eventId}
-          eventDateId={state.eventDateId}
-          onSuccess={handleAuthenticatedSuccess}
-        />
-      )}
-
-      {/* Switch between guest and authenticated checkout */}
-      {!isAuthenticated && (
-        <div className="mt-8 text-center">
-          <p className="text-gray-600">
-            Vous avez déjà un compte ?{' '}
-            <button
-              onClick={() => navigate('/login', { 
-                state: { 
-                  from: location.pathname,
-                  checkoutData: state 
-                }
-              })}
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
+          <div className="flex items-center gap-3 mb-1.5">
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute tabular-nums"
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
             >
-              Se connecter
-            </button>
+              Étape 2 / 3
+            </span>
+            <span aria-hidden className="w-px h-3 bg-line" />
+            <span className="eyebrow !mb-0">Paiement</span>
+          </div>
+
+          <h1 className="!text-[clamp(22px,3vw,32px)] !leading-[1.06] text-ink mb-1.5 tracking-tight">
+            Finaliser votre achat
+          </h1>
+          <p className="text-[13px] text-ink-mute">
+            Choisissez votre méthode de paiement pour sécuriser vos billets.
           </p>
+
+          {/* Trust strip */}
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-mute">
+            <span className="inline-flex items-center gap-1.5">
+              <Lock className="h-3 w-3 text-brand" />
+              Connexion chiffrée
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="h-3 w-3 text-accent" />
+              Paiement sécurisé en FCFA
+            </span>
+          </div>
         </div>
-      )}
+      </section>
+
+      {/* — — — Form area — — — */}
+      <section className="bg-paper">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10">
+          {isGuest ? (
+            <GuestCheckoutForm
+              tickets={state.tickets}
+              totalAmount={state.totals.total}
+              currency={state.currency}
+              eventId={state.eventId}
+              eventDateId={state.eventDateId}
+              onSuccess={handleGuestSuccess}
+            />
+          ) : (
+            <CheckoutForm
+              tickets={state.tickets}
+              totalAmount={state.totals.total}
+              currency={state.currency}
+              eventId={state.eventId}
+              eventDateId={state.eventDateId}
+              onSuccess={handleAuthenticatedSuccess}
+            />
+          )}
+
+          {!isAuthenticated && (
+            <div className="mt-6 pt-5 border-t border-line text-center">
+              <p className="text-[13px] text-ink-mute">
+                Vous avez déjà un compte ?{' '}
+                <button
+                  onClick={() =>
+                    navigate('/login', {
+                      state: {
+                        from: location.pathname,
+                        checkoutData: state,
+                      },
+                    })
+                  }
+                  className="font-semibold text-brand hover:text-brand-700 transition-colors"
+                >
+                  Se connecter
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

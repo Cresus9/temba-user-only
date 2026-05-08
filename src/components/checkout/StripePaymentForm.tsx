@@ -239,73 +239,81 @@ export default function StripePaymentForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Payment Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-3">Résumé du paiement</h3>
-        <div className="space-y-2 text-sm">
+      <div className="bg-cream rounded-xl2 border border-line p-4">
+        <p className="eyebrow !mb-2.5">Résumé du paiement</p>
+        <div className="space-y-1.5 text-[13px]">
           {/* Breakdown */}
           {subtotal !== undefined && serviceFees !== undefined && (
             <>
               <div className="flex justify-between">
-                <span className="text-gray-600">Sous-total :</span>
-                <span className="font-medium">{formatCurrency(subtotal, currency)}</span>
+                <span className="text-ink-mute">Sous-total</span>
+                <span className="tabular-nums text-ink">{formatCurrency(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Frais de service :</span>
-                <span className="font-medium">{formatCurrency(serviceFees, currency)}</span>
+                <span className="text-ink-mute">Frais de service</span>
+                <span className="tabular-nums text-ink">{formatCurrency(serviceFees, currency)}</span>
               </div>
-              <div className="border-t border-blue-200 pt-2 mt-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-medium">Total :</span>
-                  <span className="font-semibold">{formatXOFAmount(xofAmountMinor)}</span>
+              <div className="border-t border-line pt-2 mt-1.5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-[13px] font-bold text-ink">Total</span>
+                  <span
+                    className="text-[18px] font-bold text-ink tabular-nums tracking-tight"
+                    style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                  >
+                    {formatXOFAmount(xofAmountMinor)}
+                  </span>
                 </div>
               </div>
             </>
           )}
-          
+
           {/* Currency conversion */}
           {fxQuote && (
-            <>
-              <div className="border-t border-blue-200 pt-2 mt-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Montant débité :</span>
-                  <span className="font-medium">{formatUSDAmount(fxQuote.usd_cents)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Taux de change :</span>
-                  <span className="font-medium">1 USD = {fxQuote.effective_xof_per_usd} XOF</span>
-                </div>
+            <div className="border-t border-line pt-2 mt-1.5 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-ink-mute">Montant débité</span>
+                <span className="tabular-nums text-ink">{formatUSDAmount(fxQuote.usd_cents)}</span>
               </div>
-            </>
+              <div className="flex justify-between">
+                <span className="text-ink-mute">Taux de change</span>
+                <span
+                  className="tabular-nums text-ink"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                >
+                  1 USD = {fxQuote.effective_xof_per_usd} XOF
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Card Form */}
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <CreditCard className="inline w-4 h-4 mr-1" />
+          <label className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink mb-1.5">
+            <CreditCard className="h-3.5 w-3.5" />
             Informations de la carte
           </label>
-          <div className="border border-gray-300 rounded-lg p-3 bg-white">
+          <div className="border border-line rounded-lg px-3.5 py-3 bg-paper transition-shadow focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
             <CardElement
               options={{
                 style: {
                   base: {
-                    fontSize: '16px',
-                    color: '#374151',
+                    fontSize: '15px',
+                    color: '#0E1020',
                     fontFamily: 'Inter, system-ui, sans-serif',
                     '::placeholder': {
-                      color: '#9CA3AF',
+                      color: '#67686D',
                     },
                   },
                   invalid: {
                     color: '#EF4444',
                   },
                 },
-                hidePostalCode: true, // We'll collect this separately if needed
+                hidePostalCode: true,
               }}
             />
           </div>
@@ -313,23 +321,23 @@ export default function StripePaymentForm({
 
         {/* Payment Status */}
         {paymentStatus === 'processing' && (
-          <div className="flex items-center justify-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <Loader className="w-5 h-5 mr-2 animate-spin text-blue-600" />
-            <span className="text-blue-700">Traitement du paiement...</span>
+          <div className="flex items-center gap-2.5 p-3 bg-brand-50 border border-brand/20 rounded-lg">
+            <Loader className="w-4 h-4 animate-spin text-brand flex-shrink-0" />
+            <span className="text-[13px] text-brand-800">Traitement du paiement…</span>
           </div>
         )}
 
         {paymentStatus === 'success' && (
-          <div className="flex items-center justify-center p-4 bg-green-50 border border-green-200 rounded-lg">
-            <Check className="w-5 h-5 mr-2 text-green-600" />
-            <span className="text-green-700">Paiement réussi !</span>
+          <div className="flex items-center gap-2.5 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="text-[13px] font-semibold text-green-700">Paiement réussi !</span>
           </div>
         )}
 
         {paymentStatus === 'error' && (
-          <div className="flex items-center justify-center p-4 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
-            <span className="text-red-700">Paiement échoué. Veuillez réessayer.</span>
+          <div className="flex items-center gap-2.5 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span className="text-[13px] text-red-700">Paiement échoué. Veuillez réessayer.</span>
           </div>
         )}
 
@@ -338,26 +346,27 @@ export default function StripePaymentForm({
           type="button"
           onClick={handleSubmit}
           disabled={!stripe || isProcessing || paymentStatus === 'processing'}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+          className="w-full inline-flex items-center justify-center gap-2 h-12 px-4 bg-brand text-paper rounded-lg text-[14px] font-bold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.985] shadow-card"
         >
           {isProcessing ? (
             <>
-              <Loader className="w-5 h-5 mr-2 animate-spin" />
-              Traitement...
+              <Loader className="w-5 h-5 animate-spin" />
+              <span>Traitement…</span>
             </>
           ) : (
             <>
-              <CreditCard className="w-5 h-5 mr-2" />
-              Payer avec la carte
+              <CreditCard className="w-4 h-4" />
+              <span>Payer avec la carte</span>
+              <span aria-hidden>→</span>
             </>
           )}
         </button>
       </div>
 
       {/* Security Notice */}
-      <div className="text-xs text-gray-500 text-center">
-        <p>🔒 Vos informations de paiement sont sécurisées et chiffrées</p>
-        <p>Propulsé par Stripe • Sécurité bancaire</p>
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-ink-mute pt-1">
+        <span aria-hidden>🔒</span>
+        <span>Sécurisé · Propulsé par Stripe</span>
       </div>
     </div>
   );

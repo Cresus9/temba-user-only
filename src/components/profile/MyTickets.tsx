@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase-client';
 import { useAuth } from '../../context/AuthContext';
 import EnhancedFestivalTicket from '../tickets/EnhancedFestivalTicket';
 import TransferTicketModal from '../tickets/TransferTicketModal';
-import { generatePDF } from '../../utils/ticketService';
+import { generateTicketPNG } from '../../utils/ticketService';
 import { formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
 import Image from '../common/Image';
@@ -31,6 +31,8 @@ interface MyTicket {
   order?: {
     id: string;
     created_at: string;
+    payment_method?: string;
+    total?: number;
   };
 }
 
@@ -218,21 +220,21 @@ export default function MyTickets() {
         if (!retryElement) {
           throw new Error('Élément de billet non trouvé. Veuillez ouvrir les détails du billet d\'abord.');
         }
-        const pdfBlob = await generatePDF(retryElement);
-        const url = URL.createObjectURL(pdfBlob);
+        const pngBlob = await generateTicketPNG(retryElement);
+        const url = URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.pdf`;
+        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        const pdfBlob = await generatePDF(ticketElement);
-        const url = URL.createObjectURL(pdfBlob);
+        const pngBlob = await generateTicketPNG(ticketElement);
+        const url = URL.createObjectURL(pngBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.pdf`;
+        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -249,322 +251,340 @@ export default function MyTickets() {
   };
 
 
-  const getTicketTypeColor = (typeName: string) => {
+  /**
+   * Tier badge styling for ticket types — uses brand tokens, no rainbow gradients.
+   * VIP/Premium → accent (yellow stamp). Everything else → ink.
+   */
+  const getTicketTypeStyle = (typeName: string) => {
     const lower = typeName?.toLowerCase() || '';
     if (lower.includes('vip') || lower.includes('premium')) {
-      return 'from-amber-500 via-orange-500 to-yellow-500';
+      return 'bg-accent text-ink ring-1 ring-accent';
     }
-    if (lower.includes('standard') || lower.includes('général')) {
-      return 'from-blue-500 via-indigo-500 to-purple-500';
-    }
-    return 'from-indigo-500 via-purple-500 to-purple-600';
+    return 'bg-ink text-paper';
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
+          <Loader className="h-5 w-5 animate-spin text-brand" />
+        </div>
       </div>
     );
   }
 
   if (tickets.length === 0) {
     return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg p-12 text-center border border-gray-100">
-        <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Ticket className="h-10 w-10 text-indigo-600" />
+      <div className="text-center py-14 px-4">
+        <div className="grid place-items-center w-16 h-16 rounded-full bg-cream-deep mx-auto mb-4">
+          <Ticket className="h-7 w-7 text-ink-mute" />
         </div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-3">Aucun billet valide</h3>
-        <p className="text-gray-600 text-lg">
+        <p className="eyebrow !mb-1">Aucun billet</p>
+        <h3 className="text-ink mb-2">Pas encore de billets actifs</h3>
+        <p className="text-[13px] text-ink-mute max-w-sm mx-auto leading-relaxed">
           Vous n'avez actuellement aucun billet valide, non scanné et non transféré.
         </p>
       </div>
     );
   }
 
+  const visibleTickets = tickets.slice(currentPage * ticketsPerPage, (currentPage + 1) * ticketsPerPage);
+  const totalPages = Math.ceil(tickets.length / ticketsPerPage);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 rounded-2xl shadow-xl p-8 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Sparkles className="h-6 w-6" />
-              <h2 className="text-3xl font-bold">Mes Billets</h2>
-            </div>
-            <p className="text-indigo-100 text-lg">
-              {tickets.length} {tickets.length === 1 ? 'billet valide' : 'billets valides'} prêts à être utilisés
-            </p>
-          </div>
-          <div className="hidden md:flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-            <CheckCircle className="h-5 w-5" />
-            <span className="font-medium">Tous valides</span>
-          </div>
+      <div className="flex items-start justify-between gap-3 pb-4 border-b border-line">
+        <div className="min-w-0">
+          <p className="eyebrow !mb-1 inline-flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-accent" />
+            Mes billets
+          </p>
+          <h2
+            className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+          >
+            {tickets.length} {tickets.length === 1 ? 'billet prêt' : 'billets prêts'} à scanner
+          </h2>
+        </div>
+        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 text-green-700 ring-1 ring-green-200 flex-shrink-0">
+          <CheckCircle className="h-3.5 w-3.5" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em]">Tous valides</span>
         </div>
       </div>
 
-      {/* Tickets List - Vertical Layout */}
-      <div className="space-y-4">
-        {tickets.slice(currentPage * ticketsPerPage, (currentPage + 1) * ticketsPerPage).map((ticket) => (
-          <div
-            key={ticket.id}
-            className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-200 group"
-          >
-            {/* Ticket Header */}
-            <div 
-              className="p-4 sm:p-6 cursor-pointer hover:bg-indigo-50 transition-all duration-200"
-              onClick={() => setSelectedTicket(ticket)}
+      {/* Tickets List */}
+      <div className="space-y-3">
+        {visibleTickets.map((ticket) => {
+          const isFreeTicket =
+            ticket.order?.payment_method === 'FREE_TICKET' ||
+            ticket.order?.payment_method?.toUpperCase().includes('FREE') ||
+            (ticket.order && (!ticket.order.total || ticket.order.total === 0));
+
+          const tktCode = ticket.id.slice(0, 8).toUpperCase();
+
+          return (
+            <article
+              key={ticket.id}
+              className="bg-paper rounded-xl2 border border-line shadow-card hover:border-brand/40 hover:shadow-card-hover transition-all overflow-hidden group"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                {/* Left Side - Event Info */}
-                <div className="flex-1 space-y-3">
-                  {/* Event Title and Image */}
-                  <div className="flex items-start gap-4">
-                    {/* Event Image */}
-                    <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image
-                        src={ticket.event.image_url}
-                        alt={ticket.event.title}
-                        className="w-full h-full object-cover"
-                        fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
-                        width={128}
-                        height={128}
-                      />
-                      <div className={`absolute inset-0 bg-gradient-to-t ${getTicketTypeColor(ticket.ticket_type.name)} opacity-60`} />
-                    </div>
-                    
-                    {/* Event Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                          {ticket.event.title}
-                        </h3>
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      </div>
-                      
-                      {/* Ticket Type Badge and Free Ticket Badge */}
-                      <div className="mb-3 flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getTicketTypeColor(ticket.ticket_type.name)}`}>
-                          {ticket.ticket_type.name}
-                        </span>
-                        {/* Free Ticket Badge */}
-                        {(ticket.order?.payment_method === 'FREE_TICKET' || 
-                          ticket.order?.payment_method?.toUpperCase().includes('FREE') ||
-                          (ticket.order && (!ticket.order.total || ticket.order.total === 0))) && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600">
-                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            Billet Gratuit
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Event Info */}
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 flex-shrink-0 text-blue-600" />
-                          {new Date(ticket.event.date).toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 flex-shrink-0 text-purple-600" />
-                          {ticket.event.time}
-                        </span>
-                        <span className="flex items-start gap-1.5">
-                          <MapPin className="h-4 w-4 flex-shrink-0 text-indigo-600 mt-0.5" />
-                          <span className="line-clamp-2">{ticket.event.location}</span>
-                        </span>
-                      </div>
-                    </div>
+              {/* Body */}
+              <div
+                className="p-4 cursor-pointer transition-colors hover:bg-cream/60"
+                onClick={() => setSelectedTicket(ticket)}
+              >
+                <div className="flex items-start gap-3.5">
+                  {/* Poster */}
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden flex-shrink-0 bg-ink">
+                    <Image
+                      src={ticket.event.image_url}
+                      alt={ticket.event.title}
+                      className="w-full h-full object-cover"
+                      fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
+                      width={96}
+                      height={96}
+                    />
+                    {/* Tier corner badge */}
+                    <span
+                      className={`absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-[0.08em] ${getTicketTypeStyle(
+                        ticket.ticket_type.name
+                      )}`}
+                    >
+                      {ticket.ticket_type.name}
+                    </span>
                   </div>
-                </div>
 
-                {/* Right Side - Price and Actions */}
-                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 sm:gap-4">
-                  {/* Price */}
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 mb-1">Prix du billet</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {formatCurrency(ticket.ticket_type.price, ticket.event.currency)}
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    {/* TKT code (mono) */}
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums mb-1"
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                    >
+                      TKT · {tktCode}
                     </p>
-                  </div>
 
-                  {/* Status Badge */}
-                  <div className="flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Valide</span>
+                    {/* Title row */}
+                    <div className="flex items-start gap-2 mb-1.5">
+                      <h3 className="text-[14px] sm:text-[15px] font-bold text-ink group-hover:text-brand transition-colors line-clamp-2 leading-tight flex-1">
+                        {ticket.event.title}
+                      </h3>
+                      {isFreeTicket && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-[0.08em] bg-green-50 text-green-700 ring-1 ring-green-200 flex-shrink-0">
+                          Gratuit
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Event meta */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-mute">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 text-brand" />
+                        {new Date(ticket.event.date).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <Clock className="h-3 w-3" />
+                        {ticket.event.time}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 truncate min-w-0">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{ticket.event.location}</span>
+                      </span>
+                    </div>
+
+                    {/* Price + Status row (mobile + desktop) */}
+                    <div className="flex items-baseline justify-between gap-3 mt-2.5 pt-2 border-t border-line">
+                      <div className="flex items-baseline gap-2">
+                        <p
+                          className="text-[15px] font-bold text-ink tabular-nums tracking-tight"
+                          style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                        >
+                          {formatCurrency(ticket.ticket_type.price, ticket.event.currency)}
+                        </p>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute">
+                          {ticket.event.currency}
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-[0.08em] bg-green-50 text-green-700 ring-1 ring-green-200">
+                        <CheckCircle className="h-3 w-3" />
+                        Valide
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-gray-100">
-              <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedTicket(ticket);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 text-sm font-medium transition-colors"
-                >
-                  <Eye className="h-4 w-4" />
-                  Voir les détails
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownloadTicket(ticket);
-                  }}
-                  disabled={downloadingTicket === ticket.id}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    downloadingTicket === ticket.id
-                      ? 'bg-indigo-400 cursor-not-allowed text-white'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg'
-                  }`}
-                >
-                  {downloadingTicket === ticket.id ? (
-                    <>
-                      <Loader className="h-4 w-4 animate-spin" />
-                      Téléchargement...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Télécharger le billet
-                    </>
-                  )}
-                </button>
+              {/* Action Buttons */}
+              <div className="px-4 pb-4 border-t border-line bg-cream/40">
+                <div className="flex flex-col sm:flex-row gap-2 pt-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTicket(ticket);
+                    }}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-line bg-paper text-ink rounded-lg text-[12px] font-semibold hover:border-brand/40 hover:text-brand transition-colors"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Voir les détails
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadTicket(ticket);
+                    }}
+                    disabled={downloadingTicket === ticket.id}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[12px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-card"
+                  >
+                    {downloadingTicket === ticket.id ? (
+                      <>
+                        <Loader className="h-3.5 w-3.5 animate-spin" />
+                        Téléchargement…
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3.5 w-3.5" />
+                        Télécharger
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            </article>
+          );
+        })}
       </div>
 
-      {/* Navigation Arrows - Only show if more than 5 tickets */}
+      {/* Pagination — only when > 5 tickets */}
       {tickets.length > ticketsPerPage && (
-        <div className="flex items-center justify-center gap-4 pt-6">
+        <div className="flex items-center justify-between gap-3 pt-3">
           <button
             onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
             disabled={currentPage === 0}
-            className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
-              currentPage === 0
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg'
-            }`}
+            className="grid place-items-center w-10 h-10 rounded-lg border border-line bg-paper text-ink hover:border-brand/40 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="Page précédente"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-4 w-4" />
           </button>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">
-              Page {currentPage + 1} sur {Math.ceil(tickets.length / ticketsPerPage)}
-            </span>
-            <span className="text-xs text-gray-500">
-              ({tickets.slice(currentPage * ticketsPerPage, (currentPage + 1) * ticketsPerPage).length} billets)
+
+          <div
+            className="text-[12px] tabular-nums text-ink-mute"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+          >
+            Page <span className="font-bold text-ink">{currentPage + 1}</span> /{' '}
+            <span className="font-bold text-ink">{totalPages}</span>
+            <span className="hidden sm:inline">
+              {' '}
+              · <span className="text-ink-mute/85">{visibleTickets.length} sur {tickets.length}</span>
             </span>
           </div>
-          
+
           <button
-            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(tickets.length / ticketsPerPage) - 1, prev + 1))}
-            disabled={currentPage >= Math.ceil(tickets.length / ticketsPerPage) - 1}
-            className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
-              currentPage >= Math.ceil(tickets.length / ticketsPerPage) - 1
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg'
-            }`}
+            onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+            disabled={currentPage >= totalPages - 1}
+            className="grid place-items-center w-10 h-10 rounded-lg border border-line bg-paper text-ink hover:border-brand/40 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="Page suivante"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Ticket Detail Modal */}
-      {selectedTicket && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Détails du billet</h2>
-                  {/* Free Ticket Badge in Modal */}
-                  {(selectedTicket.order?.payment_method === 'FREE_TICKET' || 
-                    selectedTicket.order?.payment_method?.toUpperCase().includes('FREE') ||
-                    (selectedTicket.order && (!selectedTicket.order.total || selectedTicket.order.total === 0))) && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600">
-                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Billet Gratuit
+      {selectedTicket && (() => {
+        const isFreeTicket =
+          selectedTicket.order?.payment_method === 'FREE_TICKET' ||
+          selectedTicket.order?.payment_method?.toUpperCase().includes('FREE') ||
+          (selectedTicket.order && (!selectedTicket.order.total || selectedTicket.order.total === 0));
+
+        const canTransfer =
+          ticketOwnership.get(selectedTicket.id) &&
+          selectedTicket.status === 'VALID' &&
+          !selectedTicket.scanned_at &&
+          !isFreeTicket;
+
+        const tktCode = selectedTicket.id.slice(0, 8).toUpperCase();
+
+        return (
+          <div
+            className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedTicket(null)}
+          >
+            <div
+              className="bg-paper rounded-xl2 border border-line shadow-pop max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 bg-cream border-b border-line">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="eyebrow !mb-0">Détails du billet</p>
+                  <span aria-hidden className="w-px h-3 bg-line" />
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                  >
+                    TKT · {tktCode}
+                  </span>
+                  {isFreeTicket && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-[0.08em] bg-green-50 text-green-700 ring-1 ring-green-200">
+                      Gratuit
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setSelectedTicket(null)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="grid place-items-center w-8 h-8 rounded-lg hover:bg-paper border border-transparent hover:border-line text-ink-mute hover:text-ink transition-colors flex-shrink-0"
+                  aria-label="Fermer"
                 >
-                  <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              {/* Ticket Display - Same as BookingHistory */}
-              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                <div id={`ticket-${selectedTicket.id}`} data-ticket>
-                  <EnhancedFestivalTicket
-                    ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Utilisateur'}
-                    ticketType={selectedTicket.ticket_type.name}
-                    ticketId={selectedTicket.id}
-                    eventTitle={selectedTicket.event.title}
-                    eventDate={selectedTicket.event.date}
-                    eventTime={selectedTicket.event.time}
-                    eventLocation={selectedTicket.event.location}
-                    qrCode={selectedTicket.qr_code}
-                    eventImage={selectedTicket.event.image_url}
-                    price={selectedTicket.ticket_type.price}
-                    currency={selectedTicket.event.currency}
-                    orderNumber={selectedTicket.order?.id}
-                    purchaseDate={selectedTicket.order?.created_at}
-                    ticketStatus={selectedTicket.status}
-                    scannedAt={selectedTicket.scanned_at}
-                    onTransferComplete={() => {
-                      // Refresh tickets after transfer
-                      fetchMyTickets();
-                      setSelectedTicket(null);
-                    }}
-                  />
+              <div className="p-5 md:p-6">
+                {/* Ticket Display */}
+                <div className="bg-cream rounded-xl2 border border-line p-4 md:p-5">
+                  <div id={`ticket-${selectedTicket.id}`} data-ticket>
+                    <EnhancedFestivalTicket
+                      ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Utilisateur'}
+                      ticketType={selectedTicket.ticket_type.name}
+                      ticketId={selectedTicket.id}
+                      eventTitle={selectedTicket.event.title}
+                      eventDate={selectedTicket.event.date}
+                      eventTime={selectedTicket.event.time}
+                      eventLocation={selectedTicket.event.location}
+                      qrCode={selectedTicket.qr_code}
+                      eventImage={selectedTicket.event.image_url}
+                      price={selectedTicket.ticket_type.price}
+                      currency={selectedTicket.event.currency}
+                      orderNumber={selectedTicket.order?.id}
+                      purchaseDate={selectedTicket.order?.created_at}
+                      ticketStatus={selectedTicket.status}
+                      scannedAt={selectedTicket.scanned_at}
+                      onTransferComplete={() => {
+                        fetchMyTickets();
+                        setSelectedTicket(null);
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => setSelectedTicket(null)}
-                  className="px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-                >
-                  Fermer
-                </button>
-                
-                {/* Transfer Button - Only show if ticket was purchased by user AND is not a free ticket */}
-                {(() => {
-                  const isFreeTicket = selectedTicket.order?.payment_method === 'FREE_TICKET' || 
-                                      selectedTicket.order?.payment_method?.toUpperCase().includes('FREE') ||
-                                      (selectedTicket.order && (!selectedTicket.order.total || selectedTicket.order.total === 0));
-                  
-                  const canTransfer = ticketOwnership.get(selectedTicket.id) && 
-                                     selectedTicket.status === 'VALID' && 
-                                     !selectedTicket.scanned_at &&
-                                     !isFreeTicket;
-                  
-                  return canTransfer ? (
+                {/* Action Buttons */}
+                <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 mt-5 pt-4 border-t border-line">
+                  <button
+                    onClick={() => setSelectedTicket(null)}
+                    className="inline-flex items-center justify-center h-10 px-5 border border-line bg-paper text-ink rounded-lg text-[13px] font-medium hover:border-brand/40 hover:bg-cream transition-colors"
+                  >
+                    Fermer
+                  </button>
+
+                  {canTransfer && (
                     <button
                       onClick={() => {
                         setTransferTicket({
@@ -572,48 +592,48 @@ export default function MyTickets() {
                           ticketTitle: selectedTicket.event.title,
                           eventDate: selectedTicket.event.date,
                           eventTime: selectedTicket.event.time,
-                          eventLocation: selectedTicket.event.location
+                          eventLocation: selectedTicket.event.location,
                         });
                       }}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                      className="inline-flex items-center justify-center gap-1.5 h-10 px-5 border border-line bg-paper text-ink rounded-lg text-[13px] font-bold hover:border-accent hover:bg-accent/10 transition-colors"
                     >
-                      <Send className="h-4 w-4" />
-                      Transférer le billet
+                      <Send className="h-3.5 w-3.5" />
+                      Transférer
                     </button>
-                  ) : isFreeTicket ? (
-                    <div className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-500 rounded-lg font-medium cursor-not-allowed">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  )}
+
+                  {isFreeTicket && (
+                    <span className="inline-flex items-center gap-1.5 h-10 px-3 text-[11px] text-ink-mute italic">
+                      <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                       </svg>
                       Transfert non autorisé pour les billets gratuits
-                    </div>
-                  ) : null;
-                })()}
-                
-                <button
-                  onClick={() => {
-                    handleDownloadTicket(selectedTicket);
-                  }}
-                  disabled={downloadingTicket === selectedTicket.id}
-                  className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 font-medium"
-                >
-                  {downloadingTicket === selectedTicket.id ? (
-                    <>
-                      <Loader className="h-4 w-4 animate-spin" />
-                      Téléchargement...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Télécharger le billet
-                    </>
+                    </span>
                   )}
-                </button>
+
+                  <button
+                    onClick={() => handleDownloadTicket(selectedTicket)}
+                    disabled={downloadingTicket === selectedTicket.id}
+                    className="inline-flex items-center justify-center gap-1.5 h-10 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold disabled:opacity-50 transition-colors shadow-card"
+                  >
+                    {downloadingTicket === selectedTicket.id ? (
+                      <>
+                        <Loader className="h-3.5 w-3.5 animate-spin" />
+                        Téléchargement…
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3.5 w-3.5" />
+                        Télécharger le billet
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Transfer Ticket Modal */}
       {transferTicket && (

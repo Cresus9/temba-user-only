@@ -7,3 +7,22 @@ verify_jwt = false
 
 [functions.verify-pawapay-payment]
 verify_jwt = false
+
+# External webhooks and DB-trigger targets (no Supabase user JWT)
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.paydunya-ipn]
+verify_jwt = false
+
+[functions.payment-backup]
+verify_jwt = false
+
+[functions.welcome-user]
+verify_jwt = false
+
+[functions.validate-ticket]
+verify_jwt = false
+
+[functions.image-cache-warmer]
+verify_jwt = false

@@ -259,38 +259,46 @@ export default function PaymentSuccess() {
 
   if (loading) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Vérification du paiement
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Confirmation de votre transaction...
-          </p>
-          
-          {/* Progress indicator */}
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-            <div className="bg-indigo-600 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+      <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+        <div className="w-full max-w-md rounded-xl2 border border-line bg-paper shadow-pop overflow-hidden">
+          <div className="px-5 py-3 bg-cream border-b border-line flex items-center justify-between">
+            <span className="eyebrow !text-ink">Vérification</span>
+            {orderId && (
+              <span
+                className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+                style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+              >
+                ORD · {orderId.slice(0, 8).toUpperCase()}
+              </span>
+            )}
           </div>
-          
-          {/* Manual skip button - more prominent */}
-          <div className="mt-4">
-            <button
-              onClick={() => {
-                console.log('🚀 Manual skip - redirecting to tickets');
-                navigate(`/booking/confirmation/${orderId}?token=${token}`);
-              }}
-              className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium"
+          <div className="p-7 text-center space-y-4">
+            <div className="grid place-items-center w-14 h-14 rounded-full bg-brand-50 mx-auto">
+              <Loader className="h-6 w-6 animate-spin text-brand" />
+            </div>
+            <h2
+              className="text-ink text-[20px] font-bold tracking-tight"
+              style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
             >
-              Voir mes billets maintenant
-            </button>
-            <p className="text-sm text-gray-500 mt-3">
-              La vérification continue en arrière-plan
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Redirection automatique dans quelques secondes...
-            </p>
+              Vérification du paiement
+            </h2>
+            <p className="text-[13px] text-ink-mute">Confirmation de votre transaction…</p>
+
+            <div className="w-full bg-cream-deep rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-brand rounded-full animate-pulse" style={{ width: '70%' }} />
+            </div>
+
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={() => navigate(`/booking/confirmation/${orderId}?token=${token}`)}
+                className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
+              >
+                Voir mes billets maintenant →
+              </button>
+              <p className="text-[11px] text-ink-mute/70">
+                La vérification continue en arrière-plan.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -299,26 +307,36 @@ export default function PaymentSuccess() {
 
   if (error) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="max-w-md text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Erreur de paiement
-          </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <div className="space-y-4">
-            <button
-              onClick={verifyPayment}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+      <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+        <div className="w-full max-w-md rounded-xl2 border border-line bg-paper shadow-pop overflow-hidden">
+          <div className="px-5 py-3 bg-cream border-b border-line">
+            <span className="eyebrow !text-red-600">Erreur</span>
+          </div>
+          <div className="p-7 text-center space-y-4">
+            <div className="grid place-items-center w-14 h-14 rounded-full bg-red-50 mx-auto ring-1 ring-red-200">
+              <AlertCircle className="h-7 w-7 text-red-600" />
+            </div>
+            <h2
+              className="text-ink text-[20px] font-bold tracking-tight"
+              style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
             >
-              Réessayer la vérification
-            </button>
-            <button
-              onClick={() => navigate('/events')}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Retour aux événements
-            </button>
+              Erreur de paiement
+            </h2>
+            <p className="text-[13px] text-ink-mute leading-relaxed">{error}</p>
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={verifyPayment}
+                className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
+              >
+                Réessayer la vérification
+              </button>
+              <button
+                onClick={() => navigate('/events')}
+                className="w-full h-11 rounded-lg border border-line bg-paper text-ink text-[14px] font-medium hover:border-brand/40 hover:text-brand transition-colors"
+              >
+                Retour aux événements
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -326,20 +344,36 @@ export default function PaymentSuccess() {
   }
 
   return (
-    <div className="min-h-[400px] flex items-center justify-center">
-      <div className="max-w-md text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Check className="h-8 w-8 text-green-600" />
+    <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+      <div className="w-full max-w-md rounded-xl2 border border-line bg-paper shadow-pop overflow-hidden">
+        <div className="px-5 py-3 bg-cream border-b border-line flex items-center justify-between">
+          <span className="eyebrow !text-ink">Confirmé</span>
+          {orderId && (
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+            >
+              ORD · {orderId.slice(0, 8).toUpperCase()}
+            </span>
+          )}
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Paiement réussi !
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Votre paiement a été traité avec succès. Redirection vers vos billets...
-        </p>
-        <div className="animate-pulse">
-          <div className="h-2 bg-gray-200 rounded-full">
-            <div className="h-2 bg-indigo-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+        <div className="p-7 text-center space-y-4">
+          <div className="grid place-items-center w-14 h-14 rounded-full bg-green-50 mx-auto ring-1 ring-green-200">
+            <Check className="h-7 w-7 text-green-600" />
+          </div>
+          <h2
+            className="text-ink text-[22px] font-bold tracking-tight"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+          >
+            Paiement réussi !
+          </h2>
+          <p className="text-[13px] text-ink-mute leading-relaxed">
+            Votre paiement a été traité avec succès.
+            <br />
+            Redirection vers vos billets…
+          </p>
+          <div className="w-full bg-cream-deep rounded-full h-1.5 overflow-hidden">
+            <div className="h-full bg-brand rounded-full animate-pulse" style={{ width: '60%' }} />
           </div>
         </div>
       </div>

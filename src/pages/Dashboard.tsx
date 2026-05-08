@@ -59,10 +59,12 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-[600px] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-gray-600">Chargement...</p>
+      <div className="min-h-[60vh] grid place-items-center px-4 py-12">
+        <div className="flex flex-col items-center gap-3">
+          <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
+            <Loader className="h-5 w-5 animate-spin text-brand" />
+          </div>
+          <p className="text-[13px] text-ink-mute">Chargement de votre tableau de bord…</p>
         </div>
       </div>
     );
@@ -70,18 +72,19 @@ export default function Dashboard() {
 
   if (!dashboardData) {
     return (
-      <div className="min-h-[600px] flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Échec du chargement du tableau de bord
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Nous n'avons pas pu charger vos données
+      <div className="min-h-[60vh] grid place-items-center px-4 py-12">
+        <div className="max-w-md text-center">
+          <div className="grid place-items-center w-14 h-14 rounded-full bg-red-50 mx-auto mb-4 ring-1 ring-red-200">
+            <AlertCircle className="h-7 w-7 text-red-600" />
+          </div>
+          <p className="eyebrow !text-red-600 mb-1.5">Erreur de chargement</p>
+          <h2 className="text-ink mb-2">Tableau de bord indisponible</h2>
+          <p className="text-[14px] text-ink-mute mb-5 leading-relaxed">
+            Nous n'avons pas pu charger vos données. Vérifiez votre connexion puis réessayez.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 h-11 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[14px] font-bold transition-colors"
           >
             Réessayer
           </button>
@@ -90,289 +93,402 @@ export default function Dashboard() {
     );
   }
 
+  const displayName =
+    profile?.name ||
+    (profile?.phone ? formatPhoneForDisplay(profile.phone) : null) ||
+    profile?.email?.split('@')[0] ||
+    'Invité';
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-       <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-6 sm:p-8 md:p-10">
-          <div className="flex flex-col gap-6">
-            <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                Bienvenue, {profile?.name || (profile?.phone ? formatPhoneForDisplay(profile.phone) : null) || profile?.email?.split('@')[0] || 'Invité'} ! 👋
-              </h1>
-              <p className="text-indigo-100 text-sm sm:text-base">
-                Suivez vos événements, billets et réservations en un seul endroit
-              </p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                to="/events"
-                className="flex items-center justify-center sm:justify-start gap-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-colors text-sm sm:text-base font-medium"
-              >
-                Parcourir les événements
-                <ChevronRight className="h-5 w-5" />
-              </Link>
-              <Link
-                to="/support"
-                className="flex items-center justify-center sm:justify-start gap-2 px-6 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 transition-colors text-sm sm:text-base font-medium"
-              >
-                <MessageSquare className="h-5 w-5" />
-                Obtenir de l'aide
-              </Link>
-            </div>
+    <div>
+      {/* — — — Hero (cream-grain title band) — — — */}
+      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 w-[360px] h-[360px] rounded-full bg-brand-50 blur-3xl opacity-70"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-28 -left-24 w-[280px] h-[280px] rounded-full bg-accent-50 blur-3xl opacity-50"
+        />
+
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-6 pb-7 md:pt-8 md:pb-9">
+          <p className="eyebrow mb-2">
+            Tableau de bord
+            <span aria-hidden className="mx-2 text-ink/40">·</span>
+            <span
+              className="tabular-nums text-ink-mute"
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+            >
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </p>
+          <h1 className="!text-[clamp(24px,3.4vw,38px)] !leading-[1.06] text-ink !mb-1.5 tracking-tight">
+            Bienvenue, {displayName}.
+          </h1>
+          <p className="text-[14px] text-ink-mute max-w-xl">
+            Vos événements, billets et réservations — tout en un seul endroit.
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <Link
+              to="/events"
+              className="inline-flex items-center gap-1.5 h-10 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card"
+            >
+              Parcourir les événements
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/support"
+              className="inline-flex items-center gap-1.5 h-10 px-4 bg-paper hover:bg-cream text-ink border border-line hover:border-brand/40 rounded-lg text-[13px] font-medium transition-colors"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Obtenir de l'aide
+            </Link>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">
-                Événements à venir
-              </p>
+      {/* — — — Body — — — */}
+      <section className="bg-paper">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-9 space-y-7">
+
+          {/* Statistics Grid */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            {/* Upcoming events */}
+            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
+              <div className="flex items-center gap-3 mb-2.5">
+                <div className="grid place-items-center w-9 h-9 rounded-lg bg-brand-50 text-brand flex-shrink-0">
+                  <Calendar className="h-4 w-4" />
+                </div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
+                  À venir
+                </p>
+              </div>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-gray-900">
+                <p
+                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
+                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                >
                   {dashboardData.stats.upcomingEvents}
                 </p>
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
               </div>
-            </div>
-          </div>
-        </div>
+              <p className="text-[11px] text-ink-mute mt-1">événements</p>
+            </article>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Ticket className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">
-                Total des billets
-              </p>
+            {/* Total tickets */}
+            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
+              <div className="flex items-center gap-3 mb-2.5">
+                <div className="grid place-items-center w-9 h-9 rounded-lg bg-green-50 text-green-700 flex-shrink-0">
+                  <Ticket className="h-4 w-4" />
+                </div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
+                  Billets
+                </p>
+              </div>
               <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-gray-900">
+                <p
+                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
+                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                >
                   {dashboardData.stats.totalTickets}
                 </p>
-                <span className="text-sm text-green-600">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-green-600">
                   Actifs
                 </span>
               </div>
-            </div>
-          </div>
-        </div>
+              <p className="text-[11px] text-ink-mute mt-1">au total</p>
+            </article>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <CreditCard className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">
-                Total dépensé
-              </p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(dashboardData.stats.totalSpent, 'XOF')}
+            {/* Total spent */}
+            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
+              <div className="flex items-center gap-3 mb-2.5">
+                <div className="grid place-items-center w-9 h-9 rounded-lg bg-cream text-ink flex-shrink-0">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
+                  Dépensé
                 </p>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+              <p
+                className="text-[22px] font-bold text-ink tabular-nums leading-none tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                {formatCurrency(dashboardData.stats.totalSpent, 'XOF')}
+              </p>
+              <p className="text-[11px] text-ink-mute mt-1">FCFA cumulés</p>
+            </article>
 
-      {/* Recent Orders */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
-              Commandes récentes
-            </h2>
-            <Link 
-              to="/profile/bookings"
-              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-            >
-              Voir tout
-            </Link>
-          </div>
-          
-          {dashboardData.recentOrders.length > 0 ? (
-            <div className="space-y-4">
-              {dashboardData.recentOrders.map((order) => (
-                <div 
-                  key={order.id}
-                  onClick={() => navigate(`/profile/bookings`)}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all duration-200 cursor-pointer group"
-                >
-                  <div className="mb-4 md:mb-0">
-                    <h3 className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">{order.eventName}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(order.date).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {order.location}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">
-                        {formatCurrency(order.total, order.currency)}
-                      </p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        order.status === 'COMPLETED'
-                          ? 'bg-green-100 text-green-800'
-                          : order.status === 'AWAITING_PAYMENT'
-                            ? 'bg-yellow-100 text-yellow-800'
-                          : order.status === 'CANCELLED'
-                            ? 'bg-red-100 text-red-800'
-                          : 'bg-gray-200 text-gray-700'
-                      }`}>
-                        {order.status === 'COMPLETED' ? 'Terminée' : 
-                         order.status === 'AWAITING_PAYMENT' ? 'En attente' : 'Annulée'}
-                      </span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
-                  </div>
+            {/* TEMBA credits */}
+            <article className="bg-ink rounded-xl2 p-4 hover:shadow-pop transition-all relative overflow-hidden">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-accent/30 blur-2xl"
+              />
+              <div className="relative flex items-center gap-3 mb-2.5">
+                <div className="grid place-items-center w-9 h-9 rounded-lg bg-accent text-ink flex-shrink-0">
+                  <Gift className="h-4 w-4" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Pas encore de commandes
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Commencez à explorer les événements et faites votre première réservation
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-paper/70">
+                  Crédits TEMBA
+                </p>
+              </div>
+              <p
+                className="relative text-[22px] font-bold text-paper tabular-nums leading-none tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                {dashboardData.stats.credits != null
+                  ? formatCurrency(
+                      dashboardData.stats.credits.balance,
+                      dashboardData.stats.credits.currency || 'XOF'
+                    )
+                  : '—'}
               </p>
               <Link
-                to="/events"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                to="/profile/referral"
+                className="relative inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:text-paper transition-colors mt-1.5 uppercase tracking-[0.08em]"
               >
-                Parcourir les événements
-                <ChevronRight className="h-4 w-4" />
+                Parrainage
+                <ChevronRight className="h-3 w-3" />
+              </Link>
+            </article>
+          </div>
+
+          {/* Recent Orders */}
+          <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+            <div className="px-5 py-3.5 bg-cream border-b border-line flex items-center justify-between">
+              <p className="eyebrow !mb-0">Commandes récentes</p>
+              <Link
+                to="/profile/bookings"
+                className="inline-flex items-center gap-1 text-[12px] font-semibold text-ink hover:text-brand transition-colors"
+              >
+                Voir tout
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Transferred Tickets Section */}
-      {transferredTickets.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Gift className="h-6 w-6 text-purple-600" />
-                Billets reçus
-              </h2>
-              <span className="text-sm text-gray-500">
-                {transferredTickets.length} billet{transferredTickets.length > 1 ? 's' : ''}
-              </span>
-            </div>
-            
-            <div className="space-y-4">
-              {transferredTickets.map((transfer) => (
-                <div 
-                  key={transfer.id}
-                  onClick={() => setSelectedTicket(transfer)}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-all duration-200 cursor-pointer group"
-                >
-                  <div className="mb-4 md:mb-0">
-                    <h3 className="font-medium text-gray-900 group-hover:text-purple-600 transition-colors">
-                      {transfer.ticket.event.title}
-                    </h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(transfer.ticket.event.date).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {transfer.ticket.event.location}
-                      </span>
+            {dashboardData.recentOrders.length > 0 ? (
+              <div className="divide-y divide-line">
+                {dashboardData.recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    onClick={() => navigate(`/profile/bookings`)}
+                    className="flex flex-col md:flex-row md:items-center justify-between p-4 hover:bg-cream transition-colors cursor-pointer group"
+                  >
+                    <div className="mb-3 md:mb-0 min-w-0 flex-1">
+                      <h3 className="text-[14px] font-bold text-ink group-hover:text-brand transition-colors truncate">
+                        {order.eventName}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute mt-1">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {new Date(order.date).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+                        <span aria-hidden className="text-line">·</span>
+                        <span className="inline-flex items-center gap-1.5 truncate">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">{order.location}</span>
+                        </span>
+                        <span aria-hidden className="text-line">·</span>
+                        <span
+                          className="text-ink-mute/85 tabular-nums"
+                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                        >
+                          ORD · {String(order.id).slice(0, 8).toUpperCase()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm text-gray-500">
-                        {transfer.sender ? `Transféré par ${transfer.sender.name}` : 'Billet transféré'}
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p
+                          className="text-[14px] font-bold text-ink tabular-nums tracking-tight"
+                          style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                        >
+                          {formatCurrency(order.total, order.currency)}
+                        </p>
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] mt-0.5 ${
+                            order.status === 'COMPLETED'
+                              ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                              : order.status === 'AWAITING_PAYMENT'
+                              ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-200'
+                              : order.status === 'CANCELLED'
+                              ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
+                              : 'bg-cream text-ink-mute ring-1 ring-line'
+                          }`}
+                        >
+                          {order.status === 'COMPLETED'
+                            ? 'Terminée'
+                            : order.status === 'AWAITING_PAYMENT'
+                            ? 'En attente'
+                            : 'Annulée'}
+                        </span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-ink-mute group-hover:text-brand transition-colors flex-shrink-0" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">
-                            {transfer.ticket.ticket_type.name}
-                          </p>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            transfer.status === 'USED' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {transfer.status === 'USED' ? 'Utilisé' : 'Reçu'}
-                          </span>
-                        </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 px-4">
+                <div className="grid place-items-center w-14 h-14 rounded-full bg-cream-deep mx-auto mb-4">
+                  <Ticket className="h-6 w-6 text-ink-mute" />
                 </div>
-              ))}
-            </div>
+                <p className="eyebrow !mb-1">Aucune commande</p>
+                <h3 className="text-ink mb-1.5">Commencez votre exploration</h3>
+                <p className="text-[13px] text-ink-mute mb-5 max-w-sm mx-auto leading-relaxed">
+                  Parcourez les événements à l'affiche et faites votre première réservation.
+                </p>
+                <Link
+                  to="/events"
+                  className="inline-flex items-center gap-1.5 h-10 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors"
+                >
+                  Parcourir les événements
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
           </div>
+
+          {/* Transferred Tickets Section */}
+          {transferredTickets.length > 0 && (
+            <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+              <div className="px-5 py-3.5 bg-cream border-b border-line flex items-center justify-between">
+                <p className="eyebrow !mb-0 inline-flex items-center gap-1.5">
+                  <Gift className="h-3.5 w-3.5 text-accent" />
+                  Billets reçus
+                </p>
+                <span
+                  className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute tabular-nums"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                >
+                  {String(transferredTickets.length).padStart(2, '0')} BILLET
+                  {transferredTickets.length > 1 ? 'S' : ''}
+                </span>
+              </div>
+
+              <div className="divide-y divide-line">
+                {transferredTickets.map((transfer) => (
+                  <div
+                    key={transfer.id}
+                    onClick={() => setSelectedTicket(transfer)}
+                    className="flex flex-col md:flex-row md:items-center justify-between p-4 hover:bg-cream transition-colors cursor-pointer group"
+                  >
+                    <div className="mb-3 md:mb-0 min-w-0 flex-1">
+                      <h3 className="text-[14px] font-bold text-ink group-hover:text-brand transition-colors truncate">
+                        {transfer.ticket.event.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute mt-1">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {new Date(transfer.ticket.event.date).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span aria-hidden className="text-line">·</span>
+                        <span className="inline-flex items-center gap-1.5 truncate">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">{transfer.ticket.event.location}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <User className="h-3 w-3 text-accent" />
+                        <span className="text-[11px] text-ink-mute/90">
+                          {transfer.sender
+                            ? <>Transféré par <span className="font-semibold text-ink">{transfer.sender.name}</span></>
+                            : 'Billet transféré'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-[12px] font-bold text-ink truncate max-w-[120px]">
+                          {transfer.ticket.ticket_type.name}
+                        </p>
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] mt-0.5 ${
+                            transfer.status === 'USED'
+                              ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                              : 'bg-accent text-ink'
+                          }`}
+                        >
+                          {transfer.status === 'USED' ? 'Utilisé' : 'Reçu'}
+                        </span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-ink-mute group-hover:text-brand transition-colors flex-shrink-0" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
-      )}
+      </section>
 
       {/* Ticket Details Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedTicket(null)}
+        >
+          <div
+            className="bg-paper rounded-xl2 border border-line shadow-pop max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Gift className="h-6 w-6 text-purple-600" />
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 bg-cream border-b border-line">
+              <p className="eyebrow !mb-0 inline-flex items-center gap-1.5">
+                <Gift className="h-3.5 w-3.5 text-accent" />
                 Billet reçu
-              </h3>
-              <button 
+              </p>
+              <button
                 onClick={() => setSelectedTicket(null)}
-                className="text-gray-500 hover:text-gray-700"
+                className="grid place-items-center w-8 h-8 rounded-lg hover:bg-paper border border-transparent hover:border-line text-ink-mute hover:text-ink transition-colors"
+                aria-label="Fermer"
               >
-                <X className="h-6 w-6" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Transfer Information Banner */}
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Gift className="h-5 w-5 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-purple-900">Billet transféré</h4>
-                  <div className="text-sm text-purple-700">
+            <div className="p-5 md:p-6">
+              {/* Transfer Information Banner */}
+              <div className="bg-cream rounded-xl2 border border-line p-4 mb-5 relative overflow-hidden">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-10 -right-10 w-24 h-24 rounded-full bg-accent/30 blur-2xl"
+                />
+                <div className="relative flex items-start gap-3">
+                  <div className="grid place-items-center w-10 h-10 rounded-lg bg-accent text-ink flex-shrink-0">
+                    <Gift className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="eyebrow !mb-0.5">Billet transféré</p>
                     {selectedTicket.sender && (
-                      <span>Transféré par <strong>{selectedTicket.sender.name}</strong> le {new Date(selectedTicket.created_at).toLocaleDateString()}</span>
+                      <p className="text-[13px] text-ink/85">
+                        Reçu de <span className="font-bold text-ink">{selectedTicket.sender.name}</span>
+                        <span className="text-ink-mute"> · {new Date(selectedTicket.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                      </p>
                     )}
                     {selectedTicket.message && (
-                      <div className="mt-2 p-2 bg-white rounded border border-purple-200">
-                        <span className="text-purple-600 font-medium">Message: </span>
-                        <span className="text-purple-800">{selectedTicket.message}</span>
+                      <div className="mt-2.5 p-2.5 bg-paper rounded-lg border border-line">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-mute mb-1">Message</p>
+                        <p className="text-[13px] text-ink italic">&ldquo;{selectedTicket.message}&rdquo;</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Ticket Display */}
-            <div className="relative">
-                  <EnhancedFestivalTicket
+              {/* Ticket Display */}
+              <div className="relative">
+                <EnhancedFestivalTicket
                     ticketHolder={profile?.name || 'Utilisateur'}
                     ticketType={selectedTicket.ticket.ticket_type.name}
                     ticketId={selectedTicket.ticket.id}
@@ -410,26 +526,27 @@ export default function Dashboard() {
                       refreshData();
                     }}
                   />
-            </div>
+              </div>
 
-            {/* Actions */}
-            <div className="flex justify-center gap-3 mt-6 pt-4 border-t">
-              <button
-                onClick={() => setSelectedTicket(null)}
-                className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
-              >
-                Fermer
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedTicket(null);
-                  navigate('/profile/bookings');
-                }}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
-              >
-                <Eye className="h-4 w-4" />
-                Voir tous les billets
-              </button>
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-5 pt-4 border-t border-line">
+                <button
+                  onClick={() => setSelectedTicket(null)}
+                  className="inline-flex items-center justify-center h-10 px-5 text-[13px] font-medium text-ink-mute hover:text-ink border border-line rounded-lg hover:border-brand/40 hover:bg-cream transition-colors"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTicket(null);
+                    navigate('/profile/bookings');
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Voir tous les billets
+                </button>
+              </div>
             </div>
           </div>
         </div>

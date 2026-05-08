@@ -61,7 +61,7 @@ export default function OrganizerDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
+      <div className="flex justify-center items-center min-h-[400px] font-sans">
         <Loader className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     );
@@ -69,12 +69,12 @@ export default function OrganizerDashboard() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 font-sans">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{error}</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">{error}</h2>
         <button
           onClick={fetchAnalytics}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
         >
           {t('common.try_again', { default: 'Try Again' })}
         </button>
@@ -83,9 +83,9 @@ export default function OrganizerDashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 font-sans">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900">
           {t('organizer.dashboard.title', { default: 'Event Analytics' })}
         </h1>
       </div>
@@ -101,7 +101,7 @@ export default function OrganizerDashboard() {
               <p className="text-sm text-gray-600">
                 {t('organizer.stats.total_revenue', { default: 'Total Revenue' })}
               </p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</p>
+              <p className="text-2xl font-medium text-gray-900">{formatCurrency(totalRevenue)}</p>
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function OrganizerDashboard() {
               <p className="text-sm text-gray-600">
                 {t('organizer.stats.tickets_sold', { default: 'Tickets Sold' })}
               </p>
-              <p className="text-2xl font-bold text-gray-900">{totalTickets}</p>
+              <p className="text-2xl font-medium text-gray-900">{totalTickets}</p>
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function OrganizerDashboard() {
               <p className="text-sm text-gray-600">
                 {t('organizer.stats.total_orders', { default: 'Total Orders' })}
               </p>
-              <p className="text-2xl font-bold text-gray-900">{totalOrders}</p>
+              <p className="text-2xl font-medium text-gray-900">{totalOrders}</p>
             </div>
           </div>
         </div>
@@ -143,7 +143,7 @@ export default function OrganizerDashboard() {
               <p className="text-sm text-gray-600">
                 {t('organizer.stats.upcoming_events', { default: 'Upcoming Events' })}
               </p>
-              <p className="text-2xl font-bold text-gray-900">{upcomingEvents}</p>
+              <p className="text-2xl font-medium text-gray-900">{upcomingEvents}</p>
             </div>
           </div>
         </div>
@@ -182,30 +182,30 @@ export default function OrganizerDashboard() {
                 <tr key={event.event_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{event.event_title}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs text-gray-500">
                       {event.ticket_types.join(', ')}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-xs text-gray-500">
                     {new Date(event.event_date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{event.tickets_sold}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-900">{event.tickets_sold}</div>
+                    <div className="text-xs text-gray-500">
                       {t('organizer.events.orders', { 
                         count: event.total_orders,
                         default: `${event.total_orders} orders`
                       })}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {formatCurrency(event.total_revenue)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-[11px] font-medium text-gray-600">
                           {t('organizer.events.completed_orders', {
                             count: event.order_status_counts.completed,
                             default: `${event.order_status_counts.completed} completed`
@@ -214,7 +214,7 @@ export default function OrganizerDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-[11px] font-medium text-gray-600">
                           {t('organizer.events.pending_orders', {
                             count: event.order_status_counts.pending,
                             default: `${event.order_status_counts.pending} pending`
@@ -223,7 +223,7 @@ export default function OrganizerDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-[11px] font-medium text-gray-600">
                           {t('organizer.events.cancelled_orders', {
                             count: event.order_status_counts.cancelled,
                             default: `${event.order_status_counts.cancelled} cancelled`

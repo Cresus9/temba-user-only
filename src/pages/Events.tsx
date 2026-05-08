@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Calendar, MapPin, ArrowLeft } from 'lucide-react';
+import { Search, Calendar, MapPin, Tag, X, ArrowLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import EventCard from '../components/EventCard';
 import { supabase } from '../lib/supabase-client';
-import { Event } from '../types/event';
-import toast from 'react-hot-toast';
 import { CategoryService } from '../services/categoryService';
 import PageSEO from '../components/SEO/PageSEO';
 import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
-import TrendingSearches from '../components/events/TrendingSearches';
 import FeaturedEvents from '../components/events/FeaturedEvents';
 import UpcomingEvents from '../components/events/UpcomingEvents';
 
@@ -17,7 +13,7 @@ const initialFilters = {
   category: '',
   location: '',
   date: '',
-  status: 'PUBLISHED'
+  status: 'PUBLISHED',
 };
 
 export default function Events() {
@@ -31,16 +27,16 @@ export default function Events() {
   }));
   const [locations, setLocations] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [totalEvents, setTotalEvents] = useState<number | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   const navigate = useNavigate();
 
-  // Initialize filters from URL params
   useEffect(() => {
     const query = searchParams.get('query') || '';
     const location = searchParams.get('location') || '';
     const category = searchParams.get('category') || '';
     const date = searchParams.get('date') || '';
-    
+
     setFilters(prev => ({
       ...prev,
       search: query,
@@ -51,7 +47,7 @@ export default function Events() {
   }, [searchParams]);
 
   useEffect(() => {
-    fetchLocationsAndCategories();
+    fetchLocationsCategoriesAndCount();
   }, []);
 
   // Debounce search input
@@ -63,19 +59,17 @@ export default function Events() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
-  // Removed old fetchEvents - now handled by CategoryEventsDisplay
-  const fetchLocationsAndCategories = async () => {
+  const fetchLocationsCategoriesAndCount = async () => {
     try {
-      // Get unique locations
-      const { data: eventsData } = await supabase
+      const { data: eventsData, count } = await supabase
         .from('events')
-        .select('location')
+        .select('location', { count: 'exact' })
         .eq('status', 'PUBLISHED');
-      
-      const uniqueLocations = [...new Set(eventsData?.map(e => e.location) || [])];
-      setLocations(uniqueLocations);
 
-      // Load available categories from centralized service
+      const uniqueLocations = [...new Set(eventsData?.map(e => e.location).filter(Boolean) || [])];
+      setLocations(uniqueLocations);
+      setTotalEvents(count ?? eventsData?.length ?? 0);
+
       const categoryRecords = await CategoryService.fetchCategories();
       const uniqueCategories = categoryRecords.map(category => category.name);
       setCategories(uniqueCategories);
@@ -84,53 +78,53 @@ export default function Events() {
     }
   };
 
-  // Removed old fetchEvents function - events are now fetched by CategoryEventsDisplay
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters(prev => ({ ...prev, search: e.target.value }));
   };
 
   const clearFilters = () => {
     setFilters(initialFilters);
-    setSearchParams({}); // Clear URL params
+    setSearchParams({});
   };
 
-  // Simplified structured data - will be updated when we have events from components
-  const itemListStructuredData = useMemo(() => {
-    return undefined; // Will be populated by CategoryEventsDisplay if needed
-  }, []);
+  const removeFilter = (key: 'search' | 'date' | 'location' | 'category') => {
+    setFilters(prev => ({ ...prev, [key]: '' }));
+    const next = new URLSearchParams(searchParams);
+    if (key === 'search') next.delete('query');
+    else next.delete(key);
+    setSearchParams(next);
+  };
+
+  const hasFilters =
+    !!filters.search || !!filters.date || !!filters.location || !!filters.category;
+
+  const formatDateChip = (iso: string) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   const breadcrumbSchema = useMemo(
     () => ({
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Accueil',
-          item: 'https://tembas.com/',
-        },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: 'Événements',
-          item: 'https://tembas.com/events',
-        },
+        { '@type': 'ListItem', position: 1, name: 'Accueil', item: 'https://tembas.com/' },
+        { '@type': 'ListItem', position: 2, name: 'Événements', item: 'https://tembas.com/events' },
       ],
     }),
     []
   );
 
-  const structuredData = useMemo(() => {
-    const data = [];
-    if (breadcrumbSchema) data.push(breadcrumbSchema);
-    if (itemListStructuredData) data.push(itemListStructuredData);
-    return data.length ? data : undefined;
-  }, [breadcrumbSchema, itemListStructuredData]);
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div>
       <PageSEO
         title="Événements au Burkina Faso"
         description="Explorez tous les concerts, festivals, spectacles et événements professionnels disponibles sur Temba. Filtrez par ville, date ou catégorie et achetez vos billets en quelques minutes."
@@ -144,98 +138,220 @@ export default function Events() {
           'festivals Burkina Faso',
           'événements culturels FCFA',
         ]}
-        structuredData={structuredData}
+        structuredData={[breadcrumbSchema]}
       />
-      {/* Back button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        Retour
-      </button>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Découvrir les événements</h1>
-        <p className="text-gray-600">Trouvez et réservez des billets pour les meilleurs événements près de chez vous</p>
-      </div>
+      {/* — — — Hero — — — */}
+      <section className="relative bg-cream bg-grain overflow-hidden border-b border-line">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-brand-50 blur-3xl opacity-70"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-32 -left-32 w-[340px] h-[340px] rounded-full bg-accent-50 blur-3xl opacity-60"
+        />
 
-      {/* Filters */}
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={filters.search}
-              onChange={handleSearchChange}
-              placeholder="Rechercher des événements..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
-              min={new Date().toISOString().split('T')[0]}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select
-              value={filters.location}
-              onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Tous les lieux</option>
-              {locations.map(location => (
-                <option key={location} value={location}>{location}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="w-full md:w-48 pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Toutes les catégories</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
-
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-6 pb-8 md:pt-8 md:pb-10">
+          {/* Back link */}
           <button
-            onClick={clearFilters}
-            className="px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-mute hover:text-ink transition-colors mb-5"
           >
-            Effacer les filtres
+            <ArrowLeft className="h-4 w-4" />
+            Retour
           </button>
-        </div>
-      </div>
 
-      {/* Featured Events Carousel - Mobile Style */}
-      <FeaturedEvents />
-      
-      {/* Category-Based Sections - Display below Featured Events */}
-      <CategoryEventsDisplay
-        searchQuery={debouncedSearch}
-        locationFilter={filters.location}
-        dateFilter={filters.date}
-      />
-      
-      {/* Upcoming Events List - Mobile Style (if no filters) */}
-      {!debouncedSearch && !filters.location && !filters.date && !filters.category && (
-        <UpcomingEvents limit={6} />
-      )}
+          <div className="grid lg:grid-cols-12 gap-6 lg:gap-10 lg:items-end">
+            <div className="lg:col-span-7 max-w-2xl">
+              <p className="eyebrow mb-2">
+                Agenda
+                {totalEvents !== null && (
+                  <span className="ml-2 text-ink/70">
+                    · <span className="tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>{totalEvents}</span> événements
+                  </span>
+                )}
+              </p>
+              <h1 className="!text-[clamp(28px,4.4vw,44px)] !leading-[1.06] text-ink mb-3">
+                Découvrez ce qui se passe{' '}
+                <span className="relative inline-block">
+                  <span className="relative z-10">cette semaine</span>
+                  <span aria-hidden className="absolute left-0 right-0 bottom-1 h-2 md:h-2.5 bg-accent/40 rounded-sm -z-0" />
+                </span>
+                .
+              </h1>
+              <p className="text-[14px] text-ink-mute max-w-xl leading-relaxed">
+                Concerts, festivals, sport, culture — partout en Afrique de l'Ouest.
+                Filtrez par ville, par date, ou laissez-vous surprendre.
+              </p>
+            </div>
+          </div>
+
+          {/* — — — Filter bar — — — */}
+          <div className="mt-7">
+            <div className="bg-paper rounded-xl2 border border-line shadow-card p-2 flex flex-col lg:flex-row gap-2">
+              {/* Search */}
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={handleSearchChange}
+                  placeholder="Recherchez un artiste, un événement, un lieu…"
+                  className="w-full h-11 pl-10 pr-3 bg-transparent text-[14px] text-ink placeholder:text-ink-mute focus:outline-none rounded-lg"
+                />
+              </div>
+
+              {/* Vertical divider — desktop only */}
+              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
+
+              {/* Date */}
+              <FilterPill
+                icon={<Calendar className="h-4 w-4" />}
+                active={!!filters.date}
+              >
+                <input
+                  type="date"
+                  value={filters.date}
+                  onChange={e => setFilters(prev => ({ ...prev, date: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full"
+                  aria-label="Filtrer par date"
+                />
+              </FilterPill>
+
+              {/* Vertical divider */}
+              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
+
+              {/* Location */}
+              <FilterPill
+                icon={<MapPin className="h-4 w-4" />}
+                active={!!filters.location}
+              >
+                <select
+                  value={filters.location}
+                  onChange={e => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full appearance-none cursor-pointer pr-2"
+                  aria-label="Filtrer par lieu"
+                >
+                  <option value="">Tous les lieux</option>
+                  {locations.map(location => (
+                    <option key={location} value={location}>{location}</option>
+                  ))}
+                </select>
+              </FilterPill>
+
+              {/* Vertical divider */}
+              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
+
+              {/* Category */}
+              <FilterPill
+                icon={<Tag className="h-4 w-4" />}
+                active={!!filters.category}
+              >
+                <select
+                  value={filters.category}
+                  onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full appearance-none cursor-pointer pr-2"
+                  aria-label="Filtrer par catégorie"
+                >
+                  <option value="">Toutes catégories</option>
+                  {categories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </FilterPill>
+            </div>
+
+            {/* Active filter chips */}
+            {hasFilters && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="eyebrow !text-ink-mute">Filtres actifs</span>
+                {filters.search && (
+                  <FilterChip label={`"${filters.search}"`} onRemove={() => removeFilter('search')} />
+                )}
+                {filters.date && (
+                  <FilterChip label={formatDateChip(filters.date)} onRemove={() => removeFilter('date')} />
+                )}
+                {filters.location && (
+                  <FilterChip label={filters.location} onRemove={() => removeFilter('location')} />
+                )}
+                {filters.category && (
+                  <FilterChip label={filters.category} onRemove={() => removeFilter('category')} />
+                )}
+                <button
+                  onClick={clearFilters}
+                  className="text-[12px] font-semibold text-ink-mute hover:text-brand transition-colors"
+                >
+                  Tout effacer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* — — — Sections — — — */}
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-12 space-y-12">
+        {/* Featured carousel */}
+        <FeaturedEvents />
+
+        {/* Category-grouped sections */}
+        <CategoryEventsDisplay
+          searchQuery={debouncedSearch}
+          locationFilter={filters.location}
+          dateFilter={filters.date}
+        />
+
+        {/* Upcoming list — only when no active filter */}
+        {!debouncedSearch && !filters.location && !filters.date && !filters.category && (
+          <UpcomingEvents limit={6} />
+        )}
+      </div>
     </div>
+  );
+}
+
+/** Compact filter pill with icon. Becomes branded when active. */
+function FilterPill({
+  icon,
+  active,
+  children,
+}: {
+  icon: React.ReactNode;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      className={`flex items-center gap-2 h-11 px-3 rounded-lg cursor-pointer transition-colors lg:flex-1 lg:min-w-0 ${
+        active ? 'bg-brand-50 text-brand' : 'text-ink-mute hover:bg-cream'
+      }`}
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </label>
+  );
+}
+
+/** Removable filter chip. */
+function FilterChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full bg-paper border border-line text-[12px] font-medium text-ink shadow-sm">
+      {label}
+      <button
+        onClick={onRemove}
+        className="grid place-items-center w-4 h-4 rounded-full text-ink-mute hover:bg-line hover:text-ink transition-colors"
+        aria-label={`Retirer ${label}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }

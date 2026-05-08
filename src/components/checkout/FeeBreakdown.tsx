@@ -12,35 +12,38 @@ interface FeeBreakdownProps {
 export default function FeeBreakdown({ currency, subtotal, buyerFees, items = [] }: FeeBreakdownProps) {
   const total = subtotal + buyerFees;
   return (
-    <div className="bg-gray-50 rounded-lg p-3">
-      <div className="flex justify-between text-sm text-gray-600">
+    <div className="bg-cream rounded-xl2 border border-line p-3.5">
+      <div className="flex justify-between text-[13px] text-ink-mute">
         <span>Sous-total</span>
-        <span>{formatCurrency(subtotal, currency)}</span>
+        <span className="tabular-nums text-ink">{formatCurrency(subtotal, currency)}</span>
       </div>
       <div className="mt-2">
-        <div className="text-sm font-medium text-gray-700">Frais de service</div>
+        <p className="text-[12px] font-semibold text-ink mb-1">Frais de service</p>
         {items.length > 0 ? (
-          <ul className="mt-1 space-y-1">
+          <ul className="space-y-1">
             {items.map((it, idx) => (
-              <li key={idx} className="flex justify-between text-sm text-gray-600">
+              <li key={idx} className="flex justify-between text-[12.5px] text-ink-mute">
                 <span>{it.rule_name}</span>
-                <span>{formatCurrency(it.fee_amount, currency)}</span>
+                <span className="tabular-nums">{formatCurrency(it.fee_amount, currency)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="flex justify-between text-sm text-gray-600">
+          <div className="flex justify-between text-[13px] text-ink-mute">
             <span>Frais</span>
-            <span>{formatCurrency(buyerFees, currency)}</span>
+            <span className="tabular-nums text-ink">{formatCurrency(buyerFees, currency)}</span>
           </div>
         )}
       </div>
-      <div className="flex justify-between text-base font-semibold text-gray-900 mt-3 border-t pt-2">
-        <span>Total</span>
-        <span>{formatCurrency(total, currency)}</span>
+      <div className="flex justify-between items-baseline mt-2.5 pt-2 border-t border-line">
+        <span className="text-[13px] font-bold text-ink">Total</span>
+        <span
+          className="text-[16px] font-bold text-ink tabular-nums tracking-tight"
+          style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+        >
+          {formatCurrency(total, currency)}
+        </span>
       </div>
     </div>
   );
 }
-
-

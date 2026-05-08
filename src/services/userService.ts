@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase-client';
+import { fetchUserCreditBalanceFromSupabase } from './creditService';
 
 export interface Profile {
   id: string;
@@ -121,11 +122,14 @@ class UserService {
 
     const visibleRecentOrders = (recentOrders || []).filter(order => ['COMPLETED', 'CANCELLED'].includes(order.status || ''));
 
+    const credits = await fetchUserCreditBalanceFromSupabase();
+
     return {
       stats: {
         upcomingEvents: upcomingTickets.length,
         totalTickets: totalTickets,
-        totalSpent
+        totalSpent,
+        credits,
       },
       recentOrders: visibleRecentOrders.map(order => ({
         id: order.id,
@@ -146,6 +150,8 @@ export interface DashboardStats {
     upcomingEvents: number;
     totalTickets: number;
     totalSpent: number;
+    /** From `user_credits` via Supabase; null if table/RLS unavailable */
+    credits: { balance: number; currency: string } | null;
   };
   recentOrders: Array<{
     id: string;

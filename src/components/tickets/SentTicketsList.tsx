@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader, Eye, Calendar, MapPin, Clock, User, X } from 'lucide-react';
+import {
+  Send,
+  Loader,
+  Eye,
+  Calendar,
+  MapPin,
+  Clock,
+  User,
+  X,
+  Inbox,
+  CheckCircle2,
+  XCircle,
+  CircleSlash,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import EnhancedFestivalTicket from './EnhancedFestivalTicket';
 import { formatCurrency } from '../../utils/formatters';
+import Image from '../common/Image';
 
 interface SentTicket {
   id: string;
@@ -44,6 +57,9 @@ interface SentTicketsListProps {
   onTicketClick?: (ticket: SentTicket) => void;
 }
 
+const monoFamily = 'ui-monospace, SFMono-Regular, monospace';
+const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
+
 export default function SentTicketsList({ onTicketClick }: SentTicketsListProps) {
   const [tickets, setTickets] = useState<SentTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,14 +74,15 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
   const fetchSentTickets = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-
-      console.log('Fetching sent tickets for user:', user.id);
 
       const { data: transfers, error } = await supabase
         .from('ticket_transfers')
-        .select(`
+        .select(
+          `
           id,
           ticket_id,
           recipient_id,
@@ -92,19 +109,17 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
               price
             )
           )
-        `)
+        `
+        )
         .eq('sender_id', user.id)
         .order('created_at', { ascending: false });
 
-      console.log('Sent tickets query result:', { transfers, error });
-
       if (error) throw error;
 
-      // If we have transfers, try to get recipient information separately
       if (transfers && transfers.length > 0) {
-        const recipientIds = [...new Set(transfers.map(t => t.recipient_id).filter(Boolean))];
+        const recipientIds = [...new Set(transfers.map((t) => t.recipient_id).filter(Boolean))];
         let recipientsMap: Record<string, { name: string; email: string }> = {};
-        
+
         if (recipientIds.length > 0) {
           const { data: recipients } = await supabase
             .from('profiles')
@@ -117,13 +132,12 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
           }, {} as Record<string, { name: string; email: string }>);
         }
 
-        // Add recipient info to transfers
-        const transfersWithRecipients = transfers.map(transfer => ({
+        const transfersWithRecipients = transfers.map((transfer) => ({
           ...transfer,
-          recipient: transfer.recipient_id ? recipientsMap[transfer.recipient_id] : undefined
+          recipient: transfer.recipient_id ? recipientsMap[transfer.recipient_id] : undefined,
         }));
 
-        setTickets(transfersWithRecipients);
+        setTickets(transfersWithRecipients as unknown as SentTicket[]);
       } else {
         setTickets([]);
       }
@@ -135,44 +149,52 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      year: 'numeric',
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('fr-FR', {
+      day: 'numeric',
       month: 'short',
-      day: 'numeric'
+      year: 'numeric',
     });
-  };
 
-  const getStatusColor = (status: string) => {
+  const statusInfo = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
+        return {
+          label: 'Transféré',
+          cls: 'bg-green-50 text-green-700 ring-green-200',
+          Icon: CheckCircle2,
+        };
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
+        return {
+          label: 'En attente',
+          cls: 'bg-amber-50 text-amber-800 ring-amber-200',
+          Icon: Clock,
+        };
       case 'REJECTED':
-        return 'bg-red-100 text-red-800';
+        return {
+          label: 'Rejeté',
+          cls: 'bg-red-50 text-red-700 ring-red-200',
+          Icon: XCircle,
+        };
       case 'CANCELLED':
-        return 'bg-gray-100 text-gray-800';
+        return {
+          label: 'Annulé',
+          cls: 'bg-cream text-ink-mute ring-line',
+          Icon: CircleSlash,
+        };
       default:
-        return 'bg-gray-100 text-gray-800';
+        return {
+          label: status,
+          cls: 'bg-cream text-ink-mute ring-line',
+          Icon: Clock,
+        };
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'Transféré';
-      case 'PENDING':
-        return 'En attente';
-      case 'REJECTED':
-        return 'Rejeté';
-      case 'CANCELLED':
-        return 'Annulé';
-      default:
-        return status;
-    }
-  };
+  const recipientLabel = (ticket: SentTicket) =>
+    ticket.recipient
+      ? ticket.recipient.name
+      : ticket.recipient_email || ticket.recipient_phone || 'Destinataire non inscrit';
 
   const handleTicketClick = (ticket: SentTicket) => {
     setSelectedTicket(ticket);
@@ -181,10 +203,12 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="flex flex-col items-center gap-4">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-gray-600">Chargement des billets envoyés...</p>
+      <div className="flex items-center justify-center py-14">
+        <div className="flex flex-col items-center gap-3">
+          <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
+            <Loader className="h-5 w-5 animate-spin text-brand" />
+          </div>
+          <p className="text-[12px] text-ink-mute">Chargement des billets envoyés...</p>
         </div>
       </div>
     );
@@ -192,247 +216,349 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
 
   if (!tickets.length) {
     return (
-      <div className="text-center py-12">
-        <Send className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          Aucun billet envoyé
-        </h3>
-        <p className="text-gray-600 mb-6">
-          Vous n'avez transféré aucun billet pour le moment.
-        </p>
-        <div className="text-sm text-gray-500">
-          Les billets que vous transférez apparaîtront ici.
+      <div className="text-center py-14 px-4">
+        <div className="grid place-items-center w-16 h-16 rounded-full bg-cream-deep mx-auto mb-4">
+          <Send className="h-7 w-7 text-ink-mute" />
         </div>
+        <p className="eyebrow !mb-1">Aucun envoi</p>
+        <h3 className="text-ink mb-2">Vous n'avez transféré aucun billet</h3>
+        <p className="text-[13px] text-ink-mute max-w-sm mx-auto leading-relaxed">
+          Les billets que vous transférez à vos proches apparaîtront ici avec leur statut en temps réel.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Send className="h-6 w-6 text-indigo-600" />
-            Billets envoyés
-          </h2>
-          <p className="text-gray-600 mt-1">
-            {tickets.length} billet{tickets.length > 1 ? 's' : ''} transféré{tickets.length > 1 ? 's' : ''}
-          </p>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 pb-4 border-b border-line">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="grid place-items-center w-10 h-10 rounded-xl bg-brand-50 ring-1 ring-brand-100 flex-shrink-0">
+            <Send className="h-5 w-5 text-brand" />
+          </div>
+          <div className="min-w-0">
+            <p className="eyebrow !mb-1">Envoyés</p>
+            <h2
+              className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
+              style={{ fontFamily: displayFamily }}
+            >
+              Billets envoyés
+            </h2>
+            <p className="text-[12px] text-ink-mute mt-1">
+              Suivez le statut des billets que vous avez transférés.
+            </p>
+          </div>
         </div>
+        <span
+          className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute tabular-nums hidden sm:inline-flex flex-shrink-0 mt-2"
+          style={{ fontFamily: monoFamily }}
+        >
+          {String(tickets.length).padStart(2, '0')} TRANSFERT{tickets.length > 1 ? 'S' : ''}
+        </span>
       </div>
 
-      <div className="grid gap-6">
-        {tickets.map((ticket) => (
-          <div
-            key={ticket.id}
-            onClick={() => handleTicketClick(ticket)}
-            className="bg-white rounded-xl border border-gray-200 p-6 hover:border-indigo-200 hover:shadow-lg transition-all duration-200 cursor-pointer group"
-          >
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-              {/* Event Image */}
-              {ticket.ticket?.event?.image_url && (
-                <div className="w-full lg:w-32 h-32 lg:h-24 rounded-lg overflow-hidden flex-shrink-0">
-                  <img
-                    src={ticket.ticket.event.image_url}
-                    alt={ticket.ticket.event?.title || 'Événement'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  />
-                </div>
-              )}
+      {/* Tickets */}
+      <div className="space-y-3">
+        {tickets.map((ticket) => {
+          const tktCode = ticket.ticket?.id?.slice(0, 8).toUpperCase() ?? '—';
+          const status = statusInfo(ticket.status);
+          const StatusIcon = status.Icon;
 
-              {/* Event Details */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+          return (
+            <article
+              key={ticket.id}
+              onClick={() => handleTicketClick(ticket)}
+              className="bg-paper rounded-xl2 border border-line shadow-card hover:border-brand/40 hover:shadow-card-hover transition-all cursor-pointer group overflow-hidden"
+            >
+              <div className="flex flex-col sm:flex-row gap-4 p-4">
+                {/* Poster */}
+                {ticket.ticket?.event?.image_url && (
+                  <div className="relative w-full sm:w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 bg-cream-deep ring-1 ring-line">
+                    <Image
+                      src={ticket.ticket.event.image_url}
+                      alt={ticket.ticket.event.title || 'Événement'}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {/* "SENT" stamp */}
+                    <div className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.08em] bg-brand text-paper shadow-card">
+                      <Send className="h-2.5 w-2.5" />
+                      Envoyé
+                    </div>
+                  </div>
+                )}
+
+                {/* Body */}
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums mb-1"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    TKT · {tktCode}
+                    <span className="mx-2 text-line">·</span>
+                    <span className="text-ink-mute/85">Envoyé {formatDate(ticket.created_at)}</span>
+                  </p>
+
+                  <h3
+                    className="text-[15px] font-bold text-ink group-hover:text-brand transition-colors leading-tight line-clamp-1 mb-2"
+                    style={{ fontFamily: displayFamily }}
+                  >
                     {ticket.ticket?.event?.title || 'Événement introuvable'}
                   </h3>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                    {getStatusText(ticket.status)}
-                  </span>
-                </div>
-                
-                {ticket.ticket?.event && (
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{formatDate(ticket.ticket.event.date)}</span>
+
+                  {ticket.ticket?.event && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute mb-2">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 text-brand" />
+                        {formatDate(ticket.ticket.event.date)}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <Clock className="h-3 w-3" />
+                        {ticket.ticket.event.time}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 truncate min-w-0">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{ticket.ticket.event.location}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-line">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="grid place-items-center w-6 h-6 rounded-full bg-cream-deep ring-1 ring-line flex-shrink-0">
+                        <User className="h-3 w-3 text-ink-mute" />
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{ticket.ticket.event.time}</span>
-                      </div>
+                      <p className="text-[12px] text-ink min-w-0 truncate">
+                        <span className="text-ink-mute">À </span>
+                        <span className="font-bold">{recipientLabel(ticket)}</span>
+                      </p>
                     </div>
-                    
-                    <div className="flex items-start gap-1">
-                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                      <span className="line-clamp-2">{ticket.ticket.event.location}</span>
-                    </div>
-                  </div>
-                )}
 
-                {/* Transfer Info */}
-                <div className="mt-3 flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1 text-indigo-600">
-                    <User className="h-4 w-4" />
-                    <span>
-                      {ticket.recipient 
-                        ? `Envoyé à ${ticket.recipient.name}` 
-                        : `Envoyé à ${ticket.recipient_email || ticket.recipient_phone || 'Utilisateur non inscrit'}`
-                      }
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] ring-1 ${status.cls}`}
+                      >
+                        <StatusIcon className="h-2.5 w-2.5" />
+                        {status.label}
+                      </span>
+                      {ticket.ticket?.ticket_type && (
+                        <span
+                          className="text-[12px] font-bold text-ink tabular-nums"
+                          style={{ fontFamily: displayFamily }}
+                        >
+                          {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-gray-500">
-                    {formatDate(ticket.created_at)}
-                  </div>
+
+                  {ticket.message && (
+                    <div className="mt-2.5 p-2.5 bg-cream rounded-lg border-l-2 border-brand">
+                      <p className="text-[11px] text-ink leading-relaxed">
+                        <span
+                          className="font-bold text-ink-mute mr-1"
+                          style={{ fontFamily: monoFamily }}
+                        >
+                          MSG ·
+                        </span>
+                        {ticket.message}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Message */}
-                {ticket.message && (
-                  <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                    <p className="text-sm text-indigo-800">
-                      <span className="font-medium">Message: </span>
-                      {ticket.message}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Ticket Type & Actions */}
-              {ticket.ticket?.ticket_type && (
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:items-end">
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">Type de billet</div>
-                    <div className="font-semibold text-gray-900">{ticket.ticket.ticket_type.name}</div>
-                    <div className="text-sm text-gray-600">
-                      {formatCurrency(ticket.ticket.ticket_type.price, 'XOF')}
-                    </div>
-                  </div>
-                  
+                {/* CTA */}
+                <div className="flex sm:flex-col items-stretch sm:items-end gap-2 flex-shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleTicketClick(ticket);
                     }}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-line bg-paper text-ink rounded-lg text-[12px] font-bold hover:border-brand hover:text-brand transition-colors"
                   >
-                    <Eye className="h-4 w-4" />
-                    Voir le billet
+                    <Eye className="h-3.5 w-3.5" />
+                    Détails
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
+            </article>
+          );
+        })}
       </div>
 
-      {/* Ticket Details Modal */}
+      {/* Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Send className="h-6 w-6 text-indigo-600" />
-                Billet envoyé
-              </h3>
-              <button 
-                onClick={() => setSelectedTicket(null)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Transfer Information Banner */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                  <Send className="h-5 w-5 text-indigo-600" />
+        <div
+          className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
+          onClick={() => setSelectedTicket(null)}
+        >
+          <div
+            className="bg-paper rounded-xl2 max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-card-hover my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sticky header */}
+            <header className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 bg-cream border-b border-line">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="grid place-items-center w-8 h-8 rounded-lg bg-brand-50 text-brand ring-1 ring-brand-100 flex-shrink-0">
+                  <Send className="h-4 w-4" />
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-indigo-900">Billet transféré</h4>
-                  <div className="text-sm text-indigo-700">
-                    <div className="flex items-center gap-4">
-                      <span>
-                        {selectedTicket.recipient 
-                          ? `Envoyé à ${selectedTicket.recipient.name}` 
-                          : `Envoyé à ${selectedTicket.recipient_email || selectedTicket.recipient_phone || 'Utilisateur non inscrit'}`
-                        }
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedTicket.status)}`}>
-                        {getStatusText(selectedTicket.status)}
-                      </span>
+                <div className="min-w-0">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    TKT · {selectedTicket.ticket?.id.slice(0, 8).toUpperCase()}
+                  </p>
+                  <h3
+                    className="text-[14px] font-bold text-ink !mb-0 leading-tight"
+                    style={{ fontFamily: displayFamily }}
+                  >
+                    Billet envoyé
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedTicket(null)}
+                className="grid place-items-center w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-ink hover:border-ink transition-colors flex-shrink-0"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            <div className="p-4 sm:p-5 space-y-4">
+              {/* Recipient + status callout */}
+              <div className="bg-brand-50/40 border border-brand-100 rounded-xl2 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid place-items-center w-10 h-10 rounded-lg bg-brand text-paper flex-shrink-0">
+                    <Send className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute"
+                        style={{ fontFamily: monoFamily }}
+                      >
+                        Destinataire
+                      </p>
+                      {(() => {
+                        const s = statusInfo(selectedTicket.status);
+                        const SIcon = s.Icon;
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] ring-1 ${s.cls}`}
+                          >
+                            <SIcon className="h-2.5 w-2.5" />
+                            {s.label}
+                          </span>
+                        );
+                      })()}
                     </div>
-                    <div className="text-xs text-indigo-600 mt-1">
+                    <p
+                      className="text-[15px] font-bold text-ink leading-tight"
+                      style={{ fontFamily: displayFamily }}
+                    >
+                      {recipientLabel(selectedTicket)}
+                    </p>
+                    <p
+                      className="text-[11px] text-ink-mute tabular-nums mt-0.5"
+                      style={{ fontFamily: monoFamily }}
+                    >
                       Transféré le {formatDate(selectedTicket.created_at)}
-                    </div>
+                    </p>
                     {selectedTicket.message && (
-                      <div className="mt-2 p-2 bg-white rounded border border-indigo-200">
-                        <span className="text-indigo-600 font-medium">Message: </span>
-                        <span className="text-indigo-800">{selectedTicket.message}</span>
-                      </div>
+                      <p className="mt-2.5 p-2.5 bg-paper rounded-lg border border-line text-[12px] text-ink leading-relaxed">
+                        <span
+                          className="font-bold text-ink-mute mr-1"
+                          style={{ fontFamily: monoFamily }}
+                        >
+                          MSG ·
+                        </span>
+                        {selectedTicket.message}
+                      </p>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Ticket Display - Read Only for Transferred Tickets */}
-            <div className="relative">
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-                <div className="mb-6">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Send className="h-8 w-8 text-gray-500" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                    Billet transféré
-                  </h4>
-                  <p className="text-gray-600 mb-4">
-                    Ce billet a été transféré et n'est plus accessible. Seul le destinataire peut maintenant l'utiliser.
-                  </p>
-                </div>
-
-                {/* Event Info */}
-                {selectedTicket.ticket?.event && selectedTicket.ticket?.ticket_type && (
-                  <div className="bg-white rounded-lg p-6 mb-6 text-left">
-                    <h5 className="font-semibold text-gray-900 mb-3">{selectedTicket.ticket.event.title}</h5>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>{formatDate(selectedTicket.ticket.event.date)} à {selectedTicket.ticket.event.time}</span>
+              {/* Read-only ticket preview */}
+              <div className="rounded-xl2 border border-line overflow-hidden bg-cream/40">
+                {selectedTicket.ticket?.event?.image_url && (
+                  <div className="relative aspect-[16/9] sm:aspect-[2/1] overflow-hidden">
+                    <Image
+                      src={selectedTicket.ticket.event.image_url}
+                      alt={selectedTicket.ticket.event.title}
+                      className="absolute inset-0 w-full h-full object-cover blur-sm scale-110 opacity-50"
+                    />
+                    <div className="absolute inset-0 bg-ink/60" />
+                    <div className="relative h-full flex flex-col items-center justify-center text-center px-4">
+                      <div className="grid place-items-center w-12 h-12 rounded-full bg-paper/10 ring-2 ring-paper/15 backdrop-blur-sm mb-3">
+                        <Send className="h-5 w-5 text-paper" />
                       </div>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                        <span>{selectedTicket.ticket.event.location}</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                        <span className="font-medium">{selectedTicket.ticket.ticket_type.name}</span>
-                        <span className="font-semibold text-gray-900">
-                          {formatCurrency(selectedTicket.ticket.ticket_type.price, 'XOF')}
-                        </span>
-                      </div>
+                      <p className="eyebrow !text-paper/70 mb-1">Plus accessible</p>
+                      <p
+                        className="text-paper text-[15px] font-bold tracking-tight"
+                        style={{ fontFamily: displayFamily }}
+                      >
+                        Ce billet a été remis au destinataire
+                      </p>
                     </div>
                   </div>
                 )}
 
-                {/* Status */}
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  Billet transféré - Plus accessible
-                </div>
+                {selectedTicket.ticket?.event && selectedTicket.ticket?.ticket_type && (
+                  <div className="p-4">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute mb-2"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Détails de l'événement
+                    </p>
+                    <h4
+                      className="text-[15px] font-bold text-ink leading-tight mb-3"
+                      style={{ fontFamily: displayFamily }}
+                    >
+                      {selectedTicket.ticket.event.title}
+                    </h4>
+                    <ul className="space-y-2 text-[12px] text-ink-mute">
+                      <li className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-brand flex-shrink-0" />
+                        <span className="tabular-nums">
+                          {formatDate(selectedTicket.ticket.event.date)} · {selectedTicket.ticket.event.time}
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-brand flex-shrink-0 mt-0.5" />
+                        <span>{selectedTicket.ticket.event.location}</span>
+                      </li>
+                    </ul>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
+                      <span className="text-[12px] font-bold text-ink">
+                        {selectedTicket.ticket.ticket_type.name}
+                      </span>
+                      <span
+                        className="text-[14px] font-bold text-ink tabular-nums"
+                        style={{ fontFamily: displayFamily }}
+                      >
+                        {formatCurrency(selectedTicket.ticket.ticket_type.price, 'XOF')}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-center gap-3 mt-6 pt-4 border-t">
+            {/* Sticky footer */}
+            <footer className="sticky bottom-0 px-5 py-3 bg-cream border-t border-line flex items-center justify-end">
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                className="inline-flex items-center justify-center h-10 px-5 border border-line bg-paper text-ink rounded-lg text-[13px] font-bold hover:border-ink hover:bg-cream/50 transition-colors"
               >
                 Fermer
               </button>
-            </div>
+            </footer>
           </div>
         </div>
       )}

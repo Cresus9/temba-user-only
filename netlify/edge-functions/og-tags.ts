@@ -1,7 +1,15 @@
 import type { Context } from "https://edge.netlify.com";
 
-const SUPABASE_URL = "https://uwmlagvsivxqocklxbbo.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bWxhZ3ZzaXZ4cW9ja2x4YmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyNzMwMjYsImV4cCI6MjA1MTg0OTAyNn0.ylTM28oYPVjotPmEn9TSZGPy4EQW2pbWgNLRqWYduLc";
+function getSupabaseRestConfig(): { url: string; anonKey: string } | null {
+  const url =
+    Deno.env.get("SUPABASE_URL") ?? Deno.env.get("VITE_SUPABASE_URL") ?? "";
+  const anonKey =
+    Deno.env.get("SUPABASE_ANON_KEY") ??
+    Deno.env.get("VITE_SUPABASE_ANON_KEY") ??
+    "";
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
 
 const CRAWLER_USER_AGENTS = [
   'facebookexternalhit',
@@ -25,13 +33,18 @@ function isCrawler(userAgent: string | null): boolean {
 }
 
 async function fetchEvent(eventId: string) {
+  const cfg = getSupabaseRestConfig();
+  if (!cfg) {
+    console.warn("og-tags: set SUPABASE_URL and SUPABASE_ANON_KEY (or VITE_*) in Netlify env for crawler previews");
+    return null;
+  }
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/events?id=eq.${eventId}&select=id,title,description,image_url,date,time,location`,
+      `${cfg.url}/rest/v1/events?id=eq.${eventId}&select=id,title,description,image_url,date,time,location`,
       {
         headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': cfg.anonKey,
+          'Authorization': `Bearer ${cfg.anonKey}`,
         },
       }
     );

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Calendar, MapPin, Clock, AlertCircle, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle, ChevronRight, Send, User, Ticket } from 'lucide-react';
+import { Download, Calendar, MapPin, Clock, Loader, ChevronDown, ChevronUp, CheckCircle, XCircle, ChevronRight, Send, Ticket } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
-import { generatePDF } from '../../utils/ticketService';
+import { generateTicketPNG } from '../../utils/ticketService';
 import { useAuth } from '../../context/AuthContext';
-import FestivalTicket from '../tickets/FestivalTicket';
 import EnhancedFestivalTicket from '../tickets/EnhancedFestivalTicket';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { formatCurrency } from '../../utils/formatters';
@@ -166,11 +165,11 @@ export default function BookingHistory() {
         throw new Error('Élément de billet non trouvé');
       }
 
-      const pdfBlob = await generatePDF(ticketElement);
-      const url = URL.createObjectURL(pdfBlob);
+      const pngBlob = await generateTicketPNG(ticketElement);
+      const url = URL.createObjectURL(pngBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `billet-${booking.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.pdf`;
+      link.download = `billet-${booking.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -196,345 +195,344 @@ export default function BookingHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+        <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
+          <Loader className="h-5 w-5 animate-spin text-brand" />
+        </div>
       </div>
     );
   }
 
   if (!bookings.length) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Aucune réservation trouvée
-        </h2>
-        <p className="text-gray-600 mb-4">
-          Vous n'avez pas encore effectué de réservations.
+      <div className="text-center py-14 px-4">
+        <div className="grid place-items-center w-16 h-16 rounded-full bg-cream-deep mx-auto mb-4">
+          <Ticket className="h-7 w-7 text-ink-mute" />
+        </div>
+        <p className="eyebrow !mb-1">Historique vide</p>
+        <h3 className="text-ink mb-2">Aucune réservation pour l'instant</h3>
+        <p className="text-[13px] text-ink-mute max-w-sm mx-auto leading-relaxed mb-5">
+          Dès que vous achetez votre premier billet, il apparaîtra ici avec toute son histoire.
         </p>
         <Link
           to="/events"
-          className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 h-10 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card"
         >
           Parcourir les événements
+          <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
     );
   }
 
+  const statusBadge = (status: string) => {
+    if (status === 'COMPLETED')
+      return { label: 'Terminée', cls: 'bg-green-50 text-green-700 ring-green-200' };
+    if (status === 'AWAITING_PAYMENT')
+      return { label: 'En attente', cls: 'bg-amber-50 text-amber-800 ring-amber-200' };
+    if (status === 'CANCELLED')
+      return { label: 'Annulée', cls: 'bg-red-50 text-red-700 ring-red-200' };
+    return { label: status, cls: 'bg-cream text-ink-mute ring-line' };
+  };
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-        Mes réservations
-      </h2>
-      
-      <div className="space-y-4">
-        {bookings.map((booking) => (
-          <div 
-            key={booking.id}
-            className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-200"
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 pb-4 border-b border-line">
+        <div>
+          <p className="eyebrow !mb-1">Historique</p>
+          <h2
+            className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
           >
-            {/* Booking Header */}
-            <div 
-              className="p-4 sm:p-6 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-all duration-200 group"
-              onClick={() => handleBookingClick(booking.id)}
+            Mes réservations
+          </h2>
+        </div>
+        <span
+          className="hidden sm:inline-block text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute tabular-nums flex-shrink-0"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          {String(bookings.length).padStart(2, '0')} COMMANDE{bookings.length > 1 ? 'S' : ''}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {bookings.map((booking) => {
+          const isExpanded = expandedBooking === booking.id;
+          const badge = statusBadge(booking.status);
+          const ordCode = booking.id.slice(0, 8).toUpperCase();
+
+          return (
+            <article
+              key={booking.id}
+              className="bg-paper rounded-xl2 border border-line shadow-card hover:border-brand/40 hover:shadow-card-hover transition-all overflow-hidden"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                      {booking.event.title}
-                    </h3>
-                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+              {/* Booking Header (clickable → /booking/confirmation/:id) */}
+              <div
+                className="p-4 cursor-pointer hover:bg-cream/60 transition-colors group"
+                onClick={() => handleBookingClick(booking.id)}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums mb-1"
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                    >
+                      ORD · {ordCode}
+                      <span className="mx-2 text-line">·</span>
+                      <span className="text-ink-mute/85">
+                        {new Date(booking.created_at).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <h3 className="text-[15px] font-bold text-ink group-hover:text-brand transition-colors line-clamp-1">
+                        {booking.event.title}
+                      </h3>
+                      <ChevronRight className="h-3.5 w-3.5 text-ink-mute group-hover:text-brand transition-colors flex-shrink-0" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(booking.event.date).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <Clock className="h-3 w-3" />
+                        {booking.event.time}
+                      </span>
+                      <span aria-hidden className="text-line">·</span>
+                      <span className="inline-flex items-center gap-1.5 truncate min-w-0">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{booking.event.location}</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4 flex-shrink-0" />
-                      {new Date(booking.event.date).toLocaleDateString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4 flex-shrink-0" />
-                      {booking.event.time}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      {booking.event.location}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-1">
-                  <p className="text-lg font-semibold text-gray-900">
-                    {formatCurrency(booking.total, booking.event.currency)}
-                  </p>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'COMPLETED' 
-                        ? 'bg-green-100 text-green-800'
-                      : booking.status === 'AWAITING_PAYMENT'
-                        ? 'bg-yellow-100 text-yellow-800'
-                      : booking.status === 'CANCELLED'
-                        ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-200 text-gray-700'
-                    }`}>
-                    {booking.status === 'COMPLETED' ? 'Terminée' : 
-                     booking.status === 'AWAITING_PAYMENT' ? 'En attente' : 'Annulée'}
-                    </span>
-                    <span className="text-xs text-gray-400 group-hover:text-indigo-500 transition-colors">
-                      Cliquer pour voir les détails
+
+                  <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-start gap-2 sm:gap-1.5 flex-shrink-0">
+                    <p
+                      className="text-[16px] font-bold text-ink tabular-nums tracking-tight"
+                      style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                    >
+                      {formatCurrency(booking.total, booking.event.currency)}
+                    </p>
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-[0.08em] ring-1 ${badge.cls}`}
+                    >
+                      {badge.label}
                     </span>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="flex flex-col sm:flex-row gap-2">
+              {/* Expand toggle */}
+              <div className="px-4 pb-3 border-t border-line bg-cream/40 pt-3">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleBookingDetails(booking.id);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 text-sm"
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-8 px-3 text-[12px] font-semibold text-ink-mute hover:text-brand transition-colors"
                 >
-                  {expandedBooking === booking.id ? (
+                  {isExpanded ? (
                     <>
-                      <ChevronUp className="h-5 w-5" />
-                      Masquer les détails
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      Masquer les billets
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="h-5 w-5" />
-                      Voir les détails
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      Voir {booking.tickets.length} billet{booking.tickets.length > 1 ? 's' : ''}
                     </>
                   )}
                 </button>
               </div>
-            </div>
 
-            {/* Expanded Details */}
-            {expandedBooking === booking.id && (
-              <div className="border-t border-gray-100 p-4 sm:p-6 space-y-4 bg-gray-50">
-                {booking.tickets.map((ticket) => (
-                  <div 
-                    key={ticket.id}
-                    className={`bg-white rounded-lg p-4 border border-gray-200 ${ticket.isTransferred ? 'relative' : ''}`}
-                  >
-                    {/* Transfer Status Banner */}
-                    {ticket.isTransferred && (
-                      <div className="mb-4 p-3 rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
-                        <div className="flex items-center gap-2">
-                          <Send className="h-5 w-5" />
-                          <span className="font-medium">
-                            Billet transféré - Détails non accessibles
-                          </span>
-                        </div>
-                        <p className="text-sm mt-1">
-                          Ce billet a été transféré et n'est plus accessible. Seul le destinataire peut l'utiliser.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Ticket Status Banner - only show if not transferred */}
-                    {!ticket.isTransferred && (
-                      <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
-                        ticket.status === 'USED' 
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-yellow-50 text-yellow-700'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          {ticket.status === 'USED' ? (
-                            <CheckCircle className="h-5 w-5" />
-                          ) : (
-                            <XCircle className="h-5 w-5" />
-                          )}
-                          <span className="font-medium">
-                            {ticket.status === 'USED' ? 'Billet utilisé' : 'Billet non utilisé'}
-                          </span>
-                        </div>
-                        {ticket.status === 'USED' && (
-                          <div className="text-sm">
-                            <p>Scanné à {ticket.scan_location}</p>
-                            <p>
-                              {new Date(ticket.scanned_at!).toLocaleString()} 
-                              {ticket.scanned_by_name && ` par ${ticket.scanned_by_name}`}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div id={`ticket-${ticket.id}`} data-ticket className={ticket.isTransferred ? 'blur-sm pointer-events-none' : ''}>
-                      {ticket.isTransferred ? (
-                        // Show a restricted version for transferred tickets
-                        <div className="relative max-w-4xl mx-auto px-2 sm:px-4">
-                          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-                            {/* Header */}
-                            <div className="relative h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
-                              <img
-                                src={booking.event.image_url}
-                                alt={booking.event.title}
-                                className="w-full h-full object-cover object-center scale-90 sm:scale-100"
-                                loading="lazy"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-                              <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
-                              
-                              <div className="absolute top-4 left-4 right-4">
-                                <div className="backdrop-blur-sm bg-black/20 rounded-xl p-3 border border-white/20">
-                                  <h1 className="text-white font-bold text-lg sm:text-xl lg:text-2xl line-clamp-2 sm:line-clamp-none leading-tight">
-                                    {booking.event.title}
-                                  </h1>
-                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-white/90 text-sm">
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                      <span className="leading-tight">{new Date(booking.event.date).toLocaleDateString('fr-FR')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                      <span className="leading-tight">{booking.event.time}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                      <span className="leading-tight line-clamp-1">{booking.event.location}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Content */}
-                            <div className="p-4 sm:p-6 lg:p-8">
-                              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                                <div className="flex-1">
-                                  <div className="flex flex-wrap gap-2 mb-4">
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 backdrop-blur-sm shadow-xl border border-white/20">
-                                      {ticket.ticket_type.name}
-                                    </span>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 backdrop-blur-sm shadow-xl border border-white/20">
-                                      Transféré
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                      <User className="h-4 w-4 text-gray-500" />
-                                      <span className="text-sm text-gray-600">Détenteur: {user?.name || 'Utilisateur'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <Ticket className="h-4 w-4 text-gray-500" />
-                                      <span className="text-sm text-gray-600">Type: {ticket.ticket_type.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <Calendar className="h-4 w-4 text-gray-500" />
-                                      <span className="text-sm text-gray-600">Date: {new Date(booking.event.date).toLocaleDateString('fr-FR')}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* QR Code Placeholder */}
-                                <div className="flex-shrink-0">
-                                  <div className="w-32 h-32 bg-gray-200 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300">
-                                    <div className="text-center">
-                                      <Send className="h-8 w-8 text-gray-400 mx-auto mb-1" />
-                                      <p className="text-xs text-gray-500 font-medium">Transféré</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Send className="h-5 w-5 text-purple-600" />
-                                  <span className="font-semibold text-purple-800">Billet transféré</span>
-                                </div>
-                                <p className="text-sm text-purple-700">
-                                  Ce billet a été transféré à un autre utilisateur. Vous ne pouvez plus l'utiliser pour l'entrée à l'événement.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        // Show full ticket for non-transferred tickets
-                        <EnhancedFestivalTicket
-                          ticketHolder={user?.name || ''}
-                          ticketType={ticket.ticket_type.name}
-                          ticketId={ticket.id}
-                          eventTitle={booking.event.title}
-                          eventDate={booking.event.date}
-                          eventTime={booking.event.time}
-                          eventLocation={booking.event.location}
-                          qrCode={ticket.qr_code}
-                          eventImage={booking.event.image_url}
-                          price={ticket.ticket_type.price}
-                          currency="XOF"
-                          orderNumber={booking.id}
-                          purchaseDate={booking.created_at}
-                          eventCategory="Concert"
-                          specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
-                          ticketStatus={ticket.status} // NEW: Pass ticket status
-                          scannedAt={ticket.scanned_at} // NEW: Pass scan timestamp
-                          scannedBy={ticket.scanned_by_name} // NEW: Pass scanner name
-                          scanLocation={ticket.scan_location} // NEW: Pass scan location
-                        />
-                      )}
-                    </div>
-
-                    {/* Overlay for transferred tickets */}
-                    {ticket.isTransferred && (
-                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
-                        <div className="text-center">
-                          <Send className="h-12 w-12 text-purple-400 mx-auto mb-2" />
-                          <p className="text-purple-600 font-medium">Billet transféré</p>
-                          <p className="text-sm text-purple-500">Plus accessible</p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="mt-4 flex justify-end gap-3">
-                      {!ticket.isTransferred && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTransferTicket({
-                              ticketId: ticket.id,
-                              ticketTitle: booking.event.title,
-                              eventDate: booking.event.date,
-                              eventTime: booking.event.time,
-                              eventLocation: booking.event.location
-                            });
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                        >
-                          <Send className="h-5 w-5" />
-                          Transférer le billet
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownloadTicket(ticket, booking);
-                        }}
-                        disabled={downloadingTicket === ticket.id || ticket.isTransferred}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                          ticket.isTransferred 
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                        } disabled:opacity-50`}
+              {/* Expanded Details */}
+              {isExpanded && (
+                <div className="border-t border-line p-4 space-y-3 bg-cream/40">
+                  {booking.tickets.map((ticket) => {
+                    const tktCode = ticket.id.slice(0, 8).toUpperCase();
+                    return (
+                      <div
+                        key={ticket.id}
+                        className="bg-paper rounded-xl2 border border-line p-4"
                       >
-                        {downloadingTicket === ticket.id ? (
-                          <Loader className="h-5 w-5 animate-spin" />
+                        {/* Status banner */}
+                        {ticket.isTransferred ? (
+                          <div className="mb-3 p-3 rounded-lg bg-cream border border-line flex items-start gap-2.5">
+                            <div className="grid place-items-center w-7 h-7 rounded-full bg-accent text-ink flex-shrink-0">
+                              <Send className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[12px] font-bold text-ink leading-tight">
+                                Billet transféré
+                              </p>
+                              <p className="text-[11px] text-ink-mute mt-0.5 leading-relaxed">
+                                Ce billet n'est plus accessible. Seul le destinataire peut l'utiliser.
+                              </p>
+                            </div>
+                          </div>
                         ) : (
-                          <Download className="h-5 w-5" />
+                          <div
+                            className={`mb-3 p-3 rounded-lg border flex items-start justify-between gap-2.5 ${
+                              ticket.status === 'USED'
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-cream border-line'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div
+                                className={`grid place-items-center w-7 h-7 rounded-full flex-shrink-0 ${
+                                  ticket.status === 'USED'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-paper text-ink-mute border border-line'
+                                }`}
+                              >
+                                {ticket.status === 'USED' ? (
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                ) : (
+                                  <XCircle className="h-3.5 w-3.5" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-[12px] font-bold text-ink leading-tight">
+                                  {ticket.status === 'USED' ? 'Billet utilisé' : 'Billet non utilisé'}
+                                </p>
+                                {ticket.status === 'USED' && ticket.scanned_at && (
+                                  <p className="text-[11px] text-ink-mute mt-0.5 leading-relaxed">
+                                    Scanné{ticket.scan_location ? ` à ${ticket.scan_location}` : ''}
+                                    {' · '}
+                                    <span className="tabular-nums">
+                                      {new Date(ticket.scanned_at).toLocaleString('fr-FR', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                    {ticket.scanned_by_name && ` · par ${ticket.scanned_by_name}`}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         )}
-                        {ticket.isTransferred ? 'Billet transféré' : 'Télécharger le billet'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+
+                        {/* Mono ticket code header */}
+                        <div className="flex items-center justify-between mb-3 pb-3 border-b border-line">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute tabular-nums"
+                            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                          >
+                            TKT · {tktCode}
+                          </span>
+                          <span className="text-[12px] font-bold text-ink truncate max-w-[200px]">
+                            {ticket.ticket_type.name}
+                          </span>
+                        </div>
+
+                        {/* Ticket display — full ticket OR transferred placeholder */}
+                        {ticket.isTransferred ? (
+                          <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-xl overflow-hidden border border-line bg-ink">
+                            <img
+                              src={booking.event.image_url}
+                              alt={booking.event.title}
+                              className="absolute inset-0 w-full h-full object-cover blur-sm scale-110 opacity-50"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-ink/60" />
+                            <div className="relative h-full flex flex-col items-center justify-center text-center px-4">
+                              <div className="grid place-items-center w-12 h-12 rounded-full bg-accent text-ink mb-3 ring-4 ring-paper/10">
+                                <Send className="h-5 w-5" />
+                              </div>
+                              <p className="eyebrow !text-paper/70 mb-1">Transféré</p>
+                              <p
+                                className="text-paper text-[16px] font-bold tracking-tight"
+                                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                              >
+                                Plus accessible depuis ce compte
+                              </p>
+                              <p className="text-[11px] text-paper/70 mt-2 max-w-xs">
+                                Le destinataire reçoit le billet et le QR code dans son espace.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div id={`ticket-${ticket.id}`} data-ticket>
+                            <EnhancedFestivalTicket
+                              ticketHolder={user?.name || ''}
+                              ticketType={ticket.ticket_type.name}
+                              ticketId={ticket.id}
+                              eventTitle={booking.event.title}
+                              eventDate={booking.event.date}
+                              eventTime={booking.event.time}
+                              eventLocation={booking.event.location}
+                              qrCode={ticket.qr_code}
+                              eventImage={booking.event.image_url}
+                              price={ticket.ticket_type.price}
+                              currency="XOF"
+                              orderNumber={booking.id}
+                              purchaseDate={booking.created_at}
+                              eventCategory="Concert"
+                              specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
+                              ticketStatus={ticket.status}
+                              scannedAt={ticket.scanned_at}
+                              scannedBy={ticket.scanned_by_name}
+                              scanLocation={ticket.scan_location}
+                            />
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="mt-3 pt-3 border-t border-line flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                          {!ticket.isTransferred && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTransferTicket({
+                                  ticketId: ticket.id,
+                                  ticketTitle: booking.event.title,
+                                  eventDate: booking.event.date,
+                                  eventTime: booking.event.time,
+                                  eventLocation: booking.event.location,
+                                });
+                              }}
+                              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-line bg-paper text-ink rounded-lg text-[12px] font-bold hover:border-accent hover:bg-accent/10 transition-colors"
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                              Transférer
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadTicket(ticket, booking);
+                            }}
+                            disabled={downloadingTicket === ticket.id || ticket.isTransferred}
+                            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[12px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-card"
+                          >
+                            {downloadingTicket === ticket.id ? (
+                              <Loader className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            {ticket.isTransferred ? 'Billet transféré' : 'Télécharger'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
 
       {/* Transfer Ticket Modal */}

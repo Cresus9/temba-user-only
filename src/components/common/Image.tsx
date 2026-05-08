@@ -9,52 +9,58 @@ interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   priority?: boolean;
 }
 
-export default function Image({ 
-  src, 
-  alt, 
-  className, 
-  fallbackSrc, 
-  width = 400, 
-  height = 300, 
-  quality = 80, 
+// If the Supabase image optimizer hasn't responded within this window we silently
+// fall back to the original URL. Keeps the UI from stalling on a broken / slow
+// edge function — a frequent issue in dev or on cold-starts.
+const OPTIMIZER_TIMEOUT_MS = 1500;
+
+export default function Image({
+  src,
+  alt,
+  className,
+  fallbackSrc,
+  width = 400,
+  height = 300,
+  quality = 80,
   priority = false,
-  ...props 
+  ...props
 }: ImageProps) {
   const [imageSrc, setImageSrc] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [isInView, setIsInView] = useState(priority); // Smart loading based on priority
+  const [isInView, setIsInView] = useState(priority);
+  const [optimizerTried, setOptimizerTried] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
-  // Get optimized image URL using the simple optimizer
   const getOptimizedUrl = (originalUrl: string) => {
     if (!originalUrl) return '';
-    
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    
-    // Fallback to original URL if no Supabase URL
-    if (!supabaseUrl) {
+
+    // No Supabase URL configured, or the URL is already an optimizer/data URL — use original.
+    if (!supabaseUrl || originalUrl.startsWith('data:') || originalUrl.includes('/functions/v1/')) {
       return originalUrl;
     }
-    
-    // Use the simple image optimizer (no authentication required)
+
     const optimizerUrl = `${supabaseUrl}/functions/v1/simple-image-optimizer`;
-    
     const params = new URLSearchParams({
       url: originalUrl,
       width: width.toString(),
       height: height.toString(),
       quality: quality.toString(),
-      format: 'webp'
+      format: 'webp',
     });
-    
+
     return `${optimizerUrl}?${params.toString()}`;
   };
 
-  // Set up intersection observer for lazy loading
+  // Lazy load via IntersectionObserver
   useEffect(() => {
     if (priority || isInView) return;
+    if (!wrapperRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -65,95 +71,119 @@ export default function Image({
           }
         });
       },
-      {
-        rootMargin: '50px', // Start loading 50px before image comes into view
-        threshold: 0.1,
-      }
+      { rootMargin: '120px', threshold: 0.01 }
     );
 
-    if (imgRef.current) {
-      observer.observe(imgRef.current);
-    }
-
+    observer.observe(wrapperRef.current);
     observerRef.current = observer;
 
     return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
+      observerRef.current?.disconnect();
     };
   }, [priority, isInView]);
 
-  // Set image source when in view
+  // First load: try optimized URL
   useEffect(() => {
     if (!src || !isInView) return;
-
-    const optimizedUrl = getOptimizedUrl(src);
-    setImageSrc(optimizedUrl);
+    setOptimizerTried(false);
+    setImageSrc(getOptimizedUrl(src));
+    setIsLoading(true);
+    setHasError(false);
   }, [src, isInView, width, height, quality]);
 
+  // Optimizer timeout fallback: if the optimized URL hasn't loaded in OPTIMIZER_TIMEOUT_MS,
+  // swap to the direct URL so the user actually sees the image.
+  useEffect(() => {
+    if (!isLoading || !imageSrc || optimizerTried) return;
+    if (!src || imageSrc === src) return;
+
+    timeoutRef.current = window.setTimeout(() => {
+      setOptimizerTried(true);
+      setImageSrc(src);
+    }, OPTIMIZER_TIMEOUT_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [imageSrc, isLoading, optimizerTried, src]);
+
   const handleImageLoad = () => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setIsLoading(false);
     setHasError(false);
   };
 
   const handleImageError = () => {
-    setIsLoading(false);
-    
-    // Try fallback first, then original image
-    if (fallbackSrc && imageSrc !== fallbackSrc) {
-      const optimizedFallback = getOptimizedUrl(fallbackSrc);
-      setImageSrc(optimizedFallback);
-      setIsLoading(true);
-      setHasError(false);
-      return;
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-    
-    // Try original image as last resort
-    if (imageSrc !== src) {
+
+    // 1. Try direct (original) src if we haven't yet
+    if (src && imageSrc !== src) {
       setImageSrc(src);
       setIsLoading(true);
       setHasError(false);
+      setOptimizerTried(true);
       return;
     }
-    
+
+    // 2. Try the fallback (direct, no optimizer)
+    if (fallbackSrc && imageSrc !== fallbackSrc) {
+      setImageSrc(fallbackSrc);
+      setIsLoading(true);
+      setHasError(false);
+      return;
+    }
+
+    setIsLoading(false);
     setHasError(true);
   };
 
-  // Show placeholder when not in view or loading
-  if (!isInView || (isLoading && !imageSrc)) {
+  // Pre-load placeholder
+  if (!isInView) {
     return (
       <div
-        ref={imgRef}
-        className={`bg-gray-200 animate-pulse flex items-center justify-center ${className}`}
+        ref={wrapperRef}
+        className={`bg-cream-deep ${className ?? ''}`}
         aria-label={`Loading ${alt}`}
       />
     );
   }
 
-  // Show error state
-  if (hasError && !isLoading) {
+  // Hard error
+  if (hasError) {
     return (
-      <div className={`bg-gray-100 flex items-center justify-center ${className}`}>
-        <ImageOff className="h-8 w-8 text-gray-400" />
+      <div className={`bg-cream-deep flex items-center justify-center ${className ?? ''}`}>
+        <ImageOff className="h-7 w-7 text-ink-mute opacity-60" />
       </div>
     );
   }
 
   return (
-    <>
-      {/* Loading skeleton */}
+    <div ref={wrapperRef} className="contents">
+      {/* Warm shimmer placeholder while loading */}
       {isLoading && (
-        <div className={`absolute inset-0 bg-gray-200 animate-pulse ${className}`} />
+        <div
+          className={`absolute inset-0 bg-cream-deep ${className ?? ''}`}
+          aria-hidden
+        >
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-paper/60 to-transparent" />
+        </div>
       )}
 
-      {/* Optimized image */}
       {imageSrc && (
         <img
           ref={imgRef}
           src={imageSrc}
           alt={alt}
-          className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          className={`${className ?? ''} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
           onLoad={handleImageLoad}
           onError={handleImageError}
           loading={priority ? 'eager' : 'lazy'}
@@ -161,6 +191,6 @@ export default function Image({
           {...props}
         />
       )}
-    </>
+    </div>
   );
 }

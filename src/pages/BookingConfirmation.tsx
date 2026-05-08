@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import FestivalTicket from '../components/tickets/FestivalTicket';
 import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
 import toast from 'react-hot-toast';
-import { generatePDF } from '../utils/ticketService';
+import { generateTicketPNG } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
 
 interface Ticket {
@@ -194,11 +194,11 @@ export default function BookingConfirmation() {
         const element = ticketElements[i] as HTMLElement;
         const ticket = tickets[i];
         
-        const pdf = await generatePDF(element);
-        const url = URL.createObjectURL(pdf);
+        const png = await generateTicketPNG(element);
+        const url = URL.createObjectURL(png);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.pdf`;
+        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -216,12 +216,21 @@ export default function BookingConfirmation() {
 
   if (loading || verifyingPayment) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">
-            {verifyingPayment ? 'Vérification du paiement...' : 'Chargement des billets...'}
-          </p>
+      <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+        <div className="w-full max-w-md rounded-xl2 border border-line bg-paper shadow-pop overflow-hidden">
+          <div className="px-5 py-3 bg-cream border-b border-line">
+            <span className="eyebrow !text-ink">
+              {verifyingPayment ? 'Vérification' : 'Chargement'}
+            </span>
+          </div>
+          <div className="p-7 text-center space-y-4">
+            <div className="grid place-items-center w-14 h-14 rounded-full bg-brand-50 mx-auto">
+              <Loader className="h-6 w-6 animate-spin text-brand" />
+            </div>
+            <p className="text-[14px] text-ink-mute">
+              {verifyingPayment ? 'Vérification du paiement…' : 'Chargement de vos billets…'}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -229,113 +238,158 @@ export default function BookingConfirmation() {
 
   if (!tickets.length) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Aucun billet trouvé</h2>
-        <p className="text-gray-600 mb-8">Nous n'avons pas pu trouver de billets pour cette réservation.</p>
-        <Link
-          to="/events"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          Parcourir les événements
-        </Link>
+      <div className="min-h-[80vh] bg-cream bg-grain grid place-items-center px-4 py-12">
+        <div className="w-full max-w-md text-center">
+          <p className="eyebrow !text-ink-mute mb-2">Réservation introuvable</p>
+          <h2 className="text-ink mb-3">Aucun billet trouvé</h2>
+          <p className="text-[14px] text-ink-mute mb-6 leading-relaxed">
+            Nous n'avons pas pu trouver de billets pour cette réservation.
+          </p>
+          <Link
+            to="/events"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[14px] font-bold transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Parcourir les événements
+          </Link>
+        </div>
       </div>
     );
   }
 
+  const orderCode = bookingId ? bookingId.slice(0, 8).toUpperCase() : '—';
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      {/* Return button */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        Retour au tableau de bord
-      </button>
+    <div>
+      {/* — — — Success band (cream) — — — */}
+      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 w-[320px] h-[320px] rounded-full bg-brand-50 blur-3xl opacity-60"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-20 -left-24 w-[260px] h-[260px] rounded-full bg-accent-50 blur-3xl opacity-50"
+        />
 
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-          <Check className="h-8 w-8 text-green-600" />
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Vos billets sont prêts !</h1>
-        <p className="text-gray-600">
-          Vos billets ont été envoyés à votre email à {user?.email}
-        </p>
-      </div>
-
-      {/* Tickets */}
-      <div className="space-y-8 mb-8">
-        {tickets.map((ticket) => (
-          <div key={ticket.id} data-ticket>
-            <EnhancedFestivalTicket
-              ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Non assigné'}
-              ticketType={ticket.ticket_type.name}
-              ticketId={ticket.id}
-              eventTitle={ticket.event.title}
-              eventDate={ticket.event.date}
-              eventTime={ticket.event.time}
-              eventLocation={ticket.event.location}
-              qrCode={ticket.qr_code}
-              eventImage={ticket.event.image_url}
-              price={ticket.ticket_type.price}
-              currency="XOF"
-              eventCategory="Concert"
-              specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Google Maps Button */}
-      {tickets.length > 0 && (
-        <div className="flex justify-center mb-8">
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tickets[0].event.location)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
+        <div className="relative max-w-3xl mx-auto px-4 lg:px-6 pt-7 pb-8 md:pt-9 md:pb-10 text-center">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="absolute top-5 left-4 lg:left-6 inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors"
           >
-            Voir le lieu sur Google Maps
-          </a>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Mon tableau de bord
+          </button>
+
+          <div className="grid place-items-center w-14 h-14 rounded-full bg-green-50 mx-auto mb-4 ring-1 ring-green-200">
+            <Check className="h-7 w-7 text-green-600" />
+          </div>
+
+          <p className="eyebrow mb-2">
+            <span
+              className="tabular-nums"
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+            >
+              ORD · {orderCode}
+            </span>
+            <span className="mx-2 text-ink/40">·</span>
+            Étape 3 / 3
+          </p>
+
+          <h1 className="!text-[clamp(24px,3.4vw,36px)] !leading-[1.06] text-ink mb-2 tracking-tight">
+            Vos billets sont prêts !
+          </h1>
+          <p className="text-[14px] text-ink-mute">
+            Une copie a été envoyée à <span className="font-semibold text-ink">{user?.email}</span>.
+          </p>
         </div>
-      )}
+      </section>
 
-      {/* Actions */}
-      <div className="flex justify-center mb-8">
-        <button
-          onClick={handleDownloadTickets}
-          disabled={downloadingTicket}
-          className="flex items-center justify-center gap-2 py-3 px-6 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {downloadingTicket ? (
-            <Loader className="h-5 w-5 animate-spin" />
-          ) : (
-            <Download className="h-5 w-5" />
-          )}
-          Télécharger les billets
-        </button>
-      </div>
+      {/* — — — Tickets — — — */}
+      <section className="bg-paper">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10">
+          <div className="space-y-6 mb-7">
+            {tickets.map(ticket => (
+              <div key={ticket.id} data-ticket>
+                <EnhancedFestivalTicket
+                  ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Non assigné'}
+                  ticketType={ticket.ticket_type.name}
+                  ticketId={ticket.id}
+                  eventTitle={ticket.event.title}
+                  eventDate={ticket.event.date}
+                  eventTime={ticket.event.time}
+                  eventLocation={ticket.event.location}
+                  qrCode={ticket.qr_code}
+                  eventImage={ticket.event.image_url}
+                  price={ticket.ticket_type.price}
+                  currency="XOF"
+                  eventCategory="Concert"
+                  specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
+                />
+              </div>
+            ))}
+          </div>
 
-      {/* Important Information */}
-      <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations importantes</h3>
-        <ul className="space-y-2 text-gray-600">
-          <li>• Veuillez arriver au moins 30 minutes avant le début de l'événement</li>
-          <li>• Ayez votre code QR de billet prêt pour la numérisation à l'entrée</li>
-          <li>• Respectez le code vestimentaire et les directives de l'événement</li>
-          <li>• Pour toute question, contactez notre équipe de support</li>
-        </ul>
-      </div>
+          {/* Action row */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 mb-8">
+            <button
+              onClick={handleDownloadTickets}
+              disabled={downloadingTicket}
+              className="inline-flex items-center justify-center gap-2 h-11 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[14px] font-bold transition-colors disabled:opacity-50"
+            >
+              {downloadingTicket ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Télécharger les billets
+            </button>
+            {tickets.length > 0 && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tickets[0].event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 h-11 px-5 border border-line bg-paper text-ink rounded-lg text-[14px] font-medium hover:border-brand/40 hover:text-brand transition-colors"
+              >
+                Voir le lieu sur Google Maps
+              </a>
+            )}
+          </div>
 
-      <div className="mt-8 text-center">
-        <Link
-          to="/dashboard"
-          className="text-indigo-600 hover:text-indigo-700 font-medium"
-        >
-          Voir toutes vos réservations →
-        </Link>
-      </div>
+          {/* Info card */}
+          <div className="bg-cream rounded-xl2 border border-line p-5">
+            <p className="eyebrow mb-3">Avant le jour J</p>
+            <ul className="space-y-2 text-[13px] text-ink/85">
+              <li className="flex gap-2.5">
+                <span className="text-accent flex-shrink-0">→</span>
+                Arrivez au moins 30 minutes avant le début de l'événement.
+              </li>
+              <li className="flex gap-2.5">
+                <span className="text-accent flex-shrink-0">→</span>
+                Ayez votre QR code prêt pour la numérisation à l'entrée.
+              </li>
+              <li className="flex gap-2.5">
+                <span className="text-accent flex-shrink-0">→</span>
+                Respectez le code vestimentaire et les directives de l'événement.
+              </li>
+              <li className="flex gap-2.5">
+                <span className="text-accent flex-shrink-0">→</span>
+                Pour toute question, contactez notre équipe par WhatsApp ou email.
+              </li>
+            </ul>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink hover:text-brand transition-colors"
+            >
+              Voir toutes vos réservations
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

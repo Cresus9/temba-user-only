@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Clock, User, Ticket, Star, Shield, Send } from 'lucide-react';
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  User,
+  Ticket,
+  Star,
+  Shield,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Maximize2,
+  ExternalLink,
+  X,
+} from 'lucide-react';
 import ResponsiveQRCode from './ResponsiveQRCode';
 import TransferTicketModal from './TransferTicketModal';
 import { formatCurrency } from '../../utils/formatters';
@@ -21,12 +35,167 @@ interface EnhancedFestivalTicketProps {
   purchaseDate?: string;
   eventCategory?: string;
   specialInstructions?: string;
-  ticketStatus?: string; // NEW: Add ticket status prop
-  scannedAt?: string; // NEW: Add scan timestamp
-  scannedBy?: string; // NEW: Add scanner name
-  scanLocation?: string; // NEW: Add scan location
+  ticketStatus?: string;
+  scannedAt?: string;
+  scannedBy?: string;
+  scanLocation?: string;
   onTransferComplete?: () => void;
 }
+
+const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
+
+/* --------------------------- helpers --------------------------- */
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const formatDateLong = (dateString: string) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const formatDateMono = (dateString: string) => {
+  if (!dateString) return '—';
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = d
+    .toLocaleDateString('en-US', { month: 'short' })
+    .toUpperCase();
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+const isVipTier = (type: string) => {
+  if (!type) return false;
+  const t = type.toLowerCase();
+  return t.includes('vip') || t.includes('premium') || t.includes('gold') || t.includes('platine');
+};
+
+/* status mapping → semantic color tokens (no rainbow) */
+const getStatusMeta = (status: string) => {
+  switch (status) {
+    case 'USED':
+      return {
+        label: 'Utilisé',
+        ring: 'ring-ink/20',
+        bg: 'bg-ink',
+        text: 'text-paper',
+        Icon: CheckCircle2,
+        chipCls: 'bg-cream text-ink-mute ring-line',
+        bandCls: 'bg-cream text-ink-mute border-line',
+        dotCls: 'bg-ink-mute',
+      };
+    case 'VALID':
+      return {
+        label: 'Valide',
+        ring: 'ring-green-500/30',
+        bg: 'bg-green-600',
+        text: 'text-paper',
+        Icon: CheckCircle2,
+        chipCls: 'bg-green-50 text-green-700 ring-green-200',
+        bandCls: 'bg-green-50 text-green-800 border-green-200',
+        dotCls: 'bg-green-500',
+      };
+    case 'EXPIRED':
+      return {
+        label: 'Expiré',
+        ring: 'ring-amber-500/30',
+        bg: 'bg-amber-500',
+        text: 'text-paper',
+        Icon: AlertCircle,
+        chipCls: 'bg-amber-50 text-amber-800 ring-amber-200',
+        bandCls: 'bg-amber-50 text-amber-800 border-amber-200',
+        dotCls: 'bg-amber-500',
+      };
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return {
+        label: status === 'REFUNDED' ? 'Remboursé' : 'Annulé',
+        ring: 'ring-red-500/30',
+        bg: 'bg-red-600',
+        text: 'text-paper',
+        Icon: XCircle,
+        chipCls: 'bg-red-50 text-red-700 ring-red-200',
+        bandCls: 'bg-red-50 text-red-800 border-red-200',
+        dotCls: 'bg-red-500',
+      };
+    case 'PENDING':
+      return {
+        label: 'En attente',
+        ring: 'ring-amber-500/30',
+        bg: 'bg-amber-500',
+        text: 'text-paper',
+        Icon: Clock,
+        chipCls: 'bg-amber-50 text-amber-800 ring-amber-200',
+        bandCls: 'bg-amber-50 text-amber-800 border-amber-200',
+        dotCls: 'bg-amber-500',
+      };
+    default:
+      return {
+        label: 'Valide',
+        ring: 'ring-green-500/30',
+        bg: 'bg-green-600',
+        text: 'text-paper',
+        Icon: CheckCircle2,
+        chipCls: 'bg-green-50 text-green-700 ring-green-200',
+        bandCls: 'bg-green-50 text-green-800 border-green-200',
+        dotCls: 'bg-green-500',
+      };
+  }
+};
+
+/* ---------------- atoms ---------------- */
+
+const Eyebrow: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className = '',
+}) => (
+  <p
+    className={`text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute ${className}`}
+    style={{ fontFamily: monoFamily }}
+  >
+    {children}
+  </p>
+);
+
+const InfoCell: React.FC<{
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+  className?: string;
+}> = ({ label, value, mono = false, className = '' }) => (
+  <div className={`min-w-0 ${className}`}>
+    <Eyebrow className="!mb-1.5">{label}</Eyebrow>
+    <p
+      className={`text-[14px] sm:text-[15px] font-bold text-ink break-words ${
+        mono ? 'tabular-nums' : ''
+      }`}
+      style={{
+        fontFamily: mono ? monoFamily : displayFamily,
+        lineHeight: 1.45,
+        paddingBottom: 3,
+      }}
+      title={typeof value === 'string' ? value : undefined}
+    >
+      {value}
+    </p>
+  </div>
+);
+
+/* ---------------------------- main ----------------------------- */
 
 export default function EnhancedFestivalTicket({
   ticketHolder,
@@ -45,413 +214,500 @@ export default function EnhancedFestivalTicket({
   purchaseDate,
   eventCategory,
   specialInstructions,
-  ticketStatus = 'VALID', // NEW: Default to VALID
-  scannedAt, // NEW: Add scan timestamp
-  scannedBy, // NEW: Add scanner name
-  scanLocation, // NEW: Add scan location
-  onTransferComplete
+  ticketStatus = 'VALID',
+  scannedAt,
+  scannedBy,
+  scanLocation,
+  onTransferComplete,
 }: EnhancedFestivalTicketProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
 
+  const tktCode = ticketId.slice(0, 8).toUpperCase();
+  const status = getStatusMeta(ticketStatus);
+  const StatusIcon = status.Icon;
+  const isVip = isVipTier(ticketType);
+  const isUsed = ticketStatus === 'USED';
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatPrice = (amount: number, curr: string = 'XOF') => formatCurrency(amount, curr);
-
-  const getTicketTypeColor = (type: string) => {
-    if (!type || typeof type !== 'string') {
-      return {
-        bg: 'from-gray-400 to-gray-500',
-        text: 'text-gray-900',
-        badge: 'bg-gray-100 text-gray-800'
-      };
-    }
-    const lowerType = type.toLowerCase();
-    if (lowerType.includes('vip') || lowerType.includes('premium')) {
-      return {
-        bg: 'from-amber-400 to-yellow-500',
-        text: 'text-amber-900',
-        badge: 'bg-amber-100 text-amber-800'
-      };
-    }
-    if (lowerType.includes('standard') || lowerType.includes('général')) {
-      return {
-        bg: 'from-blue-400 to-indigo-500',
-        text: 'text-blue-900',
-        badge: 'bg-blue-100 text-blue-800'
-      };
-    }
-    return {
-      bg: 'from-purple-400 to-pink-500',
-      text: 'text-purple-900',
-      badge: 'bg-purple-100 text-purple-800'
-    };
-  };
-
-  const colors = getTicketTypeColor(ticketType);
+  const mapsHref = eventLocation
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventLocation)}`
+    : undefined;
 
   return (
-    <div className={`relative max-w-4xl mx-auto px-2 sm:px-4 ${className}`}>
-      {/* Ticket Status Banner - Show for all tickets */}
-      <div className={`mb-4 p-4 rounded-xl border ${
-        ticketStatus === 'USED' 
-          ? 'bg-green-50 border-green-200' 
-          : ticketStatus === 'VALID'
-          ? 'bg-blue-50 border-blue-200'
-          : 'bg-yellow-50 border-yellow-200'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              ticketStatus === 'USED' 
-                ? 'bg-green-500' 
-                : ticketStatus === 'VALID'
-                ? 'bg-blue-500'
-                : 'bg-yellow-500'
-            }`}>
-              {ticketStatus === 'USED' ? (
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : ticketStatus === 'VALID' ? (
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              )}
+    <div className={`relative w-full max-w-3xl mx-auto ${className}`}>
+      {/* The ticket */}
+      <article
+        data-ticket-card
+        className="relative bg-paper rounded-[22px] overflow-hidden ring-1 ring-line"
+        style={{
+          boxShadow:
+            '0 1px 0 rgba(255,255,255,0.7) inset, 0 1px 2px rgba(15,23,42,0.04), 0 16px 48px -18px rgba(15,23,42,0.30), 0 4px 12px -6px rgba(15,23,42,0.10)',
+        }}
+      >
+        {/* ── Header / Hero ── */}
+        <header className="relative bg-ink overflow-hidden">
+          {/* Poster image */}
+          {eventImage && (
+            <img
+              src={eventImage}
+              alt={eventTitle}
+              onLoad={() => setImageLoaded(true)}
+              crossOrigin="anonymous"
+              className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              loading="lazy"
+            />
+          )}
+
+          {/* Top contrast band — guarantees the "TEMBA TICKETS / status" row
+              is legible regardless of poster content */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-20"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(15,23,42,0.65) 0%, rgba(15,23,42,0.20) 70%, rgba(15,23,42,0) 100%)',
+            }}
+          />
+
+          {/* Cinematic dark scrim — bottom→top, ensures title contrast */}
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.40) 45%, rgba(15,23,42,0.94) 100%)',
+            }}
+          />
+
+          {/* Top corner row — eyebrow + status pill */}
+          <div className="relative flex items-start justify-between px-4 sm:px-7 pt-4 sm:pt-6">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-1.5 h-5 rounded-full bg-accent flex-shrink-0" />
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.22em] text-paper/85"
+                style={{ fontFamily: monoFamily }}
+              >
+                Temba Tickets
+                <span className="mx-2 text-paper/40">·</span>
+                <span className="text-accent">Admit one</span>
+              </p>
             </div>
-            <span className={`font-medium ${
-              ticketStatus === 'USED' 
-                ? 'text-green-800' 
-                : ticketStatus === 'VALID'
-                ? 'text-blue-800'
-                : 'text-yellow-800'
-            }`}>
-              {ticketStatus === 'USED' 
-                ? 'Billet utilisé' 
-                : ticketStatus === 'VALID'
-                ? 'Billet valide'
-                : ticketStatus === 'EXPIRED'
-                ? 'Billet expiré'
-                : ticketStatus === 'CANCELLED'
-                ? 'Billet annulé'
-                : ticketStatus === 'REFUNDED'
-                ? 'Billet remboursé'
-                : ticketStatus === 'PENDING'
-                ? 'Billet en attente'
-                : 'Billet non valide'}
+
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-[0.12em] ring-1 ${status.chipCls}`}
+            >
+              <StatusIcon className="h-2.5 w-2.5" />
+              {status.label}
             </span>
           </div>
-          <div className={`text-right text-sm ${
-            ticketStatus === 'USED' 
-              ? 'text-green-700' 
-              : ticketStatus === 'VALID'
-              ? 'text-blue-700'
-              : 'text-yellow-700'
-          }`}>
-              {ticketStatus === 'USED' ? (
-                <>
-                  {scanLocation ? (
-                    <div>Scanné à {scanLocation}</div>
-                  ) : (
-                    <div>Scanné à Ticket Scanner</div>
-                  )}
-                  {scannedAt ? (
-                    <div>
-                      {new Date(scannedAt).toLocaleDateString('fr-FR')}, {new Date(scannedAt).toLocaleTimeString('fr-FR')}
-                      {scannedBy && ` par ${scannedBy}`}
-                    </div>
-                  ) : (
-                    <div>Date de scan non disponible</div>
-                  )}
-                </>
-              ) : ticketStatus === 'VALID' ? (
-                <div>Prêt à être utilisé</div>
-              ) : ticketStatus === 'EXPIRED' ? (
-                <div>Statut: Expiré</div>
-              ) : ticketStatus === 'CANCELLED' ? (
-                <div>Statut: Annulé</div>
-              ) : ticketStatus === 'REFUNDED' ? (
-                <div>Statut: Remboursé</div>
-              ) : ticketStatus === 'PENDING' ? (
-                <div>Statut: En attente</div>
-              ) : (
-                <div>Statut: {ticketStatus}</div>
-              )}
-          </div>
-        </div>
-      </div>
 
-
-      {/* Ticket Container */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-        {/* Header with Event Image */}
-        <div className="relative h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
-          {eventImage && (
-            <>
-              <img
-                src={eventImage}
-                alt={eventTitle}
-                className={`w-full h-full object-cover object-center transition-all duration-700 ${
-                  imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
-                } sm:scale-100 scale-90`}
-                onLoad={() => setImageLoaded(true)}
-                loading="lazy"
+          {/* VIP ribbon (only for VIP/Premium tiers) */}
+          {isVip && (
+            <div
+              aria-hidden
+              className="hidden sm:flex absolute -top-1 right-7 flex-col items-center"
+            >
+              <div className="bg-accent text-ink px-2 py-3 shadow-card flex flex-col items-center">
+                <Star className="h-3 w-3 fill-current mb-1" />
+                <span
+                  className="text-[9px] font-extrabold uppercase tracking-[0.2em]"
+                  style={{ fontFamily: monoFamily, writingMode: 'vertical-rl' }}
+                >
+                  VIP
+                </span>
+              </div>
+              {/* Ribbon tail */}
+              <div
+                className="w-0 h-0"
+                style={{
+                  borderLeft: '14px solid transparent',
+                  borderRight: '14px solid transparent',
+                  borderTop: '8px solid rgb(255 209 102)',
+                }}
               />
-              {!imageLoaded && (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400 animate-pulse" />
+            </div>
+          )}
+
+          {/* Hero spacer (image-only zone) */}
+          <div className="relative h-20 sm:h-32 md:h-40" />
+
+          {/* Title plate */}
+          <div className="relative px-4 sm:px-7 pb-4 sm:pb-6">
+            <div className="max-w-[88%]">
+              {eventCategory && (
+                <p
+                  className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.22em] text-accent mb-1.5 sm:mb-2"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  {eventCategory}
+                </p>
               )}
-            </>
-          )}
-          
-          {/* Enhanced Gradient Overlay */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-80`} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-          
-          {/* Ticket Type Badge */}
-          <div className="absolute top-3 sm:top-6 left-3 sm:left-6">
-            <div className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 ${colors.badge} rounded-lg text-xs sm:text-sm font-semibold shadow-lg backdrop-blur-sm border border-white/20 max-w-[calc(50%-0.75rem)] sm:max-w-none`}>
-              {ticketType.toLowerCase().includes('vip') && <Star className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />}
-              <Ticket className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              <span className="truncate sm:truncate-none text-xs sm:text-sm">{ticketType}</span>
-            </div>
-          </div>
-
-          {/* Price Badge */}
-          {price && (
-            <div className="absolute top-3 sm:top-6 right-3 sm:right-6">
-              <div className="bg-white/95 backdrop-blur-md px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold text-gray-900 shadow-lg border border-white/30 max-w-[calc(50%-0.75rem)] sm:max-w-none">
-                <span className="truncate sm:truncate-none block text-xs sm:text-sm">{formatPrice(price, currency)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Event Title */}
-          <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6">
-            <div className="backdrop-blur-sm bg-black/25 rounded-xl p-3 sm:p-4 border border-white/15">
-              <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white mb-2 leading-tight break-words drop-shadow-lg line-clamp-2 sm:line-clamp-none">
+              <h2
+                className="text-[17px] sm:text-[24px] md:text-[28px] font-bold text-paper tracking-tight line-clamp-3 pb-0.5"
+                style={{
+                  fontFamily: displayFamily,
+                  textShadow: '0 1px 24px rgba(0,0,0,0.45)',
+                  lineHeight: 1.18,
+                }}
+              >
                 {eventTitle}
-              </h1>
-              <div className="flex flex-col gap-2 text-white/95">
-                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 backdrop-blur-sm">
-                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm font-medium truncate sm:truncate-none">{formatDate(eventDate)}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 backdrop-blur-sm">
-                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm font-medium truncate sm:truncate-none">{eventTime}</span>
-                </div>
+              </h2>
+
+              <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 mt-2 sm:mt-3">
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-[12px] text-paper/90 tabular-nums"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  <Calendar className="h-3 w-3 text-accent" />
+                  {formatDateMono(eventDate)}
+                </span>
+                <span aria-hidden className="text-paper/30">
+                  ·
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-[12px] text-paper/90 tabular-nums"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  <Clock className="h-3 w-3 text-accent" />
+                  {eventTime}
+                </span>
+                {price != null && (
+                  <>
+                    <span aria-hidden className="text-paper/30">
+                      ·
+                    </span>
+                    <span
+                      className="inline-flex items-center text-[11px] sm:text-[12px] font-bold text-paper tabular-nums"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      {formatCurrency(price, currency)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
+        </header>
+
+        {/* ── Perforation row ── clean dashed divider with subtle accent dots */}
+        <div className="relative bg-paper" aria-hidden>
+          <div
+            className="mx-5 sm:mx-7 border-t border-dashed border-line"
+            style={{ borderTopWidth: 1.5 }}
+          />
+          {/* Tiny accent dots at each end — tactile detail without backdrop dependency */}
+          <span className="absolute left-3 sm:left-4 top-0 -translate-y-1/2 w-1 h-1 rounded-full bg-line" />
+          <span className="absolute right-3 sm:right-4 top-0 -translate-y-1/2 w-1 h-1 rounded-full bg-line" />
         </div>
 
-        {/* Ticket Body */}
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-            {/* Left Column - Essential Info */}
-            <div className="space-y-4 sm:space-y-6">
-              {/* Ticket Holder */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="h-5 w-5 sm:h-7 sm:w-7 text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-500 font-medium">Détenteur du billet</p>
-                    <p className="text-lg sm:text-xl font-bold text-gray-900 capitalize break-words">{ticketHolder}</p>
-                  </div>
+        {/* ── Body ── */}
+        <div className="relative grid grid-cols-1 md:grid-cols-[1fr_280px] gap-0 bg-paper">
+          {/* Main stub — info */}
+          <div className="px-4 sm:px-7 py-4 sm:py-6 md:border-r md:border-dashed md:border-line">
+            {/* Data grid — adapts to body width (2 cols when QR is on the side) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-3.5 sm:gap-y-5 gap-x-4 sm:gap-x-5 pb-4 sm:pb-5 border-b border-dashed border-line">
+              <InfoCell
+                label="Détenteur"
+                value={
+                  <span className="capitalize">{ticketHolder || '—'}</span>
+                }
+              />
+              <InfoCell
+                label="Date"
+                value={formatDateMono(eventDate)}
+                mono
+              />
+              <InfoCell label="Heure" value={eventTime || '—'} mono />
+              <InfoCell
+                label="Catégorie"
+                value={
+                  <span className="inline-flex items-center gap-1">
+                    {isVip && (
+                      <Star className="h-3 w-3 text-accent fill-current flex-shrink-0" />
+                    )}
+                    <span className="truncate">{ticketType || '—'}</span>
+                  </span>
+                }
+              />
+            </div>
+
+            {/* Location */}
+            <div className="mt-4 sm:mt-5">
+              <Eyebrow className="!mb-1.5">Lieu de l'événement</Eyebrow>
+              <div className="flex items-start gap-2.5 sm:gap-3">
+                <div className="grid place-items-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-brand-50 ring-1 ring-brand-100 flex-shrink-0 mt-0.5">
+                  <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[13px] sm:text-[14px] font-bold text-ink leading-snug"
+                    style={{ fontFamily: displayFamily }}
+                  >
+                    {eventLocation || 'Lieu non précisé'}
+                  </p>
+                  {mapsHref && (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold text-brand hover:text-brand-700 transition-colors"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Ouvrir dans Google Maps
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Special instructions */}
+            {specialInstructions && (
+              <div className="mt-5 pt-5 border-t border-dashed border-line">
+                <Eyebrow className="!mb-1.5">Avant l'événement</Eyebrow>
+                <p className="text-[12px] text-ink-mute leading-relaxed">
+                  {specialInstructions}
+                </p>
+              </div>
+            )}
+
+            {/* Used-status callout */}
+            {isUsed && (
+              <div
+                className={`mt-5 p-3 rounded-lg flex items-start gap-2.5 border ${status.bandCls}`}
+              >
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <p
+                    className="font-bold tracking-tight mb-0.5"
+                    style={{ fontFamily: displayFamily }}
+                  >
+                    Billet déjà scanné
+                  </p>
+                  <p
+                    className="tabular-nums"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    {scannedAt
+                      ? new Date(scannedAt).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '—'}
+                    {scanLocation ? ` · ${scanLocation}` : ''}
+                    {scannedBy ? ` · par ${scannedBy}` : ''}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* QR Stub */}
+          <aside
+            className="relative bg-cream/50 px-4 sm:px-7 py-4 sm:py-6 border-t border-dashed border-line md:border-t-0"
+            data-ticket-stub
+          >
+            <div className="mx-auto w-full max-w-[240px] flex flex-col items-center text-center">
+              {/* "ADMIT ONE" stamp */}
+              <div className="w-full flex items-center justify-between mb-2.5 sm:mb-3">
+                <Eyebrow>Admission</Eyebrow>
+                <span
+                  className="text-[10px] font-bold tabular-nums text-ink-mute"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  01 / 01
+                </span>
               </div>
 
-              {/* Event Location */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-5 w-5 sm:h-7 sm:w-7 text-red-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-500 font-medium mb-2">Lieu de l'événement</p>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 leading-relaxed break-words hyphens-auto line-clamp-3">{eventLocation}</p>
-                  </div>
+              {/* QR cushion — sized to the actual QR (200px mobile / 170px sm+) + padding */}
+              <button
+                type="button"
+                onClick={() => setShowQRModal(true)}
+                className="group relative block p-3 bg-paper rounded-xl2 ring-1 ring-line hover:ring-brand transition-all active:scale-[0.99] cursor-pointer"
+                title="Cliquez pour agrandir le QR code"
+              >
+                <div className="flex items-center justify-center bg-paper">
+                  <ResponsiveQRCode
+                    ticketId={ticketId}
+                    baseSize={170}
+                    level="H"
+                    includeMargin={false}
+                    fgColor="#0F172A"
+                    bgColor="#FFFFFF"
+                  />
                 </div>
-              </div>
-
-              {/* Event Date & Time */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Calendar className="h-5 w-5 sm:h-7 sm:w-7 text-blue-600" />
+                {/* Used overlay */}
+                {isUsed && (
+                  <div className="absolute inset-3 grid place-items-center rounded-lg pointer-events-none">
+                    <span
+                      className="px-3 py-1.5 rounded-md bg-ink/85 text-paper text-[10px] font-extrabold uppercase tracking-[0.2em] -rotate-12"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Utilisé
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-500 font-medium">Date & Heure</p>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900 break-words">{formatDate(eventDate)}</p>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900 break-words">{eventTime}</p>
-                  </div>
+                )}
+                {/* Maximize hint */}
+                <div className="absolute top-1.5 right-1.5 grid place-items-center w-5 h-5 rounded-md bg-ink/0 group-hover:bg-ink/85 transition-colors">
+                  <Maximize2 className="h-3 w-3 text-ink/0 group-hover:text-paper transition-colors" />
                 </div>
-              </div>
+              </button>
 
               {/* Ticket ID */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Ticket className="h-5 w-5 sm:h-7 sm:w-7 text-gray-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm text-gray-500 font-medium">ID du billet</p>
-                      <p className="text-lg sm:text-xl font-mono font-bold text-gray-900 break-all">#{ticketId.slice(0, 8).toUpperCase()}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-green-600 flex-shrink-0">
-                    <Shield className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="text-xs sm:text-sm font-semibold">Vérifié</span>
-                  </div>
-                </div>
+              <div className="mt-3 sm:mt-4">
+                <Eyebrow className="!mb-1">Ticket ID</Eyebrow>
+                <p
+                  className="text-[16px] sm:text-[18px] font-bold tracking-[0.14em] text-ink tabular-nums"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  {tktCode}
+                </p>
               </div>
-            </div>
 
-            {/* Right Column - QR Code */}
-            <div className="flex flex-col justify-center h-full">
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 lg:p-8 h-full flex flex-col justify-center">
-                <div className="text-center mb-4 sm:mb-6 lg:mb-8">
-                  <h4 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-2 break-words leading-tight">SCANNER POUR VÉRIFIER</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 break-words leading-relaxed">Valable pour une entrée unique</p>
+              {/* Verified badge */}
+              <div className="mt-3 flex items-center justify-center gap-1.5">
+                <div className="grid place-items-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-green-600 text-paper">
+                  <Shield className="h-2.5 w-2.5" />
                 </div>
-                
-                <div className="flex-1 flex items-center justify-center">
-                  <div 
-                    className="bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors group relative max-w-full"
-                    onClick={() => setShowQRModal(true)}
-                    title="Cliquez pour agrandir le QR code"
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  Sécurisé · Authentique
+                </span>
+              </div>
+
+              {/* Order number */}
+              {orderNumber && (
+                <div className="w-full mt-3 pt-3 border-t border-dashed border-line">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute/85 tabular-nums"
+                    style={{ fontFamily: monoFamily }}
                   >
-                    <ResponsiveQRCode
-                      ticketId={ticketId}
-                      baseSize={180}
-                      level="H"
-                      includeMargin={false}
-                      fgColor="#000000"
-                      bgColor="#ffffff"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-xl">
-                      <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
-                        Cliquez pour agrandir
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-
-                <div className="mt-4 sm:mt-6 lg:mt-8 text-center space-y-3 sm:space-y-4">
-                  <p className="text-xs sm:text-sm text-gray-500 font-mono break-all leading-tight">
-                    ID: {ticketId.slice(0, 8).toUpperCase()}
+                    ORD · {orderNumber.slice(0, 8).toUpperCase()}
                   </p>
-                  <div className="inline-flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-50 text-green-700 rounded-full text-xs sm:text-sm font-semibold">
-                    <Shield className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="break-words leading-tight">Sécurisé & Authentique</span>
-                  </div>
+                  {purchaseDate && (
+                    <p
+                      className="text-[10px] text-ink-mute/70 mt-0.5 tabular-nums"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Acheté le {formatDateMono(purchaseDate)}
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
-          </div>
+          </aside>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 md:px-8 pb-6">
-          <div className="border-t border-gray-200 pt-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="text-sm text-gray-600">
-                <p className="font-medium">Ce billet est non transférable et doit être présenté à l'entrée</p>
-                <p>Powered by <span className="font-semibold text-indigo-600">Temba</span></p>
-              </div>
-              
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${
-            ticketStatus === 'USED' 
-              ? 'bg-red-400' 
-              : ticketStatus === 'VALID' 
-              ? 'bg-green-400 animate-pulse' 
-              : 'bg-yellow-400'
-          }`}></div>
-          <span className={`text-sm font-medium ${
-            ticketStatus === 'USED' 
-              ? 'text-red-600' 
-              : ticketStatus === 'VALID' 
-              ? 'text-green-600' 
-              : 'text-yellow-600'
-          }`}>
-            {ticketStatus === 'USED' 
-              ? 'Ticket Utilisé' 
-              : ticketStatus === 'VALID' 
-              ? 'Ticket Valide' 
-              : ticketStatus === 'EXPIRED'
-              ? 'Ticket Expiré'
-              : ticketStatus === 'CANCELLED'
-              ? 'Ticket Annulé'
-              : ticketStatus === 'REFUNDED'
-              ? 'Ticket Remboursé'
-              : ticketStatus === 'PENDING'
-              ? 'Ticket En Attente'
-              : 'Ticket Non Valide'}
-          </span>
-        </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Subtle Shadow Effect */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl opacity-20 blur-xl -z-10"></div>
-      
-      {/* QR Code Enlargement Modal */}
-      {showQRModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9998] p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full">
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Code QR du billet</h3>
-              <p className="text-sm text-gray-600">Présentez ce code à l'entrée</p>
-            </div>
-            
-            <div className="bg-gray-50 p-6 rounded-xl flex justify-center">
-              <ResponsiveQRCode
-                ticketId={ticketId}
-                baseSize={300}
-                level="H"
-                includeMargin={false}
-                fgColor="#000000"
-                bgColor="#ffffff"
+        {/* ── Footer strip ── */}
+        <footer
+          className={`relative px-4 sm:px-7 py-2.5 sm:py-3 border-t border-line ${status.bandCls}`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${status.dotCls} ${
+                  ticketStatus === 'VALID' ? 'animate-ping' : ''
+                }`}
               />
-            </div>
-            
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500 font-mono mb-4">
-                ID: {ticketId.slice(0, 8).toUpperCase()}
+              <span
+                className={`relative -ml-2 inline-block w-1.5 h-1.5 rounded-full ${status.dotCls}`}
+              />
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.16em]"
+                style={{ fontFamily: monoFamily }}
+              >
+                Statut · {status.label}
               </p>
+            </div>
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute hidden sm:block"
+              style={{ fontFamily: monoFamily }}
+            >
+              Powered by{' '}
+              <span
+                className="text-ink"
+                style={{ fontFamily: displayFamily, letterSpacing: '0.02em' }}
+              >
+                TEMBA
+              </span>
+            </p>
+          </div>
+        </footer>
+      </article>
+
+      {/* QR Modal */}
+      {showQRModal && (
+        <div
+          className="fixed inset-0 bg-ink/80 backdrop-blur-sm grid place-items-center z-[9998] p-4"
+          onClick={() => setShowQRModal(false)}
+        >
+          <div
+            className="bg-paper rounded-xl2 max-w-md w-full overflow-hidden shadow-card-hover"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex items-center justify-between px-5 py-3.5 bg-cream border-b border-line">
+              <div>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute tabular-nums"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  TKT · {tktCode}
+                </p>
+                <h3
+                  className="text-[14px] font-bold text-ink leading-tight"
+                  style={{ fontFamily: displayFamily }}
+                >
+                  Code QR du billet
+                </h3>
+              </div>
               <button
                 onClick={() => setShowQRModal(false)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                className="grid place-items-center w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-ink hover:border-ink transition-colors"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            <div className="p-5">
+              <div className="bg-cream/60 p-5 rounded-xl2 ring-1 ring-line flex justify-center">
+                <div className="bg-paper p-3 rounded-lg ring-1 ring-line">
+                  <ResponsiveQRCode
+                    ticketId={ticketId}
+                    baseSize={300}
+                    level="H"
+                    includeMargin={false}
+                    fgColor="#0F172A"
+                    bgColor="#FFFFFF"
+                  />
+                </div>
+              </div>
+              <p className="mt-4 text-center text-[12px] text-ink-mute leading-relaxed">
+                Présentez ce code à l'entrée. Une seule entrée autorisée.
+              </p>
+            </div>
+
+            <footer className="px-5 py-3 bg-cream border-t border-line flex justify-end">
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="inline-flex items-center justify-center h-10 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card"
               >
                 Fermer
               </button>
-            </div>
+            </footer>
           </div>
         </div>
       )}
 
-      {/* Transfer Ticket Modal */}
+      {/* Transfer Modal */}
       <TransferTicketModal
         isOpen={showTransferModal}
         onClose={() => setShowTransferModal(false)}

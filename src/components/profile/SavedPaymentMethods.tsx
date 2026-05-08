@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Trash2, Star, StarOff } from 'lucide-react';
+import { CreditCard, Smartphone, Trash2, Star, StarOff, Wallet } from 'lucide-react';
 import { paymentMethodService } from '../../services/paymentMethodService';
 import { SavedPaymentMethod } from '../../types/payment';
 import toast from 'react-hot-toast';
@@ -55,11 +55,18 @@ export default function SavedPaymentMethods() {
     }
   };
 
-  const getPaymentIcon = (methodType: string) => {
-    return methodType === 'mobile_money' ? (
-      <Smartphone className="h-5 w-5 text-green-600" />
-    ) : (
-      <CreditCard className="h-5 w-5 text-blue-600" />
+  const getPaymentIconBlock = (methodType: string) => {
+    if (methodType === 'mobile_money') {
+      return (
+        <div className="grid place-items-center w-11 h-11 rounded-xl bg-accent/40 ring-1 ring-accent flex-shrink-0">
+          <Smartphone className="h-4.5 w-4.5 text-ink" />
+        </div>
+      );
+    }
+    return (
+      <div className="grid place-items-center w-11 h-11 rounded-xl bg-brand-50 ring-1 ring-brand-100 flex-shrink-0">
+        <CreditCard className="h-4.5 w-4.5 text-brand" />
+      </div>
     );
   };
 
@@ -95,15 +102,50 @@ export default function SavedPaymentMethods() {
     }
   };
 
+  const Header = () => (
+    <header className="flex items-center justify-between gap-3 px-5 py-4 bg-cream border-b border-line">
+      <div className="flex items-center gap-2.5">
+        <div className="grid place-items-center w-8 h-8 rounded-lg bg-brand-50 ring-1 ring-brand-100">
+          <Wallet className="h-4 w-4 text-brand" />
+        </div>
+        <div>
+          <p
+            className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+          >
+            Paiement
+          </p>
+          <h3
+            className="text-[15px] font-bold text-ink !mb-0"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+          >
+            Méthodes sauvegardées
+          </h3>
+        </div>
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute tabular-nums">
+        {String(savedMethods.length).padStart(2, '0')} ENREGISTRÉE
+        {savedMethods.length > 1 ? 'S' : ''}
+      </span>
+    </header>
+  );
+
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Méthodes de paiement sauvegardées
-        </h3>
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-gray-200 rounded"></div>
+      <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+        <Header />
+        <div className="p-5 space-y-2.5">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-16 rounded-xl2 bg-cream-deep relative overflow-hidden"
+              style={{
+                backgroundImage:
+                  'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.4s infinite',
+              }}
+            />
           ))}
         </div>
       </div>
@@ -111,94 +153,107 @@ export default function SavedPaymentMethods() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">
-        Méthodes de paiement sauvegardées
-      </h3>
-      
+    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+      <Header />
+
       {savedMethods.length === 0 ? (
-        <div className="text-center py-8">
-          <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">
-            Aucune méthode de paiement sauvegardée
+        <div className="text-center py-10 px-6">
+          <div className="grid place-items-center w-14 h-14 rounded-full bg-cream-deep mx-auto mb-3">
+            <CreditCard className="h-6 w-6 text-ink-mute" />
+          </div>
+          <p className="eyebrow !mb-1">Aucune méthode</p>
+          <p className="text-[13px] font-bold text-ink mb-1">
+            Pas encore de moyen de paiement enregistré
           </p>
-          <p className="text-sm text-gray-400 mt-2">
-            Vos méthodes de paiement seront sauvegardées automatiquement lors de vos prochains achats
+          <p className="text-[12px] text-ink-mute max-w-sm mx-auto leading-relaxed">
+            Lors de votre prochain achat, vous pourrez sauvegarder votre carte ou votre compte
+            mobile money pour gagner du temps.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <ul className="divide-y divide-line">
           {savedMethods
             .sort((a, b) => {
-              // Sort mobile money first, then credit cards
               if (a.method_type === 'mobile_money' && b.method_type !== 'mobile_money') return -1;
               if (a.method_type !== 'mobile_money' && b.method_type === 'mobile_money') return 1;
-              // Then sort by default status
               if (a.is_default && !b.is_default) return -1;
               if (!a.is_default && b.is_default) return 1;
               return 0;
             })
-            .map((method) => (
-            <div
-              key={method.id}
-              className={`flex items-center justify-between p-4 border rounded-lg ${
-                method.is_default ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                {getPaymentIcon(method.method_type)}
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium text-gray-900">
-                      {method.method_type === 'mobile_money' 
-                        ? getProviderDisplayName(method.provider)
-                        : (method.provider === 'Unknown' || method.provider === 'Carte' ? 'Carte de Crédit' : getProviderDisplayName(method.provider))
-                      }
-                    </p>
-                    {method.is_default && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        <Star className="h-3 w-3 mr-1" />
-                        Défaut
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {formatAccountDisplay(method)}
-                  </p>
-                  {method.account_name && (
-                    <p className="text-xs text-gray-500">
-                      {method.account_name}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400">
-                    Ajoutée le {new Date(method.created_at).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {!method.is_default && (
-                  <button
-                    onClick={() => handleSetDefault(method.id)}
-                    className="p-2 text-gray-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50"
-                    title="Définir par défaut"
-                  >
-                    <StarOff className="h-4 w-4" />
-                  </button>
-                )}
-                
-                <button
-                  onClick={() => handleDelete(method.id)}
-                  disabled={deletingId === method.id}
-                  className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 disabled:opacity-50"
-                  title="Supprimer"
+            .map((method) => {
+              const providerLabel =
+                method.method_type === 'mobile_money'
+                  ? getProviderDisplayName(method.provider)
+                  : method.provider === 'Unknown' || method.provider === 'Carte'
+                  ? 'Carte de crédit'
+                  : getProviderDisplayName(method.provider);
+
+              return (
+                <li
+                  key={method.id}
+                  className={`flex items-start sm:items-center justify-between gap-3 p-4 transition-colors flex-col sm:flex-row ${
+                    method.is_default ? 'bg-brand-50/40' : 'hover:bg-cream/40'
+                  }`}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {getPaymentIconBlock(method.method_type)}
+                    <div className="min-w-0">
+                      <div className="flex items-center flex-wrap gap-2 mb-0.5">
+                        <p className="text-[14px] font-bold text-ink leading-tight">
+                          {providerLabel}
+                        </p>
+                        {method.is_default && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] bg-brand text-paper">
+                            <Star className="h-2.5 w-2.5 fill-current" />
+                            Défaut
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className="text-[12px] text-ink-mute tabular-nums tracking-wide"
+                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                      >
+                        {formatAccountDisplay(method)}
+                      </p>
+                      {method.account_name && (
+                        <p className="text-[11px] text-ink-mute/85 mt-0.5 truncate">
+                          {method.account_name}
+                        </p>
+                      )}
+                      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute/80 mt-1 tabular-nums">
+                        Ajoutée le{' '}
+                        {new Date(method.created_at).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0 self-end sm:self-center">
+                    {!method.is_default && (
+                      <button
+                        onClick={() => handleSetDefault(method.id)}
+                        className="grid place-items-center w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-brand hover:border-brand transition-colors"
+                        title="Définir par défaut"
+                      >
+                        <StarOff className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(method.id)}
+                      disabled={deletingId === method.id}
+                      className="grid place-items-center w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
       )}
     </div>
   );

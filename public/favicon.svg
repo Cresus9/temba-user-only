@@ -1,4 +1,11 @@
-<svg viewBox="0 0 90 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M10 0C4.47715 0 0 4.47715 0 10V22C5.52285 22 10 26.4772 10 32C10 37.5228 5.52285 42 0 42V50C0 55.5228 4.47715 60 10 60H80C85.5228 60 90 55.5228 90 50V42C84.4772 42 80 37.5228 80 32C80 26.4772 84.4772 22 90 22V10C90 4.47715 85.5228 0 80 0H10Z" fill="#4F46E5"/>
-  <path d="M33 18H57V25H48V42H42V25H33V18Z" fill="white"/>
-</svg> 
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Solid dark background for crisp tab rendering -->
+  <rect width="64" height="64" rx="10" fill="#0E1020" />
+  <!-- Outer thin frame -->
+  <rect x="9" y="9" width="46" height="46" rx="1" stroke="#6B6DEC" stroke-width="2" />
+  <!-- Inner solid square -->
+  <rect x="18" y="18" width="28" height="28" fill="#6B6DEC" />
+  <!-- "T" letter -->
+  <rect x="21" y="22" width="22" height="4" fill="#FFFFFF" />
+  <rect x="29" y="22" width="6" height="18" fill="#FFFFFF" />
+</svg>

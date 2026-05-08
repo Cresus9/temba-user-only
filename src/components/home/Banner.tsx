@@ -85,35 +85,39 @@ export default function Banner() {
   const isClickable = currentBanner.event_id || currentBanner.link;
 
   return (
-    <div className="relative w-full h-[280px] md:h-[320px] bg-gray-900">
+    <div className="relative w-full h-[220px] md:h-[280px] bg-ink overflow-hidden">
       {/* Banner Image */}
-      <div 
+      <div
         className={`absolute inset-0 ${isClickable ? 'cursor-pointer' : ''}`}
         onClick={isClickable ? handleBannerClick : undefined}
       >
         <img
           src={currentBanner.image_url}
           alt={currentBanner.title}
-          className="w-full h-full object-cover opacity-70 transition-opacity duration-500"
+          className="w-full h-full object-cover transition-opacity duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-ink/85 via-ink/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-transparent to-transparent" />
       </div>
 
-      {/* Banner Content */}
-      <div 
+      {/* Content */}
+      <div
         className={`absolute inset-0 flex items-end ${isClickable ? 'cursor-pointer' : ''}`}
         onClick={isClickable ? handleBannerClick : undefined}
       >
-        <div className="container mx-auto px-4 py-6 md:py-8">
+        <div className="max-w-7xl mx-auto w-full px-4 lg:px-6 py-6 md:py-8">
           <div className="max-w-xl">
-            <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{currentBanner.title}</h2>
+            <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-accent mb-2">
+              À l'affiche
+            </p>
+            <h2 className="text-paper mb-2 !text-[20px] md:!text-[26px] !leading-tight" style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}>
+              {currentBanner.title}
+            </h2>
             {currentBanner.description && (
-              <p className="text-sm md:text-base text-gray-200 mb-4">{currentBanner.description}</p>
+              <p className="text-[14px] md:text-[15px] text-paper/80 mb-4 line-clamp-2">{currentBanner.description}</p>
             )}
             {isClickable && (
-              <button
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
-              >
+              <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-paper text-[13px] font-semibold rounded-xl hover:bg-brand-700 transition-colors shadow-card">
                 Obtenir des billets
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -122,44 +126,35 @@ export default function Banner() {
         </div>
       </div>
 
-      {/* Navigation Buttons */}
+      {/* Arrows */}
       {banners.length > 1 && (
         <>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              prevBanner();
-            }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/75 transition-colors"
+            onClick={(e) => { e.stopPropagation(); prevBanner(); }}
+            className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 grid place-items-center w-9 h-9 rounded-full bg-paper/15 backdrop-blur-md text-paper hover:bg-paper hover:text-ink transition-colors"
             aria-label="Bannière précédente"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              nextBanner();
-            }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/75 transition-colors"
+            onClick={(e) => { e.stopPropagation(); nextBanner(); }}
+            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 grid place-items-center w-9 h-9 rounded-full bg-paper/15 backdrop-blur-md text-paper hover:bg-paper hover:text-ink transition-colors"
             aria-label="Bannière suivante"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-5 w-5" />
           </button>
         </>
       )}
 
-      {/* Dots Navigation */}
+      {/* Dots */}
       {banners.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+        <div className="absolute bottom-4 right-4 md:right-6 flex gap-1.5">
           {banners.map((_, index) => (
             <button
               key={index}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex(index);
-              }}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-white w-4' : 'bg-white/50'
+              onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                index === currentIndex ? 'bg-accent w-6' : 'bg-paper/40 w-1.5 hover:bg-paper/60'
               }`}
               aria-label={`Aller à la bannière ${index + 1}`}
             />

@@ -101,28 +101,35 @@ export default function TransferRequests() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[200px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center py-12">
+        <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
+          <Loader className="h-5 w-5 animate-spin text-brand" />
+        </div>
       </div>
     );
   }
 
   if (!requests.length) {
     return (
-      <div className="text-center py-8">
-        <Send className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {t('transfers.empty.title', { default: 'Aucune Demande de Transfert' })}
+      <div className="text-center py-10 px-4 rounded-xl2 border border-line border-dashed bg-cream/40">
+        <div className="grid place-items-center w-12 h-12 rounded-full bg-cream-deep mx-auto mb-3">
+          <Send className="h-5 w-5 text-ink-mute" />
+        </div>
+        <p className="eyebrow !mb-1">Boîte vide</p>
+        <h3 className="text-[14px] font-bold text-ink mb-1">
+          {t('transfers.empty.title', { default: 'Aucune demande en attente' })}
         </h3>
-        <p className="text-gray-600">
-          {t('transfers.empty.description', { default: 'Vous n\'avez aucune demande de transfert de billet en attente' })}
+        <p className="text-[12px] text-ink-mute max-w-sm mx-auto leading-relaxed">
+          {t('transfers.empty.description', {
+            default: 'Vous n\'avez aucune demande de transfert de billet en attente.',
+          })}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {requests.map((request) => (
         <TransferRequestCard
           key={request.id}

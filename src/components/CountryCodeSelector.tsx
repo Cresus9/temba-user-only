@@ -101,27 +101,29 @@ export default function CountryCodeSelector({ value, onChange, className = '' }:
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-3 border border-gray-300 rounded-l-lg bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:z-10 transition-colors"
+        className="flex items-center gap-2 px-3 py-2.5 border border-line border-r-0 rounded-l-xl2 bg-paper hover:bg-cream focus:outline-none focus:ring-2 focus:ring-brand focus:z-10 transition-colors"
       >
-        <span className="text-xl">{selectedCountry.flag}</span>
-        <span className="text-sm font-medium text-gray-700">{selectedCountry.dialCode}</span>
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
+        <span className="text-lg leading-none">{selectedCountry.flag}</span>
+        <span className="text-[13px] font-bold text-ink tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+          {selectedCountry.dialCode}
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 text-ink-mute transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col">
+        <div className="absolute top-full left-0 mt-2 w-80 bg-paper border border-line rounded-xl2 shadow-pop z-50 max-h-96 overflow-hidden flex flex-col">
           {/* Search Input */}
-          <div className="p-3 border-b border-gray-200">
+          <div className="p-3 border-b border-line">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher un pays..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full pl-10 pr-4 py-2 border border-line rounded-lg bg-cream/50 focus:outline-none focus:ring-2 focus:ring-brand focus:bg-paper text-[13px] text-ink placeholder:text-ink-mute"
               />
             </div>
           </div>
@@ -135,23 +137,25 @@ export default function CountryCodeSelector({ value, onChange, className = '' }:
                     key={country.code}
                     type="button"
                     onClick={() => handleSelect(country)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors ${
-                      selectedCountry.code === country.code ? 'bg-indigo-50' : ''
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-cream transition-colors ${
+                      selectedCountry.code === country.code ? 'bg-brand-50' : ''
                     }`}
                   >
-                    <span className="text-2xl">{country.flag}</span>
-                    <div className="flex-1 text-left">
-                      <div className="text-sm font-medium text-gray-900">{country.name}</div>
-                      <div className="text-xs text-gray-500">{country.dialCode}</div>
+                    <span className="text-xl leading-none">{country.flag}</span>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="text-[13px] font-bold text-ink truncate">{country.name}</div>
+                      <div className="text-[11px] text-ink-mute tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+                        {country.dialCode}
+                      </div>
                     </div>
                     {selectedCountry.code === country.code && (
-                      <span className="text-indigo-600 text-sm">✓</span>
+                      <span className="text-brand text-sm font-bold">✓</span>
                     )}
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-8 text-center text-sm text-gray-500">
+              <div className="px-4 py-8 text-center text-[13px] text-ink-mute">
                 Aucun pays trouvé
               </div>
             )}

@@ -1,10 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, User, Phone, CreditCard, Wallet, AlertCircle, Loader } from 'lucide-react';
+import { Mail, User, Phone, CreditCard, Wallet, AlertCircle, Loader, Check } from 'lucide-react';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
+
+/**
+ * Normalize a phone input to E.164-ish for Burkina Faso (+226).
+ * - Strips any non-digits.
+ * - If the digits already start with `226` and are long enough, returns `+<digits>`.
+ * - Otherwise prepends `+226`.
+ * Returns empty string if there are no digits.
+ */
+function toInternationalPhone(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('226') && digits.length >= 10) return `+${digits}`;
+  return `+226${digits}`;
+}
 
 interface GuestCheckoutFormProps {
   tickets: { [key: string]: number };
@@ -47,7 +61,7 @@ export default function GuestCheckoutForm({
     name: '',
     email: '',
     phone: '',
-    provider: '',
+    provider: 'orange', // Only Orange Money supported for now (Wave / Moov coming later)
     preAuthorisationCode: '', // OTP code for Orange Money (required for ORANGE_BFA)
     cardNumber: '',
     expiryDate: '',
@@ -97,7 +111,7 @@ export default function GuestCheckoutForm({
         const result: any = await orderService.createGuestOrder({
           email: formData.email,
           name: formData.name,
-          phone: formData.phone,
+          phone: toInternationalPhone(formData.phone),
           eventId,
           ticketQuantities: tickets,
           paymentMethod: 'CARD',
@@ -138,16 +152,17 @@ export default function GuestCheckoutForm({
       // ⚠️ MOBILE MONEY - Use pawaPay for guest checkout
       // ═══════════════════════════════════════════════════════
       // Create guest order first
+      const intlPhone = toInternationalPhone(formData.phone);
       const orderResult: any = await orderService.createGuestOrder({
         email: formData.email,
         name: formData.name,
-        phone: formData.phone,
+        phone: intlPhone,
         eventId,
         ticketQuantities: tickets,
         paymentMethod: 'MOBILE_MONEY',
         paymentDetails: {
           provider: formData.provider,
-          phone: formData.phone,
+          phone: intlPhone,
           preAuthorisationCode: formData.preAuthorisationCode || undefined
         } as any
       });
@@ -181,7 +196,7 @@ export default function GuestCheckoutForm({
         amount_major: grandTotal,
         currency: 'XOF',
         method: 'mobile_money',
-        phone: formData.phone,
+        phone: intlPhone,
         provider: formData.provider, // Map to pawaPay format
         preAuthorisationCode: formData.preAuthorisationCode || undefined, // OTP for second attempt (if provided)
         return_url: `${window.location.origin}/payment/success?order=${orderResult.orderId}`,
@@ -259,86 +274,104 @@ export default function GuestCheckoutForm({
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm p-8">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-          Paiement invité
-        </h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="bg-paper rounded-xl2 border border-line shadow-card p-5 md:p-6">
+        <div className="mb-5">
+          <p className="eyebrow !mb-1.5">Achat invité</p>
+          <h2
+            className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
+            style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+          >
+            Vos informations & paiement
+          </h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Contact Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Informations de contact
-            </h3>
-            
+          <div className="space-y-3.5">
+            <p className="eyebrow !mb-0">Informations de contact</p>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">
                 Nom complet
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-mute" />
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">
                 Adresse email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-mute" />
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Numéro de téléphone
+              <label className="flex items-center justify-between text-[12px] font-semibold text-ink mb-1.5">
+                <span>Numéro de téléphone</span>
+                {paymentMethod === 'mobile_money' && (
+                  <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-brand">
+                    Utilisé pour le paiement
+                  </span>
+                )}
               </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <div className="flex">
+                <div
+                  className="inline-flex items-center px-3.5 h-11 border border-line border-r-0 rounded-l-lg bg-cream text-[13px] font-bold text-ink tabular-nums select-none"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                >
+                  +226
+                </div>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="+226 XX XX XX XX"
+                  className="flex-1 min-w-0 h-11 px-3.5 border border-line rounded-r-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow tabular-nums"
+                  placeholder="XX XX XX XX"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
                 />
               </div>
             </div>
             
             {/* Pre-authorization code - Only show if backend requires it (PRE_AUTH_REQUIRED) */}
             <div className="hidden" id="pre-auth-field-guest">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Code d’autorisation (OTP) <span className="text-red-500">*</span>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">
+                Code d'autorisation (OTP) <span className="text-red-500">*</span>
               </label>
-              <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg space-y-3">
-                <p className="text-sm font-medium text-blue-900">
-                  Code d'autorisation (OTP) requis pour valider le paiement
+              <div className="mb-3 p-4 bg-brand-50 border border-brand/25 rounded-xl space-y-3">
+                <p className="text-[13px] font-bold text-brand-800">
+                  Code d'autorisation requis pour valider le paiement
                 </p>
-                <div className="bg-white p-3 rounded-lg border border-blue-200">
-                  <p className="text-xs text-blue-800 mb-2 font-medium">
-                    Composez ce code sur votre téléphone Orange Money :
+                <div className="bg-paper p-3 rounded-lg border border-brand/20">
+                  <p className="text-[11px] text-brand-800 mb-2 font-medium uppercase tracking-[0.06em]">
+                    Composez ce code sur votre téléphone
                   </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-lg font-bold text-blue-900 bg-blue-100 px-3 py-2 rounded font-mono tracking-wider text-center">
-                      *144*4*6*{otpExampleAmount}#
-                    </code>
-                  </div>
-                  <p className="text-xs text-blue-600 mt-2">
-                    Entrez le code OTP reçu par SMS ci-dessous
+                  <code
+                    className="block text-center text-[17px] font-bold text-ink bg-cream px-3 py-2 rounded border border-line tracking-[0.08em]"
+                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                  >
+                    *144*4*6*{otpExampleAmount}#
+                  </code>
+                  <p className="text-[11px] text-ink-mute mt-2">
+                    Entrez le code OTP reçu par SMS ci-dessous.
                   </p>
                 </div>
               </div>
@@ -347,21 +380,21 @@ export default function GuestCheckoutForm({
                   type="text"
                   value={formData.preAuthorisationCode}
                   onChange={(e) => setFormData({ ...formData, preAuthorisationCode: e.target.value })}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="flex-1 h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow tabular-nums"
                   placeholder="Entrez le code OTP"
                   maxLength={10}
                   inputMode="numeric"
                   autoComplete="one-time-code"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    // Allow user to retry without OTP (in case payment URL becomes available)
                     document.getElementById('pre-auth-field-guest')?.classList.add('hidden');
                     setFormData({ ...formData, preAuthorisationCode: '' });
                   }}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-3.5 text-[13px] font-medium text-ink-mute hover:text-ink border border-line rounded-lg hover:border-brand/40 hover:bg-cream transition-colors"
                   title="Réessayer sans OTP"
                 >
                   Annuler
@@ -371,30 +404,28 @@ export default function GuestCheckoutForm({
           </div>
 
           {/* Payment Method Selection */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Méthode de paiement
-            </h3>
+          <div className="space-y-3">
+            <p className="eyebrow !mb-0">Méthode de paiement</p>
 
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('mobile_money')}
-                className={`flex-1 flex items-center gap-3 p-4 border rounded-lg ${
+                className={`flex items-center gap-3 p-3.5 border rounded-xl text-left transition-all ${
                   paymentMethod === 'mobile_money'
-                    ? 'border-indigo-600 bg-indigo-50'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-brand bg-brand-50 ring-2 ring-brand/15'
+                    : 'border-line bg-paper hover:border-brand/40 hover:bg-cream'
                 }`}
               >
-                <Wallet className={`h-5 w-5 ${
-                  paymentMethod === 'mobile_money' ? 'text-indigo-600' : 'text-gray-400'
-                }`} />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900">
-                    Mobile Money
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Orange Money, Wave, Moov Money
+                <div className={`grid place-items-center w-10 h-10 rounded-lg flex-shrink-0 ${
+                  paymentMethod === 'mobile_money' ? 'bg-brand text-paper' : 'bg-cream text-ink'
+                }`}>
+                  <Wallet className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-ink leading-tight">Mobile Money</p>
+                  <p className="text-[11px] text-ink-mute mt-0.5 truncate">
+                    Orange Money · Burkina Faso
                   </p>
                 </div>
               </button>
@@ -402,21 +433,21 @@ export default function GuestCheckoutForm({
               <button
                 type="button"
                 onClick={() => setPaymentMethod('card')}
-                className={`flex-1 flex items-center gap-3 p-4 border rounded-lg ${
+                className={`flex items-center gap-3 p-3.5 border rounded-xl text-left transition-all ${
                   paymentMethod === 'card'
-                    ? 'border-indigo-600 bg-indigo-50'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-brand bg-brand-50 ring-2 ring-brand/15'
+                    : 'border-line bg-paper hover:border-brand/40 hover:bg-cream'
                 }`}
               >
-                <CreditCard className={`h-5 w-5 ${
-                  paymentMethod === 'card' ? 'text-indigo-600' : 'text-gray-400'
-                }`} />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900">
-                    Carte
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Visa ou Mastercard
+                <div className={`grid place-items-center w-10 h-10 rounded-lg flex-shrink-0 ${
+                  paymentMethod === 'card' ? 'bg-brand text-paper' : 'bg-cream text-ink'
+                }`}>
+                  <CreditCard className="h-4.5 w-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-ink leading-tight">Carte bancaire</p>
+                  <p className="text-[11px] text-ink-mute mt-0.5 truncate">
+                    Visa · Mastercard
                   </p>
                 </div>
               </button>
@@ -424,63 +455,66 @@ export default function GuestCheckoutForm({
 
             {/* Payment Details */}
             {paymentMethod === 'mobile_money' ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-[12px] font-semibold text-ink mb-1.5">
                     Fournisseur
                   </label>
-                  <select
-                    value={formData.provider}
-                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">
-                      Sélectionner un fournisseur
-                    </option>
-                    <option value="orange">Orange Money</option>
-                    <option value="wave">Wave</option>
-                    <option value="moov">Moov Money</option>
-                  </select>
+                  <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-line">
+                    <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#FF6600] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-card">
+                      OM
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-bold text-ink leading-tight">Orange Money</p>
+                      <p className="text-[11px] text-ink-mute mt-0.5">Burkina Faso · *144*4*6#</p>
+                    </div>
+                    <span className="grid place-items-center w-6 h-6 rounded-full bg-brand text-paper flex-shrink-0">
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink-mute/85 mt-1.5">
+                    Wave et Moov Money arrivent bientôt. Le paiement utilisera le numéro renseigné plus haut.
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-[12px] font-semibold text-ink mb-1.5">
                     Numéro de carte
                   </label>
                   <input
                     type="text"
                     value={formData.cardNumber}
                     onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                     placeholder="1234 5678 9012 3456"
                     required={paymentMethod === 'card'}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-[12px] font-semibold text-ink mb-1.5">
                       Date d'expiration
                     </label>
                     <input
                       type="text"
                       value={formData.expiryDate}
                       onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                       placeholder="MM/AA"
                       required={paymentMethod === 'card'}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-[12px] font-semibold text-ink mb-1.5">
                       CVV
                     </label>
                     <input
                       type="text"
                       value={formData.cvv}
                       onChange={(e) => setFormData({ ...formData, cvv: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                       placeholder="123"
                       required={paymentMethod === 'card'}
                     />
@@ -489,66 +523,64 @@ export default function GuestCheckoutForm({
 
                 {/* Cardholder Information */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-[12px] font-semibold text-ink mb-1.5">
                     Nom du titulaire de la carte
                   </label>
                   <input
                     type="text"
                     value={formData.cardholderName}
                     onChange={(e) => setFormData({ ...formData, cardholderName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                     placeholder="Laisser vide pour utiliser le nom ci-dessus"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Si différent du nom du compte, entrez le nom tel qu'il apparaît sur la carte
+                  <p className="text-[11px] text-ink-mute mt-1.5 leading-relaxed">
+                    Si différent du nom du compte, entrez le nom tel qu'il apparaît sur la carte.
                   </p>
                 </div>
 
                 {/* Billing Address Section */}
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">
-                    Adresse de facturation (optionnel)
-                  </h4>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Certaines banques requièrent l'adresse de facturation pour la vérification
+                <div className="border-t border-line pt-4">
+                  <p className="eyebrow !mb-1.5">Adresse de facturation (optionnel)</p>
+                  <p className="text-[12px] text-ink-mute mb-4 leading-relaxed">
+                    Certaines banques requièrent l'adresse de facturation pour la vérification.
                   </p>
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-[12px] font-semibold text-ink mb-1.5">
                         Adresse
                       </label>
                       <input
                         type="text"
                         value={formData.billingAddress}
                         onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                         placeholder="123 Rue de la Paix"
                       />
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-[12px] font-semibold text-ink mb-1.5">
                           Ville
                         </label>
                         <input
                           type="text"
                           value={formData.billingCity}
                           onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                           placeholder="Ouagadougou"
                         />
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-[12px] font-semibold text-ink mb-1.5">
                           Pays
                         </label>
                         <select
                           value={formData.billingCountry}
                           onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full h-11 px-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                         >
                           <option value="">Sélectionner un pays</option>
                           <option value="BF">Burkina Faso</option>
@@ -574,33 +606,42 @@ export default function GuestCheckoutForm({
             )}
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+          <div className="border-t border-line pt-4 space-y-1.5">
+            <div className="flex justify-between text-[13px] text-ink-mute">
               <span>Sous-total</span>
-              <span>{formatCurrency(totalAmount, currency)}</span>
+              <span className="tabular-nums text-ink">{formatCurrency(totalAmount, currency)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-[13px] text-ink-mute">
               <span>Frais de traitement (2%)</span>
-              <span>{formatCurrency(totalAmount * 0.02, currency)}</span>
+              <span className="tabular-nums text-ink">{formatCurrency(totalAmount * 0.02, currency)}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2">
-              <span>Total</span>
-              <span>{formatCurrency(totalAmount * 1.02, currency)}</span>
+            <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-line">
+              <span className="text-[14px] font-bold text-ink">Total</span>
+              <span
+                className="text-[20px] font-bold text-ink tabular-nums tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                {formatCurrency(totalAmount * 1.02, currency)}
+              </span>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center gap-2 h-12 px-4 bg-brand text-paper rounded-lg text-[14px] font-bold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.985] shadow-card"
           >
             {submitting ? (
               <>
                 <Loader className="h-5 w-5 animate-spin" />
-                <span>Traitement en cours...</span>
+                <span>Traitement en cours…</span>
               </>
             ) : (
-              <>Payer {formatCurrency(totalAmount * 1.02, currency)}</>
+              <>
+                <span>Payer</span>
+                <span className="tabular-nums">{formatCurrency(totalAmount * 1.02, currency)}</span>
+                <span aria-hidden>→</span>
+              </>
             )}
           </button>
         </form>

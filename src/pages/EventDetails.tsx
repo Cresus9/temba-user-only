@@ -1,10 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Share2, Heart } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  Share2,
+  Heart,
+  ArrowLeft,
+  Navigation,
+  ShieldCheck,
+  Zap,
+  Banknote,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
+import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
@@ -32,13 +44,14 @@ export default function EventDetails() {
   const [location, setLocation] = useState<EventLocation | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [eventDates, setEventDates] = useState<EventDate[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         if (!id) return;
         setLoading(true);
-        
+
         const { data, error } = await supabase
           .from('events')
           .select(`
@@ -58,56 +71,42 @@ export default function EventDetails() {
           .single();
 
         if (error) throw error;
-        
+
         if (data.status !== 'PUBLISHED' && !user) {
           navigate('/events');
           return;
         }
-        
+
         setEvent(data);
 
-        // Fetch event dates for multi-date events
-        // Status can be 'active' (lowercase) or 'ACTIVE' (uppercase) - use case-insensitive match
         let { data: datesData, error: datesError } = await supabase
           .from('event_dates')
           .select('id, date, start_time, end_time, status')
           .eq('event_id', id)
-          .ilike('status', 'active')  // Case-insensitive match for 'active' or 'ACTIVE'
+          .ilike('status', 'active')
           .order('date', { ascending: true })
           .order('display_order', { ascending: true });
 
-        // If error or no data, try without status filter to see if it's an RLS issue
         if (datesError || !datesData || datesData.length === 0) {
-          console.warn('No dates found with active status, trying without status filter...');
-          // Try without status filter to debug
-          const { data: allDates, error: allDatesError } = await supabase
+          const { data: allDates } = await supabase
             .from('event_dates')
             .select('id, date, start_time, end_time, status')
             .eq('event_id', id)
             .order('date', { ascending: true });
-          
-          if (allDatesError) {
-            console.error('Error fetching all event dates:', allDatesError);
-          } else {
-            console.log('Fetched all dates (including non-active):', allDates);
-            // Filter client-side for active status (case-insensitive)
-            datesData = allDates?.filter(d => 
-              d.status && d.status.toLowerCase() === 'active'
-            ) || [];
-            console.log('Filtered to active dates:', datesData);
-          }
+
+          datesData =
+            allDates?.filter(d => d.status && d.status.toLowerCase() === 'active') || [];
         }
 
-        console.log('Final event dates for display:', datesData); // Debug log
         if (datesData && datesData.length > 0) {
           setEventDates(datesData);
         }
 
         const coordinates = await geocodeAddress(data.location);
         setLocation(coordinates);
-      } catch (error) {
-        console.error('Erreur lors du chargement de l\'événement:', error);
-        toast.error('Échec du chargement des détails de l\'événement');
+      } catch (err) {
+        console.error("Erreur lors du chargement de l'événement:", err);
+        toast.error("Échec du chargement des détails de l'événement");
         navigate('/events');
       } finally {
         setLoading(false);
@@ -131,7 +130,6 @@ export default function EventDetails() {
 
   const eventSchema = useMemo(() => {
     if (!event || !eventUrl) return undefined;
-
     return {
       '@context': 'https://schema.org',
       '@type': 'Event',
@@ -150,7 +148,7 @@ export default function EventDetails() {
         name: 'Temba',
         url: 'https://tembas.com/',
       },
-      offers: (event.ticket_types || []).map((ticketType) => ({
+      offers: (event.ticket_types || []).map(ticketType => ({
         '@type': 'Offer',
         url: eventUrl,
         price: ticketType.price,
@@ -175,29 +173,13 @@ export default function EventDetails() {
 
   const breadcrumbSchema = useMemo(() => {
     if (!eventUrl || !event?.title) return undefined;
-
     return {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Accueil',
-          item: 'https://tembas.com/',
-        },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: 'Événements',
-          item: 'https://tembas.com/events',
-        },
-        {
-          '@type': 'ListItem',
-          position: 3,
-          name: event.title,
-          item: eventUrl,
-        },
+        { '@type': 'ListItem', position: 1, name: 'Accueil', item: 'https://tembas.com/' },
+        { '@type': 'ListItem', position: 2, name: 'Événements', item: 'https://tembas.com/events' },
+        { '@type': 'ListItem', position: 3, name: event.title, item: eventUrl },
       ],
     };
   }, [event?.title, eventUrl]);
@@ -217,21 +199,77 @@ export default function EventDetails() {
     );
   }, [event?.description, event?.title, event?.location]);
 
+  const formatLong = (iso?: string) =>
+    iso
+      ? new Date(iso).toLocaleDateString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : '';
+
+  const handleShare = async () => {
+    if (!event) return;
+    const shareData = {
+      title: event.title,
+      text: `${event.title} — ${event.location}`,
+      url: eventUrl ?? window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success('Lien copié');
+      }
+    } catch {
+      // user cancelled
+    }
+  };
+
+  const toggleSave = () => {
+    setIsSaved(prev => !prev);
+    toast.success(isSaved ? 'Retiré des favoris' : 'Ajouté aux favoris');
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-14">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
+          <div className="lg:col-span-7 space-y-4">
+            <div className="h-3 w-32 bg-cream-deep rounded animate-pulse" />
+            <div className="h-12 w-full bg-cream-deep rounded animate-pulse" />
+            <div className="h-12 w-3/4 bg-cream-deep rounded animate-pulse" />
+            <div className="h-4 w-2/3 bg-cream-deep rounded animate-pulse mt-4" />
+            <div className="h-4 w-1/2 bg-cream-deep rounded animate-pulse" />
+          </div>
+          <div className="lg:col-span-5 aspect-[3/4] bg-cream-deep rounded-2xl animate-pulse" />
+        </div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Événement non trouvé</h2>
+      <div className="text-center py-20 px-4">
+        <p className="eyebrow !text-ink-mute mb-2">404</p>
+        <h2 className="text-ink mb-3">Événement introuvable</h2>
+        <p className="text-[14px] text-ink-mute mb-6">
+          Cet événement n'existe plus, ou le lien est cassé.
+        </p>
+        <Link to="/events" className="btn btn-primary">Voir tous les événements</Link>
       </div>
     );
   }
+
+  const displayDate = eventDates.length > 0 && eventDates[0]?.date
+    ? eventDates[0].date
+    : event.date;
+  const displayTime = eventDates.length > 0 && eventDates[0]?.start_time
+    ? eventDates[0].start_time
+    : event.time;
+  const evtCode = event.id ? event.id.slice(0, 8).toUpperCase() : '—';
 
   return (
     <>
@@ -252,152 +290,275 @@ export default function EventDetails() {
           structuredData={structuredData}
         />
       )}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Event Header */}
-      <div className="relative h-[400px] rounded-xl overflow-hidden mb-8">
-        <img
-          src={event.image_url}
-          alt={event.title}
-          className="w-full h-full object-cover"
+
+      {/* — — — Compact title band (cream) — — — */}
+      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-24 w-[320px] h-[320px] rounded-full bg-brand-50 blur-3xl opacity-60"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-4">{event.title}</h1>
-              <div className="flex items-center gap-6 text-white/90 flex-wrap">
-                {eventDates.length > 1 ? (
-                  <span className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    {eventDates.length} dates disponibles
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-20 -left-24 w-[260px] h-[260px] rounded-full bg-accent-50 blur-3xl opacity-50"
+        />
+
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-4 pb-5 md:pt-5 md:pb-6">
+          {/* Breadcrumb */}
+          <nav
+            aria-label="Fil d'Ariane"
+            className="flex items-center gap-1.5 text-[12px] text-ink-mute mb-3 truncate"
+          >
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1 hover:text-ink transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Retour
+            </button>
+            <span aria-hidden className="text-line">/</span>
+            <Link to="/events" className="hover:text-ink transition-colors">Événements</Link>
+            <span aria-hidden className="text-line">/</span>
+            <span className="text-ink/85 truncate">{event.title}</span>
+          </nav>
+
+          <p className="eyebrow mb-1.5">
+            <span
+              className="tabular-nums"
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+            >
+              EVT · {evtCode}
+            </span>
+            <span className="mx-2 text-ink/40">·</span>
+            {formatLong(displayDate)}
+          </p>
+
+          <h1 className="!text-[clamp(22px,3.4vw,36px)] !leading-[1.06] text-ink mb-3 tracking-tight max-w-3xl">
+            {event.title}
+          </h1>
+
+          {/* Meta + actions inline */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink">
+            {eventDates.length > 1 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-accent" />
+                <span className="font-semibold">{eventDates.length} dates</span>
+              </span>
+            ) : (
+              <>
+                {displayTime && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-accent" />
+                    {displayTime}
                   </span>
-                ) : (
-                  <>
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      {eventDates.length > 0 && eventDates[0]?.date
-                        ? new Date(eventDates[0].date).toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
-                        : new Date(event.date).toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
-                      {eventDates.length > 0 && eventDates[0]?.start_time
-                        ? eventDates[0].start_time
-                        : event.time}
-                    </span>
-                  </>
                 )}
-                <span className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  {event.location}
+              </>
+            )}
+            <span className="inline-flex items-center gap-1.5 min-w-0">
+              <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+              <span className="truncate">{event.location}</span>
+            </span>
+
+            <span aria-hidden className="hidden sm:block w-px h-4 bg-line" />
+
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-brand transition-colors"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Partager
+            </button>
+            <button
+              onClick={toggleSave}
+              className={`inline-flex items-center gap-1.5 text-[12px] font-medium transition-colors ${
+                isSaved ? 'text-brand' : 'text-ink-mute hover:text-brand'
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isSaved ? 'fill-current' : ''}`} />
+              {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* — — — Body: poster+desc on left, booking sticky on right — — — */}
+      <section className="bg-paper">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-10">
+          <div className="grid lg:grid-cols-12 gap-6 lg:gap-10">
+            {/* — Mobile: poster first, then booking, then content — */}
+            <div className="lg:hidden space-y-5">
+              <PosterCard event={event} evtCode={evtCode} />
+              <BookingPanel
+                event={event}
+                isReviewModalOpen={isReviewModalOpen}
+                setIsReviewModalOpen={setIsReviewModalOpen}
+                evtCode={evtCode}
+              />
+            </div>
+
+            {/* — Left: description + map — */}
+            <div className="lg:col-span-7 space-y-9">
+              {/* Desktop poster lives in the LEFT column for visual anchor */}
+              <div className="hidden lg:block">
+                <PosterCard event={event} evtCode={evtCode} />
+              </div>
+
+              <div>
+                <p className="eyebrow mb-2">À propos</p>
+                <h2 className="text-ink mb-3">L'événement</h2>
+                <p className="text-[15px] text-ink/80 whitespace-pre-line leading-relaxed">
+                  {event.description}
+                </p>
+              </div>
+
+              {location && (
+                <div>
+                  <p className="eyebrow mb-2">Lieu</p>
+                  <h2 className="text-ink mb-3">Comment y aller</h2>
+                  <div className="rounded-xl2 overflow-hidden border border-line bg-cream-deep">
+                    <EventMap
+                      latitude={location.latitude}
+                      longitude={location.longitude}
+                      title={event.title}
+                      address={event.location}
+                      className="h-[280px]"
+                      isDisabled={isReviewModalOpen}
+                      isModalOpen={isReviewModalOpen}
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-cream rounded-xl2 border border-line">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <MapPin className="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-ink truncate">{event.location}</p>
+                        <p className="text-[11px] text-ink-mute">Lieu de l'événement</p>
+                      </div>
+                    </div>
+                    <a
+                      href={
+                        location
+                          ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
+                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-ink text-paper rounded-lg text-[12px] font-bold hover:bg-brand transition-colors flex-shrink-0"
+                    >
+                      <Navigation className="h-3.5 w-3.5" />
+                      Itinéraire
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Trust strip — moved here, no longer in hero */}
+              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-4 border-t border-line text-[12px] text-ink-mute">
+                <span className="inline-flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-brand" />
+                  Paiement sécurisé en FCFA
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-accent" />
+                  E-billet instantané
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Banknote className="h-3.5 w-3.5 text-ink" />
+                  Mobile Money · Carte
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <button className="p-2 bg-white/10 rounded-full hover:bg-white/20">
-                <Share2 className="h-6 w-6 text-white" />
-              </button>
-              <button className="p-2 bg-white/10 rounded-full hover:bg-white/20">
-                <Heart className="h-6 w-6 text-white" />
-              </button>
+
+            {/* — Right: sticky booking — */}
+            <div className="hidden lg:block lg:col-span-5">
+              <div className="lg:sticky lg:top-20">
+                <BookingPanel
+                  event={event}
+                  isReviewModalOpen={isReviewModalOpen}
+                  setIsReviewModalOpen={setIsReviewModalOpen}
+                  evtCode={evtCode}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+    </>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Mobile Booking Form - Shown right after image on mobile */}
-        <div className="lg:hidden">
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            {event.status === 'PUBLISHED' ? (
-              <BookingForm
-                eventId={event.id}
-                ticketTypes={event.ticket_types || []}
-                currency={event.currency}
-                onReviewOpen={() => setIsReviewModalOpen(true)}
-                onReviewClose={() => setIsReviewModalOpen(false)}
-              />
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-gray-600">
-                  Cet événement n'est actuellement pas disponible pour la réservation.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Event Details */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">À propos de cet événement</h2>
-            <p className="text-gray-600 whitespace-pre-line mb-8">{event.description}</p>
-
-            {/* Location Map */}
-            {location && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Lieu de l'événement</h3>
-                <EventMap
-                  latitude={location.latitude}
-                  longitude={location.longitude}
-                  title={event.title}
-                  address={event.location}
-                  className="h-[300px] mb-4"
-                  isDisabled={isReviewModalOpen}
-                  isModalOpen={isReviewModalOpen}
-                />
-                <p className="text-gray-600 flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-gray-400" />
-                  {event.location}
-                  {/* Google Maps Button */}
-                  <a
-                    href={location
-                      ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
-                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-4 inline-flex items-center px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
-                  >
-                    Voir sur Google Maps
-                  </a>
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Desktop Booking Form - Hidden on mobile */}
-        <div className="hidden lg:block lg:sticky lg:top-8">
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            {event.status === 'PUBLISHED' ? (
-              <BookingForm
-                eventId={event.id}
-                ticketTypes={event.ticket_types || []}
-                currency={event.currency}
-                onReviewOpen={() => setIsReviewModalOpen(true)}
-                onReviewClose={() => setIsReviewModalOpen(false)}
-              />
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-gray-600">
-                  Cet événement n'est actuellement pas disponible pour la réservation.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+/** Poster card with blurred backdrop + EVT code chip. Reused mobile + desktop. */
+function PosterCard({ event, evtCode }: { event: Event; evtCode: string }) {
+  return (
+    <div className="relative aspect-[16/9] sm:aspect-[2/1] lg:aspect-[5/4] rounded-2xl overflow-hidden border border-line shadow-card bg-ink">
+      {event.image_url && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center scale-[1.2] blur-3xl saturate-150 opacity-95"
+          style={{ backgroundImage: `url(${event.image_url})` }}
+        />
+      )}
+      <Image
+        src={event.image_url || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1200'}
+        alt={event.title}
+        className="absolute inset-0 w-full h-full object-contain"
+        width={1200}
+        height={900}
+        quality={88}
+        priority
+      />
+      <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-ink/65 backdrop-blur-sm border border-paper/15">
+        <span
+          className="text-[10px] font-bold text-paper/90 uppercase tracking-[0.16em]"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          EVT · {evtCode}
+        </span>
       </div>
     </div>
-    </>
+  );
+}
+
+/** Branded container around the BookingForm — no logic changes inside. */
+function BookingPanel({
+  event,
+  isReviewModalOpen,
+  setIsReviewModalOpen,
+  evtCode,
+}: {
+  event: Event;
+  isReviewModalOpen: boolean;
+  setIsReviewModalOpen: (v: boolean) => void;
+  evtCode: string;
+}) {
+  return (
+    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+      {/* Ticket-style header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-cream border-b border-line">
+        <span className="eyebrow !text-ink">Réserver</span>
+        <span
+          className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          EVT · {evtCode}
+        </span>
+      </div>
+
+      <div className="p-5">
+        {event.status === 'PUBLISHED' ? (
+          <BookingForm
+            eventId={event.id}
+            ticketTypes={event.ticket_types || []}
+            currency={event.currency}
+            onReviewOpen={() => setIsReviewModalOpen(true)}
+            onReviewClose={() => setIsReviewModalOpen(false)}
+          />
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-[14px] text-ink-mute">
+              Cet événement n'est actuellement pas disponible pour la réservation.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

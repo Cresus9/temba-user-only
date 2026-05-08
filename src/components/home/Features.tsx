@@ -1,46 +1,87 @@
 import React from 'react';
-import { Ticket, Shield, CreditCard, Users } from 'lucide-react';
+import { Ticket, Shield, CreditCard, Headphones, ArrowUpRight } from 'lucide-react';
 
 export default function Features() {
   const features = [
     {
       icon: Ticket,
-      title: "Réservation Facile",
-      description: "Réservez vos billets en quelques clics, sans tracas"
-    },
-    {
-      icon: Shield,
-      title: "Sécurité Garantie",
-      description: "Transactions sécurisées et protection des données personnelles"
+      title: 'Réservation en 30 secondes',
+      description:
+        "Pas de file d'attente, pas de paperasse. Choisissez vos places et payez — votre billet arrive instantanément.",
     },
     {
       icon: CreditCard,
-      title: "Paiement Instantané",
-      description: "Options de paiement multiples, y compris Mobile Money"
+      title: 'Paiement local en FCFA',
+      description:
+        'Mobile Money, Orange Money, carte bancaire. Achetez dans votre devise, sans frais cachés.',
     },
     {
-      icon: Users,
-      title: "Support Client",
-      description: "Notre équipe est disponible pour vous aider à tout moment"
-    }
+      icon: Shield,
+      title: 'Billets sécurisés',
+      description:
+        'QR code unique vérifié à l\'entrée. Transferts traçables, anti-fraude, garantie événement.',
+    },
+    {
+      icon: Headphones,
+      title: 'Support en français',
+      description:
+        "Notre équipe à Ouagadougou répond 7j/7 par WhatsApp ou téléphone. Pas de robot.",
+    },
   ];
 
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-7xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-          Pourquoi Choisir Temba
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((feature, index) => (
-            <div key={index} className="text-center group">
-              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-indigo-200 transition-colors">
-                <feature.icon className="h-6 w-6 text-indigo-600" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
-            </div>
-          ))}
+    <section className="section-normal bg-paper">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-start">
+          {/* Left — header (sticky-ish on desktop) */}
+          <div className="lg:col-span-4">
+            <p className="eyebrow mb-2">Pourquoi Temba</p>
+            <h2 className="text-ink mb-3">
+              Conçu pour l'<span className="relative inline-block">
+                <span className="relative z-10">Afrique de l'Ouest</span>
+                <span aria-hidden className="absolute left-0 right-0 bottom-0.5 h-2 bg-accent/40 rounded-sm -z-0" />
+              </span>
+            </h2>
+            <p className="text-[14px] text-ink-mute leading-relaxed mb-6">
+              Notre billetterie est pensée pour les organisateurs locaux et leur public.
+              Paiements en devise locale, support de proximité, événements près de chez vous.
+            </p>
+            <a
+              href="https://admin.tembas.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink hover:text-brand transition-colors"
+            >
+              Devenir organisateur
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+          </div>
+
+          {/* Right — feature grid */}
+          <div className="lg:col-span-8 grid sm:grid-cols-2 gap-4">
+            {features.map((feature, idx) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={idx}
+                  className="group flex gap-4 p-5 bg-paper border border-line rounded-xl2 hover:border-brand/40 hover:shadow-card transition-all duration-300"
+                >
+                  <div className="grid place-items-center w-10 h-10 rounded-xl bg-ink text-paper flex-shrink-0 group-hover:bg-brand transition-colors">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3
+                      className="text-[15px] font-bold text-ink mb-1 tracking-tight"
+                      style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                    >
+                      {feature.title}
+                    </h3>
+                    <p className="text-[13px] text-ink-mute leading-relaxed">{feature.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

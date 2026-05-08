@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Send, User, Mail, Phone, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, Send, User, Mail, Phone, MessageSquare, AlertCircle, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { ticketTransferService, TransferTicketRequest } from '../../services/ticketTransferService';
 import { normalizePhone, isValidPhone } from '../../utils/phoneValidation';
 import toast from 'react-hot-toast';
@@ -12,18 +12,21 @@ interface TransferTicketModalProps {
   onTransferComplete: () => void;
 }
 
+const monoFamily = 'ui-monospace, SFMono-Regular, monospace';
+const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
+
 export default function TransferTicketModal({
   isOpen,
   onClose,
   ticketId,
   ticketTitle,
-  onTransferComplete
+  onTransferComplete,
 }: TransferTicketModalProps) {
   const [formData, setFormData] = useState({
     recipientEmail: '',
     recipientPhone: '',
     recipientName: '',
-    message: ''
+    message: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,14 +40,14 @@ export default function TransferTicketModal({
   } | null>(null);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setError('');
   };
 
   const validateForm = () => {
     if (transferMethod === 'email') {
       if (!formData.recipientEmail) {
-        setError('L\'email est requis');
+        setError("L'email est requis");
         return false;
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,34 +60,29 @@ export default function TransferTicketModal({
         setError('Le numéro de téléphone est requis');
         return false;
       }
-      // Normalize and validate phone using the utility
       const normalizedPhone = normalizePhone(formData.recipientPhone);
       if (!isValidPhone(normalizedPhone)) {
-        setError('Veuillez entrer un numéro de téléphone valide (format: +226XXXXXXXX)');
+        setError('Veuillez entrer un numéro valide (format: +226XXXXXXXX)');
         return false;
       }
-      // Update form data with normalized phone
-      setFormData(prev => ({ ...prev, recipientPhone: normalizedPhone }));
+      setFormData((prev) => ({ ...prev, recipientPhone: normalizedPhone }));
     }
     return true;
   };
 
   const handleTransfer = () => {
     if (!validateForm()) return;
-
-    // Show confirmation step
     setConfirmedData({
       recipient: transferMethod === 'email' ? formData.recipientEmail : formData.recipientPhone,
       method: transferMethod,
       name: formData.recipientName,
-      message: formData.message
+      message: formData.message,
     });
     setShowConfirmation(true);
   };
 
   const handleConfirmTransfer = async () => {
     if (!confirmedData) return;
-
     setIsLoading(true);
     setError('');
 
@@ -92,9 +90,10 @@ export default function TransferTicketModal({
       const request: TransferTicketRequest = {
         ticketId,
         recipientEmail: confirmedData.method === 'email' ? confirmedData.recipient : undefined,
-        recipientPhone: confirmedData.method === 'phone' ? normalizePhone(confirmedData.recipient) : undefined,
+        recipientPhone:
+          confirmedData.method === 'phone' ? normalizePhone(confirmedData.recipient) : undefined,
         recipientName: confirmedData.name,
-        message: confirmedData.message
+        message: confirmedData.message,
       };
 
       const response = await ticketTransferService.transferTicket(request);
@@ -103,23 +102,24 @@ export default function TransferTicketModal({
         if (response.instantTransfer) {
           toast.success('Billet transféré avec succès!');
         } else {
-          toast.success('Transfert en attente - le destinataire recevra le billet lors de son inscription!');
+          toast.success(
+            'Transfert en attente — le destinataire recevra le billet à son inscription.'
+          );
         }
         onTransferComplete();
         onClose();
-        // Reset form
         setFormData({
           recipientEmail: '',
           recipientPhone: '',
           recipientName: '',
-          message: ''
+          message: '',
         });
       } else {
         setError(response.error || 'Échec du transfert');
       }
     } catch (error) {
       console.error('Transfer error:', error);
-      setError('Une erreur inattendue s\'est produite');
+      setError("Une erreur inattendue s'est produite");
     } finally {
       setIsLoading(false);
     }
@@ -133,271 +133,343 @@ export default function TransferTicketModal({
 
   if (!isOpen) return null;
 
+  const inputClass =
+    'w-full h-11 pl-10 pr-3.5 bg-paper border border-line text-ink placeholder:text-ink-mute/60 ' +
+    'rounded-lg text-[14px] focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all';
+  const labelClass = 'block text-[12px] font-semibold text-ink mb-1.5';
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Transfer Ticket</h2>
+    <div
+      className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper rounded-xl2 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-card-hover my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky header */}
+        <header className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 bg-cream border-b border-line">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="grid place-items-center w-8 h-8 rounded-lg bg-brand-50 text-brand ring-1 ring-brand-100 flex-shrink-0">
+              <Send className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute"
+                style={{ fontFamily: monoFamily }}
+              >
+                {showConfirmation ? 'Étape 2 / 2' : 'Étape 1 / 2'}
+              </p>
+              <h2
+                className="text-[14px] font-bold text-ink !mb-0 leading-tight"
+                style={{ fontFamily: displayFamily }}
+              >
+                {showConfirmation ? 'Confirmer le transfert' : 'Transférer le billet'}
+              </h2>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="grid place-items-center w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-ink hover:border-ink transition-colors flex-shrink-0"
+            aria-label="Fermer"
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-4 w-4" />
           </button>
-        </div>
+        </header>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Confirmation Step */}
+        {/* Body */}
+        <div className="p-5 space-y-4">
           {showConfirmation && confirmedData ? (
-            <div className="space-y-6">
+            // ── Confirmation step ──────────────────────────────────────
+            <>
               <div className="text-center">
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <AlertCircle className="h-8 w-8 text-orange-600" />
+                <div className="grid place-items-center w-14 h-14 rounded-full bg-amber-50 ring-1 ring-amber-200 mx-auto mb-3">
+                  <ShieldAlert className="h-6 w-6 text-amber-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Confirmer le transfert
+                <h3
+                  className="text-[16px] font-bold text-ink mb-1"
+                  style={{ fontFamily: displayFamily }}
+                >
+                  Vérifiez avant d'envoyer
                 </h3>
-                <p className="text-gray-600">
-                  Veuillez vérifier les informations avant de confirmer le transfert
+                <p className="text-[12px] text-ink-mute leading-relaxed max-w-xs mx-auto">
+                  Le transfert est immédiat et irréversible une fois confirmé.
                 </p>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Billet à transférer:</span>
-                  <p className="text-gray-900 font-medium">{ticketTitle}</p>
+              <dl className="bg-cream rounded-xl2 border border-line divide-y divide-line">
+                <div className="flex justify-between gap-3 px-4 py-3">
+                  <dt
+                    className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute flex-shrink-0"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    Billet
+                  </dt>
+                  <dd className="text-[12px] font-bold text-ink text-right truncate">
+                    {ticketTitle}
+                  </dd>
                 </div>
-                
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    {confirmedData.method === 'email' ? 'Email du destinataire:' : 'Téléphone du destinataire:'}
-                  </span>
-                  <p className="text-gray-900 font-medium">{confirmedData.recipient}</p>
+                <div className="flex justify-between gap-3 px-4 py-3">
+                  <dt
+                    className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute flex-shrink-0"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    {confirmedData.method === 'email' ? 'Email' : 'Téléphone'}
+                  </dt>
+                  <dd
+                    className="text-[12px] font-bold text-ink text-right tabular-nums truncate"
+                    style={{ fontFamily: monoFamily }}
+                  >
+                    {confirmedData.recipient}
+                  </dd>
                 </div>
-
                 {confirmedData.name && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Nom du destinataire:</span>
-                    <p className="text-gray-900 font-medium">{confirmedData.name}</p>
+                  <div className="flex justify-between gap-3 px-4 py-3">
+                    <dt
+                      className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute flex-shrink-0"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Nom
+                    </dt>
+                    <dd className="text-[12px] font-bold text-ink text-right truncate">
+                      {confirmedData.name}
+                    </dd>
                   </div>
                 )}
-
                 {confirmedData.message && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Message:</span>
-                    <p className="text-gray-900 font-medium">{confirmedData.message}</p>
+                  <div className="px-4 py-3">
+                    <dt
+                      className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-mute mb-1"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Message
+                    </dt>
+                    <dd className="text-[12px] text-ink leading-relaxed">
+                      {confirmedData.message}
+                    </dd>
                   </div>
                 )}
-              </div>
+              </dl>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-orange-800">Important</p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Cette action est irréversible. Le billet sera transféré immédiatement au destinataire.
-                    </p>
-                  </div>
+              <div className="rounded-lg bg-amber-50 border-l-4 border-amber-400 p-3 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-amber-900 leading-tight">
+                    Action irréversible
+                  </p>
+                  <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                    Une fois transféré, vous ne pourrez plus utiliser ce billet.
+                  </p>
                 </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                  <p className="text-sm text-red-700">{error}</p>
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-red-700 leading-relaxed">{error}</p>
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex gap-2 pt-2 border-t border-line">
                 <button
                   onClick={handleBackToForm}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                   disabled={isLoading}
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-4 border border-line bg-paper text-ink rounded-lg text-[13px] font-bold hover:border-ink hover:bg-cream/50 transition-colors disabled:opacity-50 flex-1"
                 >
+                  <ArrowLeft className="h-3.5 w-3.5" />
                   Retour
                 </button>
                 <button
                   onClick={handleConfirmTransfer}
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card disabled:opacity-50 disabled:cursor-not-allowed flex-1"
                 >
                   {isLoading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-3.5 h-3.5 border-2 border-paper border-t-transparent rounded-full animate-spin" />
                       Transfert...
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4" />
-                      Confirmer le transfert
+                      <Send className="h-3.5 w-3.5" />
+                      Confirmer
                     </>
                   )}
                 </button>
               </div>
-            </div>
+            </>
           ) : (
+            // ── Form step ──────────────────────────────────────────────
             <>
-              {/* Ticket Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-1">Transferring:</h3>
-            <p className="text-gray-700">{ticketTitle}</p>
-          </div>
-
-          {/* Transfer Method Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Transfer Method
-            </label>
-            <div className="flex space-x-4">
-              <button
-                type="button"
-                onClick={() => setTransferMethod('email')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  transferMethod === 'email'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Mail className="h-4 w-4" />
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setTransferMethod('phone')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  transferMethod === 'phone'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Phone className="h-4 w-4" />
-                Phone
-              </button>
-            </div>
-          </div>
-
-          {/* Recipient Details */}
-          <div className="space-y-4">
-            {/* Email or Phone Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {transferMethod === 'email' ? 'Recipient Email' : 'Recipient Phone'}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  {transferMethod === 'email' ? (
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Phone className="h-5 w-5 text-gray-400" />
-                  )}
-                </div>
-                <input
-                  type={transferMethod === 'email' ? 'email' : 'tel'}
-                  value={transferMethod === 'email' ? formData.recipientEmail : formData.recipientPhone}
-                  onChange={(e) => handleInputChange(
-                    transferMethod === 'email' ? 'recipientEmail' : 'recipientPhone',
-                    e.target.value
-                  )}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  placeholder={transferMethod === 'email' ? 'user@example.com' : '+226 70 12 34 56'}
-                />
-              </div>
-            </div>
-
-            {/* Recipient Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Recipient Name (Optional)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={formData.recipientName}
-                  onChange={(e) => handleInputChange('recipientName', e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  placeholder="John Doe"
-                />
-              </div>
-            </div>
-
-            {/* Message */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message (Optional)
-              </label>
-              <div className="relative">
-                <div className="absolute top-3 left-3 pointer-events-none">
-                  <MessageSquare className="h-5 w-5 text-gray-400" />
-                </div>
-                <textarea
-                  value={formData.message}
-                  onChange={(e) => handleInputChange('message', e.target.value)}
-                  rows={3}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
-                  placeholder="Add a personal message..."
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
-
-          {/* Warning */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800">Important</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  The recipient must have a Temba account. This transfer is instant and cannot be undone.
+              {/* Ticket badge */}
+              <div className="rounded-xl2 bg-cream border border-line p-3.5">
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute mb-1"
+                  style={{ fontFamily: monoFamily }}
+                >
+                  Vous transférez
+                </p>
+                <p
+                  className="text-[14px] font-bold text-ink leading-tight"
+                  style={{ fontFamily: displayFamily }}
+                >
+                  {ticketTitle}
                 </p>
               </div>
-            </div>
-          </div>
+
+              {/* Method selector */}
+              <div>
+                <label className={labelClass}>Méthode de transfert</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransferMethod('email')}
+                    className={`inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg border text-[12px] font-bold transition-all ${
+                      transferMethod === 'email'
+                        ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20'
+                        : 'border-line bg-paper text-ink-mute hover:border-brand/40 hover:text-ink'
+                    }`}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransferMethod('phone')}
+                    className={`inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-lg border text-[12px] font-bold transition-all ${
+                      transferMethod === 'phone'
+                        ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20'
+                        : 'border-line bg-paper text-ink-mute hover:border-brand/40 hover:text-ink'
+                    }`}
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    Téléphone
+                  </button>
+                </div>
+              </div>
+
+              {/* Recipient input */}
+              <div>
+                <label className={labelClass}>
+                  {transferMethod === 'email' ? 'Email du destinataire' : 'Téléphone du destinataire'}
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    {transferMethod === 'email' ? (
+                      <Mail className="h-4 w-4 text-ink-mute" />
+                    ) : (
+                      <Phone className="h-4 w-4 text-ink-mute" />
+                    )}
+                  </div>
+                  <input
+                    type={transferMethod === 'email' ? 'email' : 'tel'}
+                    value={
+                      transferMethod === 'email' ? formData.recipientEmail : formData.recipientPhone
+                    }
+                    onChange={(e) =>
+                      handleInputChange(
+                        transferMethod === 'email' ? 'recipientEmail' : 'recipientPhone',
+                        e.target.value
+                      )
+                    }
+                    className={inputClass}
+                    placeholder={transferMethod === 'email' ? 'ami@example.com' : '+226 70 12 34 56'}
+                    style={transferMethod === 'phone' ? { fontFamily: monoFamily } : undefined}
+                  />
+                </div>
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className={labelClass}>
+                  Nom du destinataire <span className="text-ink-mute font-normal">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-4 w-4 text-ink-mute" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.recipientName}
+                    onChange={(e) => handleInputChange('recipientName', e.target.value)}
+                    className={inputClass}
+                    placeholder="ex. Aminata Traoré"
+                  />
+                </div>
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className={labelClass}>
+                  Petit mot <span className="text-ink-mute font-normal">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute top-3 left-3 pointer-events-none">
+                    <MessageSquare className="h-4 w-4 text-ink-mute" />
+                  </div>
+                  <textarea
+                    value={formData.message}
+                    onChange={(e) => handleInputChange('message', e.target.value)}
+                    rows={3}
+                    className="w-full pl-10 pr-3.5 py-3 bg-paper border border-line text-ink placeholder:text-ink-mute/60 rounded-lg text-[14px] focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all resize-none"
+                    placeholder="Ajoutez un message personnel à votre transfert..."
+                  />
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-red-700 leading-relaxed">{error}</p>
+                </div>
+              )}
+
+              {/* Notice */}
+              <div className="rounded-lg bg-amber-50 border-l-4 border-amber-400 p-3 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-amber-900 leading-tight">
+                    À savoir avant d'envoyer
+                  </p>
+                  <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                    Si le destinataire n'a pas encore de compte Temba, il recevra le billet à son
+                    inscription. Sinon, le transfert est instantané.
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>
 
-        {/* Footer - Only show when not in confirmation mode */}
+        {/* Sticky footer (form step only) */}
         {!showConfirmation && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+          <footer className="sticky bottom-0 flex items-center justify-end gap-2 px-5 py-3 bg-cream border-t border-line">
             <button
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="inline-flex items-center justify-center h-10 px-4 border border-line bg-paper text-ink rounded-lg text-[13px] font-bold hover:border-ink hover:bg-cream/50 transition-colors disabled:opacity-50"
             >
               Annuler
             </button>
             <button
               onClick={handleTransfer}
               disabled={isLoading}
-              className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-paper border-t-transparent rounded-full animate-spin" />
                   Transfert...
                 </>
               ) : (
                 <>
-                  <Send className="h-4 w-4" />
-                  Transférer le billet
+                  <Send className="h-3.5 w-3.5" />
+                  Continuer
                 </>
               )}
             </button>
-          </div>
+          </footer>
         )}
       </div>
     </div>

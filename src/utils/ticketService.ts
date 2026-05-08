@@ -4,106 +4,138 @@ import { jsPDF } from 'jspdf';
 // Use a simple secret key - in production this should be an environment variable
 const SECRET_KEY = import.meta.env.VITE_TICKET_SECRET_KEY || 'default-secret-key';
 
-export const generatePDF = async (element: HTMLElement): Promise<Blob> => {
+/**
+ * Renders the ticket DOM at a controlled "phone" width (forced mobile layout)
+ * and captures it to a high-resolution canvas. The narrow stage keeps every
+ * Tailwind `sm:` / `md:` utility inactive, so the export uses the compact
+ * stacked layout (poster on top, info, then centered QR stub) — readable on
+ * phones, easy to share, and consistent across devices.
+ */
+const captureTicketCanvas = async (element: HTMLElement): Promise<HTMLCanvasElement> => {
   if (!element) {
-    throw new Error('Aucun élément fourni pour la génération du PDF');
+    throw new Error('Aucun élément fourni pour la génération du billet');
   }
 
-  try {
-    // Create a clone of the element to avoid modifying the original
-    const clone = element.cloneNode(true) as HTMLElement;
-    document.body.appendChild(clone);
-    clone.style.position = 'absolute';
-    clone.style.left = '-9999px';
-    clone.style.transform = 'none';
+  // Stage width MUST stay below Tailwind's `sm` breakpoint (640px) so the
+  // ticket renders in its mobile layout. 480px ≈ a modern phone viewport.
+  const STAGE_WIDTH = 480;
+  const stage = document.createElement('div');
+  stage.style.position = 'fixed';
+  stage.style.top = '-100000px';
+  stage.style.left = '0';
+  stage.style.width = `${STAGE_WIDTH}px`;
+  stage.style.padding = '16px';
+  stage.style.background = '#FAF7F2';
+  stage.style.zIndex = '-1';
+  stage.style.pointerEvents = 'none';
 
-    // Find and optimize QR codes for PDF - make them larger for better scanning
-    const qrCodeContainers = clone.querySelectorAll('[data-qr-code="true"]');
-    qrCodeContainers.forEach(container => {
-      const svgElements = container.querySelectorAll('svg');
-      svgElements.forEach(svgElement => {
-        if (svgElement && svgElement.getAttribute('width')) {
-          // This is a QR code SVG - make it larger for PDF
-          const currentSize = parseInt(svgElement.getAttribute('width') || '200');
-          const pdfOptimizedSize = Math.max(currentSize, 350); // Minimum 350px for PDF
-          svgElement.setAttribute('width', pdfOptimizedSize.toString());
-          svgElement.setAttribute('height', pdfOptimizedSize.toString());
-          
-          // Also update the viewBox if it exists
-          const viewBox = svgElement.getAttribute('viewBox');
-          if (viewBox) {
-            const [x, y, w, h] = viewBox.split(' ').map(Number);
-            if (w && h) {
-              // Keep the same viewBox but the SVG will be rendered larger
-              svgElement.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-            }
-          }
-        }
+  const clone = element.cloneNode(true) as HTMLElement;
+  clone.style.transform = 'none';
+  clone.style.maxWidth = 'none';
+  clone.style.width = '100%';
+  stage.appendChild(clone);
+  document.body.appendChild(stage);
+
+  // Force the mobile QR variant to render (the desktop one is hidden via
+  // `hidden sm:block` which html2canvas may not evaluate reliably).
+  const qrCodeContainers = clone.querySelectorAll('[data-qr-code="true"]');
+  qrCodeContainers.forEach((container) => {
+    const mobileQR = container.querySelector('.block.sm\\:hidden') as HTMLElement | null;
+    const desktopQR = container.querySelector('.hidden.sm\\:block') as HTMLElement | null;
+    if (mobileQR) mobileQR.style.display = 'block';
+    if (desktopQR) desktopQR.style.display = 'none';
+  });
+
+  // Wait for images so the poster doesn't render blank
+  const images = Array.from(clone.getElementsByTagName('img'));
+  await Promise.all(
+    images.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        img.onload = () => resolve(null);
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 5000);
       });
-      
-      // Also make the container responsive classes work for PDF by showing the larger version
-      const mobileQR = container.querySelector('.block.sm\\:hidden');
-      const desktopQR = container.querySelector('.hidden.sm\\:block');
-      
-      if (mobileQR && desktopQR) {
-        // Force show the mobile version (which is larger) and hide desktop version
-        (mobileQR as HTMLElement).style.display = 'block';
-        (desktopQR as HTMLElement).style.display = 'none';
-      }
-    });
+    })
+  );
 
-    // Wait for all images to load - but don't fail if some images can't load
-    const images = Array.from(clone.getElementsByTagName('img'));
-    await Promise.all(
-      images.map(img => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = () => resolve(null);
-          // If image fails to load or times out, continue anyway
-          img.onerror = () => resolve(null);
-          // Set timeout to avoid hanging - resolve instead of reject
-          setTimeout(() => resolve(null), 5000);
-        });
-      })
-    );
+  // Small paint delay so layout settles
+  await new Promise((r) => setTimeout(r, 60));
 
-    // Generate canvas with high quality for QR codes
+  try {
     const canvas = await html2canvas(clone, {
-      scale: 3, // Even higher quality for better QR code rendering
+      // Higher scale because the stage is narrow — keeps the export retina-sharp.
+      scale: 3,
       useCORS: true,
       allowTaint: true,
       logging: false,
-      backgroundColor: '#ffffff',
+      backgroundColor: null,
+      windowWidth: STAGE_WIDTH,
       width: clone.scrollWidth,
-      height: clone.scrollHeight
+      height: clone.scrollHeight,
     });
+    return canvas;
+  } finally {
+    document.body.removeChild(stage);
+  }
+};
 
-    // Remove clone after canvas generation
-    document.body.removeChild(clone);
+/**
+ * Generates a high-quality PNG image of the ticket — the recommended download
+ * format. Opens natively on phones, easy to share, no page-size mismatch.
+ */
+export const generateTicketPNG = async (element: HTMLElement): Promise<Blob> => {
+  const canvas = await captureTicketCanvas(element);
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Échec de la création du PNG'));
+      },
+      'image/png',
+      1.0
+    );
+  });
+};
 
-    // Create PDF
+/**
+ * Legacy PDF download — kept available for users who want to print.
+ * Now uses portrait orientation and fits the ticket cleanly on the page.
+ */
+export const generatePDF = async (element: HTMLElement): Promise<Blob> => {
+  try {
+    const canvas = await captureTicketCanvas(element);
+
+    // The ticket is taller than wide → portrait fits much better than landscape.
     const pdf = new jsPDF({
-      orientation: 'landscape',
+      orientation: 'portrait',
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
+      compress: true,
     });
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 8; // mm — small breathing space on every edge
+    const usableWidth = pdfWidth - margin * 2;
+    const usableHeight = pdfHeight - margin * 2;
+
     const imgWidth = canvas.width;
     const imgHeight = canvas.height;
-    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-    
-    const imgX = (pdfWidth - imgWidth * ratio) / 2;
-    const imgY = (pdfHeight - imgHeight * ratio) / 2;
+    const ratio = Math.min(usableWidth / imgWidth, usableHeight / imgHeight);
+
+    const renderW = imgWidth * ratio;
+    const renderH = imgHeight * ratio;
+    const imgX = (pdfWidth - renderW) / 2;
+    const imgY = (pdfHeight - renderH) / 2;
 
     pdf.addImage(
-      canvas.toDataURL('image/png', 1.0),
-      'PNG',
+      canvas.toDataURL('image/jpeg', 0.92),
+      'JPEG',
       imgX,
       imgY,
-      imgWidth * ratio,
-      imgHeight * ratio,
+      renderW,
+      renderH,
       undefined,
       'FAST'
     );

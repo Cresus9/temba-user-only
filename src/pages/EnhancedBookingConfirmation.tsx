@@ -11,9 +11,10 @@ import { useAuth } from '../context/AuthContext';
 import FestivalTicket from '../components/tickets/FestivalTicket';
 import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
 import toast from 'react-hot-toast';
-import { generatePDF } from '../utils/ticketService';
+import { generateTicketPNG } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
 import PageSEO from '../components/SEO/PageSEO';
+import { referralService } from '../services/referralService';
 
 interface Ticket {
   id: string;
@@ -194,6 +195,40 @@ export default function EnhancedBookingConfirmation() {
       }
     }
   }, [bookingId, searchParams]);
+
+  // first_purchase referral completion (parity with mobile); fires once per order. Checkout credit logic unchanged.
+  useEffect(() => {
+    if (!bookingId || !user?.id || tickets.length === 0) return;
+    const flagKey = `referral_complete_${bookingId}`;
+    if (sessionStorage.getItem(flagKey)) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: orderRow } = await supabase
+          .from('orders')
+          .select('user_id, total_amount')
+          .eq('id', bookingId)
+          .single();
+        if (cancelled || !orderRow || orderRow.user_id !== user.id) return;
+        const amount = Number(orderRow.total_amount ?? 0);
+        const ok = await referralService.completeReferral({
+          userId: user.id,
+          orderId: bookingId,
+          orderAmount: amount,
+        });
+        if (ok) {
+          sessionStorage.setItem(flagKey, '1');
+        }
+      } catch (e) {
+        console.warn('[referral] post-order completion skipped', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId, user?.id, tickets.length]);
 
   const verifyPaymentAndFetchTickets = async (token: string) => {
     try {
@@ -645,11 +680,11 @@ export default function EnhancedBookingConfirmation() {
         const element = ticketElements[i] as HTMLElement;
         const ticket = tickets[i];
         
-        const pdf = await generatePDF(element);
-        const url = URL.createObjectURL(pdf);
+        const png = await generateTicketPNG(element);
+        const url = URL.createObjectURL(png);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.pdf`;
+        link.download = `billet-${ticket.event.title.replace(/\s+/g, '-')}-${ticket.id.slice(-8)}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

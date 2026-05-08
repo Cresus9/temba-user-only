@@ -172,13 +172,13 @@ export default function CategoryEventsDisplay({
 
   if (loading) {
     return (
-      <div className="space-y-12">
+      <div className="space-y-10">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, j) => (
-                <div key={j} className="bg-gray-200 rounded-xl aspect-[4/3]" />
+            <div className="h-7 bg-line rounded w-1/3 mb-4" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, j) => (
+                <div key={j} className="bg-line rounded-xl2 aspect-square" />
               ))}
             </div>
           </div>
@@ -189,24 +189,17 @@ export default function CategoryEventsDisplay({
 
   if (categorySections.length === 0) {
     return (
-      <div className="text-center py-16">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          Aucun événement trouvé
-        </h3>
-        <p className="text-gray-600">
-          Essayez d'ajuster vos filtres ou termes de recherche
+      <div className="text-center py-16 border border-dashed border-line rounded-xl2 bg-paper">
+        <h3 className="text-ink mb-2">Aucun événement trouvé</h3>
+        <p className="text-ink-mute">
+          Essayez d'ajuster vos filtres ou termes de recherche.
         </p>
-        {loading && (
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          </div>
-        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {categorySections.map((section) => (
         <CategorySection
           key={section.category.id || section.category.name}
@@ -226,24 +219,24 @@ function CategorySection({ section }: CategorySectionProps) {
   const { category, events } = section;
 
   return (
-    <section className="overflow-hidden">
+    <section>
       {/* Category Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-          {category.name}
-        </h2>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2 mb-4">
+        <div>
+          <p className="eyebrow mb-1.5">Catégorie</p>
+          <h2 className="text-ink">{category.name}</h2>
+        </div>
         <Link
           to={`/categories/${category.id || category.name}`}
-          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-semibold text-sm transition-colors"
+          className="self-start md:self-end text-[14px] font-semibold text-ink hover:text-brand transition-colors inline-flex items-center gap-1.5"
         >
-          Voir tout {category.name}
+          Tout voir
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      {/* Simple Grid Layout for all */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {events.slice(0, 8).map((event) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {events.slice(0, 10).map((event) => (
           <EventCard key={event.id} {...event} />
         ))}
       </div>

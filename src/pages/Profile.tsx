@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { User, Ticket, Bell, CreditCard, Settings, LogOut, ClipboardList, Inbox, Send } from 'lucide-react';
+import { User, Ticket, Bell, CreditCard, Settings, LogOut, ClipboardList, Inbox, Send, Gift } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
 import ProfileInfo from '../components/profile/ProfileInfo';
@@ -11,6 +11,7 @@ import AccountSettings from '../components/profile/AccountSettings';
 import TransferredTicketsList from '../components/tickets/TransferredTicketsList';
 import SentTicketsList from '../components/tickets/SentTicketsList';
 import MyTickets from '../components/profile/MyTickets';
+import ReferralProgram from './profile/ReferralProgram';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
 
 export default function Profile() {
@@ -62,6 +63,7 @@ export default function Profile() {
       items: [
         { name: t('profile.menu.notifications', { default: 'Notifications' }), path: '/profile/notifications', icon: Bell },
         { name: t('profile.menu.payment_methods', { default: 'Méthodes de Paiement' }), path: '/profile/payments', icon: CreditCard },
+        { name: t('profile.menu.referral', { default: 'Référer & Gagner' }), path: '/profile/referral', icon: Gift },
         { name: t('profile.menu.account_settings', { default: 'Paramètres du Compte' }), path: '/profile/settings', icon: Settings },
       ],
     },
@@ -76,83 +78,118 @@ export default function Profile() {
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span className="text-2xl font-bold text-indigo-600">
-                {avatarInitial}
-              </span>
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
-              <p className="text-sm text-gray-600">
-                {displayIdentifier !== displayName && (
-                  <span className="block mb-1">{displayIdentifier}</span>
-                )}
-                {t('profile.menu.member_since', { 
-                  year: new Date(user?.created_at || '').getFullYear(),
-                  default: `Membre depuis ${new Date(user?.created_at || '').getFullYear()}`
-                })}
-              </p>
-            </div>
-          </div>
+  const memberYear = new Date(user?.created_at || '').getFullYear();
 
-          <nav className="space-y-6">
-            {navigationSections.map((section, index) => (
-              <div key={section.title ?? `section-${index}`}>
-                {section.title && (
-                  <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    {section.title}
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {section.items.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                      <Link
-                        key={item.name}
-                        to={item.path}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${
-                          isActive
-                            ? 'bg-indigo-50 text-indigo-600'
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
+  return (
+    <div className="bg-paper">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 md:py-8">
+        <div className="flex flex-col md:flex-row gap-5 md:gap-7">
+          {/* Sidebar */}
+          <aside className="w-full md:w-72 md:flex-shrink-0">
+            <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden md:sticky md:top-20">
+              {/* Identity card */}
+              <div className="relative p-5 bg-cream border-b border-line overflow-hidden">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full bg-brand-50 blur-2xl opacity-80"
+                />
+                <div className="relative flex items-center gap-3.5">
+                  <div className="grid place-items-center w-12 h-12 rounded-full bg-brand text-paper flex-shrink-0 ring-4 ring-paper">
+                    <span
+                      className="text-[18px] font-bold tracking-tight"
+                      style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                    >
+                      {avatarInitial}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-[15px] font-bold text-ink truncate leading-tight">
+                      {displayName}
+                    </h2>
+                    {displayIdentifier !== displayName && (
+                      <p
+                        className="text-[11px] text-ink-mute truncate mt-0.5 tabular-nums"
+                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
                       >
-                        <item.icon className="h-5 w-5" />
-                        {item.name}
-                      </Link>
-                    );
-                  })}
+                        {displayIdentifier}
+                      </p>
+                    )}
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-mute mt-1">
+                      {t('profile.menu.member_since', {
+                        year: memberYear,
+                        default: `Membre depuis ${memberYear}`,
+                      })}
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="h-5 w-5" />
-              {t('profile.menu.sign_out', { default: 'Déconnexion' })}
-            </button>
-          </nav>
-        </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 min-h-[600px] bg-white rounded-xl shadow-sm p-6">
-          <Routes>
-            <Route path="/" element={<ProfileInfo />} />
-            <Route path="/my-tickets" element={<MyTickets />} />
-            <Route path="/bookings" element={<BookingHistory />} />
-            <Route path="/transfers" element={<TransferredTicketsList />} />
-            <Route path="/sent" element={<SentTicketsList />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/payments" element={<PaymentMethods />} />
-            <Route path="/settings" element={<AccountSettings />} />
-          </Routes>
-        </main>
+              {/* Navigation */}
+              <nav className="p-2.5 space-y-3">
+                {navigationSections.map((section, index) => (
+                  <div key={section.title ?? `section-${index}`}>
+                    {section.title && (
+                      <p className="px-3 pt-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-mute/70">
+                        {section.title}
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {section.items.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <Link
+                            key={item.name}
+                            to={item.path}
+                            className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                              isActive
+                                ? 'bg-brand-50 text-brand'
+                                : 'text-ink/80 hover:bg-cream hover:text-ink'
+                            }`}
+                          >
+                            {isActive && (
+                              <span
+                                aria-hidden
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand rounded-r"
+                              />
+                            )}
+                            <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-brand' : ''}`} />
+                            <span className="truncate">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-2 mt-2 border-t border-line">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {t('profile.menu.sign_out', { default: 'Déconnexion' })}
+                  </button>
+                </div>
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+            <div className="bg-paper rounded-xl2 border border-line shadow-card p-5 md:p-6 min-h-[600px]">
+              <Routes>
+                <Route path="/" element={<ProfileInfo />} />
+                <Route path="/my-tickets" element={<MyTickets />} />
+                <Route path="/bookings" element={<BookingHistory />} />
+                <Route path="/transfers" element={<TransferredTicketsList />} />
+                <Route path="/sent" element={<SentTicketsList />} />
+                <Route path="/notifications" element={<Notifications />} />
+                <Route path="/payments" element={<PaymentMethods />} />
+                <Route path="/referral" element={<ReferralProgram />} />
+                <Route path="/settings" element={<AccountSettings />} />
+              </Routes>
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );

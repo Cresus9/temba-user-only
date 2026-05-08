@@ -6,49 +6,69 @@ export default function HowItWorks() {
     {
       id: 1,
       icon: Search,
-      title: "Découvrez des événements",
-      description: "Explorez notre large sélection d'événements culturels, concerts, festivals et spectacles au Burkina Faso."
+      title: 'Découvrez',
+      description: "Explorez concerts, festivals et spectacles en Afrique de l'Ouest.",
     },
     {
       id: 2,
       icon: CreditCard,
-      title: "Réservez en ligne",
-      description: "Choisissez vos places et payez en toute sécurité avec Mobile Money ou carte bancaire."
+      title: 'Réservez',
+      description: 'Payez en FCFA via Mobile Money ou carte, en toute sécurité.',
     },
     {
       id: 3,
       icon: Ticket,
-      title: "Recevez vos billets",
-      description: "Obtenez instantanément vos e-billets avec QR code unique pour un accès rapide."
+      title: 'Recevez',
+      description: 'Vos e-billets QR code arrivent instantanément dans votre boîte.',
     },
     {
       id: 4,
       icon: Smartphone,
-      title: "Profitez de l'événement",
-      description: "Présentez simplement votre billet numérique à l'entrée et profitez de votre expérience."
-    }
+      title: 'Profitez',
+      description: "Présentez votre billet à l'entrée et vivez l'expérience.",
+    },
   ];
 
   return (
-    <section className="py-16 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-          Comment ça marche ?
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((step, index) => {
-            const IconComponent = step.icon;
+    <section className="section-normal surface-cream">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6">
+        <div className="max-w-2xl mb-8">
+          <p className="eyebrow mb-2">En 4 étapes</p>
+          <h2 className="text-ink mb-2">Réserver, c'est facile</h2>
+          <p className="text-[14px] text-ink-mute">
+            De la découverte à l'entrée, votre billet en quelques minutes.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {steps.map((step) => {
+            const Icon = step.icon;
             return (
-              <div key={step.id} className="text-center group">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-indigo-200 transition-colors relative">
-                  <IconComponent className="h-6 w-6 text-indigo-600" />
-                  {/* Step Number Badge */}
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                    {step.id}
-                  </div>
+              <div
+                key={step.id}
+                className="relative bg-paper border border-line rounded-xl2 p-5 hover:border-brand/40 hover:shadow-card transition-all duration-300"
+              >
+                {/* Step number — outline numeral, top-right */}
+                <span
+                  aria-hidden
+                  className="absolute top-4 right-5 text-[40px] font-bold text-line leading-none select-none"
+                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                >
+                  0{step.id}
+                </span>
+
+                {/* Icon tile */}
+                <div className="grid place-items-center w-10 h-10 rounded-xl bg-brand-50 text-brand mb-5">
+                  <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
+
+                <h3
+                  className="text-[16px] font-bold text-ink mb-1.5 tracking-tight"
+                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+                >
+                  {step.title}
+                </h3>
+                <p className="text-[13px] text-ink-mute leading-relaxed">{step.description}</p>
               </div>
             );
           })}

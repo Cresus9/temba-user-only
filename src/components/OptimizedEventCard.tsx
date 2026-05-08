@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import EventImageWithOptimization from './EventImageWithOptimization';
+import React from 'react';
+import PosterMedia from './common/PosterMedia';
 import { imagePreloader } from '../utils/imagePreloader';
 
 interface Event {
@@ -60,91 +60,75 @@ export default function OptimizedEventCard({
 
   const getAvailabilityStatus = () => {
     if (!event.capacity || !event.tickets_sold) return null;
-    
+
     const soldPercentage = (event.tickets_sold / event.capacity) * 100;
-    
+
     if (soldPercentage >= 100) {
-      return { text: 'Épuisé', color: 'bg-red-500' };
+      return { text: 'Épuisé', cls: 'bg-ink text-paper' };
     } else if (soldPercentage >= 90) {
-      return { text: 'Derniers billets', color: 'bg-orange-500' };
+      return { text: 'Derniers billets', cls: 'bg-accent text-paper' };
     } else if (soldPercentage >= 75) {
-      return { text: 'Vente rapide', color: 'bg-yellow-500' };
+      return { text: 'Vente rapide', cls: 'bg-accent-50 text-accent-700 border border-accent-100' };
     }
-    
+
     return null;
   };
 
   const availability = getAvailabilityStatus();
 
   return (
-    <div 
-      className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer ${className}`}
+    <div
+      className={`group bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-300 cursor-pointer ${className}`}
       onClick={onClick}
       onMouseEnter={handleMouseEnter}
     >
-      {/* Image with optimization */}
-      <div className="relative">
-        <EventImageWithOptimization
-          src={event.image_url}
-          alt={event.title}
-          width={400}
-          height={300}
-          quality={80}
-          priority={priority}
-          className="w-full h-48 object-cover"
-        />
-        
-        {/* Availability badge */}
+      {/* Image — full poster, blurred backdrop fills the frame */}
+      <PosterMedia
+        src={event.image_url}
+        alt={event.title}
+        aspect="aspect-square"
+        width={500}
+        height={500}
+        quality={80}
+        priority={priority}
+        className="group-hover:[&_img]:scale-[1.03] [&_img]:transition-transform [&_img]:duration-500 [&_img]:ease-out"
+      >
         {availability && (
-          <div className={`absolute top-2 right-2 ${availability.color} text-white px-2 py-1 rounded-full text-xs font-semibold`}>
+          <div className={`absolute bottom-2.5 right-2.5 ${availability.cls} px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide z-10 shadow-card`}>
             {availability.text}
           </div>
         )}
-      </div>
+      </PosterMedia>
 
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+      {/* Content — compact */}
+      <div className="p-3">
+        <p className="text-[10px] uppercase tracking-[0.12em] font-bold text-accent mb-1">
+          {formatDate(event.date)}
+        </p>
+        <h3
+          className="text-[13px] font-bold text-ink mb-1.5 line-clamp-2 leading-snug tracking-tight"
+          style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+        >
           {event.title}
         </h3>
-        
-        <div className="space-y-2 text-sm text-gray-600">
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>{formatDate(event.date)}</span>
-          </div>
-          
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="truncate">{event.location}</span>
-          </div>
 
-          {/* Ticket availability - Only show if 80%+ sold */}
-          {event.capacity && event.tickets_sold !== undefined && (event.tickets_sold / event.capacity) >= 0.8 && (
-            <div className="flex items-center">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z" />
-              </svg>
-              <span>{event.tickets_sold} / {event.capacity}</span>
-            </div>
-          )}
+        <div className="flex items-center gap-1 text-[11px] text-ink-mute mb-2.5">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span className="truncate">{event.location}</span>
         </div>
 
-        {/* Price and action */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-lg font-bold text-indigo-600">
+        <footer className="flex items-center justify-between pt-2.5 border-t border-line">
+          <p className="text-[13px] font-bold text-ink leading-none tracking-tight">
             {formatPrice(event.price, event.currency)}
-          </div>
-          
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
-            Obtenir des billets
-          </button>
-        </div>
+          </p>
+          <span className="text-[12px] font-semibold text-ink group-hover:text-brand transition-colors inline-flex items-center gap-0.5">
+            Réserver
+            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+          </span>
+        </footer>
       </div>
     </div>
   );
