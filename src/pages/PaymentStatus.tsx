@@ -90,11 +90,11 @@ export default function PaymentStatus() {
 
         const { data: initial, error: initialErr } = await supabase
           .from('payments')
-          .select('status,error_message')
+          .select('status')
           .eq('id', paymentId)
           .maybeSingle();
         if (initialErr) throw new Error(initialErr.message);
-        if (applyStripeStatus(String(initial?.status || ''), String(initial?.error_message || ''))) {
+        if (applyStripeStatus(String(initial?.status || ''), '')) {
           return;
         }
 
@@ -107,6 +107,7 @@ export default function PaymentStatus() {
               const oldStatus = String(payload?.old?.status || '').toLowerCase();
               const newStatus = String(payload?.new?.status || '').toLowerCase();
               if (!newStatus || newStatus === oldStatus) return;
+              // error_message is optional — column may not exist on every env
               applyStripeStatus(newStatus, String(payload?.new?.error_message || ''));
             }
           )
@@ -115,10 +116,10 @@ export default function PaymentStatus() {
         const fallbackInterval = setInterval(async () => {
           const { data: row } = await supabase
             .from('payments')
-            .select('status,error_message')
+            .select('status')
             .eq('id', paymentId)
             .maybeSingle();
-          applyStripeStatus(String(row?.status || ''), String(row?.error_message || ''));
+          applyStripeStatus(String(row?.status || ''), '');
         }, 12000);
 
         stripeCleanup = () => {
