@@ -1,63 +1,87 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { BlogPost } from '../../services/blogService';
 
 interface BlogHeroProps {
   post: BlogPost;
 }
 
+const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
+
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'long', 
-    day: 'numeric', 
-    year: 'numeric' 
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   });
 };
 
 export default function BlogHero({ post }: BlogHeroProps) {
-  // Normalize featured image (support both column names)
   const featuredImage = post.featured_image || post.featured_image_url;
-  
+
   return (
-    <div className="relative bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Content */}
-          <div className="space-y-6">
+    <section className="relative bg-cream bg-grain overflow-hidden border-b border-line">
+      {/* Brand glow halos */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -right-24 w-[480px] h-[480px] rounded-full bg-brand-50 blur-3xl opacity-70"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-32 -left-32 w-[340px] h-[340px] rounded-full bg-accent-50 blur-3xl opacity-60"
+      />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.05fr] gap-8 lg:gap-12 items-center">
+          {/* ── Copy ── */}
+          <div className="order-2 lg:order-1">
+            {/* Featured eyebrow */}
+            <p
+              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-paper border border-line shadow-card text-[10px] font-bold uppercase tracking-[0.22em] text-brand mb-4"
+              style={{ fontFamily: monoFamily }}
+            >
+              <Sparkles className="h-3 w-3 text-accent" strokeWidth={2.5} />
+              Article à la une
+            </p>
+
             {/* Category */}
             {post.category && (
-              <Link to={`/blog/category/${post.category.slug}`}>
+              <Link
+                to={`/blog/category/${post.category.slug}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-paper ring-1 ring-line text-[10px] font-bold uppercase tracking-[0.16em] text-ink hover:text-brand hover:ring-brand transition-colors mb-5"
+                style={{ fontFamily: monoFamily }}
+              >
                 <span
-                  className="inline-block px-3 py-1 text-xs font-semibold tracking-wide uppercase rounded"
-                  style={{
-                    backgroundColor: post.category.color || '#6366F1',
-                    color: '#fff'
-                  }}
-                >
-                  {post.category.name}
-                </span>
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ background: post.category.color || '#3D3FE2' }}
+                />
+                {post.category.name}
               </Link>
             )}
 
             {/* Title */}
-            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
+            <h1
+              className="text-[clamp(28px,4.4vw,44px)] font-bold text-ink leading-[1.06] tracking-tight mb-4"
+              style={{ fontFamily: displayFamily }}
+            >
               {post.title}
             </h1>
 
             {/* Excerpt */}
             {post.excerpt && (
-              <p className="text-xl text-gray-600 leading-relaxed">
+              <p className="text-[16px] sm:text-[17px] text-ink-mute leading-relaxed mb-6 max-w-xl">
                 {post.excerpt}
               </p>
             )}
 
-            {/* Meta Info */}
-            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-4 mb-7">
               {post.author && (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] flex items-center justify-center text-sm font-semibold text-white">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-brand-50 ring-1 ring-brand-100 grid place-items-center text-[12px] font-bold text-brand flex-shrink-0">
                     {post.author.avatar_url ? (
                       <img
                         src={post.author.avatar_url}
@@ -65,58 +89,87 @@ export default function BlogHero({ post }: BlogHeroProps) {
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      post.author.name?.charAt(0) || 'T'
+                      (post.author.name?.charAt(0) || 'T').toUpperCase()
                     )}
                   </div>
-                  <span className="font-medium text-gray-900">
+                  <span className="text-[13px] font-semibold text-ink">
                     {post.author.name || 'Temba'}
                   </span>
                 </div>
               )}
-              
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4 text-[#6366F1]" />
-                <span>{formatDate(post.published_at || post.created_at)}</span>
-              </div>
 
-              {post.read_time_minutes && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4 text-[#6366F1]" />
-                  <span>{post.read_time_minutes} min read</span>
-                </div>
-              )}
+              <span aria-hidden className="hidden sm:block w-px h-5 bg-line" />
+
+              <div
+                className="flex flex-wrap items-center gap-3 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-mute"
+                style={{ fontFamily: monoFamily }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3 text-brand" strokeWidth={2.5} />
+                  <span className="tabular-nums">
+                    {formatDate(post.published_at || post.created_at)}
+                  </span>
+                </span>
+
+                {post.read_time_minutes && (
+                  <>
+                    <span className="text-ink-mute/40">·</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-brand" strokeWidth={2.5} />
+                      <span className="tabular-nums">
+                        {post.read_time_minutes} min de lecture
+                      </span>
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* CTA Button */}
+            {/* CTA */}
             <Link
               to={`/blog/post/${post.slug}`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-white font-semibold rounded-lg hover:shadow-lg transition-all group"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-brand text-paper text-[14px] font-bold rounded-xl2 hover:bg-brand-700 active:bg-brand-800 transition-colors shadow-card group"
             >
-              <span>Read article</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              Lire l'article
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
-          {/* Featured Image */}
-          <div className="relative">
-            {featuredImage ? (
-              <div className="relative overflow-hidden bg-gray-100 rounded-2xl shadow-xl">
+          {/* ── Image ── */}
+          <Link
+            to={`/blog/post/${post.slug}`}
+            className="order-1 lg:order-2 group block"
+          >
+            <div className="relative overflow-hidden rounded-[20px] border border-line shadow-card bg-cream">
+              {featuredImage ? (
                 <img
                   src={featuredImage}
                   alt={post.featured_image_alt || post.title}
-                  className="w-full aspect-[4/3] object-cover"
+                  className="w-full aspect-[4/3] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 />
-              </div>
-            ) : (
-              <div className="w-full aspect-[4/3] bg-gradient-to-br from-[#E0E7FF] to-[#EDE9FE] rounded-2xl flex items-center justify-center shadow-xl">
-                <span className="text-9xl font-bold text-[#6366F1] opacity-30">
-                  {post.title.charAt(0)}
-                </span>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="w-full aspect-[4/3] bg-cream-deep grid place-items-center">
+                  <span
+                    className="text-[120px] font-bold text-brand/20"
+                    style={{ fontFamily: displayFamily }}
+                  >
+                    {post.title.charAt(0)}
+                  </span>
+                </div>
+              )}
+
+              {/* Tiny "Admit one" stamp at top-right */}
+              <span
+                className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/85 backdrop-blur text-paper text-[10px] font-bold uppercase tracking-[0.18em] ring-1 ring-paper/15"
+                style={{ fontFamily: monoFamily }}
+              >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
+                Temba · Blog
+              </span>
+            </div>
+          </Link>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

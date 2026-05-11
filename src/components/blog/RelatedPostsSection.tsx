@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { blogService, BlogPost } from '../../services/blogService';
+import BlogPostCard from './BlogPostCard';
 
 interface RelatedPostsSectionProps {
   postId: string;
 }
 
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    year: 'numeric' 
-  });
-};
+const monoFamily =
+  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
 
 export default function RelatedPostsSection({ postId }: RelatedPostsSectionProps) {
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
@@ -21,6 +18,7 @@ export default function RelatedPostsSection({ postId }: RelatedPostsSectionProps
 
   useEffect(() => {
     loadRelatedPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   const loadRelatedPosts = async () => {
@@ -37,14 +35,28 @@ export default function RelatedPostsSection({ postId }: RelatedPostsSectionProps
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="bg-gray-200 h-48 mb-4 rounded-lg"></div>
-            <div className="h-4 bg-gray-200 mb-2 rounded"></div>
-            <div className="h-4 bg-gray-200 w-2/3 rounded"></div>
+      <div>
+        <div className="flex items-end justify-between gap-4 mb-8">
+          <div>
+            <div className="h-3 w-24 bg-cream-deep rounded mb-2 animate-pulse" />
+            <div className="h-7 w-72 bg-cream-deep rounded animate-pulse" />
           </div>
-        ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-paper rounded-xl2 border border-line overflow-hidden animate-pulse"
+            >
+              <div className="aspect-[16/10] bg-cream-deep" />
+              <div className="p-5 space-y-3">
+                <div className="h-3 bg-cream-deep w-1/3 rounded" />
+                <div className="h-5 bg-cream-deep w-5/6 rounded" />
+                <div className="h-4 bg-cream-deep w-full rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -55,65 +67,35 @@ export default function RelatedPostsSection({ postId }: RelatedPostsSectionProps
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-12">
-        More from the blog
-      </h2>
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
+        <div>
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand mb-2"
+            style={{ fontFamily: monoFamily }}
+          >
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent align-middle mr-1.5" />
+            À lire aussi
+          </p>
+          <h2
+            className="text-[clamp(22px,3.2vw,30px)] font-bold text-ink leading-[1.15] tracking-tight"
+            style={{ fontFamily: displayFamily }}
+          >
+            Continuez votre lecture
+          </h2>
+        </div>
+        <Link
+          to="/blog"
+          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink hover:text-brand transition-colors group"
+        >
+          Tous les articles
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {relatedPosts.map((post) => {
-          // Normalize featured image (support both column names)
-          const featuredImage = post.featured_image || post.featured_image_url;
-          
-          return (
-            <Link
-              key={post.id}
-              to={`/blog/post/${post.slug}`}
-              className="group block"
-            >
-              <article>
-                {/* Image */}
-                <div className="relative overflow-hidden mb-4 bg-gray-100 rounded-lg">
-                  {featuredImage ? (
-                    <img
-                      src={featuredImage}
-                      alt={post.featured_image_alt || post.title}
-                      className="w-full aspect-[16/10] object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                ) : (
-                  <div className="w-full aspect-[16/10] flex items-center justify-center bg-gradient-to-br from-[#E0E7FF] to-[#EDE9FE]">
-                    <span className="text-5xl font-bold text-[#6366F1] opacity-30">
-                      {post.title.charAt(0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="space-y-2">
-                {post.category && (
-                  <span
-                    className="inline-block px-2 py-1 text-xs font-semibold tracking-wide uppercase rounded"
-                    style={{
-                      backgroundColor: post.category.color || '#6366F1',
-                      color: '#fff'
-                    }}
-                  >
-                    {post.category.name}
-                  </span>
-                )}
-
-                <h3 className="text-lg font-bold text-gray-900 leading-tight group-hover:text-[#6366F1] transition-colors line-clamp-2">
-                  {post.title}
-                </h3>
-
-                <p className="text-sm text-gray-500">
-                  {formatDate(post.published_at || post.created_at)}
-                </p>
-              </div>
-            </article>
-          </Link>
-        );
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        {relatedPosts.map((post) => (
+          <BlogPostCard key={post.id} post={post} />
+        ))}
       </div>
     </div>
   );

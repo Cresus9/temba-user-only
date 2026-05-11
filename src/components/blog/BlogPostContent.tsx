@@ -1,229 +1,557 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useMemo } from 'react';
 import DOMPurify from 'dompurify';
 
 interface BlogPostContentProps {
   content: string;
 }
 
-export default function BlogPostContent({ content }: BlogPostContentProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+/* ──────────────────────────────────────────────────────────────
+   Shared prepare(): Markdown-lite → sanitized HTML with stable
+   heading IDs so the Table of Contents and the rendered article
+   share the same anchors.
+   ────────────────────────────────────────────────────────────── */
 
-  useEffect(() => {
-    if (contentRef.current) {
-      // Section headings (H2)
-      const h2Headers = contentRef.current.querySelectorAll('h2');
-      h2Headers.forEach((header) => {
-        header.classList.add(
-          'text-3xl', 'md:text-4xl', 'font-extrabold', 'text-gray-900',
-          'mt-16', 'mb-8', 'relative', 'pb-4'
-        );
-        // Add decorative underline
-        const underline = document.createElement('div');
-        underline.className = 'absolute bottom-0 left-0 w-24 h-1 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] rounded-full';
-        header.appendChild(underline);
-      });
+const ALLOWED_TAGS = [
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'p', 'br', 'hr',
+  'strong', 'em', 'u', 's', 'strike',
+  'a', 'img', 'figure', 'figcaption',
+  'ul', 'ol', 'li',
+  'blockquote', 'pre', 'code', 'kbd',
+  'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  'div', 'span',
+];
 
-      // Subsection headings (H3)
-      const h3Headers = contentRef.current.querySelectorAll('h3');
-      h3Headers.forEach((header) => {
-        header.classList.add(
-          'text-2xl', 'md:text-3xl', 'font-bold',
-          'text-transparent', 'bg-clip-text', 'bg-gradient-to-r', 'from-[#6366F1]', 'to-[#8B5CF6]',
-          'mt-12', 'mb-6', 'flex', 'items-center', 'gap-3'
-        );
-        // Add decorative icon
-        const icon = document.createElement('span');
-        icon.className = 'w-2 h-2 rounded-full bg-gradient-to-r from-[#6366F1] to-[#8B5CF6]';
-        header.insertBefore(icon, header.firstChild);
-      });
+const ALLOWED_ATTR = [
+  'href', 'target', 'rel',
+  'src', 'alt', 'title', 'width', 'height',
+  'class', 'id', 'style', 'data-id',
+];
 
-      // H4 headings
-      const h4Headers = contentRef.current.querySelectorAll('h4');
-      h4Headers.forEach((header) => {
-        header.classList.add('text-xl', 'font-bold', 'text-gray-900', 'mt-8', 'mb-4');
-      });
+const slugify = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '') // strip accents
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 60);
 
-      // Paragraphs
-      const paragraphs = contentRef.current.querySelectorAll('p');
-      paragraphs.forEach((p, index) => {
-        p.classList.add('text-gray-700', 'leading-relaxed', 'mb-6', 'text-lg');
-        
-        // Add drop cap to first paragraph
-        if (index === 0 && p.textContent && p.textContent.trim().length > 0) {
-          const text = p.innerHTML;
-          const cleanText = text.replace(/^[*\s]+/, '');
-          const firstLetter = cleanText.charAt(0);
-          
-          if (firstLetter && firstLetter.match(/[A-Za-zÀ-ÿ]/)) {
-            p.innerHTML = `
-              <span class="float-left text-8xl font-black leading-none mr-4 mt-1 mb-2 text-transparent bg-clip-text bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] select-none">
-                ${firstLetter}
-              </span>
-              <span class="first-line:tracking-widest first-line:text-gray-900 first-line:font-semibold">
-                ${cleanText.substring(1)}
-              </span>
-            `;
-          }
-        }
-      });
+/**
+ * Markdown-lite block processor.
+ * Walks the source line-by-line and groups lines into proper
+ * blocks (headings, paragraphs, ordered/unordered lists,
+ * blockquotes, HR). Returns a string of HTML that has not been
+ * sanitized yet.
+ */
+function blocksToHtml(raw: string): string {
+  const lines = raw.replace(/\r\n?/g, '\n').split('\n');
+  const out: string[] = [];
+  let i = 0;
 
-      // Strong text (bold)
-      const strong = contentRef.current.querySelectorAll('strong');
-      strong.forEach((s) => {
-        const text = s.textContent || '';
-        
-        // Only highlight significant statistics (numbers with 3+ digits or followed by specific words)
-        const isSignificantStat = /\d{3,}/.test(text) || // 3+ digit numbers
-                                 (/\d+/.test(text) && /(participants|personnes|jours|heures|ans|année)/i.test(text));
-        
-        if (isSignificantStat) {
-          s.classList.add(
-            'font-black', 'text-xl', 'px-2', 'py-0.5',
-            'text-transparent', 'bg-clip-text', 'bg-gradient-to-r', 'from-[#6366F1]', 'to-[#8B5CF6]'
-          );
-        } else {
-          // Regular bold text
-          s.classList.add('font-bold', 'text-gray-900');
-        }
-      });
+  const isBlockBoundary = (s: string): boolean =>
+    /^(#{1,6}\s|>\s|[-*]\s|\d+\.\s|---|\*\*\*|___)/.test(s);
 
-      // Links
-      const links = contentRef.current.querySelectorAll('a');
-      links.forEach((link) => {
-        link.classList.add(
-          'text-[#6366F1]', 'font-semibold', 'underline', 'decoration-2',
-          'underline-offset-2', 'hover:text-[#8B5CF6]', 'transition-colors'
-        );
-      });
+  while (i < lines.length) {
+    const trimmed = lines[i].trim();
 
-      // Blockquotes
-      const blockquotes = contentRef.current.querySelectorAll('blockquote');
-      blockquotes.forEach((bq) => {
-        bq.classList.add(
-          'my-12', 'pl-8', 'pr-6', 'py-6', 'relative',
-          'bg-gradient-to-r', 'from-[#EEF2FF]', 'via-[#F5F3FF]', 'to-transparent',
-          'border-l-4', 'border-[#6366F1]', 'rounded-r-2xl',
-          'text-xl', 'italic', 'text-gray-700', 'leading-relaxed',
-          'shadow-sm'
-        );
-      });
-
-      // Lists
-      const lists = contentRef.current.querySelectorAll('ul, ol');
-      lists.forEach((list) => {
-        list.classList.add('space-y-3', 'mb-8', 'text-gray-700', 'text-lg', 'leading-relaxed');
-        if (list.tagName === 'UL') {
-          list.classList.add('list-none', 'pl-0');
-          const items = list.querySelectorAll('li');
-          items.forEach((item) => {
-            item.classList.add('pl-8', 'relative', 'before:content-[""]', 'before:absolute', 
-              'before:left-0', 'before:top-[0.6em]', 'before:w-3', 'before:h-3', 
-              'before:rounded-full', 'before:bg-gradient-to-br', 'before:from-[#6366F1]', 
-              'before:to-[#8B5CF6]');
-          });
-        } else {
-          list.classList.add('list-decimal', 'pl-8');
-        }
-      });
-
-      // Images
-      const images = contentRef.current.querySelectorAll('img');
-      images.forEach((img) => {
-        img.classList.add('my-12', 'w-full', 'h-auto', 'rounded-2xl', 'shadow-2xl');
-      });
-
-      // Code blocks
-      const code = contentRef.current.querySelectorAll('code');
-      code.forEach((c) => {
-        if (!c.parentElement || c.parentElement.tagName !== 'PRE') {
-          c.classList.add('bg-[#EEF2FF]', 'text-[#6366F1]', 'px-2', 'py-1', 'rounded', 'text-sm', 'font-mono', 'font-semibold');
-        }
-      });
-
-      const pre = contentRef.current.querySelectorAll('pre');
-      pre.forEach((p) => {
-        p.classList.add('bg-gray-900', 'text-gray-100', 'p-6', 'overflow-x-auto', 'my-8', 
-          'font-mono', 'text-sm', 'rounded-2xl', 'shadow-xl');
-        const code = p.querySelector('code');
-        if (code) {
-          code.classList.remove('bg-[#EEF2FF]', 'text-[#6366F1]');
-          code.classList.add('text-gray-100');
-        }
-      });
+    // Skip blank lines (used as block separators)
+    if (!trimmed) {
+      i++;
+      continue;
     }
-  }, [content]);
 
-  // Enhanced content processing
-  const processContent = (rawContent: string): string => {
-    let processed = rawContent;
-    
-    // Convert ### to h3, ## to h2
-    processed = processed.replace(/###\s+([^\n]+)/g, '<h3>$1</h3>');
-    processed = processed.replace(/##\s+([^\n]+)/g, '<h2>$1</h2>');
-    
-    // Convert **text** to <strong>text</strong>
-    processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    
-    // Convert single * to nothing (cleanup)
-    processed = processed.replace(/(?<!\*)\*(?!\*)/g, '');
-    
-    // Split into paragraphs and clean up
-    const paragraphs = processed.split(/\n\n+/);
-    processed = paragraphs
-      .filter(p => p.trim())
-      .map(p => {
-        const trimmed = p.trim();
-        // Skip if already wrapped in HTML tags
-        if (trimmed.startsWith('<h') || trimmed.startsWith('<blockquote') || trimmed.startsWith('<ul') || trimmed.startsWith('<ol')) {
-          return trimmed;
-        }
-        // Wrap in paragraph
-        return `<p>${trimmed}</p>`;
-      })
-      .join('\n\n');
-    
-    return processed;
-  };
+    // Headings
+    let m = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (m) {
+      const level = Math.min(m[1].length, 4); // cap at h4
+      const tag = level <= 1 ? 'h2' : `h${level}`; // promote h1 → h2 (we own h1)
+      out.push(`<${tag}>${m[2].trim()}</${tag}>`);
+      i++;
+      continue;
+    }
 
-  const processedContent = processContent(content);
+    // Horizontal rule
+    if (/^(---|\*\*\*|___)\s*$/.test(trimmed)) {
+      out.push('<hr>');
+      i++;
+      continue;
+    }
 
-  const sanitizedContent = DOMPurify.sanitize(processedContent, {
-    ALLOWED_TAGS: [
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'p', 'br', 'strong', 'em', 'u', 's', 'strike',
-      'a', 'img',
-      'ul', 'ol', 'li',
-      'blockquote', 'pre', 'code',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      'div', 'span'
-    ],
-    ALLOWED_ATTR: [
-      'href', 'target', 'rel',
-      'src', 'alt', 'title', 'width', 'height',
-      'class', 'id', 'style'
-    ]
+    // Blockquote — collect contiguous "> " lines
+    if (/^>\s?/.test(trimmed)) {
+      const buf: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        buf.push(lines[i].trim().replace(/^>\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote><p>${buf.join(' ')}</p></blockquote>`);
+      continue;
+    }
+
+    // Unordered list — collect contiguous "- " or "* " lines
+    if (/^[-*]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const li = lines[i].trim().match(/^[-*]\s+(.+)$/);
+        if (!li) break;
+        items.push(li[1].trim());
+        i++;
+      }
+      out.push(`<ul>${items.map((it) => `<li>${it}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    // Ordered list — collect contiguous "N. " lines
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const li = lines[i].trim().match(/^\d+\.\s+(.+)$/);
+        if (!li) break;
+        items.push(li[1].trim());
+        i++;
+      }
+      out.push(`<ol>${items.map((it) => `<li>${it}</li>`).join('')}</ol>`);
+      continue;
+    }
+
+    // Already-HTML block — pass through until blank line
+    if (trimmed.startsWith('<')) {
+      const buf: string[] = [];
+      while (i < lines.length && lines[i].trim() !== '') {
+        buf.push(lines[i]);
+        i++;
+      }
+      out.push(buf.join('\n'));
+      continue;
+    }
+
+    // Paragraph — take non-blank, non-block-boundary lines and
+    // join with a space (markdown-style soft wrap)
+    const buf: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !isBlockBoundary(lines[i].trim())
+    ) {
+      buf.push(lines[i].trim());
+      i++;
+    }
+    if (buf.length) {
+      out.push(`<p>${buf.join(' ')}</p>`);
+    }
+  }
+
+  return out.join('\n');
+}
+
+/** Apply inline markdown — bold, italic, links — without
+ * touching content already inside HTML tags. */
+function applyInlineMarkdown(html: string): string {
+  let s = html;
+  // [label](url) → <a>
+  s = s.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+  // **bold**
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  // _italic_ (avoid touching mid-word underscores like file_name)
+  s = s.replace(/(^|[\s>(])_([^_\n]+)_(?=$|[\s.,;:)!?])/g, '$1<em>$2</em>');
+  // strip stray orphan single asterisks
+  s = s.replace(/(?<!\*)\*(?!\*)/g, '');
+  return s;
+}
+
+const METADATA_LEAD_RE =
+  /^\s*<p>\s*(?:publi[ée]\s+(?:le|par)|posté\s+le|par\s+\S+,?\s+le|written\s+by)\b[^<]{0,120}<\/p>\s*/i;
+
+/**
+ * Public entry point: markdown-lite → sanitized HTML with
+ * stable heading IDs for TOC anchors and a drop-cap class on
+ * the first qualifying prose paragraph.
+ */
+export function prepareBlogContent(raw: string): string {
+  if (!raw) return '';
+
+  let html = blocksToHtml(raw);
+  html = applyInlineMarkdown(html);
+
+  // Strip a leading metadata byline paragraph if present —
+  // the date and author already appear in the article hero,
+  // so duplicating them at the top of the body is just noise.
+  html = html.replace(METADATA_LEAD_RE, '');
+
+  const sanitized = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
   });
 
+  if (typeof window === 'undefined') return sanitized;
+
+  const doc = new DOMParser().parseFromString(sanitized, 'text/html');
+
+  // Inject deterministic IDs into h2/h3 for TOC anchors
+  const headings = doc.body.querySelectorAll('h2, h3');
+  const seen = new Map<string, number>();
+  headings.forEach((h, idx) => {
+    const text = (h.textContent || '').trim();
+    let id = slugify(text);
+    if (!id) id = `section-${idx + 1}`;
+    const count = seen.get(id) ?? 0;
+    if (count > 0) id = `${id}-${count + 1}`;
+    seen.set(id, count + 1);
+    h.id = id;
+  });
+
+  // Drop-cap heuristic: tag the first paragraph that is
+  // "real prose" (≥ 100 chars, starts with a letter). This
+  // skips short metadata lines and avoids the giant-letter
+  // bug seen on bylines like "Publié le 22 décembre 2024".
+  const firstBlock = doc.body.firstElementChild;
+  if (firstBlock && firstBlock.tagName === 'P') {
+    const text = (firstBlock.textContent || '').trim();
+    if (text.length >= 100 && /^[A-Za-zÀ-ÿ"«]/u.test(text)) {
+      firstBlock.classList.add('has-drop-cap');
+    }
+  }
+
+  return doc.body.innerHTML;
+}
+
+/**
+ * Returns the headings (h2/h3) in source order so the TOC can
+ * render them with the same IDs as the article.
+ */
+export function extractBlogHeadings(
+  raw: string
+): { id: string; text: string; level: 2 | 3 }[] {
+  if (typeof window === 'undefined') return [];
+  const html = prepareBlogContent(raw);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const headings = doc.body.querySelectorAll('h2, h3');
+  return Array.from(headings).map((h) => ({
+    id: h.id,
+    text: (h.textContent || '').trim(),
+    level: (h.tagName === 'H2' ? 2 : 3) as 2 | 3,
+  }));
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Article styles — scoped to .blog-content. Pure CSS, no
+   imperative DOM mutation.
+   ────────────────────────────────────────────────────────────── */
+
+const CONTENT_CSS = `
+.blog-content {
+  color: #14172A;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 18px;
+  line-height: 1.75;
+  letter-spacing: -0.005em;
+  font-feature-settings: "kern", "liga", "calt";
+  word-wrap: break-word;
+}
+
+.blog-content > * + * { margin-top: 1.4em; }
+
+/* Paragraphs */
+.blog-content p {
+  color: #1A1F36;
+  font-size: 18px;
+  line-height: 1.75;
+  margin: 0;
+}
+.blog-content p + p { margin-top: 1.25em; }
+
+/* Drop cap — applied only to the first qualifying prose
+   paragraph (≥100 chars, starts with a letter). Tagged
+   server-side so short metadata lines never get capped. */
+.blog-content > p.has-drop-cap::first-letter {
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  font-weight: 800;
+  float: left;
+  font-size: 4.4em;
+  line-height: 0.88;
+  margin: 0.08em 0.12em 0 -0.04em;
+  color: #3D3FE2;
+  letter-spacing: -0.04em;
+}
+
+/* Headings */
+.blog-content h2,
+.blog-content h3,
+.blog-content h4 {
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  color: #14172A;
+  letter-spacing: -0.02em;
+  scroll-margin-top: 96px;
+}
+.blog-content h2 {
+  font-size: 30px;
+  line-height: 1.18;
+  font-weight: 800;
+  margin-top: 2.4em;
+  margin-bottom: 0.7em;
+  position: relative;
+  padding-top: 0.6em;
+}
+.blog-content h2::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 3px;
+  border-radius: 2px;
+  background: #3D3FE2;
+}
+.blog-content h3 {
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+}
+.blog-content h4 {
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 700;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #2A3147;
+  font-size: 14px;
+}
+
+/* Strong & em */
+.blog-content strong { color: #14172A; font-weight: 700; }
+.blog-content em { font-style: italic; color: #1A1F36; }
+
+/* Links */
+.blog-content a {
+  color: #3D3FE2;
+  font-weight: 600;
+  text-decoration: none;
+  background-image: linear-gradient(transparent calc(100% - 2px), #3D3FE2 2px);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  transition: color 0.15s ease, background-image 0.15s ease;
+  padding-bottom: 1px;
+}
+.blog-content a:hover {
+  color: #2F31C9;
+  background-image: linear-gradient(transparent calc(100% - 2px), #2F31C9 2px);
+}
+
+/* Blockquote — pull quote */
+.blog-content blockquote {
+  margin: 2em 0;
+  padding: 1.25em 1.5em 1.25em 1.75em;
+  background: #FAF7F2;
+  border-left: 4px solid #3D3FE2;
+  border-radius: 0 14px 14px 0;
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  font-size: 21px;
+  line-height: 1.45;
+  color: #14172A;
+  font-style: italic;
+  font-weight: 500;
+  position: relative;
+}
+.blog-content blockquote p { margin: 0; font-size: inherit; line-height: inherit; color: inherit; font-style: inherit; }
+.blog-content blockquote p + p { margin-top: 0.6em; }
+.blog-content blockquote::before {
+  content: "\\201C";
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-family: Georgia, serif;
+  font-size: 48px;
+  line-height: 1;
+  color: rgba(61, 63, 226, 0.18);
+  font-style: normal;
+}
+
+/* Lists */
+.blog-content ul,
+.blog-content ol {
+  padding-left: 0;
+  margin: 1.25em 0;
+}
+.blog-content li {
+  font-size: 18px;
+  line-height: 1.75;
+  color: #1A1F36;
+  position: relative;
+  padding-left: 1.6em;
+  margin-top: 0.4em;
+}
+.blog-content ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0.15em;
+  top: 0.7em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3D3FE2;
+}
+.blog-content ol { counter-reset: blog-ol; }
+.blog-content ol > li {
+  counter-increment: blog-ol;
+}
+.blog-content ol > li::before {
+  content: counter(blog-ol) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  color: #3D3FE2;
+  font-variant-numeric: tabular-nums;
+}
+.blog-content li > ul,
+.blog-content li > ol { margin: 0.4em 0; }
+
+/* Inline code */
+.blog-content :not(pre) > code {
+  background: #ECEBFB;
+  color: #2629A5;
+  padding: 0.15em 0.4em;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  border: 1px solid rgba(38, 41, 165, 0.08);
+}
+
+/* Code blocks */
+.blog-content pre {
+  margin: 1.6em 0;
+  padding: 1.25em 1.4em;
+  background: #0E1020;
+  color: #ECEFF4;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  box-shadow: 0 12px 32px rgba(20, 23, 42, 0.18);
+}
+.blog-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border: 0;
+  font-weight: 400;
+}
+
+/* Images & figures */
+.blog-content img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 2em 0;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(20, 23, 42, 0.04), 0 14px 28px rgba(20, 23, 42, 0.08);
+}
+.blog-content figure { margin: 2em 0; }
+.blog-content figure img { margin: 0; }
+.blog-content figcaption {
+  margin-top: 0.6em;
+  text-align: center;
+  font-size: 13px;
+  color: #7E8B9F;
+  font-style: italic;
+}
+
+/* Tables */
+.blog-content table {
+  width: 100%;
+  margin: 1.6em 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #DEE3EB;
+  border-radius: 14px;
+  overflow: hidden;
+  font-size: 14px;
+}
+.blog-content thead {
+  background: #FAF7F2;
+}
+.blog-content th {
+  text-align: left;
+  padding: 0.75em 1em;
+  font-weight: 700;
+  color: #14172A;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #DEE3EB;
+}
+.blog-content td {
+  padding: 0.75em 1em;
+  border-bottom: 1px solid #ECEFF4;
+  color: #1A1F36;
+}
+.blog-content tr:last-child td { border-bottom: 0; }
+
+/* Horizontal rule */
+.blog-content hr {
+  margin: 3em 0;
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(to right, transparent, #DEE3EB 30%, #DEE3EB 70%, transparent);
+  position: relative;
+}
+.blog-content hr::after {
+  content: "·";
+  position: absolute;
+  top: -0.7em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  color: #C68A1F;
+  background: #FFFFFF;
+  padding: 0 0.5em;
+  line-height: 1;
+}
+
+/* Keyboard */
+.blog-content kbd {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  background: #FFFFFF;
+  border: 1px solid #DEE3EB;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+  color: #14172A;
+}
+
+/* Small screens — keep things readable on phones */
+@media (max-width: 640px) {
+  .blog-content { font-size: 17px; line-height: 1.7; }
+  .blog-content p, .blog-content li { font-size: 17px; line-height: 1.7; }
+  .blog-content h2 { font-size: 26px; }
+  .blog-content h3 { font-size: 20px; }
+  .blog-content > p.has-drop-cap::first-letter { font-size: 3.6em; }
+  .blog-content blockquote { padding: 1em 1em 1em 1.25em; font-size: 18px; }
+}
+`;
+
+export default function BlogPostContent({ content }: BlogPostContentProps) {
+  const html = useMemo(() => prepareBlogContent(content), [content]);
+
   return (
-    <div className="relative">
-      {/* Decorative gradient bar */}
-      <div className="absolute -left-6 top-0 w-1 h-full bg-gradient-to-b from-[#6366F1] via-[#8B5CF6] to-transparent opacity-30 rounded-full"></div>
-      
-      {/* Content */}
-      <div
-        ref={contentRef}
-        className="blog-content relative max-w-none"
-        dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-      />
-      
-      {/* Bottom decorative element */}
-      <div className="mt-16 pt-8 border-t-2 border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#6366F1] to-transparent"></div>
-          <div className="w-2 h-2 rounded-full bg-[#6366F1]"></div>
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#8B5CF6] to-transparent"></div>
-        </div>
-      </div>
-    </div>
+    <>
+      <style>{CONTENT_CSS}</style>
+      <div className="blog-content" dangerouslySetInnerHTML={{ __html: html }} />
+    </>
   );
 }
