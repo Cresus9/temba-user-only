@@ -113,8 +113,9 @@ export default function AppDownload() {
               </h2>
 
               <p className="text-[14px] md:text-[15px] text-paper/65 max-w-md mb-6 leading-relaxed">
-                iOS, Android, Web. Achetez en FCFA, transférez en un clic,
-                scannez à l'entrée. Hors-ligne, partout.
+                iOS, Android, Web. Achetez en FCFA, transférez en un clic et
+                présentez vos billets à l&apos;entrée. Connexion requise pour la
+                validation et les paiements.
               </p>
 
               {/* Store buttons */}

@@ -1,15 +1,22 @@
 import React from 'react';
 import { ShieldCheck, Info } from 'lucide-react';
 import LegalShell from '../components/legal/LegalShell';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Privacy() {
   return (
+    <>
+    <PageSEO
+      title="Politique de confidentialité · Privacy"
+      description="Politique de confidentialité Temba (site web, application mobile et Temba Scanner) : données collectées, finalités, droits et conservation."
+      canonicalUrl="https://tembas.com/privacy"
+    />
     <LegalShell
       eyebrow="Document légal"
       title="Politique de confidentialité"
-      subtitle="Comment Temba collecte, utilise et protège vos données — au quotidien et pour la durée."
-      lastUpdated="19 décembre 2024"
-      effectiveDate="19 décembre 2024"
+      subtitle="Site web, application Temba (grand public) et Temba Scanner (contrôle d'accès) : même engagement sur vos données."
+      lastUpdated="15 mai 2026"
+      effectiveDate="15 mai 2026"
       appVersion="1.0.7"
       legalEntity="EZSTAY LLC"
     >
@@ -19,8 +26,8 @@ export default function Privacy() {
           <p>
             Vos données vous appartiennent. On ne les vend pas. On ne les
             partage qu'avec les prestataires qui nous permettent de vous livrer
-            le service (paiement, validation des billets, hébergement) — listés
-            ci-dessous, sans surprise.
+            le service (paiement, validation des billets, contrôle d&apos;accès
+            via Temba Scanner, hébergement) — listés ci-dessous, sans surprise.
           </p>
         </div>
       </div>
@@ -31,7 +38,9 @@ export default function Privacy() {
         votre vie privée et nous nous engageons à protéger vos données
         personnelles. Cette politique explique comment nous collectons,
         utilisons et protégeons vos informations lorsque vous utilisez notre
-        site web et notre application mobile.
+        site web, notre application mobile grand public et l&apos;application{' '}
+        <strong>Temba Scanner</strong> (contrôle d&apos;accès pour les équipes
+        organisateur / scanneur).
       </p>
 
       <h2>2. Informations que nous collectons</h2>
@@ -39,7 +48,10 @@ export default function Privacy() {
       <ul>
         <li>
           <strong>Compte :</strong> nom, adresse e-mail, numéro de téléphone
-          (optionnel)
+          (optionnel) ; pour les comptes avec rôle{' '}
+          <strong>organisateur / scanneur</strong>, les informations
+          d&apos;organisation ou d&apos;équipe liées à votre accès (y compris
+          dans Temba Scanner)
         </li>
         <li>
           <strong>Profil :</strong> biographie, préférences de localisation,
@@ -65,21 +77,55 @@ export default function Privacy() {
           <strong>Application :</strong> fonctionnalités utilisées,
           préférences, paramètres
         </li>
+        <li>
+          <strong>Temba Scanner :</strong> événements et sessions auxquels vous
+          êtes autorisé, actions de contrôle (scans, refus, recherches
+          manuelles le cas échéant), horodatages associés
+        </li>
       </ul>
 
       <h3>2.3 Informations sur l'appareil</h3>
       <ul>
         <li>
           <strong>Localisation :</strong> coordonnées GPS (avec votre
-          consentement) pour les recommandations à proximité
+          consentement) pour les recommandations à proximité sur l&apos;app
+          grand public ; Temba Scanner peut traiter des libellés de lieu ou
+          points de contrôle fournis par l&apos;organisateur sans nécessiter
+          le GPS selon la configuration
         </li>
         <li>
-          <strong>Permissions :</strong> caméra (scan QR), stockage (sauvegarde
-          de billets)
+          <strong>Permissions :</strong> caméra (lecture de codes QR), stockage
+          (sauvegarde de billets sur l&apos;app grand public) ; Temba Scanner
+          utilise en principe la <strong>caméra</strong> et une{' '}
+          <strong>connexion réseau</strong> pour la validation côté serveur
         </li>
         <li>
           <strong>Données techniques :</strong> type d'appareil, OS, version de
           l'application
+        </li>
+      </ul>
+
+      <h3>2.4 Application Temba Scanner (contrôle d&apos;accès)</h3>
+      <p>
+        Si vous utilisez Temba Scanner pour valider des billets à l&apos;entrée
+        d&apos;un événement, nous traitons notamment :
+      </p>
+      <ul>
+        <li>
+          <strong>Compte opérateur :</strong> identifiant de connexion, nom ou
+          libellé affiché, coordonnées associées au compte (e-mail ou téléphone
+          selon la méthode d&apos;inscription).
+        </li>
+        <li>
+          <strong>Caméra :</strong> utilisée pour lire le code QR du billet ; le
+          traitement vise à décoder le billet et vérifier son statut auprès de
+          nos serveurs.
+        </li>
+        <li>
+          <strong>Activité de scan :</strong> résultat du contrôle (entrée
+          autorisée ou refus), horodatage, billet ou jeton concerné, identifiant
+          de l&apos;opérateur lorsque disponible, et informations de point de
+          contrôle si votre organisation les configure.
         </li>
       </ul>
 
@@ -89,6 +135,10 @@ export default function Privacy() {
         <li>Traiter les achats de billets et les paiements</li>
         <li>Fournir des recommandations d'événements et des notifications</li>
         <li>Générer et valider les codes QR pour les billets</li>
+        <li>
+          Permettre le contrôle d&apos;accès sur place via Temba Scanner
+          (validation côté serveur, journalisation anti-fraude)
+        </li>
         <li>Permettre la découverte d'événements basée sur la localisation</li>
       </ul>
       <h3>3.2 Communication</h3>
@@ -104,6 +154,17 @@ export default function Privacy() {
         <li>Analyser les modèles d'utilisation pour améliorer les fonctionnalités</li>
         <li>Corriger les bugs et problèmes techniques</li>
         <li>Développer de nouvelles fonctionnalités et services</li>
+      </ul>
+      <h3>3.4 Sécurité des événements (Temba Scanner)</h3>
+      <ul>
+        <li>
+          Détecter les usages frauduleux ou les tentatives de contournement des
+          règles d&apos;entrée
+        </li>
+        <li>
+          Fournir des journaux d&apos;audit exploitables par l&apos;organisateur
+          et, le cas échéant, par les autorités compétentes
+        </li>
       </ul>
 
       <h2>4. Partage de données et tiers</h2>
@@ -121,6 +182,13 @@ export default function Privacy() {
           d'itinéraires
         </li>
       </ul>
+      <p>
+        Pour le contrôle d&apos;accès, certaines données de scan et
+        d&apos;identification d&apos;opérateur peuvent être mises à disposition
+        des <strong>organisateurs d&apos;événements</strong> et de leurs équipes
+        habilitées, dans la limite nécessaire à la sécurité de l&apos;événement
+        et au traitement des litiges liés aux billets.
+      </p>
       <h3>4.2 Exigences légales</h3>
       <p>
         Nous pouvons divulguer vos informations si la loi l'exige ou pour
@@ -185,6 +253,16 @@ export default function Privacy() {
           Les données seront définitivement supprimées dans les 30 jours
         </li>
       </ul>
+      <h3>6.4 Données liées au contrôle d&apos;accès (Temba Scanner)</h3>
+      <p>
+        Les journaux de validation peuvent concerner des tiers (porteurs de
+        billets). Pour toute demande portant sur ces traitements (accès,
+        rectification, opposition dans les limites légales), vous pouvez nous
+        écrire à{' '}
+        <a href="mailto:confidentialite@tembas.com">confidentialite@tembas.com</a>
+        ; nous traiterons votre demande conformément au droit applicable et, le
+        cas échéant, en coordination avec l&apos;organisateur concerné.
+      </p>
 
       <h2>7. Conservation des données</h2>
       <h3>7.1 Périodes de conservation</h3>
@@ -203,6 +281,12 @@ export default function Privacy() {
         <li>
           <strong>Analytique :</strong> conservées 1 an sous forme anonymisée
         </li>
+        <li>
+          <strong>Contrôle d&apos;accès (Temba Scanner) :</strong> journaux de
+          validation conservés le temps nécessaire au bon déroulement de
+          l&apos;événement, à la prévention de la fraude et aux obligations
+          légales ou comptables applicables.
+        </li>
       </ul>
       <h3>7.2 Suppression</h3>
       <ul>
@@ -215,10 +299,19 @@ export default function Privacy() {
 
       <h2>8. Protection des enfants</h2>
       <p>
-        Notre application n'est pas destinée aux enfants de moins de 13 ans.
-        Nous ne collectons pas sciemment d'informations personnelles auprès
-        d'enfants de moins de 13 ans. Si vous êtes parent et pensez que votre
-        enfant nous a fourni des informations personnelles, contactez-nous.
+        Les applications Temba grand public ne sont pas destinées aux enfants
+        de moins de 13 ans. Nous ne collectons pas sciemment d&apos;informations
+        personnelles auprès d&apos;enfants de moins de 13 ans. Si vous êtes
+        parent et pensez que votre enfant nous a fourni des informations
+        personnelles, contactez-nous.
+      </p>
+      <p>
+        <strong>Temba Scanner</strong> s&apos;adresse aux personnes habilitées
+        par un organisateur (contrôle d&apos;accès professionnel) ; elle n&apos;est
+        pas conçue comme un service destiné aux mineurs. Pour l&apos;Espace
+        économique européen, nous ne ciblons pas les mineurs de moins de 16 ans
+        à des fins de traitement autonome de leurs données dans cette
+        application.
       </p>
 
       <h2>9. Transferts internationaux de données</h2>
@@ -280,11 +373,14 @@ export default function Privacy() {
         </li>
         <li>
           <strong>Contrat :</strong> pour fournir nos services et traiter les
-          paiements
+          paiements ; pour Temba Scanner, l&apos;exécution des mesures
+          précontractuelles ou contractuelles avec l&apos;organisateur et
+          l&apos;accès sécurisé aux événements
         </li>
         <li>
           <strong>Intérêt légitime :</strong> pour améliorer nos services et
-          prévenir la fraude
+          prévenir la fraude ; pour Temba Scanner, sécurité des événements,
+          intégrité des billets et journalisation proportionnée
         </li>
         <li>
           <strong>Obligation légale :</strong> pour se conformer aux lois et
@@ -293,7 +389,13 @@ export default function Privacy() {
       </ul>
 
       <h2>13. Politique relative aux cookies</h2>
-      <p>Notre application utilise des cookies et technologies similaires pour :</p>
+      <p>
+        Le site <strong>tembas.com</strong> et les pages légales ouvertes dans
+        le navigateur ou dans une <strong>vue intégrée</strong> (WebView)
+        depuis l&apos;application Temba ou <strong>Temba Scanner</strong>{' '}
+        peuvent déposer des cookies ou stockages locaux similaires. Ils servent
+        notamment à :
+      </p>
       <ul>
         <li>Mémoriser vos préférences</li>
         <li>Analyser l'utilisation de l'application</li>
@@ -310,7 +412,8 @@ export default function Privacy() {
       <h3>14.1 Permissions iOS</h3>
       <ul>
         <li>
-          <strong>Caméra :</strong> pour scanner les codes QR de vos billets
+          <strong>Caméra :</strong> pour lire les codes QR (billets sur l&apos;app
+          grand public ; validation d&apos;entrée dans Temba Scanner)
         </li>
         <li>
           <strong>Localisation :</strong> pour vous proposer des événements à
@@ -347,13 +450,49 @@ export default function Privacy() {
         <li>Nous répondons aux demandes de suppression de données</li>
       </ul>
 
+      <h3>14.4 Android et Google Play (dont Temba Scanner)</h3>
+      <ul>
+        <li>
+          Les applications distribuées sur Google Play (y compris{' '}
+          <strong>Temba Scanner</strong>) déclarent les autorisations et
+          pratiques de données conformément au formulaire « Sécurité des
+          données » (Data safety) ; celui-ci doit être cohérent avec cette
+          politique et le fonctionnement réel des applis.
+        </li>
+        <li>
+          <strong>Réseau :</strong> une connexion Internet est en principe
+          nécessaire pour authentifier les opérateurs et valider les billets en
+          temps réel.
+        </li>
+        <li>
+          <strong>Caméra :</strong> utilisée pour la lecture des codes QR à
+          l&apos;entrée ; les traitements décrits en section 2.4 s&apos;appliquent.
+        </li>
+        <li>
+          La politique de confidentialité à communiquer dans la fiche Play est
+          celle publiée à l&apos;adresse{' '}
+          <a href="https://tembas.com/privacy">https://tembas.com/privacy</a>{' '}
+          (page dédiée, distincte des conditions générales et de la politique
+          cookies).
+        </li>
+      </ul>
+
+      <h2>15. Documents connexes</h2>
+      <p>
+        <a href="/terms">Conditions d&apos;utilisation</a>
+        {' · '}
+        <a href="/cookies">Politique de cookies</a>
+      </p>
+
       <hr />
       <p>
         <em>
-          En utilisant Temba, vous acceptez cette politique de confidentialité.
-          Si vous n'êtes pas d'accord, n'utilisez pas notre application.
+          En utilisant Temba (y compris Temba Scanner), vous acceptez cette
+          politique de confidentialité. Si vous n&apos;êtes pas d&apos;accord,
+          n&apos;utilisez pas nos services ou applications.
         </em>
       </p>
     </LegalShell>
+    </>
   );
 }

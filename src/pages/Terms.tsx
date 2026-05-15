@@ -1,15 +1,22 @@
 import React from 'react';
 import { ShieldAlert, Info, AlertTriangle } from 'lucide-react';
 import LegalShell from '../components/legal/LegalShell';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Terms() {
   return (
+    <>
+    <PageSEO
+      title="Conditions d'utilisation · Terms of use"
+      description="Conditions d'utilisation Temba : site tembas.com, application grand public et Temba Scanner (contrôle d'accès)."
+      canonicalUrl="https://tembas.com/terms"
+    />
     <LegalShell
       eyebrow="Document légal"
       title="Conditions d'utilisation"
-      subtitle="Les règles qui encadrent l'utilisation de Temba — la billetterie officielle d'EZSTAY LLC."
-      lastUpdated="20 mars 2026"
-      effectiveDate="20 mars 2026"
+      subtitle="Les règles qui encadrent Temba et Temba Scanner — billetterie officielle d'EZSTAY LLC."
+      lastUpdated="15 mai 2026"
+      effectiveDate="15 mai 2026"
       appVersion="1.0.7"
       legalEntity="EZSTAY LLC"
     >
@@ -20,8 +27,11 @@ export default function Terms() {
           <p>
             <strong>Temba</strong> est une plateforme officielle de billetterie
             d'événements, éditée par <strong>EZSTAY LLC</strong>. Ces conditions
-            s'appliquent au site <a href="https://tembas.com">tembas.com</a> et
-            à l'application mobile, disponible sur{' '}
+            s'appliquent au site <a href="https://tembas.com">tembas.com</a>, à
+            l&apos;application mobile Temba (grand public) et à l&apos;application{' '}
+            <strong>Temba Scanner</strong> (contrôle d&apos;accès pour
+            organisateurs et équipes autorisées), disponibles sur les boutiques
+            d&apos;applications (par exemple{' '}
             <a
               href="https://play.google.com/store/apps/details?id=app.rork.temba"
               target="_blank"
@@ -29,7 +39,7 @@ export default function Terms() {
             >
               Google Play
             </a>{' '}
-            et l'
+            et l&apos;
             <a
               href="https://apps.apple.com/us/app/temba/id6748848506"
               target="_blank"
@@ -37,21 +47,23 @@ export default function Terms() {
             >
               App Store
             </a>
-            .
+            ), selon les fiches publiées sur chaque boutique.
           </p>
         </div>
       </div>
 
       <h2>1. Acceptation des conditions</h2>
       <p>
-        En téléchargeant, installant ou utilisant Temba (« l'Application »),
-        vous acceptez d'être lié par ces conditions d'utilisation (« les
-        Conditions »). Si vous n'acceptez pas ces Conditions, n'utilisez pas
-        l'Application.
+        En téléchargeant, installant ou utilisant une application Temba («
+        l&apos;Application »), y compris <strong>Temba Scanner</strong>, vous
+        acceptez d&apos;être lié par ces conditions d&apos;utilisation (« les
+        Conditions »). Si vous n&apos;acceptez pas ces Conditions, n&apos;utilisez pas
+        nos services ou applications.
       </p>
 
       <h2>2. Description du service</h2>
-      <p>Temba permet aux utilisateurs de :</p>
+      <h3>2.1 Application grand public Temba</h3>
+      <p>Temba permet notamment aux utilisateurs de :</p>
       <ul>
         <li>Découvrir et parcourir des événements</li>
         <li>Acheter des billets pour des événements</li>
@@ -59,6 +71,17 @@ export default function Terms() {
         <li>Recevoir des notifications et des mises à jour d'événements</li>
         <li>Accéder à des recommandations basées sur la localisation</li>
       </ul>
+      <h3>2.2 Temba Scanner (contrôle d&apos;accès)</h3>
+      <p>
+        <strong>Temba Scanner</strong> permet aux personnes dûment autorisées
+        par un organisateur de vérifier les billets ou titres d&apos;accès à
+        l&apos;entrée d&apos;un événement, au moyen notamment de la caméra pour
+        lire les codes QR et d&apos;une connexion réseau pour la validation
+        auprès de nos serveurs. Les résultats de contrôle et les journaux
+        associés peuvent être conservés et communiqués à l&apos;organisateur
+        conformément à notre{' '}
+        <a href="/privacy">politique de confidentialité</a>.
+      </p>
 
       <h2>3. Comptes utilisateur</h2>
       <h3>3.1 Création de compte</h3>
@@ -84,6 +107,12 @@ export default function Terms() {
           autorisée
         </li>
         <li>Vous ne pouvez pas partager vos identifiants avec d'autres</li>
+        <li>
+          Pour <strong>Temba Scanner</strong>, vous ne devez utiliser le compte
+          que dans le cadre des missions confiées par l&apos;organisateur ; tout
+          usage frauduleux ou partage d&apos;accès peut entraîner la suspension
+          du compte et des poursuites conformément aux lois applicables
+        </li>
       </ul>
 
       <h2>4. Politique de revente de billets</h2>
@@ -173,6 +202,26 @@ export default function Terms() {
         <li>Utiliser des systèmes automatisés pour accéder à l'Application</li>
         <li>Violer toute loi ou réglementation applicable</li>
       </ul>
+      <h3>5.3 Règles spécifiques à Temba Scanner</h3>
+      <ul>
+        <li>
+          N&apos;effectuer des contrôles que pour les événements et dans les
+          limites pour lesquels vous êtes expressément habilité
+        </li>
+        <li>
+          Ne pas falsifier, reproduire ou contourner les procédures de
+          validation (y compris en réutilisant indûment un billet déjà validé)
+        </li>
+        <li>
+          Ne pas collecter ou exploiter les données visibles dans l&apos;outil
+          (identité des participants, historiques de scan) à des fins personnelles
+          ou commerciales non prévues par l&apos;organisateur
+        </li>
+        <li>
+          Respecter les consignes de sécurité de l&apos;événement et les
+          instructions de l&apos;organisateur ou du lieu
+        </li>
+      </ul>
 
       <h2>6. Paiement et remboursements</h2>
       <h3>6.1 Traitement des paiements</h3>
@@ -247,6 +296,13 @@ export default function Terms() {
         <li>
           Nous pouvons partager des données avec les organisateurs pour la
           validation des billets
+        </li>
+        <li>
+          Les journaux produits via <strong>Temba Scanner</strong> (résultats
+          de scan, horodatages, identifiants techniques des billets, opérateur
+          lorsque disponible) peuvent être accessibles à l&apos;organisateur et
+          à ses équipes autorisées pour la gestion de l&apos;événement et la
+          lutte contre la fraude
         </li>
         <li>
           Nous pouvons partager des données avec les processeurs de paiement
@@ -386,18 +442,21 @@ export default function Terms() {
       <h2>16. Accord complet</h2>
       <p>
         Ces Conditions, ainsi que notre{' '}
-        <a href="/privacy">politique de confidentialité</a>, constituent
-        l'accord complet entre vous et nous concernant l'Application. Tout
-        accord ou compréhension antérieur est remplacé.
+        <a href="/privacy">politique de confidentialité</a> et notre{' '}
+        <a href="/cookies">politique de cookies</a>, constituent l&apos;accord
+        complet entre vous et nous concernant le site et les applications Temba
+        (y compris Temba Scanner). Tout accord ou compréhension antérieur est
+        remplacé.
       </p>
 
       <hr />
       <p>
         <em>
-          En utilisant Temba, vous reconnaissez avoir lu, compris et accepté
-          ces conditions d'utilisation.
+          En utilisant Temba (y compris Temba Scanner), vous reconnaissez avoir
+          lu, compris et accepté ces conditions d&apos;utilisation.
         </em>
       </p>
     </LegalShell>
+    </>
   );
 }

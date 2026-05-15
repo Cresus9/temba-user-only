@@ -30,7 +30,7 @@ export default function InlineAppPromo({ className = "" }: InlineAppPromoProps) 
               Téléchargez l'app Temba
             </h3>
             <p className="text-gray-600 text-sm">
-              Accès hors ligne, notifications push et expérience optimisée
+              Billets sur mobile, notifications et expérience optimisée
             </p>
             
             {/* Rating */}

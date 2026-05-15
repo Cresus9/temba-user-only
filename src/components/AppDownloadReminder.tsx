@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Smartphone } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 export default function AppDownloadReminder() {
   const [isVisible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // Check if user is on mobile device
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-      setIsMobile(isMobileDevice);
-    };
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    setIsMobile(isMobileDevice);
 
     // Check if reminder was dismissed
     const checkDismissed = () => {
@@ -27,8 +23,6 @@ export default function AppDownloadReminder() {
       return true;
     };
 
-    checkMobile();
-    
     // Only show reminder if:
     // 1. User is on mobile device
     // 2. Reminder hasn't been dismissed recently
@@ -97,7 +91,8 @@ export default function AppDownloadReminder() {
           {/* Content */}
           <div className="p-4">
             <p className="text-gray-600 text-sm mb-4">
-              Téléchargez l'app Temba pour une expérience optimisée : billets hors ligne, notifications et plus encore !
+              Téléchargez l&apos;app Temba pour une expérience optimisée : vos
+              billets sur mobile, notifications et accès rapide à vos événements.
             </p>
             
             {/* Download Buttons */}

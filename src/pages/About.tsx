@@ -499,8 +499,8 @@ export default function About() {
                   </span>
                 </h2>
                 <p className="text-[15px] text-paper/75 leading-relaxed max-w-lg">
-                  Disponible sur Google Play et App Store. Accédez à vos billets
-                  hors ligne, recevez les notifications de l'événement et
+                  Disponible sur Google Play et App Store. Retrouvez vos billets
+                  sur mobile, recevez les notifications de l&apos;événement et
                   découvrez les soirées près de chez vous.
                 </p>
               </div>
