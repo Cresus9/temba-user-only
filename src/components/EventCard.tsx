@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Users, Tag } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Event } from '../types/event';
 import { formatCurrency } from '../utils/formatters';
 import PosterMedia from './common/PosterMedia';
@@ -37,9 +38,15 @@ const EventCard = memo(({
   });
 
   return (
+    <motion.div
+      whileHover={{ y: -5, boxShadow: '0 16px 40px -8px rgba(20,23,42,0.15)' }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+      className="h-full"
+    >
     <Link
       to={`/events/${id}`}
-      className={`group block h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-300 ${className}`}
+      className={`group block h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden transition-colors duration-300 ${className}`}
       aria-label={`Voir les détails de l'événement ${title}`}
     >
       <article className="flex flex-col h-full">
@@ -123,6 +130,7 @@ const EventCard = memo(({
         </div>
       </article>
     </Link>
+    </motion.div>
   );
 });
 

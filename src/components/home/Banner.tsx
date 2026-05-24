@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
 
@@ -102,19 +103,29 @@ export default function Banner() {
               )}
             </div>
 
-            {/* Middle: title + description */}
-            <div className="my-5">
-              <h2
-                className="text-[22px] sm:text-[26px] md:text-[28px] font-bold text-ink leading-[1.12] tracking-tight line-clamp-3"
-                style={{ fontFamily: displayFamily }}
-              >
-                {currentBanner.title}
-              </h2>
-              {currentBanner.description && (
-                <p className="mt-2 text-[13.5px] sm:text-[14px] text-ink-mute leading-relaxed line-clamp-3">
-                  {currentBanner.description}
-                </p>
-              )}
+            {/* Middle: title + description — animate on slide change */}
+            <div className="my-5 overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={currentBanner.id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <h2
+                    className="text-[22px] sm:text-[26px] md:text-[28px] font-bold text-ink leading-[1.12] tracking-tight line-clamp-3"
+                    style={{ fontFamily: displayFamily }}
+                  >
+                    {currentBanner.title}
+                  </h2>
+                  {currentBanner.description && (
+                    <p className="mt-2 text-[13.5px] sm:text-[14px] text-ink-mute leading-relaxed line-clamp-3">
+                      {currentBanner.description}
+                    </p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* Bottom: CTA + slide dots */}
@@ -178,14 +189,20 @@ export default function Banner() {
             />
             <div aria-hidden className="absolute inset-0 bg-ink/35" />
 
-            {/* Foreground image — full poster, never cropped */}
-            <img
-              key={currentBanner.id}
-              src={currentBanner.image_url}
-              alt={currentBanner.title}
-              className="absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-500"
-              loading="lazy"
-            />
+            {/* Foreground image — animated crossfade on slide change */}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.img
+                key={currentBanner.id}
+                src={currentBanner.image_url}
+                alt={currentBanner.title}
+                className="absolute inset-0 w-full h-full object-contain object-center"
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                loading="lazy"
+              />
+            </AnimatePresence>
 
             {/* Vertical seam — soft connection between text card & image */}
             <div

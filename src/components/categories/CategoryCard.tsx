@@ -1,6 +1,7 @@
 import React, { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music, Film, Trophy, PartyPopper, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface CategoryCardProps {
   id: string;
@@ -54,12 +55,18 @@ const CategoryCard = memo(({
   };
 
   return (
+    <motion.div
+      whileHover={{ y: -5, boxShadow: '0 16px 40px -8px rgba(20,23,42,0.14)' }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+      className="h-full"
+    >
     <Link
       to={`/categories/${id}`}
       className="block h-full rounded-xl2"
       aria-label={`Voir les événements de la catégorie ${name}`}
     >
-      <article className="relative flex flex-col h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 overflow-hidden transition-all duration-300 group">
+      <article className="relative flex flex-col h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden transition-colors duration-300 group">
         {/* Image */}
         <div className="aspect-[16/10] w-full overflow-hidden flex-shrink-0 relative bg-cream-deep">
           {!imageLoaded && !imageError && (
@@ -140,6 +147,7 @@ const CategoryCard = memo(({
         </div>
       </article>
     </Link>
+    </motion.div>
   );
 });
 

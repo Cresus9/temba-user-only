@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useTranslation } from '../context/TranslationContext';
 import { useEvents } from '../context/EventContext';
 import HomeSearch from '../components/search/HomeSearch';
@@ -16,6 +17,7 @@ import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
 import UpcomingEvents from '../components/events/UpcomingEvents';
 import PopularVenues from '../components/home/PopularVenues';
 import Image from '../components/common/Image';
+import { FadeUp, SlideIn, Stagger, StaggerItem } from '../components/common/Motion';
 
 // Hero poster mosaic — three fanned event posters, content-aware
 function HeroPosterMosaic({ events }: { events: any[] }) {
@@ -178,31 +180,60 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-10 pb-10 md:pt-14 md:pb-14">
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-            {/* Copy + search */}
+            {/* Copy + search — sequential entrance */}
             <div className="lg:col-span-7">
-              <p className="eyebrow mb-3">
+              <motion.p
+                className="eyebrow mb-3"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+              >
                 Billetterie · Afrique de l'Ouest
-              </p>
-              <h1 className="!text-[clamp(28px,4.6vw,46px)] !leading-[1.06] text-ink mb-4">
+              </motion.p>
+              <motion.h1
+                className="!text-[clamp(28px,4.6vw,46px)] !leading-[1.06] text-ink mb-4"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.13 }}
+              >
                 Vibrez avec les événements{' '}
                 <span className="relative inline-block">
                   <span className="relative z-10">qui comptent</span>
-                  <span
+                  <motion.span
                     aria-hidden
                     className="absolute left-0 right-0 bottom-1 h-2.5 md:h-3 bg-accent/40 rounded-sm -z-0"
+                    initial={{ scaleX: 0, originX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.52 }}
                   />
                 </span>
                 .
-              </h1>
-              <p className="text-[15px] text-ink-mute max-w-xl mb-6 leading-relaxed">
+              </motion.h1>
+              <motion.p
+                className="text-[15px] text-ink-mute max-w-xl mb-6 leading-relaxed"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.22 }}
+              >
                 Concerts, festivals et expériences culturelles en Afrique de l'Ouest.
                 Achetez en FCFA, transférez en un clic.
-              </p>
+              </motion.p>
 
-              <HomeSearch />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+              >
+                <HomeSearch />
+              </motion.div>
 
-              {/* Trust strip — compact */}
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-ink-mute">
+              {/* Trust strip */}
+              <motion.div
+                className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-ink-mute"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.44 }}
+              >
                 <div className="flex items-center gap-1.5">
                   <div className="flex -space-x-1">
                     {['#C68A1F', '#3D3FE2', '#14172A'].map((c) => (
@@ -225,13 +256,18 @@ export default function Home() {
                   <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-50 text-brand text-[9px] font-bold">✓</span>
                   <span>Paiement <span className="font-semibold text-ink">en FCFA</span></span>
                 </div>
-              </div>
+              </motion.div>
             </div>
 
-            {/* Poster mosaic */}
-            <div className="lg:col-span-5 hidden lg:block">
+            {/* Poster mosaic — floats in from right */}
+            <motion.div
+              className="lg:col-span-5 hidden lg:block"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
+            >
               <HeroPosterMosaic events={featuredEvents?.slice(0, 3) || []} />
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -239,7 +275,7 @@ export default function Home() {
       {/* ───── Événements à la une ───── */}
       <section className="section-normal bg-paper">
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+          <FadeUp className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
             <div className="max-w-2xl">
               <p className="eyebrow mb-2">À l'affiche</p>
               <h2 className="text-ink mb-2">Événements à la une</h2>
@@ -254,7 +290,7 @@ export default function Home() {
               Tout voir
               <span aria-hidden>→</span>
             </Link>
-          </div>
+          </FadeUp>
           <EventCardList featured={true} limit={9} showNavigation={true} />
         </div>
       </section>
@@ -277,13 +313,13 @@ export default function Home() {
       {/* ───── Catégories populaires ───── */}
       <section className="section-normal bg-paper">
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
-          <div className="max-w-2xl mb-6">
+          <FadeUp className="max-w-2xl mb-6">
             <p className="eyebrow mb-2">Explorer</p>
             <h2 className="text-ink mb-2">Catégories populaires</h2>
             <p className="text-[14px] text-ink-mute">
               Concerts, festivals, sport, culture — trouvez l'événement qui vous ressemble.
             </p>
-          </div>
+          </FadeUp>
           <CategoryList />
         </div>
       </section>
