@@ -18,6 +18,7 @@ import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
 import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
+import { formatEventDateTime, fullAddressDisplay, countryFlag, countryNameFr } from '../utils/eventGeo';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
 import PageSEO from '../components/SEO/PageSEO';
@@ -130,19 +131,31 @@ export default function EventDetails() {
 
   const eventSchema = useMemo(() => {
     if (!event || !eventUrl) return undefined;
+    const tz = event.timezone ?? 'Africa/Ouagadougou';
+    const startDate = event.time ? `${event.date}T${event.time}` : event.date;
+    const addressDisplay = fullAddressDisplay(event);
+    const countryCode = event.country_code ?? 'BF';
     return {
       '@context': 'https://schema.org',
       '@type': 'Event',
       name: event.title,
       description: event.description,
-      startDate: event.time ? `${event.date}T${event.time}` : event.date,
+      startDate,
       eventStatus: 'https://schema.org/EventScheduled',
       image: ogImage ? [ogImage] : undefined,
       location: {
         '@type': 'Place',
         name: event.location,
-        address: event.location,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: event.address ?? event.location,
+          addressLocality: event.city ?? event.location,
+          addressRegion: event.region ?? undefined,
+          addressCountry: countryCode,
+        },
       },
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      ...(tz !== 'Africa/Ouagadougou' && { inLanguage: 'fr' }),
       organizer: {
         '@type': 'Organization',
         name: 'Temba',
@@ -165,6 +178,11 @@ export default function EventDetails() {
     event?.time,
     event?.date,
     event?.location,
+    event?.address,
+    event?.city,
+    event?.region,
+    event?.country_code,
+    event?.timezone,
     event?.ticket_types,
     event?.currency,
     eventUrl,
@@ -271,6 +289,13 @@ export default function EventDetails() {
     : event.time;
   const evtCode = event.id ? event.id.slice(0, 8).toUpperCase() : '—';
 
+  const tz = event.timezone ?? 'Africa/Ouagadougou';
+  const geoFormatted = formatEventDateTime(displayDate, displayTime, tz);
+  const countryCode = event.country_code ?? 'BF';
+  const isAbroad = countryCode !== 'BF';
+  const flag = isAbroad ? countryFlag(countryCode) : null;
+  const countryLabel = isAbroad ? countryNameFr(countryCode) : null;
+
   return (
     <>
       {eventUrl && (
@@ -348,15 +373,28 @@ export default function EventDetails() {
                 {displayTime && (
                   <span className="inline-flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-accent" />
-                    {displayTime}
+                    <span>{geoFormatted.time}</span>
+                    {isAbroad && (
+                      <span className="text-[11px] text-ink-mute">({geoFormatted.tzLabel})</span>
+                    )}
                   </span>
                 )}
               </>
             )}
             <span className="inline-flex items-center gap-1.5 min-w-0">
               <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-              <span className="truncate">{event.location}</span>
+              <span className="truncate">{event.city ?? event.location}</span>
+              {flag && (
+                <span className="flex-shrink-0" aria-label={countryLabel ?? countryCode}>
+                  {flag}
+                </span>
+              )}
             </span>
+            {isAbroad && countryLabel && (
+              <span className="text-[12px] text-ink-mute hidden sm:inline">
+                {countryLabel}
+              </span>
+            )}
 
             <span aria-hidden className="hidden sm:block w-px h-4 bg-line" />
 
@@ -419,7 +457,7 @@ export default function EventDetails() {
                       latitude={location.latitude}
                       longitude={location.longitude}
                       title={event.title}
-                      address={event.location}
+                      address={fullAddressDisplay(event)}
                       className="h-[280px]"
                       isDisabled={isReviewModalOpen}
                       isModalOpen={isReviewModalOpen}
@@ -429,7 +467,7 @@ export default function EventDetails() {
                     <div className="flex items-start gap-2.5 min-w-0">
                       <MapPin className="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-ink truncate">{event.location}</p>
+                        <p className="text-[13px] font-semibold text-ink truncate">{fullAddressDisplay(event)}</p>
                         <p className="text-[11px] text-ink-mute">Lieu de l'événement</p>
                       </div>
                     </div>

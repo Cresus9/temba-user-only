@@ -100,7 +100,7 @@ function HeroPosterMosaic({ events }: { events: any[] }) {
 
 export default function Home() {
   const { t } = useTranslation();
-  const { featuredEvents } = useEvents();
+  const { featuredEvents, filteredEvents } = useEvents();
 
   // Preload featured event images for instant loading
   useEffect(() => {
@@ -125,7 +125,14 @@ export default function Home() {
         '@type': 'Organization',
         name: 'Temba',
         url: 'https://tembas.com/',
-        logo: 'https://tembas.com/temba-app.png',
+        logo: 'https://tembas.com/temba-wordmark-dark.jpg',
+        description: 'N°1 billetterie en ligne au Burkina Faso – concerts, festivals et événements culturels.',
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          availableLanguage: ['French'],
+          url: 'https://tembas.com/support',
+        },
         sameAs: [
           'https://www.facebook.com/temba',
           'https://www.instagram.com/temba',
@@ -143,6 +150,67 @@ export default function Home() {
           'query-input': 'required name=search_term_string',
         },
       },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        name: 'Temba Billetterie',
+        description: 'N°1 plateforme de billetterie en ligne au Burkina Faso.',
+        url: 'https://tembas.com/',
+        image: 'https://tembas.com/temba-wordmark-dark.jpg',
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Ouagadougou',
+          addressCountry: 'BF',
+        },
+        geo: { '@type': 'GeoCoordinates', latitude: 12.3714, longitude: -1.5197 },
+        priceRange: 'FCFA',
+        currenciesAccepted: 'XOF',
+        paymentAccepted: 'Mobile Money, Carte bancaire',
+        openingHours: 'Mo-Su 00:00-24:00',
+        areaServed: [
+          { '@type': 'Country', name: 'Burkina Faso' },
+          { '@type': 'Country', name: 'France' },
+          { '@type': 'Country', name: 'United States' },
+        ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'Comment acheter des billets sur Temba ?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Recherchez un événement, choisissez vos billets, payez en FCFA via Mobile Money ou carte bancaire. Vos billets arrivent instantanément sur votre mobile.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Peut-on transférer un billet Temba à quelqu’un d’autre ?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Oui. Depuis l’application Temba, vous pouvez transférer n’importe quel billet à un autre numéro de téléphone en quelques secondes.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Quels événements trouve-t-on sur Temba ?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Concerts, festivals, soirées, conférences, spectacles et événements sportifs à Ouagadougou, Bobo-Dioulasso et partout au Burkina Faso.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Temba est-il disponible en dehors du Burkina Faso ?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Oui. Les membres de la diaspora en France, aux États-Unis, au Canada, en Belgique et au Royaume-Uni peuvent acheter des billets pour des événements au Burkina et dans leur pays de résidence.',
+            },
+          },
+        ],
+      },
     ],
     []
   );
@@ -150,16 +218,19 @@ export default function Home() {
   return (
     <div>
       <PageSEO
-        title="Billetterie d’événements au Burkina Faso"
-        description="Achetez vos billets en ligne pour des concerts, festivals et événements culturels au Burkina Faso. Paiement sécurisé en FCFA, transferts instantanés et support local."
+        title="N°1 Billetterie Burkina Faso – Concerts, Festivals & Événements en ligne"
+        description="Achetez vos billets en ligne pour les concerts, festivals et événements à Ouagadougou et partout au Burkina Faso. Paiement sécurisé en FCFA, transfert instantané."
         canonicalUrl="https://tembas.com/"
-        ogImage="https://tembas.com/temba-app.png"
+        ogImage="https://tembas.com/temba-wordmark-dark.jpg"
         keywords={[
-          'billets Burkina Faso',
-          'billetterie en ligne',
-          'événements à Ouagadougou',
-          'concerts Burkina Faso',
-          'festivals Afrique de l’Ouest',
+          'billetterie Burkina Faso',
+          'acheter billets concerts Burkina',
+          'billets événements Ouagadougou',
+          'billetterie en ligne FCFA',
+          'festivals Burkina Faso',
+          'concerts Ouagadougou',
+          'billets soirées Burkina',
+          'billetterie africaine en ligne',
         ]}
         structuredData={structuredData}
       />
@@ -266,7 +337,11 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
             >
-              <HeroPosterMosaic events={featuredEvents?.slice(0, 3) || []} />
+              <HeroPosterMosaic events={
+                (filteredEvents ?? [])
+                  .filter(e => e.date >= new Date().toISOString().split('T')[0])
+                  .slice(0, 3)
+              } />
             </motion.div>
           </div>
         </div>

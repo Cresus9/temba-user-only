@@ -5,6 +5,7 @@ import { authService } from '../services/authService';
 import { supabase } from '../lib/supabase-client';
 import { validatePassword } from '../config/auth';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -105,6 +106,7 @@ export default function ResetPassword() {
   if (!isValidToken && !error) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-8">
+      <PageSEO title="Nouveau mot de passe" description="Définissez un nouveau mot de passe pour votre compte Temba." robots="noindex, nofollow" />
         <div className="text-center">
           <Loader className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
           <p className="text-gray-600">Vérification du lien...</p>

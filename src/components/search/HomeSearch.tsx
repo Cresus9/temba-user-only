@@ -1,34 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin } from 'lucide-react';
+import { Search, MapPin, Globe } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
+import { SUPPORTED_COUNTRIES } from '../../utils/eventGeo';
 import toast from 'react-hot-toast';
 
 export default function HomeSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
+  const [country, setCountry] = useState('');
   const [locations, setLocations] = useState<string[]>([]);
+  const [activeCountries, setActiveCountries] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchLocations();
-  }, []);
+  }, [country]);
 
   const fetchLocations = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('events')
-        .select('location')
+        .select('location, country_code')
         .eq('status', 'PUBLISHED')
         .order('location');
 
+      if (country) {
+        query = query.eq('country_code', country);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
-      // Get unique locations
       const uniqueLocations = [...new Set(data?.map(event => event.location))];
       setLocations(uniqueLocations);
+
+      // Also fetch which countries actually have events
+      const { data: countryData } = await supabase
+        .from('events')
+        .select('country_code')
+        .eq('status', 'PUBLISHED');
+      const usedCodes = [...new Set(countryData?.map(e => e.country_code ?? 'BF'))];
+      setActiveCountries(usedCodes);
     } catch (error) {
       console.error('Erreur lors du chargement des lieux:', error);
       toast.error('Échec du chargement des lieux');
@@ -42,8 +57,13 @@ export default function HomeSearch() {
     const params = new URLSearchParams();
     if (query) params.append('query', query);
     if (location) params.append('location', location);
+    if (country) params.append('country', country);
     navigate(`/events?${params.toString()}`);
   };
+
+  const countriesWithEvents = SUPPORTED_COUNTRIES.filter(c =>
+    activeCountries.includes(c.code)
+  );
 
   if (loading) {
     return (
@@ -70,6 +90,35 @@ export default function HomeSearch() {
 
         {/* Divider */}
         <div className="hidden sm:block w-px bg-line my-2" />
+
+        {/* Country — only shown when events exist in multiple countries */}
+        {countriesWithEvents.length > 1 && (
+          <>
+            <div className="relative sm:w-40">
+              <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[16px] w-[16px] text-ink-mute pointer-events-none" />
+              <select
+                value={country}
+                onChange={(e) => { setCountry(e.target.value); setLocation(''); }}
+                className="w-full h-10 pl-10 pr-8 rounded-xl bg-transparent text-[14px] text-ink appearance-none cursor-pointer focus:outline-none"
+              >
+                <option value="">Tous les pays</option>
+                {countriesWithEvents.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.nameFr}
+                  </option>
+                ))}
+              </select>
+              <svg
+                aria-hidden
+                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-mute"
+                viewBox="0 0 20 20" fill="currentColor"
+              >
+                <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 011.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" />
+              </svg>
+            </div>
+            <div className="hidden sm:block w-px bg-line my-2" />
+          </>
+        )}
 
         {/* Location */}
         <div className="relative sm:w-48">

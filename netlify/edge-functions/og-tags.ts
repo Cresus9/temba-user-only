@@ -63,7 +63,7 @@ function generateEventHtml(event: any, eventId: string): string {
   const title = event?.title || 'Événement sur TEMBA';
   const description = event?.description?.substring(0, 200) || 'Découvrez cet événement sur TEMBA - La plateforme de billetterie en Afrique de l\'Ouest';
   const imageUrl = event?.image_url || 'https://tembas.com/temba-app.png';
-  const eventUrl = `https://tembas.com/event/${eventId}`;
+  const eventUrl = `https://tembas.com/events/${eventId}`;
   const location = event?.location || '';
   const eventDate = event?.date ? new Date(event.date).toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -173,8 +173,8 @@ export default async function handler(request: Request, context: Context) {
     return context.next();
   }
 
-  // Handle event pages: /event/:id
-  const eventMatch = url.pathname.match(/^\/event\/([^\/]+)$/);
+  // Handle event pages: /events/:id
+  const eventMatch = url.pathname.match(/^\/events\/([^\/]+)$/);
   if (eventMatch) {
     const eventId = eventMatch[1];
     const event = await fetchEvent(eventId);
@@ -205,5 +205,5 @@ export default async function handler(request: Request, context: Context) {
 }
 
 export const config = {
-  path: ["/event/*", "/ref/*"],
+  path: ["/events/*", "/ref/*"],
 };

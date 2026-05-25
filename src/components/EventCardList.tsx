@@ -20,7 +20,12 @@ export default function EventCardList({
   const [eventsPerView, setEventsPerView] = useState(3);
 
   // Filter events based on props
-  const displayEvents = featured ? featuredEvents : events;
+  const today = new Date().toISOString().split('T')[0];
+  const baseEvents = featured ? featuredEvents : events;
+  // Featured section: upcoming only. Full list: all events.
+  const displayEvents = featured
+    ? baseEvents.filter(e => e.date >= today)
+    : baseEvents;
   const filteredEvents = limit ? displayEvents.slice(0, limit) : displayEvents;
   
   // Calculate how many events to show based on screen size

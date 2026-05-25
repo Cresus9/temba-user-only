@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Folder } from 'lucide-react';
+import PageSEO from '../../components/SEO/PageSEO';
 import { blogService, BlogPost } from '../../services/blogService';
 import { blogCategoryService } from '../../services/blogCategoryService';
 import type { BlogCategory as BlogCategoryType } from '../../services/blogCategoryService';
@@ -89,6 +90,12 @@ export default function BlogCategory() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PageSEO
+        title={category ? `${category.name} – Blog Temba` : 'Blog Temba'}
+        description={category?.description ?? `Articles et actualités sur ${category?.name ?? 'les événements'} au Burkina Faso sur le blog Temba.`}
+        canonicalUrl={`https://tembas.com/blog/category/${slug}`}
+        keywords={['blog Temba', category?.name ?? '', 'événements Burkina Faso'].filter(Boolean)}
+      />
       {/* Header */}
       <div
         className="py-16 text-white"

@@ -24,6 +24,7 @@ import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
 import type { DashboardStats } from '../services/userService';
 import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -60,6 +61,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-[60vh] grid place-items-center px-4 py-12">
+      <PageSEO title="Tableau de bord" description="Votre tableau de bord Temba." robots="noindex, nofollow" />
         <div className="flex flex-col items-center gap-3">
           <div className="grid place-items-center w-12 h-12 rounded-full bg-brand-50">
             <Loader className="h-5 w-5 animate-spin text-brand" />

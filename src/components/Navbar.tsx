@@ -8,6 +8,7 @@ import NotificationBell from './NotificationBell';
 import GlobalCartIndicator from './GlobalCartIndicator';
 import GlobalFloatingCart from './GlobalFloatingCart';
 import Logo from './brand/Logo';
+import CountryPicker from './nav/CountryPicker';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
             <Link to="/" className={navLinkBase}>Accueil</Link>
             <Link to="/events" className={navLinkBase}>Événements</Link>
             <a
@@ -71,6 +72,9 @@ export default function Navbar() {
             >
               Devenir organisateur
             </a>
+
+            {/* Country picker — only visible when ≥2 countries have events */}
+            <CountryPicker variant="nav" />
 
             {isAuthenticated ? (
               <div className="flex items-center gap-4 pl-4 border-l border-line">
@@ -175,6 +179,11 @@ export default function Navbar() {
             >
               Devenir organisateur
             </a>
+
+            {/* Country picker — mobile pills */}
+            <div className="py-2">
+              <CountryPicker variant="mobile" onSelect={() => setIsOpen(false)} />
+            </div>
 
             {isAuthenticated ? (
               <>

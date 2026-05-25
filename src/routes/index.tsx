@@ -30,6 +30,7 @@ import Contact from '../pages/Contact';
 import Cookies from '../pages/Cookies';
 import About from '../pages/About';
 import AccountDeletion from '../pages/AccountDeletion';
+import MobileAppPreview from '../pages/MobileAppPreview';
 
 // Blog Pages
 import BlogHome from '../pages/blog/BlogHome';
@@ -88,6 +89,7 @@ export default function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/about" element={<About />} />
+        <Route path="/preview/app-mobile" element={<MobileAppPreview />} />
         <Route path="/account-deletion" element={<AccountDeletion />} />
         <Route path="/ref/:code" element={<ReferralLanding />} />
         <Route path="/referrals" element={

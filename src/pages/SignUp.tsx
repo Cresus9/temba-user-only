@@ -20,6 +20,7 @@ import { isValidPhone, getPhoneInfo, detectInputType } from '../utils/phoneValid
 import CountryCodeSelector from '../components/CountryCodeSelector';
 import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 type SignupStep = 'form' | 'verify';
 type SignupMethod = 'email' | 'phone';
@@ -329,6 +330,8 @@ export default function SignUp() {
      SIGNUP FORM STEP
   ───────────────────────────────────────────────── */
   return (
+    <>
+      <PageSEO title="Créer un compte" description="Rejoignez Temba, la billetterie N°1 au Burkina Faso." robots="noindex, nofollow" />
     <AuthShell
       eyebrow="Inscription"
       title="Rejoignez la file."
@@ -602,5 +605,6 @@ export default function SignUp() {
         </p>
       </div>
     </AuthShell>
+    </>
   );
 }

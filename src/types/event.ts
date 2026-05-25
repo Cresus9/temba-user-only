@@ -30,6 +30,18 @@ export interface Event {
     latitude: number;
     longitude: number;
   };
+  // ── Geo & timezone (added for diaspora expansion) ──────────────────────
+  /** ISO 3166-1 alpha-2 country code (e.g. 'BF', 'FR', 'US'). Defaults to 'BF'. */
+  country_code?: string;
+  /** Display city name (e.g. 'Ouagadougou', 'Paris', 'New York'). */
+  city?: string;
+  /** IANA timezone identifier (e.g. 'Africa/Ouagadougou', 'Europe/Paris'). */
+  timezone?: string;
+  /** Full street / venue address for geocoding and display. */
+  address?: string;
+  /** State, département or province (optional free-text). */
+  region?: string;
+  // ───────────────────────────────────────────────────────────────────────
   created_at?: string;
   updated_at?: string;
 }
@@ -68,6 +80,12 @@ export interface CreateEventInput {
     latitude: number;
     longitude: number;
   };
+  // Geo & timezone
+  country_code?: string;
+  city?: string;
+  timezone?: string;
+  address?: string;
+  region?: string;
   ticket_types: Omit<TicketType, 'id' | 'event_id' | 'created_at' | 'updated_at'>[];
 }
 

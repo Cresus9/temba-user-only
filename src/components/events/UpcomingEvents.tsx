@@ -4,54 +4,47 @@ import { MapPin, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
+import { shortDateLabel, eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
 interface UpcomingEventsProps {
   limit?: number;
   category?: string;
+  countryFilter?: string;
 }
 
-export default function UpcomingEvents({ limit = 6, category }: UpcomingEventsProps) {
+export default function UpcomingEvents({ limit = 6, category, countryFilter = '' }: UpcomingEventsProps) {
+  const { activeCountry } = useEvents();
+  const effectiveCountry = countryFilter || activeCountry || '';
+
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchUpcomingEvents();
-  }, [limit, category]);
+  }, [limit, category, effectiveCountry]);
 
   const fetchUpcomingEvents = async () => {
     try {
       setLoading(true);
-      console.log('🔍 [UpcomingEvents] Fetching upcoming events...', { limit, category });
       
       let query = supabase
         .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
+        .select(`*, ticket_types (*)`)
         .eq('status', 'PUBLISHED')
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date', { ascending: true })
-        .limit(limit);
-
-      // Filter by category if provided
-      if (category) {
-        // This will be filtered client-side since categories might be in different fields
-      }
+        .limit(limit * 3); // fetch more so sort has material to reorder
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('❌ [UpcomingEvents] Error:', error);
-        throw error;
-      }
-      
-      let filteredData = data || [];
-      
-      // Client-side category filter if needed
+      if (error) throw error;
+
+      let allData = data || [];
+
       if (category) {
-        filteredData = filteredData.filter(event => {
+        allData = allData.filter(event => {
           const eventCategories = event.categories || [];
           const categoryRelations = (event as any).event_category_relations?.map(
             (rel: any) => rel.categories?.name
@@ -59,9 +52,10 @@ export default function UpcomingEvents({ limit = 6, category }: UpcomingEventsPr
           return eventCategories.includes(category) || categoryRelations.includes(category);
         });
       }
-      
-      console.log('✅ [UpcomingEvents] Loaded:', filteredData.length, 'events');
-      setEvents(filteredData);
+
+      // Sort: selected country first, then all others — never hide any event
+      const sorted = sortEventsByCountryPriority(allData, effectiveCountry);
+      setEvents(sorted.slice(0, limit));
     } catch (error) {
       console.error('❌ [UpcomingEvents] Fetch error:', error);
     } finally {
@@ -140,10 +134,16 @@ interface UpcomingEventCardProps {
 }
 
 function UpcomingEventCard({ event }: UpcomingEventCardProps) {
-  const eventDate = new Date(event.date);
-  const day = eventDate.toLocaleDateString('fr-FR', { day: '2-digit' });
-  const month = eventDate.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
-  const weekday = eventDate.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+  const tz = event.timezone ?? 'Africa/Ouagadougou';
+  const day = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: tz, day: '2-digit' });
+  const month = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: tz, month: 'short' }).replace('.', '');
+  const weekday = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: tz, weekday: 'short' }).replace('.', '');
+
+  const { primary: locationLabel, badge: flagBadge } = eventLocationLabel({
+    location: event.location,
+    city: event.city,
+    country_code: event.country_code,
+  });
 
   return (
     <Link
@@ -181,7 +181,10 @@ function UpcomingEventCard({ event }: UpcomingEventCardProps) {
         </h3>
         <div className="flex items-center gap-1.5 text-ink-mute text-[13px]">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">{event.location}</span>
+          <span className="truncate">{locationLabel}</span>
+          {flagBadge && (
+            <span className="flex-shrink-0" aria-label={event.country_code ?? ''}>{flagBadge}</span>
+          )}
         </div>
       </div>
 

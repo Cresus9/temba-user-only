@@ -71,7 +71,7 @@
 # Edge Functions for dynamic Open Graph meta tags
 [[edge_functions]]
   function = "og-tags"
-  path = "/event/*"
+  path = "/events/*"
 
 [[edge_functions]]
   function = "og-tags"

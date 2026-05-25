@@ -16,6 +16,7 @@ import { detectInputType, getPhoneInfo, isValidPhone } from '../utils/phoneValid
 import CountryCodeSelector from '../components/CountryCodeSelector';
 import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 type LoginMethod = 'email' | 'phone';
 
@@ -139,6 +140,8 @@ export default function Login() {
   };
 
   return (
+    <>
+      <PageSEO title="Se connecter" description="Connexion à votre compte Temba." robots="noindex, nofollow" />
     <AuthShell
       eyebrow="Espace client"
       title="Bon retour."
@@ -365,5 +368,6 @@ export default function Login() {
         🔒 Connexion chiffrée · Vos données restent privées
       </p>
     </AuthShell>
+    </>
   );
 }

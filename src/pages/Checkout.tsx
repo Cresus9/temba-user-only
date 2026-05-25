@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
 import CheckoutForm from '../components/checkout/CheckoutForm';
+import PageSEO from '../components/SEO/PageSEO';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -45,6 +46,7 @@ export default function Checkout() {
 
   return (
     <div>
+      <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
       {/* — — — Title band (cream) — — — */}
       <section className="bg-cream bg-grain border-b border-line">
         <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">

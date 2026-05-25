@@ -4,6 +4,7 @@ import { MapPin, Users, Tag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Event } from '../types/event';
 import { formatCurrency } from '../utils/formatters';
+import { shortDateLabel, eventLocationLabel, isAbroadEvent } from '../utils/eventGeo';
 import PosterMedia from './common/PosterMedia';
 
 interface EventCardProps extends Event {
@@ -26,15 +27,23 @@ const EventCard = memo(({
   categories = [],
   status,
   className = '',
-  priority = false
+  priority = false,
+  country_code,
+  city,
+  timezone,
 }: EventCardProps) => {
   const availabilityPercentage = (tickets_sold / capacity) * 100;
   const eventDate = new Date(date);
   const isUpcoming = eventDate > new Date();
 
-  const formattedDate = eventDate.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
+  const tz = timezone ?? 'Africa/Ouagadougou';
+  const formattedDate = shortDateLabel(date, tz);
+
+  const abroad = isAbroadEvent(country_code);
+  const { primary: locationLabel, badge: flagBadge } = eventLocationLabel({
+    location,
+    city,
+    country_code,
   });
 
   return (
@@ -95,7 +104,12 @@ const EventCard = memo(({
 
           <div className="flex items-center gap-1 text-[11px] text-ink-mute mb-2.5">
             <MapPin className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{location}</span>
+            <span className="truncate">{locationLabel}</span>
+            {flagBadge && (
+              <span className="ml-0.5 flex-shrink-0" aria-label={country_code ?? ''}>
+                {flagBadge}
+              </span>
+            )}
           </div>
 
           {/* Availability — only when 80%+ sold */}

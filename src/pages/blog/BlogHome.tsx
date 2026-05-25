@@ -5,6 +5,7 @@ import BlogHero from '../../components/blog/BlogHero';
 import BlogPostCard from '../../components/blog/BlogPostCard';
 import BlogPagination from '../../components/blog/BlogPagination';
 import toast from 'react-hot-toast';
+import PageSEO from '../../components/SEO/PageSEO';
 
 const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
@@ -109,6 +110,18 @@ export default function BlogHome() {
 
   return (
     <div className="min-h-screen bg-paper">
+      <PageSEO
+        title="Blog Temba – Conseils, actualités et tendances événementielles"
+        description="Le blog de Temba : conseils pour organisateurs, actualités des concerts et festivals au Burkina Faso, tendances de la billetterie en Afrique de l'Ouest."
+        canonicalUrl="https://tembas.com/blog"
+        keywords={[
+          'blog billetterie Burkina Faso',
+          'actualités concerts Burkina',
+          'conseils organisateurs événements',
+          'festivals Ouagadougou',
+          'Temba blog',
+        ]}
+      />
       {/* Featured post hero */}
       {featuredPost && <BlogHero post={featuredPost} />}
 

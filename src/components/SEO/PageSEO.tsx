@@ -11,15 +11,18 @@ interface PageSEOProps {
   ogLocale?: string;
   structuredData?: JsonLd | JsonLd[];
   keywords?: string[];
+  /** Set to "noindex, nofollow" for private/auth pages */
+  robots?: string;
 }
 
 const DEFAULTS = {
-  title: 'Temba – Billetterie d’événements en Afrique de l’Ouest',
+  title: "Temba \u2013 N\u00b01 Billetterie Burkina Faso | Concerts, Festivals & \u00c9v\u00e9nements",
   description:
-    'Découvrez, achetez et transférez des billets pour les meilleurs concerts, festivals et événements culturels au Burkina Faso et en Afrique de l’Ouest.',
+    "Achetez vos billets en ligne pour les meilleurs concerts, festivals et \u00e9v\u00e9nements culturels au Burkina Faso. Paiement s\u00e9curis\u00e9 en FCFA, billets sur mobile.",
   canonical: 'https://tembas.com/',
-  ogImage: 'https://tembas.com/temba-app.png',
+  ogImage: 'https://tembas.com/temba-wordmark-dark.jpg',
   locale: 'fr_BF',
+  siteName: 'Temba',
 };
 
 const setMetaTag = (attr: 'name' | 'property', value: string, content: string) => {
@@ -32,6 +35,11 @@ const setMetaTag = (attr: 'name' | 'property', value: string, content: string) =
   }
 
   element.setAttribute('content', content);
+};
+
+const removeMetaTag = (attr: 'name' | 'property', value: string) => {
+  const el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${value}"]`);
+  if (el?.parentElement) el.parentElement.removeChild(el);
 };
 
 const setCanonicalLink = (href: string) => {
@@ -78,6 +86,7 @@ export function PageSEO({
   ogLocale,
   structuredData,
   keywords,
+  robots,
 }: PageSEOProps) {
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -93,13 +102,28 @@ export function PageSEO({
     document.title = resolvedTitle;
 
     setMetaTag('name', 'description', resolvedDescription);
+
+    // robots (noindex for private pages)
+    if (robots) {
+      setMetaTag('name', 'robots', robots);
+    } else {
+      removeMetaTag('name', 'robots');
+    }
+
+    // Open Graph
+    setMetaTag('property', 'og:site_name', DEFAULTS.siteName);
     setMetaTag('property', 'og:title', resolvedTitle);
     setMetaTag('property', 'og:description', resolvedDescription);
     setMetaTag('property', 'og:type', ogType);
     setMetaTag('property', 'og:image', resolvedOgImage);
+    setMetaTag('property', 'og:image:width', '1200');
+    setMetaTag('property', 'og:image:height', '630');
     setMetaTag('property', 'og:url', resolvedCanonical);
     setMetaTag('property', 'og:locale', resolvedLocale);
+
+    // Twitter
     setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:site', '@temba_bf');
     setMetaTag('name', 'twitter:title', resolvedTitle);
     setMetaTag('name', 'twitter:description', resolvedDescription);
     setMetaTag('name', 'twitter:image', resolvedOgImage);
@@ -107,10 +131,7 @@ export function PageSEO({
     if (keywords?.length) {
       setMetaTag('name', 'keywords', keywords.join(', '));
     } else {
-      const keywordsMeta = document.head.querySelector('meta[name="keywords"]');
-      if (keywordsMeta?.parentElement) {
-        keywordsMeta.parentElement.removeChild(keywordsMeta);
-      }
+      removeMetaTag('name', 'keywords');
     }
 
     setCanonicalLink(resolvedCanonical);
@@ -120,10 +141,9 @@ export function PageSEO({
       if (!structuredData) return;
       setStructuredData(undefined);
     };
-  }, [title, description, canonicalUrl, ogType, ogImage, ogLocale, structuredData, keywords]);
+  }, [title, description, canonicalUrl, ogType, ogImage, ogLocale, structuredData, keywords, robots]);
 
   return null;
 }
 
 export default PageSEO;
-

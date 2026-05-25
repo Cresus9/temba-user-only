@@ -20,6 +20,7 @@ import { isValidPhone, getPhoneInfo } from '../utils/phoneValidation';
 import CountryCodeSelector from '../components/CountryCodeSelector';
 import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
+import PageSEO from '../components/SEO/PageSEO';
 
 type ResetStep = 'input' | 'verify-otp' | 'reset-password' | 'success';
 type ResetMethod = 'email' | 'phone';
@@ -436,6 +437,8 @@ export default function ForgotPassword() {
      INPUT
   ───────────────────────────────────────────────── */
   return (
+    <>
+      <PageSEO title="Mot de passe oublié" description="Réinitialisez votre mot de passe Temba." robots="noindex, nofollow" />
     <AuthShell
       eyebrow="Récupération du compte"
       title="Mot de passe oublié ?"
@@ -569,5 +572,6 @@ export default function ForgotPassword() {
         🔒 Vos données restent privées · Aucun mot de passe stocké en clair
       </p>
     </AuthShell>
+    </>
   );
 }

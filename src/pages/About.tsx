@@ -1,4 +1,5 @@
 import React from 'react';
+import PageSEO from '../components/SEO/PageSEO';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -102,6 +103,31 @@ function PledgeCard({ icon: Icon, title, body, tone }: PledgeCardProps) {
 export default function About() {
   return (
     <div className="min-h-screen bg-paper">
+      <PageSEO
+        title="À propos de Temba – La billetterie N°1 au Burkina Faso"
+        description="Temba est la première plateforme de billetterie en ligne au Burkina Faso. Découvrez notre mission, notre équipe et notre engagement pour les événements culturels en Afrique de l'Ouest."
+        canonicalUrl="https://tembas.com/about"
+        keywords={[
+          'Temba billetterie',
+          'à propos Temba',
+          'plateforme événements Burkina Faso',
+          'billetterie africaine',
+          'startup Ouagadougou',
+        ]}
+        structuredData={{
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'À propos de Temba',
+          url: 'https://tembas.com/about',
+          description: 'Temba est la première plateforme de billetterie en ligne au Burkina Faso.',
+          publisher: {
+            '@type': 'Organization',
+            name: 'Temba',
+            url: 'https://tembas.com/',
+            logo: 'https://tembas.com/temba-wordmark-dark.jpg',
+          },
+        }}
+      />
       {/* — Breadcrumb — */}
       <div className="border-b border-line bg-cream/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">

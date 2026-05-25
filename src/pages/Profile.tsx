@@ -13,6 +13,7 @@ import SentTicketsList from '../components/tickets/SentTicketsList';
 import MyTickets from '../components/profile/MyTickets';
 import ReferralProgram from './profile/ReferralProgram';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
+import PageSEO from '../components/SEO/PageSEO';
 
 export default function Profile() {
   const location = useLocation();
@@ -82,6 +83,7 @@ export default function Profile() {
 
   return (
     <div className="bg-paper">
+      <PageSEO title="Mon profil" description="Gérez votre profil Temba." robots="noindex, nofollow" />
       <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 md:py-8">
         <div className="flex flex-col md:flex-row gap-5 md:gap-7">
           {/* Sidebar */}
