@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Calendar, ArrowRight, Ticket } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
+import { useEvents } from '../../context/EventContext';
 
 interface VenueData {
   name: string;
@@ -10,58 +10,33 @@ interface VenueData {
   nextEvent: Event | null;
 }
 
+function normalizeLocation(location: string): string {
+  const parts = location.split(/[,–-]/);
+  return parts[0].trim();
+}
+
 export default function PopularVenues() {
-  const [venues, setVenues] = useState<VenueData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { events: allEvents, loading } = useEvents();
+  const today = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    fetchPopularVenues();
-  }, []);
-
-  const fetchPopularVenues = async () => {
-    try {
-      setLoading(true);
-      
-      const { data: events, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('status', 'PUBLISHED')
-        .gte('date', new Date().toISOString().split('T')[0])
-        .order('date', { ascending: true });
-
-      if (error) throw error;
-
-      const locationMap = new Map<string, Event[]>();
-      
-      events?.forEach((event: Event) => {
+  // Derive venues from EventContext data — zero extra Supabase calls
+  const venues = useMemo(() => {
+    const locationMap = new Map<string, Event[]>();
+    allEvents
+      .filter(e => e.date >= today)
+      .forEach(event => {
         if (event.location) {
-          const normalizedLocation = normalizeLocation(event.location);
-          const existing = locationMap.get(normalizedLocation) || [];
-          locationMap.set(normalizedLocation, [...existing, event]);
+          const key = normalizeLocation(event.location);
+          const existing = locationMap.get(key) || [];
+          locationMap.set(key, [...existing, event]);
         }
       });
 
-      const venueData: VenueData[] = Array.from(locationMap.entries())
-        .map(([name, locationEvents]) => ({
-          name,
-          eventCount: locationEvents.length,
-          nextEvent: locationEvents[0] || null,
-        }))
-        .sort((a, b) => b.eventCount - a.eventCount)
-        .slice(0, 6);
-
-      setVenues(venueData);
-    } catch (error) {
-      console.error('Error fetching popular venues:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const normalizeLocation = (location: string): string => {
-    const parts = location.split(/[,–-]/);
-    return parts[0].trim();
-  };
+    return Array.from(locationMap.entries())
+      .map(([name, evs]) => ({ name, eventCount: evs.length, nextEvent: evs[0] || null }))
+      .sort((a, b) => b.eventCount - a.eventCount)
+      .slice(0, 6);
+  }, [allEvents, today]);
 
   if (loading) {
     return (

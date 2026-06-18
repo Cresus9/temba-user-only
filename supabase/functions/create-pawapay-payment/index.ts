@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { qstashPublish } from "../_shared/upstash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -501,6 +502,31 @@ Deno.serve(async (req) => {
         sent_depositId: pawapayPayload.depositId,
         received_depositId: transactionId
       });
+
+      // ── Schedule QStash safety net at T+10 min ────────────────────────────
+      // If the PawaPay webhook never arrives, check-pawapay-status will poll the
+      // PawaPay API and finalize the order. dedup ID prevents double-scheduling.
+      if (normalizedStatus === "pending") {
+        const checkUrl       = `${Deno.env.get("SUPABASE_URL")}/functions/v1/check-pawapay-status`;
+        const finalizeSecret = Deno.env.get("FINALIZE_ORDER_SECRET") ?? "";
+        const anonKey        = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+        const scheduled = await qstashPublish(
+          checkUrl,
+          { payment_id: paymentRecord.id, deposit_id: transactionId },
+          {
+            dedupId: `pawapay-check-${paymentRecord.id}`,
+            delay: 600, // 10 minutes
+            retries: 4, // T+10→T+30→T+2h→T+24h
+            forwardHeaders: {
+              "X-Finalize-Secret": finalizeSecret,
+              Authorization: `Bearer ${anonKey}`,
+            },
+          }
+        );
+        console.log("[create-pawapay-payment] safety net scheduled:", scheduled);
+      }
+
       // SUCCESS: Return deposit info (no redirect URL from deposits)
       return new Response(
         JSON.stringify({

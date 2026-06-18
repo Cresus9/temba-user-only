@@ -2,6 +2,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
+import {
+  redisSetNx,
+  redisSet,
+  qstashPublish,
+  webhookDedupKey,
+  paymentStatusKey,
+  PAYMENT_STATUS_TTL,
+  WEBHOOK_DEDUP_TTL,
+} from "../_shared/upstash.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -29,10 +38,13 @@ Deno.serve(async (req) => {
     );
   }
 
-  const supabase = createClient(
+  const supabase       = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
+  const finalizeUrl    = `${Deno.env.get("SUPABASE_URL")}/functions/v1/finalize-order`;
+  const finalizeSecret = Deno.env.get("FINALIZE_ORDER_SECRET") ?? "";
+  const anonKey        = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
   try {
     const rawBody = await req.text();
@@ -73,6 +85,13 @@ Deno.serve(async (req) => {
 
     if (logErr) {
       console.warn("⚠️ Failed to log webhook:", logErr);
+    }
+
+    // ── Redis dedup: drop re-deliveries of the same Stripe event ─────────────
+    const isNew = await redisSetNx(webhookDedupKey("stripe", event.id), "1", WEBHOOK_DEDUP_TTL);
+    if (isNew === false) {
+      console.log("ℹ️ Duplicate Stripe event, skipping:", event.id);
+      return new Response(JSON.stringify({ received: true, note: "duplicate" }), { headers: cors });
     }
 
     // Handle payment_intent.succeeded
@@ -128,8 +147,25 @@ Deno.serve(async (req) => {
 
       console.log("✅ Payment completed:", payment.id);
 
-      // Update order and create tickets if order exists
-      if (payment.order_id) {
+      // ── Write Redis status key → mobile polling resolves instantly ────────
+      await redisSet(paymentStatusKey(payment.id), "completed", PAYMENT_STATUS_TTL);
+
+      // ── Try async finalization via QStash (5 retries) ─────────────────────
+      const queued = await qstashPublish(
+        finalizeUrl,
+        { payment_id: payment.id, provider: "stripe" },
+        {
+          dedupId: `stripe-finalize-${payment.id}`,
+          retries: 5,
+          forwardHeaders: {
+            "X-Finalize-Secret": finalizeSecret,
+            Authorization: `Bearer ${anonKey}`,
+          },
+        }
+      );
+
+      // ── Sync fallback: if QStash unavailable, finalize inline ────────────
+      if (!queued && payment.order_id) {
         // Fetch order details
         const { data: order, error: orderFetchErr } = await supabase
           .from("orders")
@@ -204,7 +240,7 @@ Deno.serve(async (req) => {
             }
           }
         }
-      }
+      } // end sync fallback
 
       // Mark webhook as processed
       if (webhookLog?.id) {
@@ -248,9 +284,13 @@ Deno.serve(async (req) => {
 
         const { data: failedPayment } = await supabase
           .from("payments")
-          .select("order_id")
+          .select("id, order_id")
           .eq("stripe_payment_intent_id", intent.id)
           .maybeSingle();
+
+        if (failedPayment?.id) {
+          await redisSet(paymentStatusKey(failedPayment.id), "failed", PAYMENT_STATUS_TTL);
+        }
 
         if (failedPayment?.order_id) {
           const { error: orderFailErr } = await supabase

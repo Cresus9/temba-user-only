@@ -1,4 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  redisSetNx,
+  redisSet,
+  qstashPublish,
+  webhookDedupKey,
+  paymentStatusKey,
+  PAYMENT_STATUS_TTL,
+  WEBHOOK_DEDUP_TTL,
+} from "../_shared/upstash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -128,6 +137,17 @@ Deno.serve(async (req) => {
     }
     
     console.log("🔍 Extracted transaction ID:", transactionId);
+
+    // ── Redis dedup: drop re-deliveries ──────────────────────────────────────
+    const isNew = await redisSetNx(
+      webhookDedupKey("pawapay", transactionId),
+      payload.status ?? "1",
+      WEBHOOK_DEDUP_TTL
+    );
+    if (isNew === false) {
+      console.log("ℹ️ Duplicate pawaPay webhook, skipping:", transactionId);
+      return new Response("OK", { status: 200, headers: { ...corsHeaders, "Content-Type": "text/plain" } });
+    }
 
     // Verify webhook signature if secret is configured
     if (pawapayWebhookSecret && signature) {
@@ -259,8 +279,13 @@ Deno.serve(async (req) => {
     const status = payload.status?.toUpperCase();
     const event = payload.event?.toLowerCase();
     
+    const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
+    const finalizeUrl    = `${supabaseUrl}/functions/v1/finalize-order`;
+    const finalizeSecret = Deno.env.get("FINALIZE_ORDER_SECRET") ?? "";
+    const anonKey        = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
     if (status === "COMPLETED" || event === "payment.success") {
-      await handleSuccessfulPayment(supabase, payment, payload);
+      await handleSuccessfulPayment(supabase, payment, payload, finalizeUrl, finalizeSecret, anonKey);
     } else if (status === "FAILED" || event === "payment.failed") {
       await handleFailedPayment(supabase, payment, payload);
     } else if (status === "ACCEPTED" || status === "SUBMITTED" || status === "PENDING" || event === "payment.pending") {
@@ -327,7 +352,10 @@ Deno.serve(async (req) => {
 async function handleSuccessfulPayment(
   supabase: any,
   payment: any,
-  payload: PawaPayWebhook
+  payload: PawaPayWebhook,
+  finalizeUrl = "",
+  finalizeSecret = "",
+  anonKey = ""
 ) {
   console.log("✅ Processing successful payment:", payment.id);
 
@@ -344,6 +372,33 @@ async function handleSuccessfulPayment(
   if (paymentError) {
     throw new Error(`Failed to update payment: ${paymentError.message}`);
   }
+
+  // ── Write Redis status key → mobile polling resolves instantly ─────────────
+  await redisSet(paymentStatusKey(payment.id), "completed", PAYMENT_STATUS_TTL);
+
+  // ── Try async finalization via QStash (5 retries, dedup-safe) ────────────
+  const queued = finalizeUrl
+    ? await qstashPublish(
+        finalizeUrl,
+        { payment_id: payment.id, provider: "pawapay" },
+        {
+          dedupId: `pawapay-finalize-${payment.id}`,
+          retries: 5,
+          forwardHeaders: {
+            "X-Finalize-Secret": finalizeSecret,
+            Authorization: `Bearer ${anonKey}`,
+          },
+        }
+      )
+    : false;
+
+  if (queued) {
+    console.log("✅ Finalization queued via QStash:", payment.id);
+    return;
+  }
+
+  // ── Sync fallback: QStash unavailable, finalize inline ────────────────────
+  console.warn("⚠️ QStash unavailable, finalizing synchronously:", payment.id);
 
   // Get order ID from payment.order_id (correct relationship)
   const orderId = payment.order_id || payload.metadata?.order_id;
@@ -397,6 +452,9 @@ async function handleFailedPayment(
   if (paymentError) {
     throw new Error(`Failed to update payment: ${paymentError.message}`);
   }
+
+  // ── Write Redis status key ─────────────────────────────────────────────────
+  await redisSet(paymentStatusKey(payment.id), "failed", PAYMENT_STATUS_TTL);
 
   // Update order status if exists (use payment.order_id)
   const orderId = payment.order_id;

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
-import { shortDateLabel, eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
@@ -12,40 +11,18 @@ interface FeaturedEventsProps {
 }
 
 export default function FeaturedEvents({ countryFilter = '' }: FeaturedEventsProps) {
-  const { activeCountry } = useEvents();
+  const { featuredEvents: allFeatured, activeCountry, loading } = useEvents();
   const effectiveCountry = countryFilter || activeCountry || '';
 
-  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const today = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    fetchFeaturedEvents();
-  }, [effectiveCountry]);
-
-  const fetchFeaturedEvents = async () => {
-    try {
-      setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
-
-      const { data, error } = await supabase
-        .from('events')
-        .select(`*, ticket_types (*)`)
-        .eq('status', 'PUBLISHED')
-        .gte('date', today)          // ← no past events
-        .order('tickets_sold', { ascending: false })
-        .order('date', { ascending: true })
-        .limit(12);
-
-      if (error) throw error;
-
-      const sorted = sortEventsByCountryPriority(data ?? [], effectiveCountry);
-      setFeaturedEvents(sorted.slice(0, 4));
-    } catch (error) {
-      console.error('❌ [FeaturedEvents] Fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Derive from EventContext — zero extra Supabase calls
+  const featuredEvents = useMemo(() => {
+    const upcoming = allFeatured.filter(e => e.date >= today);
+    const sorted = sortEventsByCountryPriority(upcoming, effectiveCountry)
+      .sort((a, b) => (b.tickets_sold ?? 0) - (a.tickets_sold ?? 0));
+    return sorted.slice(0, 4);
+  }, [allFeatured, effectiveCountry, today]);
 
   const SectionHeader = () => (
     <div className="mb-5">

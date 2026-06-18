@@ -14,11 +14,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
+import { useEvents } from '../context/EventContext';
 import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
 import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
 import { formatEventDateTime, fullAddressDisplay, countryFlag, countryNameFr } from '../utils/eventGeo';
+import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
 import PageSEO from '../components/SEO/PageSEO';
@@ -40,6 +42,7 @@ export default function EventDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { getEvent } = useEvents();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState<EventLocation | null>(null);
@@ -51,7 +54,25 @@ export default function EventDetails() {
     const fetchEvent = async () => {
       try {
         if (!id) return;
-        setLoading(true);
+
+        // 1. Serve from EventContext in-memory cache first (instant, no network)
+        const cached = getEvent(id);
+        if (cached) {
+          setEvent(cached);
+          setLoading(false);
+          // Still revalidate in background so ticket availability is fresh
+          queryCache.invalidate(`event:${id}`);
+        } else {
+          setLoading(true);
+        }
+
+        // 2. Check per-event TTL cache before hitting Supabase
+        const cacheKey = `event:${id}`;
+        const fresh = queryCache.peek<Event>(cacheKey);
+        if (fresh && cached) {
+          // Already served from context AND per-event cache is fresh — skip network
+          return;
+        }
 
         const { data, error } = await supabase
           .from('events')
@@ -78,7 +99,10 @@ export default function EventDetails() {
           return;
         }
 
+        // Cache this event individually for fast back-navigation
+        queryCache.set(`event:${id}`, data, TTL.EVENT_DETAIL);
         setEvent(data);
+        setLoading(false);
 
         let { data: datesData, error: datesError } = await supabase
           .from('event_dates')

@@ -352,7 +352,7 @@ class BlogService {
       // Get recent published posts (excluding current post)
       // Note: Full category/tag matching would require more complex queries with the junction table
       
-      const query = supabase
+      let query = supabase
         .from('blog_posts')
         .select(`
           *,
@@ -380,9 +380,7 @@ class BlogService {
             )
           )
         `)
-        .eq('status', 'PUBLISHED') // Database uses uppercase
-        // Note: To enable scheduled posts, uncomment the line below:
-        // .or(`published_at.is.null,published_at.lte.${new Date().toISOString()}`) // Show posts with no date or date <= today
+        .eq('status', 'PUBLISHED')
         .neq('id', postId)
         .order('published_at', { ascending: false })
         .limit(limit);

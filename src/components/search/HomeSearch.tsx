@@ -1,56 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Globe } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
 import { SUPPORTED_COUNTRIES } from '../../utils/eventGeo';
-import toast from 'react-hot-toast';
+import { useEvents } from '../../context/EventContext';
 
 export default function HomeSearch() {
   const navigate = useNavigate();
+  const { events: allEvents, activeCountries, loading } = useEvents();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [country, setCountry] = useState('');
-  const [locations, setLocations] = useState<string[]>([]);
-  const [activeCountries, setActiveCountries] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLocations();
-  }, [country]);
-
-  const fetchLocations = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('events')
-        .select('location, country_code')
-        .eq('status', 'PUBLISHED')
-        .order('location');
-
-      if (country) {
-        query = query.eq('country_code', country);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const uniqueLocations = [...new Set(data?.map(event => event.location))];
-      setLocations(uniqueLocations);
-
-      // Also fetch which countries actually have events
-      const { data: countryData } = await supabase
-        .from('events')
-        .select('country_code')
-        .eq('status', 'PUBLISHED');
-      const usedCodes = [...new Set(countryData?.map(e => e.country_code ?? 'BF'))];
-      setActiveCountries(usedCodes);
-    } catch (error) {
-      console.error('Erreur lors du chargement des lieux:', error);
-      toast.error('Échec du chargement des lieux');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Derive locations from EventContext data — zero extra Supabase calls
+  const locations = useMemo(() => {
+    const pool = country
+      ? allEvents.filter(e => (e.country_code ?? 'BF') === country)
+      : allEvents;
+    return [...new Set(pool.map(e => e.location).filter(Boolean))].sort();
+  }, [allEvents, country]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

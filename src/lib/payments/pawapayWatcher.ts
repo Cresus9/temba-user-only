@@ -1,5 +1,6 @@
 import { supabase } from '../supabase-client';
 import { postEdgeFunctionAnon } from './edge';
+import { checkPaymentStatusFast } from '../../services/paymentService';
 
 export interface PawaPayVerificationResponse {
   success: boolean;
@@ -43,6 +44,25 @@ export async function waitForPawaPayPaymentTerminal(
   const fallbackIntervalMs = options.fallbackIntervalMs ?? 12000;
   const fallbackMaxAttempts = options.fallbackMaxAttempts ?? 25;
 
+  // ── Redis fast path ────────────────────────────────────────────────────────
+  // If the PawaPay webhook already fired, the Edge Function wrote the payment
+  // status to Redis. One lightweight GET resolves the promise immediately
+  // without opening a Realtime channel or a 5-min poll loop.
+  const fastStatus = await checkPaymentStatusFast(paymentId, orderId);
+  const FAST_TERMINAL = new Set(['completed', 'finalized', 'succeeded', 'failed', 'cancelled']);
+
+  if (fastStatus && FAST_TERMINAL.has(fastStatus)) {
+    const success = fastStatus === 'completed' || fastStatus === 'finalized' || fastStatus === 'succeeded';
+    return {
+      success,
+      state: success ? 'completed' : 'failed',
+      payment_id: paymentId,
+      order_id: orderId ?? '',
+      message: success ? 'Paiement confirmé' : 'Paiement échoué',
+    };
+  }
+
+  // Webhook hasn't arrived yet — fall through to Realtime + poll fallback
   return new Promise((resolve, reject) => {
     let done = false;
     let attempts = 0;

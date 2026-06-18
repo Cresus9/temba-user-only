@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
-import { shortDateLabel, eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
@@ -15,53 +14,27 @@ interface UpcomingEventsProps {
 }
 
 export default function UpcomingEvents({ limit = 6, category, countryFilter = '' }: UpcomingEventsProps) {
-  const { activeCountry } = useEvents();
+  const { events: allEvents, activeCountry, loading } = useEvents();
   const effectiveCountry = countryFilter || activeCountry || '';
+  const today = new Date().toISOString().split('T')[0];
 
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Derive upcoming events from EventContext — zero extra Supabase calls
+  const events = useMemo(() => {
+    let pool = allEvents.filter(e => e.date >= today);
 
-  useEffect(() => {
-    fetchUpcomingEvents();
-  }, [limit, category, effectiveCountry]);
-
-  const fetchUpcomingEvents = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('events')
-        .select(`*, ticket_types (*)`)
-        .eq('status', 'PUBLISHED')
-        .gte('date', new Date().toISOString().split('T')[0])
-        .order('date', { ascending: true })
-        .limit(limit * 3); // fetch more so sort has material to reorder
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      let allData = data || [];
-
-      if (category) {
-        allData = allData.filter(event => {
-          const eventCategories = event.categories || [];
-          const categoryRelations = (event as any).event_category_relations?.map(
-            (rel: any) => rel.categories?.name
-          ).filter(Boolean) || [];
-          return eventCategories.includes(category) || categoryRelations.includes(category);
-        });
-      }
-
-      // Sort: selected country first, then all others — never hide any event
-      const sorted = sortEventsByCountryPriority(allData, effectiveCountry);
-      setEvents(sorted.slice(0, limit));
-    } catch (error) {
-      console.error('❌ [UpcomingEvents] Fetch error:', error);
-    } finally {
-      setLoading(false);
+    if (category) {
+      pool = pool.filter(event => {
+        const cats = event.categories || [];
+        const rels = (event as any).event_category_relations?.map(
+          (rel: any) => rel.categories?.name
+        ).filter(Boolean) || [];
+        const normalised = event.category_relations?.map((c: any) => c?.name || c).filter(Boolean) || [];
+        return cats.includes(category) || rels.includes(category) || normalised.includes(category);
+      });
     }
-  };
+
+    return sortEventsByCountryPriority(pool, effectiveCountry).slice(0, limit);
+  }, [allEvents, today, category, effectiveCountry, limit]);
 
   const sectionTitle = category ? `${category} à venir` : 'Événements à venir';
 

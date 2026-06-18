@@ -1,6 +1,42 @@
-import { supabase } from '../lib/supabase-client';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase-client';
 import { paymentMethodService } from './paymentMethodService';
 import { notificationTriggers } from './notificationTriggers';
+
+const PAYMENT_STATUS_URL = `${supabaseUrl}/functions/v1/payment-status`;
+const TERMINAL_STATUSES  = new Set(['completed', 'finalized', 'failed', 'cancelled', 'succeeded']);
+
+/**
+ * Single GET to the payment-status Edge Function (Redis-first, ~2 ms on cache hit).
+ * Returns the status string or null if the endpoint is unavailable / returns no data.
+ * Never throws — callers should treat null as "unknown, keep polling".
+ */
+export async function checkPaymentStatusFast(
+  paymentId: string,
+  orderId?: string
+): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? (supabaseAnonKey.startsWith('eyJ') ? supabaseAnonKey : null);
+    if (!token) return null;
+
+    const params = new URLSearchParams({ payment_id: paymentId });
+    if (orderId) params.set('order_id', orderId);
+
+    const res = await fetch(`${PAYMENT_STATUS_URL}?${params}`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(5_000),
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json as { status?: string }).status ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export interface CreatePaymentRequest {
   idempotency_key: string;
@@ -325,6 +361,41 @@ class PaymentService {
     
     // Default to "Carte" (Card) instead of "Unknown"
     return 'Carte';
+  }
+
+  /**
+   * Polls the Redis-backed payment-status Edge Function every 3 s (max 60 s).
+   * On cache hit (~2 ms) resolves immediately without touching the DB.
+   * Falls back to the original verifyPayment call on timeout.
+   */
+  async pollPaymentStatusFast(
+    paymentId: string,
+    orderId?: string,
+    maxAttempts = 20,
+    intervalMs = 3_000
+  ): Promise<PaymentVerification> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise<void>(resolve => setTimeout(resolve, intervalMs));
+      }
+
+      const status = await checkPaymentStatusFast(paymentId, orderId);
+
+      if (status && TERMINAL_STATUSES.has(status)) {
+        const success = status === 'completed' || status === 'finalized' || status === 'succeeded';
+        return {
+          success,
+          status: status === 'finalized' ? 'completed' : status,
+          payment_id: paymentId,
+          order_id: orderId,
+          message: success ? 'Payment verified successfully' : `Payment status: ${status}`,
+        };
+      }
+    }
+
+    // Timed out — fall back to the existing heavier DB-backed check
+    console.warn('[pollPaymentStatusFast] timed out after', maxAttempts, 'attempts, falling back to verifyPayment');
+    return this.verifyPayment(paymentId, orderId);
   }
 
   async getPaymentStatus(paymentId: string) {

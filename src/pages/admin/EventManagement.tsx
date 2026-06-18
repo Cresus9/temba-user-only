@@ -3,6 +3,7 @@ import { Plus, Search, Calendar, MapPin, Users, Edit2, Trash2, Star, AlertCircle
 import { supabase } from '../../lib/supabase-client';
 import EventForm from '../../components/admin/events/EventForm';
 import { useTranslation } from '../../context/TranslationContext';
+import { invalidateEventsCache } from '../../utils/invalidateEventsCache';
 import toast from 'react-hot-toast';
 
 interface Organizer {
@@ -93,7 +94,10 @@ export default function EventManagement() {
         .eq('id', id);
 
       if (error) throw error;
-      
+
+      // Bust Redis + in-memory cache so all users see the change immediately
+      invalidateEventsCache();
+
       toast.success(t('admin.events.success.update', { default: 'Event status updated successfully' }), {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
@@ -114,9 +118,12 @@ export default function EventManagement() {
         .eq('id', id);
 
       if (error) throw error;
-      
+
+      // Featured flag affects the starred events carousel — bust cache
+      invalidateEventsCache();
+
       toast.success(
-        featured 
+        featured
           ? t('admin.events.success.featured', { default: 'Event marked as featured' })
           : t('admin.events.success.unfeatured', { default: 'Event removed from featured' }),
         {
@@ -144,7 +151,9 @@ export default function EventManagement() {
         .eq('id', id);
 
       if (error) throw error;
-      
+
+      invalidateEventsCache();
+
       toast.success(t('admin.events.success.delete', { default: 'Event deleted successfully' }), {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
@@ -192,6 +201,7 @@ export default function EventManagement() {
           onSuccess={() => {
             setShowForm(false);
             setSelectedEvent(null);
+            invalidateEventsCache(); // new/edited event → bust Redis cache
             fetchEvents();
           }}
           onCancel={() => {

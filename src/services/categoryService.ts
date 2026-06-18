@@ -1,11 +1,32 @@
 import { supabase } from '../lib/supabase-client';
 import { EventCategory, Event } from '../types/event';
+import { queryCache, TTL } from '../utils/queryCache';
+
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL ?? '';
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+const GET_CATEGORIES_URL = `${SUPABASE_URL}/functions/v1/get-categories`;
 
 // Category Service for the improved category system
 export class CategoryService {
-  // Fetch all categories
+  // Fetch all categories — Redis-first via Edge Function, then browser cache, then direct Supabase
   static async fetchCategories(): Promise<EventCategory[]> {
-    try {
+    return queryCache.get('categories:all', TTL.CATEGORIES, async () => {
+      // 1. Try Edge Function (Redis-first on the server)
+      if (SUPABASE_URL) {
+        try {
+          const res = await fetch(GET_CATEGORIES_URL, {
+            headers: {
+              'apikey':        SUPABASE_ANON,
+              'Authorization': `Bearer ${SUPABASE_ANON}`,
+            },
+          });
+          if (res.ok) return await res.json() as EventCategory[];
+        } catch {
+          // Edge Function unreachable — fall through to direct query
+        }
+      }
+
+      // 2. Direct Supabase fallback
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -13,10 +34,7 @@ export class CategoryService {
 
       if (error) throw error;
       return data || [];
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      throw new Error('Failed to fetch categories');
-    }
+    });
   }
 
   // Fetch category by ID

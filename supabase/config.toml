@@ -26,3 +26,29 @@ verify_jwt = false
 
 [functions.image-cache-warmer]
 verify_jwt = false
+
+# Upstash Redis-backed event cache — public read, anon key auth
+[functions.get-events]
+verify_jwt = false
+
+# Upstash Redis-backed categories cache — public read, anon key auth
+[functions.get-categories]
+verify_jwt = false
+
+# Cache invalidation — auth via service-role key or CACHE_INVALIDATION_SECRET
+[functions.invalidate-events-cache]
+verify_jwt = false
+
+# ── Payment reliability (Upstash Redis + QStash) ─────────────────────────────
+
+# Redis-first payment status polling (requires valid Supabase JWT from mobile app)
+[functions.payment-status]
+verify_jwt = true
+
+# Async ticket finalization — called by QStash, auth via X-Finalize-Secret header
+[functions.finalize-order]
+verify_jwt = false
+
+# PawaPay safety-net poller — called by QStash, auth via X-Finalize-Secret header
+[functions.check-pawapay-status]
+verify_jwt = false

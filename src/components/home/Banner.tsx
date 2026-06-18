@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase-client';
+import { queryCache, TTL } from '../../utils/queryCache';
 import toast from 'react-hot-toast';
 
 interface BannerData {
@@ -39,14 +40,16 @@ export default function Banner() {
   const fetchBanners = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('banners')
-        .select(`id, title, image_url, link, description, event_id`)
-        .eq('active', true)
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      setBanners(data || []);
+      const data = await queryCache.get('banners:active', TTL.BANNERS, async () => {
+        const { data, error } = await supabase
+          .from('banners')
+          .select(`id, title, image_url, link, description, event_id`)
+          .eq('active', true)
+          .order('display_order', { ascending: true });
+        if (error) throw error;
+        return data || [];
+      });
+      setBanners(data);
     } catch (error) {
       console.error('Erreur lors du chargement des bannières:', error);
       toast.error('Échec du chargement des bannières');

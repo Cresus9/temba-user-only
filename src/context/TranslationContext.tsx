@@ -29,10 +29,27 @@ export function TranslationProvider({ children }: { children: React.ReactNode })
     fetchTranslations();
   }, [locale]);
 
+  const TRANS_CACHE_KEY   = 'temba_translations_fr';
+  const TRANS_CACHE_TS    = 'temba_translations_fr_ts';
+  const TRANS_TTL_MS      = 24 * 60 * 60 * 1000; // 24 hours
+
   const fetchTranslations = async () => {
     try {
       setLoading(true);
-      
+
+      // Serve from localStorage if still fresh (translations never change mid-session)
+      try {
+        const ts = Number(localStorage.getItem(TRANS_CACHE_TS) ?? 0);
+        if (Date.now() - ts < TRANS_TTL_MS) {
+          const cached = localStorage.getItem(TRANS_CACHE_KEY);
+          if (cached) {
+            setTranslations(JSON.parse(cached));
+            setLoading(false);
+            return;
+          }
+        }
+      } catch { /* ignore localStorage errors */ }
+
       const { data, error } = await supabase
         .from('translations')
         .select('key, locale, content')
@@ -40,7 +57,6 @@ export function TranslationProvider({ children }: { children: React.ReactNode })
 
       if (error) throw error;
 
-      // Organize translations by key and locale
       const translationsMap = (data || []).reduce((acc, { key, locale, content }) => {
         if (!acc[key]) acc[key] = {};
         acc[key][locale] = content;
@@ -48,6 +64,12 @@ export function TranslationProvider({ children }: { children: React.ReactNode })
       }, {} as Translations);
 
       setTranslations(translationsMap);
+
+      // Persist to localStorage for next load
+      try {
+        localStorage.setItem(TRANS_CACHE_KEY, JSON.stringify(translationsMap));
+        localStorage.setItem(TRANS_CACHE_TS, String(Date.now()));
+      } catch { /* quota exceeded — skip */ }
     } catch (error) {
       console.error('Erreur lors du chargement des traductions:', error);
       toast.error('Échec du chargement des traductions');

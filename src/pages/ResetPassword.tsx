@@ -20,53 +20,58 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Debug: Log current URL and parameters
-    console.log('Current URL:', window.location.href);
-    console.log('Hash:', window.location.hash);
-    
-    // Check URL parameters for specific errors
-    const urlParams = new URLSearchParams(window.location.hash.substring(1));
-    const error = urlParams.get('error');
-    const errorCode = urlParams.get('error_code');
-    const errorDescription = urlParams.get('error_description');
+    // Check URL hash for Supabase error params (e.g. expired OTP)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const urlError = hashParams.get('error');
+    const errorCode = hashParams.get('error_code');
 
-    console.log('URL Error:', error);
-    console.log('Error Code:', errorCode);
-    console.log('Error Description:', errorDescription);
-
-    if (error === 'access_denied' && errorCode === 'otp_expired') {
+    if (urlError === 'access_denied' && errorCode === 'otp_expired') {
       setError('Le lien de réinitialisation a expiré. Veuillez demander un nouveau lien.');
       return;
     }
 
-    // Check if we have a valid session (user clicked the reset link)
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        console.log('Session check result:', { session: !!session, error });
-        
-        if (error) {
-          console.error('Session error:', error);
-          setError('Lien de réinitialisation invalide ou expiré');
+    // Supabase exchanges the recovery token from the URL hash asynchronously.
+    // We MUST use onAuthStateChange to catch PASSWORD_RECOVERY — calling
+    // getSession() immediately will always return null before the exchange completes.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY' && session) {
+          // Token successfully exchanged — user can now set a new password.
+          setIsValidToken(true);
           return;
         }
 
-        if (!session) {
-          console.log('No session found');
-          setError('Lien de réinitialisation invalide ou expiré');
+        // If the user already has a valid session (e.g. navigated here while
+        // logged in), allow them to change their password directly.
+        if (event === 'SIGNED_IN' && session) {
+          setIsValidToken(true);
           return;
         }
 
-        console.log('Valid session found, user:', session.user.email);
-        setIsValidToken(true);
-      } catch (error) {
-        console.error('Error checking session:', error);
-        setError('Lien de réinitialisation invalide ou expiré');
+        // Token present in URL but exchange failed or no recovery event fired
+        // after a short grace period — treat as invalid link.
       }
-    };
+    );
 
-    checkSession();
+    // Fallback: if there is already an active session when the page loads
+    // (e.g. the Supabase client already processed the hash on init),
+    // getSession() will return it synchronously.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setIsValidToken(true);
+    });
+
+    // If after 5 s nothing has fired, the link is invalid/expired.
+    const timeout = setTimeout(() => {
+      setIsValidToken((prev) => {
+        if (!prev) setError('Lien de réinitialisation invalide ou expiré.');
+        return prev;
+      });
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
