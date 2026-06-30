@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Calendar, MapPin, Tag, X, ArrowLeft, Globe } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Search, Calendar, MapPin, Tag, X, ArrowLeft, Globe, ChevronDown, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase-client';
 import { CategoryService } from '../services/categoryService';
@@ -259,60 +259,42 @@ export default function Events() {
               {/* Country — only when events exist in multiple countries */}
               {showCountryFilter && (
                 <>
-                  <FilterPill icon={<Globe className="h-4 w-4" />} active={!!filters.country}>
-                    <select
-                      value={filters.country}
-                      onChange={e => {
-                        const code = e.target.value;
-                        setFilters(prev => ({ ...prev, country: code, location: '' }));
-                        setActiveCountry(code || null);
-                      }}
-                      className="bg-transparent text-[13px] text-ink focus:outline-none w-full appearance-none cursor-pointer pr-2"
-                      aria-label="Filtrer par pays"
-                    >
-                      <option value="">Tous les pays</option>
-                      {countriesWithEvents.map(c => (
-                        <option key={c.code} value={c.code}>
-                          {c.flag} {c.nameFr}
-                        </option>
-                      ))}
-                    </select>
-                  </FilterPill>
+                  <FilterSelect
+                    icon={<Globe className="h-4 w-4" />}
+                    value={filters.country}
+                    onChange={code => {
+                      setFilters(prev => ({ ...prev, country: code, location: '' }));
+                      setActiveCountry(code || null);
+                    }}
+                    placeholder="Tous les pays"
+                    options={countriesWithEvents.map(c => ({
+                      value: c.code,
+                      label: `${c.flag} ${c.nameFr}`,
+                    }))}
+                  />
                   <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
                 </>
               )}
 
               {/* Location */}
-              <FilterPill icon={<MapPin className="h-4 w-4" />} active={!!filters.location}>
-                <select
-                  value={filters.location}
-                  onChange={e => setFilters(prev => ({ ...prev, location: e.target.value }))}
-                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full appearance-none cursor-pointer pr-2"
-                  aria-label="Filtrer par lieu"
-                >
-                  <option value="">Tous les lieux</option>
-                  {locations.map(location => (
-                    <option key={location} value={location}>{location}</option>
-                  ))}
-                </select>
-              </FilterPill>
+              <FilterSelect
+                icon={<MapPin className="h-4 w-4" />}
+                value={filters.location}
+                onChange={loc => setFilters(prev => ({ ...prev, location: loc }))}
+                placeholder="Tous les lieux"
+                options={locations.map(l => ({ value: l, label: l }))}
+              />
 
               <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
 
               {/* Category */}
-              <FilterPill icon={<Tag className="h-4 w-4" />} active={!!filters.category}>
-                <select
-                  value={filters.category}
-                  onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full appearance-none cursor-pointer pr-2"
-                  aria-label="Filtrer par catégorie"
-                >
-                  <option value="">Toutes catégories</option>
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </FilterPill>
+              <FilterSelect
+                icon={<Tag className="h-4 w-4" />}
+                value={filters.category}
+                onChange={cat => setFilters(prev => ({ ...prev, category: cat }))}
+                placeholder="Toutes catégories"
+                options={categories.map(c => ({ value: c, label: c }))}
+              />
             </div>
 
             {/* Active filter chips */}
@@ -372,6 +354,103 @@ export default function Events() {
 }
 
 /** Compact filter pill with icon. Becomes branded when active. */
+/** Custom dropdown — replaces native <select> so it always uses the design tokens. */
+function FilterSelect({
+  icon,
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref             = useRef<HTMLDivElement>(null);
+
+  const selected = options.find(o => o.value === value);
+  const active   = !!value;
+
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, close]);
+
+  return (
+    <div ref={ref} className="relative lg:flex-1 lg:min-w-0">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-2 h-11 px-3 rounded-lg w-full transition-colors ${
+          active ? 'bg-brand-50 text-brand' : 'text-ink-mute hover:bg-cream'
+        }`}
+      >
+        <span className="flex-shrink-0">{icon}</span>
+        <span className="flex-1 min-w-0 text-left text-[13px] truncate">
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 w-64 bg-paper border border-line rounded-xl shadow-pop z-50 py-1.5 overflow-hidden">
+          {/* "All" option */}
+          <button
+            type="button"
+            onClick={() => { onChange(''); close(); }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] transition-colors ${
+              !value
+                ? 'font-semibold text-brand bg-brand-50'
+                : 'text-ink hover:bg-cream'
+            }`}
+          >
+            {placeholder}
+            {!value && <Check className="w-3.5 h-3.5 text-brand" />}
+          </button>
+
+          {options.length > 0 && (
+            <div className="my-1 border-t border-line" />
+          )}
+
+          <div className="max-h-60 overflow-y-auto">
+            {options.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); close(); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] transition-colors ${
+                  value === opt.value
+                    ? 'font-semibold text-brand bg-brand-50'
+                    : 'text-ink hover:bg-cream'
+                }`}
+              >
+                <span className="flex-1 min-w-0 text-left truncate">{opt.label}</span>
+                {value === opt.value && <Check className="w-3.5 h-3.5 text-brand flex-shrink-0 ml-2" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterPill({
   icon,
   active,

@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, X, Check, MessageSquare, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, X, Check, MessageSquare, Ticket, Loader } from 'lucide-react';
+
+const display = '"Plus Jakarta Sans", Inter, sans-serif';
+const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 import { notificationService, Notification } from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,11 +10,12 @@ import toast from 'react-hot-toast';
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const [unreadCount, setUnreadCount]     = useState(0);
+  const [isOpen, setIsOpen]               = useState(false);
+  const [loading, setLoading]             = useState(false);
+  const { isAuthenticated }               = useAuth();
+  const navigate                          = useNavigate();
+  const panelRef                          = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -187,16 +191,32 @@ export default function NotificationBell() {
     }
   };
 
+  // Close on outside click / Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey   = (e: KeyboardEvent)  => { if (e.key === 'Escape') setIsOpen(false); };
+    const onClick = (e: MouseEvent)     => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen]);
+
   const getNotificationIcon = (type: string) => {
+    const base = 'w-4 h-4';
     switch (type) {
       case 'welcome':
-        return <MessageSquare className="h-5 w-5 text-green-500" />;
+        return <MessageSquare className={`${base} text-brand`} />;
       case 'event_reminder':
-        return <Bell className="h-5 w-5 text-blue-500" />;
+        return <Bell className={`${base} text-accent`} />;
       case 'ticket_purchased':
-        return <Check className="h-5 w-5 text-green-500" />;
+        return <Ticket className={`${base} text-emerald-600`} />;
       default:
-        return <Bell className="h-5 w-5 text-gray-500" />;
+        return <Bell className={`${base} text-ink-mute`} />;
     }
   };
 
@@ -218,134 +238,150 @@ export default function NotificationBell() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="relative">
-      {/* Notification Bell Button */}
+    <div className="relative" ref={panelRef}>
+      {/* ── Bell button ── */}
       <button
         onClick={() => {
           const wasOpen = isOpen;
-          setIsOpen(!isOpen);
-          
-          // Mark notifications as read when opening dropdown (with small delay)
+          setIsOpen(o => !o);
           if (!wasOpen && notifications.length > 0) {
-            console.log(`Bell clicked - opening dropdown. Unread count: ${unreadCount}, Total notifications: ${notifications.length}`);
-            const unreadNotifs = notifications.filter(n => n.read === 'false');
-            console.log(`Unread notifications to mark as read: ${unreadNotifs.length}`);
-            
-            setTimeout(() => {
-              handleMarkNotificationsAsReadOnView();
-            }, 1000); // 1 second delay to let user see the notifications
+            setTimeout(handleMarkNotificationsAsReadOnView, 1000);
           }
         }}
-        className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+        className="relative w-9 h-9 rounded-lg border border-line bg-paper grid place-items-center text-ink hover:text-brand hover:border-brand/30 hover:bg-brand-50 transition-colors"
         aria-label="Notifications"
       >
-        <Bell className="h-6 w-6" />
+        <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-paper text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-paper leading-none">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Notification Dropdown */}
+      {/* ── Panel ── */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+        <div className="absolute right-0 mt-2 w-[340px] bg-paper rounded-2xl border border-line shadow-pop z-50 overflow-hidden">
+
+          {/* Header */}
+          <div className="bg-cream border-b border-line px-4 py-3 flex items-center justify-between">
+            <div>
+              <h3
+                className="text-[15px] font-bold text-ink"
+                style={{ fontFamily: display }}
               >
-                <X className="h-5 w-5" />
-              </button>
+                Notifications
+              </h3>
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="text-[11px] font-semibold text-brand hover:text-brand/80 transition-colors mt-0.5"
+                >
+                  Tout marquer comme lu
+                </button>
+              )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="text-sm text-indigo-600 hover:text-indigo-700 mt-2"
-              >
-                Marquer tout comme lu
-              </button>
-            )}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-7 h-7 rounded-lg border border-line bg-paper grid place-items-center text-ink-mute hover:text-ink hover:bg-cream transition-colors"
+              aria-label="Fermer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          {/* Body */}
+          <div className="max-h-[420px] overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center text-gray-500">
-                Chargement...
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Loader className="w-5 h-5 text-brand animate-spin" />
+                <p className="text-[12px] text-ink-mute">Chargement…</p>
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                Aucune notification
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-cream border border-line grid place-items-center">
+                  <Bell className="w-5 h-5 text-ink-mute" />
+                </div>
+                <p className="text-[13px] text-ink-mute">Aucune notification</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 hover:bg-gray-50 transition-all duration-300 cursor-pointer ${
-                      notification.read === 'false' ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-white'
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <p className={`text-sm font-medium ${
-                            notification.read === 'false' ? 'text-gray-900' : 'text-gray-600'
-                          }`}>
-                            {notification.title}
-                            {notification.read === 'false' && (
-                              <span className="ml-2 inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+              <div className="divide-y divide-line">
+                {notifications.map(notif => {
+                  const unread = notif.read === 'false';
+                  return (
+                    <div
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`px-4 py-3.5 cursor-pointer transition-colors hover:bg-cream ${
+                        unread ? 'bg-brand-50 border-l-2 border-brand' : 'bg-paper'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Icon square */}
+                        <div className={`w-8 h-8 rounded-lg flex-shrink-0 grid place-items-center mt-0.5 ${
+                          unread ? 'bg-brand/10' : 'bg-cream border border-line'
+                        }`}>
+                          {getNotificationIcon(notif.type)}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Title + mark-read */}
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-[13px] leading-snug ${
+                              unread ? 'font-bold text-ink' : 'font-semibold text-ink'
+                            }`}>
+                              {notif.title}
+                              {unread && (
+                                <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-brand align-middle" />
+                              )}
+                            </p>
+                            {unread && (
+                              <button
+                                onClick={e => { e.stopPropagation(); handleMarkAsRead(notif.id); }}
+                                className="text-[10px] font-semibold text-brand hover:text-brand/70 flex-shrink-0 transition-colors"
+                              >
+                                Lu
+                              </button>
                             )}
+                          </div>
+
+                          {/* Message */}
+                          <p className="text-[12px] text-ink-mute mt-0.5 leading-relaxed">
+                            {notif.message}
                           </p>
-                          {notification.read === 'false' && (
+
+                          {/* Time */}
+                          <p
+                            className="text-[10px] text-ink-mute/70 mt-1.5 tabular-nums"
+                            style={{ fontFamily: mono }}
+                          >
+                            {formatTimeAgo(notif.created_at)}
+                          </p>
+
+                          {/* Action link */}
+                          {(notif.action_url || notif.metadata?.action_url) && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsRead(notification.id);
-                              }}
-                              className="text-xs text-indigo-600 hover:text-indigo-700"
+                              onClick={e => { e.stopPropagation(); handleNotificationClick(notif); }}
+                              className="text-[11px] font-semibold text-brand hover:text-brand/70 mt-1.5 transition-colors"
                             >
-                              Marquer comme lu
+                              {notif.action_text || notif.metadata?.action_text || 'Explorer les événements'}
                             </button>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {formatTimeAgo(notification.created_at)}
-                        </p>
-                        {(notification.action_url || notification.metadata?.action_url) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleNotificationClick(notification);
-                            }}
-                            className="text-xs text-indigo-600 hover:text-indigo-700 mt-2 inline-block"
-                          >
-                            {notification.action_text || notification.metadata?.action_text || 'Voir plus'}
-                          </button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Footer with View All link */}
-          <div className="p-3 bg-gray-50 border-t border-gray-200">
+          {/* Footer */}
+          <div className="bg-cream border-t border-line px-4 py-3">
             <Link
               to="/notifications"
               onClick={() => setIsOpen(false)}
-              className="block text-center text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="block text-center text-[13px] font-semibold text-brand hover:text-brand/70 transition-colors"
             >
               Voir toutes les notifications
             </Link>
@@ -354,4 +390,4 @@ export default function NotificationBell() {
       )}
     </div>
   );
-} 
+}
