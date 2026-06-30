@@ -59,7 +59,7 @@ export default function CheckoutForm({
   const [loadingFxQuote, setLoadingFxQuote] = useState(false);
   const [stripePaymentId, setStripePaymentId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    provider: 'orange', // Only Orange Money supported for now (Wave / Moov coming later)
+    provider: 'orange',
     phone: '',
     preAuthorisationCode: '', // OTP code for Orange Money (required for ORANGE_BFA)
     cardNumber: '',
@@ -894,32 +894,70 @@ export default function CheckoutForm({
               {/* Payment Details */}
               {paymentMethod === 'mobile_money' ? (
                 <div className="space-y-4">
-                  {/* Provider — Orange Money is the only option for now */}
+                  {/* Provider selector */}
                   <div>
                     <label className="block text-[12px] font-semibold text-ink mb-1.5">
-                      Fournisseur
+                      Opérateur
                     </label>
-                    <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-line">
-                      <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#FF6600] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-card">
-                        OM
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-ink leading-tight">Orange Money</p>
-                        <p className="text-[11px] text-ink-mute mt-0.5">Burkina Faso · *144*4*6#</p>
-                      </div>
-                      <span className="grid place-items-center w-6 h-6 rounded-full bg-brand text-paper flex-shrink-0">
-                        <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                      </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {/* Orange Money */}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, provider: 'orange', preAuthorisationCode: '' })}
+                        className={`relative flex items-center gap-2.5 p-3 border rounded-xl text-left transition-all ${
+                          formData.provider === 'orange'
+                            ? 'border-[#FF6600] bg-orange-50 ring-2 ring-[#FF6600]/15'
+                            : 'border-line bg-paper hover:border-[#FF6600]/40 hover:bg-orange-50/40'
+                        }`}
+                      >
+                        <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#FF6600] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-sm">
+                          OM
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-bold text-ink leading-tight">Orange Money</p>
+                          <p className="text-[10px] text-ink-mute mt-0.5">Code OTP requis</p>
+                        </div>
+                        {formData.provider === 'orange' && (
+                          <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#FF6600] text-white flex-shrink-0">
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Moov Money */}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, provider: 'moov', preAuthorisationCode: '' })}
+                        className={`relative flex items-center gap-2.5 p-3 border rounded-xl text-left transition-all ${
+                          formData.provider === 'moov'
+                            ? 'border-[#0099D6] bg-sky-50 ring-2 ring-[#0099D6]/15'
+                            : 'border-line bg-paper hover:border-[#0099D6]/40 hover:bg-sky-50/40'
+                        }`}
+                      >
+                        <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#0099D6] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-sm">
+                          M
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-bold text-ink leading-tight">Moov Money</p>
+                          <p className="text-[10px] text-ink-mute mt-0.5">Instantané · sans code</p>
+                        </div>
+                        {formData.provider === 'moov' ? (
+                          <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#0099D6] text-white flex-shrink-0">
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                        ) : (
+                          <span className="absolute top-2 right-2 text-[9px] font-bold text-[#0099D6] bg-sky-100 px-1.5 py-0.5 rounded-full leading-none">
+                            SIMPLE
+                          </span>
+                        )}
+                      </button>
                     </div>
-                    <p className="text-[11px] text-ink-mute/85 mt-1.5">
-                      Wave et Moov Money arrivent bientôt.
-                    </p>
                   </div>
 
-                  {/* Phone with +226 prefix */}
+                  {/* Phone number */}
                   <div>
                     <label className="block text-[12px] font-semibold text-ink mb-1.5">
-                      Numéro Orange Money
+                      Numéro {formData.provider === 'moov' ? 'Moov Money' : 'Orange Money'}
                     </label>
                     <div className="flex">
                       <div
@@ -941,11 +979,14 @@ export default function CheckoutForm({
                       />
                     </div>
                     <p className="text-[11px] text-ink-mute/85 mt-1.5 leading-relaxed">
-                      Saisissez votre numéro Orange enregistré au Burkina Faso.
+                      {formData.provider === 'moov'
+                        ? 'Saisissez votre numéro Moov enregistré au Burkina Faso.'
+                        : 'Saisissez votre numéro Orange enregistré au Burkina Faso.'}
                     </p>
                   </div>
-                  
-                  {/* Pre-authorization code - Only show if backend requires it (PRE_AUTH_REQUIRED) */}
+
+                  {/* Pre-authorization code — Orange Money only */}
+                  {formData.provider === 'orange' && (
                   <div className="hidden" id="pre-auth-field">
                     <label className="block text-[12px] font-semibold text-ink mb-1.5">
                       Code d'autorisation (OTP) <span className="text-red-500">*</span>
@@ -995,6 +1036,7 @@ export default function CheckoutForm({
                       </button>
                     </div>
                   </div>
+                  )} {/* end Orange-only OTP block */}
                 </div>
               ) : (
                 <div className="space-y-4">
