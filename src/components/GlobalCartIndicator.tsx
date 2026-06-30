@@ -88,22 +88,15 @@ export default function GlobalCartIndicator({ onClick }: GlobalCartIndicatorProp
   return (
     <button
       onClick={handleClick}
-      className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors duration-200"
-      title={`${cartSummary.totalItems} billet(s) dans ${cartSummary.totalEvents} événement(s)`}
+      className="relative w-9 h-9 rounded-lg border border-line bg-paper grid place-items-center text-ink hover:text-brand hover:border-brand/30 hover:bg-brand-50 transition-colors"
+      title={`${cartSummary.totalItems} billet${cartSummary.totalItems > 1 ? 's' : ''} · ${cartSummary.totalEvents} événement${cartSummary.totalEvents > 1 ? 's' : ''}`}
     >
-      <ShoppingCart className="h-6 w-6" />
-      
+      <ShoppingCart className="w-4 h-4" />
+
       {/* Badge */}
-      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
+      <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-paper text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-paper leading-none">
         {cartSummary.totalItems > 99 ? '99+' : cartSummary.totalItems}
       </span>
-
-      {/* Tooltip for multiple events */}
-      {cartSummary.totalEvents > 1 && (
-        <div className="absolute top-full right-0 mt-1 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
-          {cartSummary.totalEvents} événements
-        </div>
-      )}
     </button>
   );
 }
