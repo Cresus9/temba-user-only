@@ -867,8 +867,8 @@ export default function CheckoutForm({
                       : 'border-line bg-paper hover:border-[#0057A8]/40 hover:bg-sky-50/30'
                   }`}
                 >
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 grid place-items-center bg-white border border-gray-100">
-                    <img src="/moov-money.png" alt="Moov Africa" className="w-full h-full object-contain p-1" />
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 grid place-items-center" style={{ backgroundColor: '#EBF5FF' }}>
+                    <img src="/moov-money-transparent.png" alt="Moov Africa" className="w-full h-full object-contain p-2" />
                   </div>
                   <span className={`text-[11px] font-bold leading-tight text-center ${
                     paymentMethod === 'mobile_money' && formData.provider === 'moov' ? 'text-[#0057A8]' : 'text-ink'
