@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Mail, User, Phone, CreditCard, Wallet, AlertCircle, Loader, Check } from 'lucide-react';
+import { Mail, User, CreditCard, Loader, Check } from 'lucide-react';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
 import { supabase } from '../../lib/supabase-client';
@@ -407,76 +407,92 @@ export default function GuestCheckoutForm({
           <div className="space-y-3">
             <p className="eyebrow !mb-0">Méthode de paiement</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Unified 3-tile selector */}
+            <div className="grid grid-cols-3 gap-3">
+
+              {/* Orange Money */}
               <button
                 type="button"
-                onClick={() => setPaymentMethod('mobile_money')}
-                className={`flex items-center gap-3 p-3.5 border rounded-xl text-left transition-all ${
-                  paymentMethod === 'mobile_money'
-                    ? 'border-brand bg-brand-50 ring-2 ring-brand/15'
-                    : 'border-line bg-paper hover:border-brand/40 hover:bg-cream'
+                onClick={() => { setPaymentMethod('mobile_money'); setFormData({ ...formData, provider: 'orange', preAuthorisationCode: '' }); }}
+                className={`relative flex flex-col items-center gap-2 p-3 pt-4 pb-3 border-2 rounded-2xl transition-all ${
+                  paymentMethod === 'mobile_money' && formData.provider === 'orange'
+                    ? 'border-[#FF6600] bg-orange-50/60'
+                    : 'border-line bg-paper hover:border-[#FF6600]/40 hover:bg-orange-50/30'
                 }`}
               >
-                <div className={`grid place-items-center w-10 h-10 rounded-lg flex-shrink-0 ${
-                  paymentMethod === 'mobile_money' ? 'bg-brand text-paper' : 'bg-cream text-ink'
-                }`}>
-                  <Wallet className="h-4.5 w-4.5" />
+                <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-[#1a1a2e] flex-shrink-0">
+                  <img src="/orange-money-seeklogo.png" alt="Orange Money" className="w-full h-full object-cover" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-ink leading-tight">Mobile Money</p>
-                  <p className="text-[11px] text-ink-mute mt-0.5 truncate">
-                    Orange Money · Burkina Faso
-                  </p>
-                </div>
+                <span className={`text-[11px] font-bold leading-tight text-center ${
+                  paymentMethod === 'mobile_money' && formData.provider === 'orange' ? 'text-[#FF6600]' : 'text-ink'
+                }`}>Orange Money</span>
+                {paymentMethod === 'mobile_money' && formData.provider === 'orange' && (
+                  <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#FF6600] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
               </button>
 
+              {/* Moov Money */}
+              <button
+                type="button"
+                onClick={() => { setPaymentMethod('mobile_money'); setFormData({ ...formData, provider: 'moov', preAuthorisationCode: '' }); }}
+                className={`relative flex flex-col items-center gap-2 p-3 pt-4 pb-3 border-2 rounded-2xl transition-all ${
+                  paymentMethod === 'mobile_money' && formData.provider === 'moov'
+                    ? 'border-[#0057A8] bg-sky-50/60'
+                    : 'border-line bg-paper hover:border-[#0057A8]/40 hover:bg-sky-50/30'
+                }`}
+              >
+                <div className="w-14 h-14 rounded-2xl shadow-sm flex-shrink-0 relative overflow-hidden flex flex-col items-center justify-center pb-1" style={{ backgroundColor: '#1060B0' }}>
+                  <img src="/moov-money-transparent.png" alt="" className="w-10 object-contain flex-shrink-0" style={{ height: '26px' }} />
+                  <div className="text-center leading-none mt-0.5">
+                    <div className="text-white font-extrabold" style={{ fontSize: '9px' }}>Moov</div>
+                    <div className="text-white/75 font-semibold" style={{ fontSize: '6px', letterSpacing: '0.5px' }}>Africa</div>
+                  </div>
+                </div>
+                <span className={`text-[11px] font-bold leading-tight text-center ${
+                  paymentMethod === 'mobile_money' && formData.provider === 'moov' ? 'text-[#0057A8]' : 'text-ink'
+                }`}>Moov Money</span>
+                {paymentMethod === 'mobile_money' && formData.provider === 'moov' && (
+                  <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#0057A8] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+              </button>
+
+              {/* Card */}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('card')}
-                className={`flex items-center gap-3 p-3.5 border rounded-xl text-left transition-all ${
+                className={`relative flex flex-col items-center gap-2 p-3 pt-4 pb-3 border-2 rounded-2xl transition-all ${
                   paymentMethod === 'card'
-                    ? 'border-brand bg-brand-50 ring-2 ring-brand/15'
+                    ? 'border-brand bg-brand-50/60'
                     : 'border-line bg-paper hover:border-brand/40 hover:bg-cream'
                 }`}
               >
-                <div className={`grid place-items-center w-10 h-10 rounded-lg flex-shrink-0 ${
-                  paymentMethod === 'card' ? 'bg-brand text-paper' : 'bg-cream text-ink'
-                }`}>
-                  <CreditCard className="h-4.5 w-4.5" />
+                <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-white border border-gray-100 flex flex-col items-center justify-center gap-1 p-2 flex-shrink-0">
+                  <img src="/visa.svg" alt="Visa" className="w-full object-contain" style={{ height: '22px' }} />
+                  <img src="/mastercard.svg" alt="Mastercard" className="object-contain" style={{ height: '22px', width: '40px' }} />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-ink leading-tight">Carte bancaire</p>
-                  <p className="text-[11px] text-ink-mute mt-0.5 truncate">
-                    Visa · Mastercard
-                  </p>
-                </div>
+                <span className={`text-[11px] font-bold leading-tight text-center ${
+                  paymentMethod === 'card' ? 'text-brand' : 'text-ink'
+                }`}>Carte</span>
+                {paymentMethod === 'card' && (
+                  <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-brand text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
               </button>
+
             </div>
 
             {/* Payment Details */}
             {paymentMethod === 'mobile_money' ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[12px] font-semibold text-ink mb-1.5">
-                    Fournisseur
-                  </label>
-                  <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-line">
-                    <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#FF6600] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-card">
-                      OM
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-ink leading-tight">Orange Money</p>
-                      <p className="text-[11px] text-ink-mute mt-0.5">Burkina Faso · *144*4*6#</p>
-                    </div>
-                    <span className="grid place-items-center w-6 h-6 rounded-full bg-brand text-paper flex-shrink-0">
-                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-ink-mute/85 mt-1.5">
-                    Wave et Moov Money arrivent bientôt. Le paiement utilisera le numéro renseigné plus haut.
-                  </p>
-                </div>
-              </div>
+              <p className="text-[11px] text-ink-mute/85 leading-relaxed">
+                {formData.provider === 'moov'
+                  ? 'Le paiement Moov Money utilisera le numéro renseigné plus haut. Aucun code requis.'
+                  : 'Le paiement Orange Money utilisera le numéro renseigné plus haut.'}
+              </p>
             ) : (
               <div className="space-y-4">
                 <div>
