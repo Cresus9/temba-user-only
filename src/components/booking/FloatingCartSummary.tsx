@@ -146,7 +146,8 @@ export default function FloatingCartSummary({
               {selectedDateId && eventDates && eventDates.length > 0 && (() => {
                 const d = eventDates.find(ev => ev.id === selectedDateId);
                 if (!d) return null;
-                const label = new Date(d.date).toLocaleDateString('fr-FR', {
+                const [y, mo, dy] = d.date.split('T')[0].split('-').map(Number);
+                const label = new Date(y, mo - 1, dy).toLocaleDateString('fr-FR', {
                   weekday: 'short', day: 'numeric', month: 'short',
                 }) + ` · ${d.start_time}`;
                 return (

@@ -296,10 +296,7 @@ export default function BookingHistory() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute">
                       <span className="inline-flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" />
-                        {new Date(booking.event.date).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+                        {(() => { const [y,m,d] = booking.event.date.split('T')[0].split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); })()}
                       </span>
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 tabular-nums">

@@ -42,8 +42,8 @@ export default function OptimizedEventCard({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    const [y, mo, dy] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(y, mo - 1, dy).toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

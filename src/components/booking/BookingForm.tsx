@@ -291,9 +291,10 @@ export default function BookingForm({
     );
   }
 
-  // Format date for display
+  // Format date for display — parse as local date to avoid UTC-midnight timezone shift
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('fr-FR', {
       weekday: 'long',
       year: 'numeric',

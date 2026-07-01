@@ -47,9 +47,14 @@ const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
 
 /* --------------------------- helpers --------------------------- */
 
+const parseLocal = (dateString: string): Date => {
+  const [y, m, d] = dateString.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const formatDate = (dateString: string) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  return parseLocal(dateString).toLocaleDateString('fr-FR', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -59,7 +64,7 @@ const formatDate = (dateString: string) => {
 
 const formatDateLong = (dateString: string) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('fr-FR', {
+  return parseLocal(dateString).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -68,7 +73,7 @@ const formatDateLong = (dateString: string) => {
 
 const formatDateMono = (dateString: string) => {
   if (!dateString) return '—';
-  const d = new Date(dateString);
+  const d = parseLocal(dateString);
   if (Number.isNaN(d.getTime())) return '—';
   const day = String(d.getDate()).padStart(2, '0');
   const month = d

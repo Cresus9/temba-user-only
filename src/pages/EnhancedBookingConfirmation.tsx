@@ -64,7 +64,7 @@ export default function EnhancedBookingConfirmation() {
     : 'Confirmation de réservation';
 
   const pageDescription = firstTicket && orderSummary
-    ? `Vos billets pour ${firstTicket.event.title} le ${new Date(firstTicket.event.date).toLocaleDateString('fr-FR')} à ${firstTicket.event.location}. Montant total : ${orderSummary.total_amount} ${orderSummary.currency}.`
+    ? `Vos billets pour ${firstTicket.event.title} le ${(() => { const [y,m,d] = firstTicket.event.date.split('T')[0].split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('fr-FR'); })()} à ${firstTicket.event.location}. Montant total : ${orderSummary.total_amount} ${orderSummary.currency}.`
     : 'Consultez la confirmation de votre réservation et téléchargez vos billets sur Temba.';
 
   const breadcrumbSchema = useMemo(() => ({
@@ -704,7 +704,8 @@ export default function EnhancedBookingConfirmation() {
     if (!tickets.length) return;
     
     const ticket = tickets[0];
-    const eventDate = new Date(ticket.event.date);
+    const [ey, em, ed] = ticket.event.date.split('T')[0].split('-').map(Number);
+    const eventDate = new Date(ey, em - 1, ed);
     const startTime = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const endTime = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     
@@ -739,7 +740,8 @@ export default function EnhancedBookingConfirmation() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
+    const [y, m, d] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('fr-FR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

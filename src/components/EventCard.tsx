@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Users, Tag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Event } from '../types/event';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, parseLocalDate } from '../utils/formatters';
 import { shortDateLabel, eventLocationLabel, isAbroadEvent } from '../utils/eventGeo';
 import PosterMedia from './common/PosterMedia';
 
@@ -33,7 +33,7 @@ const EventCard = memo(({
   timezone,
 }: EventCardProps) => {
   const availabilityPercentage = (tickets_sold / capacity) * 100;
-  const eventDate = new Date(date);
+  const eventDate = parseLocalDate(date);
   const isUpcoming = eventDate > new Date();
 
   const tz = timezone ?? 'Africa/Ouagadougou';

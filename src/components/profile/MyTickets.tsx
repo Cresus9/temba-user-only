@@ -380,11 +380,7 @@ export default function MyTickets() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-mute">
                       <span className="inline-flex items-center gap-1.5">
                         <Calendar className="h-3 w-3 text-brand" />
-                        {new Date(ticket.event.date).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {(() => { const [y,m,d] = ticket.event.date.split('T')[0].split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); })()}
                       </span>
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 tabular-nums">
