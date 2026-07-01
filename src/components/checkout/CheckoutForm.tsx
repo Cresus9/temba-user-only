@@ -910,8 +910,12 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#FF6600]/40 hover:bg-orange-50/40'
                         }`}
                       >
-                        <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#FF6600] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-sm">
-                          OM
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-[#1a1a2e]">
+                          <img
+                            src="/orange-money-seeklogo.png"
+                            alt="Orange Money"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[12px] font-bold text-ink leading-tight">Orange Money</p>
@@ -934,8 +938,12 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#0099D6]/40 hover:bg-sky-50/40'
                         }`}
                       >
-                        <div className="grid place-items-center w-10 h-10 rounded-lg bg-[#0099D6] text-white flex-shrink-0 font-extrabold text-[11px] tracking-tight shadow-sm">
-                          M
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-white border border-gray-100">
+                          <img
+                            src="/moov-money.png"
+                            alt="Moov Money"
+                            className="w-full h-full object-contain p-1"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[12px] font-bold text-ink leading-tight">Moov Money</p>
