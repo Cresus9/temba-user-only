@@ -938,12 +938,16 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#0099D6]/40 hover:bg-sky-50/40'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm grid place-items-center" style={{ backgroundColor: '#EBF5FF' }}>
-                          <img
-                            src="/moov-money.png"
-                            alt="Moov Africa"
-                            className="w-full h-full object-contain"
-                          />
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm grid place-items-center" style={{ backgroundColor: '#0057A8' }}>
+                          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+                            {/* Moov Africa brand tile */}
+                            <rect width="40" height="40" fill="#0057A8"/>
+                            {/* Orange swoosh / double-chevron mark */}
+                            <polyline points="9,12 17,20 9,28" fill="none" stroke="#FF6600" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <polyline points="17,12 25,20 17,28" fill="none" stroke="#FF6600" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            {/* "Africa" small label at bottom */}
+                            <text x="30" y="35" textAnchor="middle" fill="white" fontSize="5" fontWeight="500" fontFamily="system-ui,sans-serif" opacity="0.75" letterSpacing="0.3">Africa</text>
+                          </svg>
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[12px] font-bold text-ink leading-tight">Moov Money</p>
