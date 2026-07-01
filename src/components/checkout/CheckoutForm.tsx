@@ -910,12 +910,11 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#FF6600]/40 hover:bg-orange-50/40'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-[#FFF4E8]">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-[#1a1a2e]">
                           <img
                             src="/orange-money-seeklogo.png"
                             alt="Orange Money"
-                            className="w-full h-full object-contain"
-                            style={{ mixBlendMode: 'screen' }}
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -939,12 +938,11 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#0099D6]/40 hover:bg-sky-50/40'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-[#EBF5FF]">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm grid place-items-center" style={{ backgroundColor: '#EBF5FF' }}>
                           <img
                             src="/moov-money.png"
-                            alt="Moov Money"
+                            alt="Moov Africa"
                             className="w-full h-full object-contain"
-                            style={{ mixBlendMode: 'multiply' }}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
