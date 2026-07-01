@@ -938,12 +938,14 @@ export default function CheckoutForm({
                             : 'border-line bg-paper hover:border-[#0099D6]/40 hover:bg-sky-50/40'
                         }`}
                       >
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-white border border-gray-100">
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-[#0057A8] flex flex-col items-center justify-center gap-0.5 px-1 pt-1 pb-0.5">
                           <img
                             src="/moov-money.png"
-                            alt="Moov Money"
-                            className="w-full h-full object-contain p-1"
+                            alt="Moov Africa"
+                            className="w-7 h-auto object-contain"
+                            style={{ mixBlendMode: 'multiply' }}
                           />
+                          <span className="text-white font-bold leading-none" style={{ fontSize: '6px', letterSpacing: '0.02em' }}>Moov Africa</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[12px] font-bold text-ink leading-tight">Moov Money</p>
