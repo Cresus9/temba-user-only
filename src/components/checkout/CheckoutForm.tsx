@@ -867,8 +867,8 @@ export default function CheckoutForm({
                       : 'border-line bg-paper hover:border-[#0057A8]/40 hover:bg-sky-50/30'
                   }`}
                 >
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 grid place-items-center" style={{ backgroundColor: '#EBF5FF' }}>
-                    <img src="/moov-money-transparent.png" alt="Moov Africa" className="w-full h-full object-contain p-1.5" />
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 grid place-items-center bg-white border border-gray-100">
+                    <img src="/moov-money.png" alt="Moov Africa" className="w-full h-full object-contain p-1" />
                   </div>
                   <span className={`text-[11px] font-bold leading-tight text-center ${
                     paymentMethod === 'mobile_money' && formData.provider === 'moov' ? 'text-[#0057A8]' : 'text-ink'
@@ -890,9 +890,9 @@ export default function CheckoutForm({
                       : 'border-line bg-paper hover:border-brand/40 hover:bg-cream'
                   }`}
                 >
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-white border border-gray-100 flex items-center justify-center gap-1 p-1.5 flex-shrink-0">
-                    <img src="/visa.svg" alt="Visa" className="h-6 object-contain" />
-                    <img src="/mastercard.svg" alt="Mastercard" className="h-6 object-contain" />
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-white border border-gray-100 flex flex-col items-center justify-center gap-1 p-2 flex-shrink-0">
+                    <img src="/visa.svg" alt="Visa" className="w-full object-contain" style={{ height: '22px' }} />
+                    <img src="/mastercard.svg" alt="Mastercard" className="object-contain" style={{ height: '22px', width: '40px' }} />
                   </div>
                   <span className={`text-[11px] font-bold leading-tight text-center ${
                     paymentMethod === 'card' ? 'text-brand' : 'text-ink'
