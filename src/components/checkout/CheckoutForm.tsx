@@ -137,14 +137,12 @@ export default function CheckoutForm({
           setSelectedSavedMethod(firstCardMethod.id);
           setPaymentMethod('card');
         } else {
-          // No saved card methods, force new method entry (card only)
+          // No saved card methods — leave default (Orange Money) selected
           setUseNewMethod(true);
-          setPaymentMethod('card');
         }
       } catch (error) {
         console.error('Error loading saved payment methods:', error);
         setUseNewMethod(true);
-        setPaymentMethod('card');
       } finally {
         setLoadingSavedMethods(false);
       }
