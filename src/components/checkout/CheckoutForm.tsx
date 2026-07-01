@@ -47,7 +47,7 @@ export default function CheckoutForm({
   onSuccess 
 }: CheckoutFormProps) {
 
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('card'); // Default to card
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
   const [selectedSavedMethod, setSelectedSavedMethod] = useState<string | null>(null);
