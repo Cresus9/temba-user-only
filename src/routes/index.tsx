@@ -40,6 +40,9 @@ import BlogTag from '../pages/blog/BlogTag';
 import BlogAuthor from '../pages/blog/BlogAuthor';
 import BlogSearch from '../pages/blog/BlogSearch';
 
+// Public Discovery Pages
+import OrganizerProfile from '../pages/public/OrganizerProfile';
+
 // Test Components
 import CategoryTest from '../components/CategoryTest';
 import NotificationTester from '../components/NotificationTester';
@@ -105,6 +108,9 @@ export default function AppRoutes() {
         <Route path="/blog/tag/:slug" element={<BlogTag />} />
         <Route path="/blog/author/:authorId" element={<BlogAuthor />} />
         <Route path="/blog/search" element={<BlogSearch />} />
+
+        {/* Public Discovery Routes */}
+        <Route path="/organizers/:slug" element={<OrganizerProfile />} />
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />

@@ -87,6 +87,12 @@ export default function EventDetails() {
               available,
               max_per_order,
               sales_enabled
+            ),
+            organizer_profiles (
+              business_name,
+              logo_url,
+              slug,
+              verified
             )
           `)
           .eq('id', id)
@@ -471,6 +477,44 @@ export default function EventDetails() {
                   {event.description}
                 </p>
               </div>
+
+              {/* Organized by */}
+              {(event as any).organizer_profiles && (
+                <div>
+                  <p className="eyebrow mb-2">Organisateur</p>
+                  {(() => {
+                    const org = (event as any).organizer_profiles;
+                    const orgSlug = org.slug;
+                    const inner = (
+                      <div className="flex items-center gap-3 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-cream border border-line flex-shrink-0">
+                          {org.logo_url ? (
+                            <img src={org.logo_url} alt={org.business_name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full grid place-items-center bg-brand/10">
+                              <span className="text-[18px] font-extrabold text-brand">{org.business_name?.charAt(0)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[14px] font-bold text-ink">{org.business_name}</span>
+                            {org.verified && (
+                              <svg className="w-3.5 h-3.5 text-brand flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-ink-mute">Voir tous ses événements →</p>
+                        </div>
+                      </div>
+                    );
+                    return orgSlug
+                      ? <Link to={`/organizers/${orgSlug}`}>{inner}</Link>
+                      : inner;
+                  })()}
+                </div>
+              )}
 
               {location && (
                 <div>
