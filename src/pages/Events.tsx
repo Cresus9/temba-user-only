@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Calendar, MapPin, Tag, X, ArrowLeft, Globe, ChevronDown, Check } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase-client';
@@ -33,7 +34,7 @@ export default function Events() {
     country: searchParams.get('country') || globalCountry || '',
   }));
   const [locations, setLocations] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
   const [activeCountryCodes, setActiveCountryCodes] = useState<string[]>([]);
   const [totalEvents, setTotalEvents] = useState<number | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
@@ -98,8 +99,36 @@ export default function Events() {
       setLocations(uniqueLocations);
       setTotalEvents(count ?? eventsData?.length ?? 0);
 
+      // Fetch categories with published event counts
       const categoryRecords = await CategoryService.fetchCategories();
-      setCategories(categoryRecords.map(c => c.name));
+      if (categoryRecords.length > 0) {
+        // Get published event IDs, then count per category
+        const { data: publishedEvents } = await supabase
+          .from('events')
+          .select('id')
+          .eq('status', 'PUBLISHED');
+        const publishedIds = (publishedEvents || []).map(e => e.id);
+
+        const { data: relations } = publishedIds.length > 0
+          ? await supabase
+              .from('event_category_relations')
+              .select('category_id')
+              .in('event_id', publishedIds)
+          : { data: [] };
+
+        const countMap: Record<string, number> = {};
+        (relations || []).forEach(r => {
+          countMap[r.category_id] = (countMap[r.category_id] || 0) + 1;
+        });
+
+        const opts = categoryRecords
+          .map(c => ({ value: c.name, label: c.name, count: countMap[c.id] || 0 }))
+          .filter(c => c.count > 0)
+          .sort((a, b) => b.count - a.count)
+          .map(c => ({ value: c.value, label: `${c.label} (${c.count})` }));
+
+        setCategories(opts);
+      }
     } catch (error) {
       console.error('Erreur lors du chargement des lieux et catégories:', error);
     }
@@ -227,7 +256,7 @@ export default function Events() {
 
           {/* — — — Filter bar — — — */}
           <div className="mt-7">
-            <div className="bg-paper rounded-xl2 border border-line shadow-card p-2 flex flex-col lg:flex-row gap-2">
+            <div className="bg-paper rounded-xl2 border border-line shadow-card p-2 flex flex-col lg:flex-row gap-2 overflow-visible">
               {/* Search */}
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
@@ -293,7 +322,7 @@ export default function Events() {
                 value={filters.category}
                 onChange={cat => setFilters(prev => ({ ...prev, category: cat }))}
                 placeholder="Toutes catégories"
-                options={categories.map(c => ({ value: c, label: c }))}
+                options={categories}
               />
             </div>
 
@@ -369,84 +398,102 @@ function FilterSelect({
   options: { value: string; label: string }[];
 }) {
   const [open, setOpen] = useState(false);
-  const ref             = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find(o => o.value === value);
   const active   = !!value;
-
   const close = useCallback(() => setOpen(false), []);
+
+  // Position dropdown relative to trigger using fixed coords (escapes overflow)
+  const openDropdown = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: Math.max(rect.width, 240),
+        zIndex: 9999,
+      });
+    }
+    setOpen(o => !o);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    const onDown = (e: MouseEvent) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+      ) close();
     };
-    document.addEventListener('mousedown', onClick);
+    const onScroll = () => close();
+    document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
-      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open, close]);
 
+  const dropdown = open ? createPortal(
+    <div ref={dropdownRef} style={dropdownStyle}
+      className="bg-paper border border-line rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden">
+      {/* "All" option */}
+      <div className="p-2">
+        <button type="button" onClick={() => { onChange(''); close(); }}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all ${!value ? 'bg-brand text-paper shadow-sm' : 'text-ink-mute hover:bg-cream hover:text-ink'}`}>
+          <span className="flex-1 text-left">{placeholder}</span>
+          {!value && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+        </button>
+      </div>
+      {options.length > 0 && (
+        <>
+          <div className="mx-3 border-t border-line" />
+          <div className="p-2 max-h-64 overflow-y-auto space-y-0.5">
+            {options.map(opt => {
+              const isActive = value === opt.value;
+              // Split label into name + badge if it ends with "(N)"
+              const match = opt.label.match(/^(.*?)(\s*\(\d+\))?$/);
+              const name  = match?.[1]?.trim() ?? opt.label;
+              const badge = match?.[2]?.trim() ?? '';
+              return (
+                <button key={opt.value} type="button" onClick={() => { onChange(opt.value); close(); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all ${isActive ? 'bg-brand/8 text-brand font-semibold' : 'text-ink hover:bg-cream'}`}>
+                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />}
+                  <span className="flex-1 min-w-0 text-left truncate">{name}</span>
+                  {badge && (
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-brand/15 text-brand' : 'bg-cream text-ink-mute'}`}>
+                      {badge.replace(/[()]/g, '')}
+                    </span>
+                  )}
+                  {isActive && <Check className="w-3.5 h-3.5 text-brand flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div ref={ref} className="relative lg:flex-1 lg:min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-2 h-11 px-3 rounded-lg w-full transition-colors ${
-          active ? 'bg-brand-50 text-brand' : 'text-ink-mute hover:bg-cream'
-        }`}
-      >
+    <div ref={triggerRef} className="relative lg:flex-1 lg:min-w-0">
+      <button type="button" onClick={openDropdown}
+        className={`flex items-center gap-2 h-11 px-3 rounded-lg w-full transition-colors ${active ? 'bg-brand-50 text-brand' : 'text-ink-mute hover:bg-cream'}`}>
         <span className="flex-shrink-0">{icon}</span>
         <span className="flex-1 min-w-0 text-left text-[13px] truncate">
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDown
-          className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-        />
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-64 bg-paper border border-line rounded-xl shadow-pop z-50 py-1.5 overflow-hidden">
-          {/* "All" option */}
-          <button
-            type="button"
-            onClick={() => { onChange(''); close(); }}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] transition-colors ${
-              !value
-                ? 'font-semibold text-brand bg-brand-50'
-                : 'text-ink hover:bg-cream'
-            }`}
-          >
-            {placeholder}
-            {!value && <Check className="w-3.5 h-3.5 text-brand" />}
-          </button>
-
-          {options.length > 0 && (
-            <div className="my-1 border-t border-line" />
-          )}
-
-          <div className="max-h-60 overflow-y-auto">
-            {options.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { onChange(opt.value); close(); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] transition-colors ${
-                  value === opt.value
-                    ? 'font-semibold text-brand bg-brand-50'
-                    : 'text-ink hover:bg-cream'
-                }`}
-              >
-                <span className="flex-1 min-w-0 text-left truncate">{opt.label}</span>
-                {value === opt.value && <Check className="w-3.5 h-3.5 text-brand flex-shrink-0 ml-2" />}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
