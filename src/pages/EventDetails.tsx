@@ -69,45 +69,90 @@ export default function EventDetails() {
         // 2. Check per-event TTL cache before hitting Supabase
         const cacheKey = `event:${id}`;
         const fresh = queryCache.peek<Event>(cacheKey);
-        if (fresh && cached) {
-          // Already served from context AND per-event cache is fresh — skip network
+        if (fresh && cached && (fresh as any).organizer_profiles) {
+          // Cache is fresh AND already has organizer data — skip network
           return;
         }
 
-        const { data, error } = await supabase
-          .from('events')
-          .select(`
-            *,
-            ticket_types (
-              id,
-              name,
-              description,
-              price,
-              quantity,
-              available,
-              max_per_order,
-              sales_enabled
-            ),
-            organizer_profiles (
-              business_name,
-              logo_url,
-              slug,
-              verified
-            )
-          `)
-          .eq('id', id)
-          .single();
+        // Always fetch fresh from Supabase so we get a new object reference
+        // (reusing a cached reference prevents React from re-rendering)
+        let eventData: any = null;
 
-        if (error) throw error;
+        if (!eventData) {
+          const { data, error } = await supabase
+            .from('events')
+            .select(`
+              *,
+              ticket_types (
+                id,
+                name,
+                description,
+                price,
+                quantity,
+                available,
+                max_per_order,
+                sales_enabled
+              )
+            `)
+            .eq('id', id)
+            .single();
 
-        if (data.status !== 'PUBLISHED' && !user) {
-          navigate('/events');
-          return;
+          if (error) throw error;
+
+          if (data.status !== 'PUBLISHED' && !user) {
+            navigate('/events');
+            return;
+          }
+
+          eventData = data;
         }
 
-        // Cache this event individually for fast back-navigation
-        queryCache.set(`event:${id}`, data, TTL.EVENT_DETAIL);
-        setEvent(data);
+        const data = eventData as any;
+
+        // Fetch organizer — try organizer_profiles first, fallback to profiles
+        const organizerId: string | null = (data as any).organizer_id ?? null;
+        if (organizerId) {
+          const { data: orgProfile } = await supabase
+            .from('organizer_profiles')
+            .select('business_name, logo_url, slug, verification_status')
+            .eq('organizer_id', organizerId)
+            .maybeSingle();
+
+          if (orgProfile) {
+            (data as any).organizer_profiles = {
+              ...orgProfile,
+              verified: orgProfile.verification_status === 'VERIFIED',
+            };
+          } else {
+            // Organizer hasn't set up a business profile yet — use profiles table
+            const { data: baseProfile } = await supabase
+              .from('profiles')
+              .select('name, avatar_url')
+              .eq('user_id', organizerId)
+              .maybeSingle();
+            if (baseProfile) {
+              (data as any).organizer_profiles = {
+                business_name: baseProfile.name,
+                logo_url: baseProfile.avatar_url ?? null,
+                slug: null,
+                verified: false,
+              };
+            }
+          }
+        }
+
+        // Fetch artists separately
+        const { data: eaData } = await supabase
+          .from('event_artists')
+          .select('role, display_order, artists(id, name, slug, photo_url, genre, verified)')
+          .eq('event_id', id)
+          .order('display_order');
+        if (eaData) (data as any).event_artists = eaData;
+
+        // Spread into a new object so React always detects the change
+        const enrichedEvent = { ...data };
+        queryCache.set(`event:${id}`, enrichedEvent, TTL.EVENT_DETAIL);
+        setEvent(enrichedEvent);
         setLoading(false);
 
         let { data: datesData, error: datesError } = await supabase
@@ -115,8 +160,7 @@ export default function EventDetails() {
           .select('id, date, start_time, end_time, status')
           .eq('event_id', id)
           .ilike('status', 'active')
-          .order('date', { ascending: true })
-          .order('display_order', { ascending: true });
+          .order('date', { ascending: true });
 
         if (datesError || !datesData || datesData.length === 0) {
           const { data: allDates } = await supabase
@@ -484,37 +528,58 @@ export default function EventDetails() {
                   <p className="eyebrow mb-2">Organisateur</p>
                   {(() => {
                     const org = (event as any).organizer_profiles;
-                    const orgSlug = org.slug;
                     const inner = (
-                      <div className="flex items-center gap-3 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-cream border border-line flex-shrink-0">
+                      <div className="flex items-center gap-3 py-3">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-cream border border-line flex-shrink-0 shadow-sm">
                           {org.logo_url ? (
                             <img src={org.logo_url} alt={org.business_name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full grid place-items-center bg-brand/10">
-                              <span className="text-[18px] font-extrabold text-brand">{org.business_name?.charAt(0)}</span>
+                              <span className="text-[16px] font-extrabold text-brand">{org.business_name?.charAt(0)}</span>
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[14px] font-bold text-ink">{org.business_name}</span>
-                            {org.verified && (
-                              <svg className="w-3.5 h-3.5 text-brand flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                          </div>
-                          <p className="text-[12px] text-ink-mute">Voir tous ses événements →</p>
-                        </div>
+                        <span className="text-[16px] font-bold text-brand">{org.business_name}</span>
                       </div>
                     );
-                    return orgSlug
-                      ? <Link to={`/organizers/${orgSlug}`}>{inner}</Link>
+                    return org.slug
+                      ? <Link to={`/organizers/${org.slug}`} className="hover:opacity-80 transition-opacity">{inner}</Link>
                       : inner;
                   })()}
                 </div>
               )}
+
+              {/* Artists */}
+              {(() => {
+                const ea = (event as any).event_artists;
+                if (!ea || ea.length === 0) return null;
+                const artists = [...ea]
+                  .sort((a: any, b: any) => (a.display_order ?? 99) - (b.display_order ?? 99))
+                  .map((row: any) => ({ ...row.artists, role: row.role }))
+                  .filter((a: any) => a?.id);
+                if (artists.length === 0) return null;
+                return (
+                  <div>
+                    <p className="eyebrow mb-2">À l&apos;affiche</p>
+                    <div className="flex flex-wrap gap-3">
+                      {artists.map((artist: any) => (
+                        <Link key={artist.id} to={`/artists/${artist.slug}`}
+                          className="flex items-center gap-2.5 px-3 py-2 bg-paper border border-line rounded-xl hover:border-brand/40 hover:shadow-sm transition-all">
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-cream border border-line flex-shrink-0">
+                            {artist.photo_url
+                              ? <img src={artist.photo_url} alt={artist.name} className="w-full h-full object-cover" />
+                              : <div className="w-full h-full grid place-items-center bg-accent/10"><span className="text-[13px] font-bold text-accent">{artist.name?.charAt(0)}</span></div>}
+                          </div>
+                          <div>
+                            <p className="text-[13px] font-semibold text-ink leading-tight">{artist.name}</p>
+                            {artist.role && <p className="text-[10px] text-ink-mute">{artist.role}</p>}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {location && (
                 <div>

@@ -10,10 +10,9 @@ import { countryFlag } from '../../utils/eventGeo';
 import OptimizedImage from '../../components/common/Image';
 
 interface OrganizerProfile {
-  id: string;
-  user_id: string;
+  organizer_id: string;
   business_name: string;
-  description: string | null;
+  bio: string | null;
   logo_url: string | null;
   cover_image_url: string | null;
   slug: string | null;
@@ -27,7 +26,7 @@ interface OrganizerProfile {
     twitter?: string;
     website?: string;
   } | null;
-  verified: boolean;
+  verification_status: string | null;
   followers_count: number;
   created_at: string;
 }
@@ -140,7 +139,7 @@ export default function OrganizerProfile() {
       const { data: eventsData } = await supabase
         .from('events')
         .select('id, title, date, time, location, image_url, price, currency, status, tickets_sold, capacity')
-        .eq('organizer_id', org.user_id)
+        .eq('organizer_id', org.organizer_id)
         .eq('status', 'PUBLISHED')
         .order('date', { ascending: true });
 
@@ -241,7 +240,7 @@ export default function OrganizerProfile() {
                 )}
               </div>
               <div className="pb-1">
-                {organizer.verified && (
+                {organizer.verification_status === 'VERIFIED' && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand bg-brand/8 px-2 py-0.5 rounded-full mb-1">
                     <CheckCircle className="w-3 h-3" /> Vérifié
                   </span>
@@ -272,9 +271,9 @@ export default function OrganizerProfile() {
             </div>
 
             {/* Bio */}
-            {organizer.description && (
+            {organizer.bio && (
               <p className="text-[14px] text-ink/80 leading-relaxed mb-4">
-                {organizer.description}
+                {organizer.bio}
               </p>
             )}
 

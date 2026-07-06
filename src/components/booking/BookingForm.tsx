@@ -62,101 +62,26 @@ export default function BookingForm({
         setLoadingDates(true);
         console.log('🔍 Fetching event dates for event:', eventId);
         
-        // Try event_dates first (organizer app uses this table)
-        // Status can be 'active' (lowercase) or 'ACTIVE' (uppercase)
+        // Fetch active dates from event_dates, ordered by date
         let { data, error } = await supabase
           .from('event_dates')
-          .select('*')
+          .select('id, date, start_time, end_time, capacity, status')
           .eq('event_id', eventId)
-          .ilike('status', 'active')  // Case-insensitive match for 'active' or 'ACTIVE'
-          .order('date', { ascending: true })
-          .order('display_order', { ascending: true });
+          .order('date', { ascending: true });
 
-        // If that fails, try event_dates_times (migration table)
-        if (error || !data || data.length === 0) {
-          console.warn('⚠️ No dates found in event_dates, trying event_dates_times...');
-          const { data: altData, error: altError } = await supabase
-            .from('event_dates_times')
-            .select('*')
-            .eq('event_id', eventId)
-            .ilike('status', 'active')  // Case-insensitive match
-            .order('date', { ascending: true })
-            .order('display_order', { ascending: true });
-          
-          if (!altError && altData && altData.length > 0) {
-            console.log('✅ Found dates in event_dates_times table:', altData);
-            data = altData;
-            error = null;
-          } else if (altError) {
-            console.warn('⚠️ event_dates_times table also failed:', altError);
-          }
-        }
+        if (error) throw error;
 
-        // If still no data, try without status filter (for debugging)
-        if (error || !data || data.length === 0) {
-          console.warn('⚠️ No dates found with active status, trying without status filter...');
-          const { data: allData, error: allError } = await supabase
-            .from('event_dates')
-            .select('*')
-            .eq('event_id', eventId)
-            .order('date', { ascending: true });
-          
-          if (allError) {
-            // Try event_dates_times as fallback
-            const { data: allDataAlt, error: allErrorAlt } = await supabase
-              .from('event_dates_times')
-              .select('*')
-              .eq('event_id', eventId)
-              .order('date', { ascending: true });
-            
-            if (allErrorAlt) {
-              console.error('❌ Error fetching all event dates:', allErrorAlt);
-              throw allErrorAlt;
-            }
-            
-            console.log('📅 All dates from event_dates_times (any status):', allDataAlt);
-            data = allDataAlt;
-          } else {
-            console.log('📅 All dates from event_dates (any status):', allData);
-            data = allData;
-          }
-          
-          // Filter client-side for active status (case-insensitive)
-          if (data && data.length > 0) {
-            const activeDates = data.filter(d => 
-              d.status && d.status.toLowerCase() === 'active'
-            );
-            console.log(`✅ Found ${data.length} total dates, ${activeDates.length} active:`, activeDates);
-            data = activeDates;
-          }
-        }
+        // Filter active client-side (status can be 'active' or 'ACTIVE')
+        const activeDates = (data || []).filter(d => d.status?.toLowerCase() === 'active');
+        const finalDates = activeDates.length > 0 ? activeDates : (data || []);
 
-        if (error) {
-          console.error('❌ Error fetching event dates:', error);
-          // Check if it's an RLS issue
-          if (error.code === 'PGRST301' || error.message.includes('permission')) {
-            console.warn('⚠️ RLS might be blocking event dates. Check policies.');
-            toast.error('Impossible de charger les dates. Vérifiez les permissions.');
-          }
-        }
-
-        console.log('✅ Final event dates:', data); // Debug log
-        console.log(`📊 Found ${data?.length || 0} date(s) for event ${eventId}`);
-
-        if (data && data.length > 0) {
-          // Log each date for debugging
-          data.forEach((date, idx) => {
-            console.log(`  Date ${idx + 1}: ${date.date} at ${date.start_time} (status: ${date.status}, id: ${date.id})`);
-          });
-          
-          setEventDates(data);
-          // Auto-select first date (for both single and multiple dates)
+        if (finalDates.length > 0) {
+          setEventDates(finalDates);
           if (!selectedDateId) {
-            setSelectedDateId(data[0].id);
-            console.log('✅ Auto-selected date:', data[0].id);
+            setSelectedDateId(finalDates[0].id);
           }
         } else {
-          console.log('ℹ️ No event dates found for event:', eventId);
+          // no dates — void
           setEventDates([]);
         }
       } catch (error: any) {

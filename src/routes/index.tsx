@@ -42,6 +42,12 @@ import BlogSearch from '../pages/blog/BlogSearch';
 
 // Public Discovery Pages
 import OrganizerProfile from '../pages/public/OrganizerProfile';
+import OrganizersDirectory from '../pages/public/OrganizersDirectory';
+import ArtistProfile from '../pages/public/ArtistProfile';
+import ArtistsDirectory from '../pages/public/ArtistsDirectory';
+import VenueProfile from '../pages/public/VenueProfile';
+import VenuesDirectory from '../pages/public/VenuesDirectory';
+import TagPage from '../pages/public/TagPage';
 
 // Test Components
 import CategoryTest from '../components/CategoryTest';
@@ -110,7 +116,13 @@ export default function AppRoutes() {
         <Route path="/blog/search" element={<BlogSearch />} />
 
         {/* Public Discovery Routes */}
+        <Route path="/organizers" element={<OrganizersDirectory />} />
         <Route path="/organizers/:slug" element={<OrganizerProfile />} />
+        <Route path="/artists" element={<ArtistsDirectory />} />
+        <Route path="/artists/:slug" element={<ArtistProfile />} />
+        <Route path="/venues" element={<VenuesDirectory />} />
+        <Route path="/venues/:slug" element={<VenueProfile />} />
+        <Route path="/tags/:slug" element={<TagPage />} />
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />
