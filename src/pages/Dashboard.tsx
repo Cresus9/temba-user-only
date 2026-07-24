@@ -141,6 +141,18 @@ export default function Dashboard() {
               <ChevronRight className="h-4 w-4" />
             </Link>
             <Link
+              to="/profile/my-tickets"
+              className="inline-flex items-center gap-1.5 h-10 px-4 bg-paper hover:bg-cream text-ink border border-line hover:border-brand/40 rounded-lg text-[13px] font-medium transition-colors"
+            >
+              <Ticket className="h-3.5 w-3.5" />
+              Mes billets
+              {dashboardData?.stats.totalTickets > 0 && (
+                <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-brand text-paper text-[10px] font-bold tabular-nums">
+                  {dashboardData.stats.totalTickets}
+                </span>
+              )}
+            </Link>
+            <Link
               to="/support"
               className="inline-flex items-center gap-1.5 h-10 px-4 bg-paper hover:bg-cream text-ink border border-line hover:border-brand/40 rounded-lg text-[13px] font-medium transition-colors"
             >
@@ -180,18 +192,21 @@ export default function Dashboard() {
             </article>
 
             {/* Total tickets */}
-            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
+            <Link
+              to="/profile/my-tickets"
+              className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all group block"
+            >
               <div className="flex items-center gap-3 mb-2.5">
-                <div className="grid place-items-center w-9 h-9 rounded-lg bg-green-50 text-green-700 flex-shrink-0">
+                <div className="grid place-items-center w-9 h-9 rounded-lg bg-green-50 text-green-700 flex-shrink-0 group-hover:bg-brand group-hover:text-paper transition-colors">
                   <Ticket className="h-4 w-4" />
                 </div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute group-hover:text-brand transition-colors">
                   Billets
                 </p>
               </div>
               <div className="flex items-baseline gap-2">
                 <p
-                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
+                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight group-hover:text-brand transition-colors"
                   style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
                 >
                   {dashboardData.stats.totalTickets}
@@ -200,8 +215,11 @@ export default function Dashboard() {
                   Actifs
                 </span>
               </div>
-              <p className="text-[11px] text-ink-mute mt-1">au total</p>
-            </article>
+              <p className="text-[11px] text-ink-mute mt-1 flex items-center gap-1">
+                au total
+                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+            </Link>
 
             {/* Total spent */}
             <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
