@@ -41,9 +41,76 @@ export interface Event {
   address?: string;
   /** State, département or province (optional free-text). */
   region?: string;
+  // ── Permanent attraction fields ─────────────────────────────────────────
+  /** TRUE for zoos, parks, museums — no fixed end date, always-on sales. */
+  is_permanent?: boolean;
+  /** Category of permanent attraction. */
+  attraction_type?: 'zoo' | 'park' | 'museum' | 'theme_park' | 'aquarium' | 'water_park' | 'cultural_site' | 'adventure_park' | 'other';
+  /** When ticket sales begin for a permanent attraction. */
+  sales_start_date?: string;
   // ───────────────────────────────────────────────────────────────────────
   created_at?: string;
   updated_at?: string;
+}
+
+// ── Permanent venue types ──────────────────────────────────────────────────
+
+export interface VisitDate {
+  date: string;               // "YYYY-MM-DD"
+  event_date_id: string;
+  day_type: 'weekday' | 'weekend' | 'holiday';
+  open_time: string | null;
+  close_time: string | null;
+  capacity: number | null;
+  tickets_sold: number;
+  remaining: number;
+  status: string;
+  time_slots: TimeSlot[];
+  ticket_types: PermanentTicketType[];
+}
+
+export interface TimeSlot {
+  id: string;
+  start_time: string;
+  end_time: string | null;
+  capacity: number;
+  tickets_sold: number;
+  remaining: number;
+}
+
+export interface PermanentTicketType {
+  id: string;
+  name: string;
+  description: string;
+  base_price: number;
+  effective_price: number;   // day-type adjusted price
+  color: string;
+  max_per_order: number;
+  available: number;
+}
+
+export interface VisitDateAvailability {
+  available: boolean;
+  event_date_id?: string;
+  day_type?: string;
+  open_time?: string;
+  close_time?: string;
+  remaining_capacity?: number;
+  time_slots?: TimeSlot[];
+  ticket_types?: PermanentTicketType[];
+  message?: string;
+}
+
+export interface PermanentPurchaseResult {
+  success: boolean;
+  order_id?: string;
+  total?: number;
+  payment_token?: string;
+  ticket_ids?: string[];
+  visit_date?: string;
+  day_type?: string;
+  currency?: string;
+  error?: string;
 }
 
 export interface TicketType {

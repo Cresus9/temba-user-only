@@ -64,6 +64,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <Link to="/" className={navLinkBase}>Accueil</Link>
             <Link to="/events" className={navLinkBase}>Événements</Link>
+            <Link to="/attractions" className={navLinkBase}>Attractions</Link>
             <a
               href="https://admin.tembas.com/login"
               target="_blank"
@@ -169,6 +170,9 @@ export default function Navbar() {
             </Link>
             <Link to="/events" className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg" onClick={() => setIsOpen(false)}>
               Événements
+            </Link>
+            <Link to="/attractions" className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg" onClick={() => setIsOpen(false)}>
+              Attractions
             </Link>
             <a
               href="https://admin.tembas.com/login"

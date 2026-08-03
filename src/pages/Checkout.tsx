@@ -51,11 +51,11 @@ export default function Checkout() {
       <section className="bg-cream bg-grain border-b border-line">
         <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
           <Link
-            to="/events"
+            to={state?.eventId ? `/events/${state.eventId}` : '/events'}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors mb-3"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Retour aux événements
+            {state?.eventId ? "Retour à l'événement" : 'Retour aux événements'}
           </Link>
 
           <div className="flex items-center gap-3 mb-1.5">

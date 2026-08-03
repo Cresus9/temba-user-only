@@ -16,6 +16,7 @@ import PageSEO from '../components/SEO/PageSEO';
 import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
 import UpcomingEvents from '../components/events/UpcomingEvents';
 import PopularVenues from '../components/home/PopularVenues';
+import AttractionsHighlight from '../components/home/AttractionsHighlight';
 import Image from '../components/common/Image';
 import { FadeUp, SlideIn, Stagger, StaggerItem } from '../components/common/Motion';
 
@@ -82,7 +83,9 @@ function HeroPosterMosaic({ events }: { events: any[] }) {
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-paper/75">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                    {event.date
+                      ? new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                      : 'Ouvert'}
                   </span>
                   <span className="flex items-center gap-1 truncate">
                     <MapPin className="h-3 w-3" />
@@ -369,6 +372,9 @@ export default function Home() {
           <EventCardList featured={true} limit={9} showNavigation={true} />
         </div>
       </section>
+
+      {/* ───── Attractions permanentes ───── */}
+      <AttractionsHighlight />
 
       {/* ───── Bientôt + catégories + venues sur surface cream ───── */}
       <section className="section-normal surface-cream">

@@ -48,6 +48,7 @@ import ArtistsDirectory from '../pages/public/ArtistsDirectory';
 import VenueProfile from '../pages/public/VenueProfile';
 import VenuesDirectory from '../pages/public/VenuesDirectory';
 import TagPage from '../pages/public/TagPage';
+import AttractionsDirectory from '../pages/public/AttractionsDirectory';
 
 // Test Components
 import CategoryTest from '../components/CategoryTest';
@@ -123,6 +124,7 @@ export default function AppRoutes() {
         <Route path="/venues" element={<VenuesDirectory />} />
         <Route path="/venues/:slug" element={<VenueProfile />} />
         <Route path="/tags/:slug" element={<TagPage />} />
+        <Route path="/attractions" element={<AttractionsDirectory />} />
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />

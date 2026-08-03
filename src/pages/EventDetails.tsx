@@ -24,6 +24,12 @@ import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
 import PageSEO from '../components/SEO/PageSEO';
+import PermanentBookingPanel from '../components/venue/PermanentBookingPanel';
+import GalleryCarousel from '../components/venue/GalleryCarousel';
+import DayTypePricingTable from '../components/venue/DayTypePricingTable';
+import { ATTRACTION_TYPE_LABELS, ATTRACTION_TYPE_ICONS, getPricingOverrides } from '../services/permanentVenueService';
+import { getGalleryImages, type GalleryImage } from '../services/galleryService';
+import type { PricingOverride } from '../services/permanentVenueService';
 
 interface EventLocation {
   latitude: number;
@@ -43,12 +49,14 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { getEvent } = useEvents();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<EventLocation | null>(null);
+  const [event,         setEvent]         = useState<Event | null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [location,      setLocation]      = useState<EventLocation | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [eventDates, setEventDates] = useState<EventDate[]>([]);
-  const [isSaved, setIsSaved] = useState(false);
+  const [eventDates,    setEventDates]    = useState<EventDate[]>([]);
+  const [isSaved,       setIsSaved]       = useState(false);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [pricingOverrides, setPricingOverrides] = useState<PricingOverride[]>([]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -177,8 +185,29 @@ export default function EventDetails() {
           setEventDates(datesData);
         }
 
-        const coordinates = await geocodeAddress(data.location);
-        setLocation(coordinates);
+        // For permanent attractions, load gallery + pricing overrides early
+        // (independent of geocoding so a geocode failure can't block them)
+        if (data.is_permanent) {
+          const ticketTypeIds = (data.ticket_types ?? []).map((t: any) => t.id);
+          try {
+            const [gallery, overrides] = await Promise.all([
+              getGalleryImages(data.id),
+              ticketTypeIds.length ? getPricingOverrides(ticketTypeIds) : Promise.resolve([]),
+            ]);
+            console.log(`[EventDetails] gallery images: ${gallery.length}, pricing overrides: ${overrides.length}`);
+            setGalleryImages(gallery);
+            setPricingOverrides(overrides);
+          } catch (galleryErr) {
+            console.warn('[EventDetails] gallery/pricing fetch failed:', galleryErr);
+          }
+        }
+
+        try {
+          const coordinates = await geocodeAddress(data.location);
+          setLocation(coordinates);
+        } catch {
+          // Non-fatal — map just won't show
+        }
       } catch (err) {
         console.error("Erreur lors du chargement de l'événement:", err);
         toast.error("Échec du chargement des détails de l'événement");
@@ -206,7 +235,9 @@ export default function EventDetails() {
   const eventSchema = useMemo(() => {
     if (!event || !eventUrl) return undefined;
     const tz = event.timezone ?? 'Africa/Ouagadougou';
-    const startDate = event.time ? `${event.date}T${event.time}` : event.date;
+    const startDate = event.is_permanent
+      ? undefined
+      : event.time ? `${event.date}T${event.time}` : event.date;
     const addressDisplay = fullAddressDisplay(event);
     const countryCode = event.country_code ?? 'BF';
     return {
@@ -364,7 +395,9 @@ export default function EventDetails() {
   const evtCode = event.id ? event.id.slice(0, 8).toUpperCase() : '—';
 
   const tz = event.timezone ?? 'Africa/Ouagadougou';
-  const geoFormatted = formatEventDateTime(displayDate, displayTime, tz);
+  const geoFormatted = displayDate
+    ? formatEventDateTime(displayDate, displayTime, tz)
+    : { date: '', time: '', tzLabel: '' };
   const countryCode = event.country_code ?? 'BF';
   const isAbroad = countryCode !== 'BF';
   const flag = isAbroad ? countryFlag(countryCode) : null;
@@ -428,7 +461,15 @@ export default function EventDetails() {
               EVT · {evtCode}
             </span>
             <span className="mx-2 text-ink/40">·</span>
-            {formatLong(displayDate)}
+            {event.is_permanent ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span>{ATTRACTION_TYPE_ICONS[event.attraction_type ?? 'other'] ?? '📍'}</span>
+                <span>{ATTRACTION_TYPE_LABELS[event.attraction_type ?? 'other'] ?? 'Attraction'}</span>
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded uppercase tracking-wide">
+                  Ouvert en continu
+                </span>
+              </span>
+            ) : formatLong(displayDate)}
           </p>
 
           <h1 className="!text-[clamp(22px,3.4vw,36px)] !leading-[1.06] text-ink mb-3 tracking-tight max-w-3xl">
@@ -441,6 +482,11 @@ export default function EventDetails() {
               <span className="inline-flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-accent" />
                 <span className="font-semibold">{eventDates.length} dates</span>
+              </span>
+            ) : event.is_permanent ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="font-semibold text-emerald-700">Ouvert toute l'année</span>
               </span>
             ) : (
               <>
@@ -498,20 +544,43 @@ export default function EventDetails() {
           <div className="grid lg:grid-cols-12 gap-6 lg:gap-10">
             {/* — Mobile: poster first, then booking, then content — */}
             <div className="lg:hidden space-y-5">
-              <PosterCard event={event} evtCode={evtCode} />
+              {event.is_permanent && galleryImages.length > 0 ? (
+                <div className="rounded-2xl overflow-hidden border border-line shadow-card">
+                  <GalleryCarousel
+                    images={galleryImages}
+                    fallbackSrc={event.image_url}
+                    fallbackAlt={event.title}
+                    className="aspect-[16/9]"
+                  />
+                </div>
+              ) : (
+                <PosterCard event={event} evtCode={evtCode} />
+              )}
               <BookingPanel
                 event={event}
                 isReviewModalOpen={isReviewModalOpen}
                 setIsReviewModalOpen={setIsReviewModalOpen}
                 evtCode={evtCode}
+                pricingOverrides={pricingOverrides}
               />
             </div>
 
             {/* — Left: description + map — */}
             <div className="lg:col-span-7 space-y-9">
-              {/* Desktop poster lives in the LEFT column for visual anchor */}
+              {/* Desktop: gallery carousel for permanent events, poster otherwise */}
               <div className="hidden lg:block">
-                <PosterCard event={event} evtCode={evtCode} />
+                {event.is_permanent && galleryImages.length > 0 ? (
+                  <div className="rounded-2xl overflow-hidden border border-line shadow-card">
+                    <GalleryCarousel
+                      images={galleryImages}
+                      fallbackSrc={event.image_url}
+                      fallbackAlt={event.title}
+                      className="aspect-[16/9]"
+                    />
+                  </div>
+                ) : (
+                  <PosterCard event={event} evtCode={evtCode} />
+                )}
               </div>
 
               <div>
@@ -521,6 +590,28 @@ export default function EventDetails() {
                   {event.description}
                 </p>
               </div>
+
+              {/* Day-type pricing table — permanent attractions only */}
+              {event.is_permanent && (event.ticket_types ?? []).length > 0 && (
+                <div>
+                  <p className="eyebrow mb-2">Tarifs</p>
+                  <h2 className="text-ink mb-3">Grille tarifaire</h2>
+                  <div className="bg-cream rounded-xl2 border border-line p-4">
+                    <DayTypePricingTable
+                      ticketTypes={event.ticket_types ?? []}
+                      overrides={pricingOverrides}
+                      currency={event.currency}
+                    />
+                    {pricingOverrides.length > 0 && (
+                      <p className="mt-3 text-[11px] text-ink-mute flex items-center gap-1.5">
+                        <span>☀️</span> Semaine (lun–ven) &nbsp;·&nbsp;
+                        <span>🌙</span> Week-end (sam–dim) &nbsp;·&nbsp;
+                        <span>📅</span> Jours fériés
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Organized by */}
               {(event as any).organizer_profiles && (
@@ -646,6 +737,7 @@ export default function EventDetails() {
                   isReviewModalOpen={isReviewModalOpen}
                   setIsReviewModalOpen={setIsReviewModalOpen}
                   evtCode={evtCode}
+                  pricingOverrides={pricingOverrides}
                 />
               </div>
             </div>
@@ -688,23 +780,27 @@ function PosterCard({ event, evtCode }: { event: Event; evtCode: string }) {
   );
 }
 
-/** Branded container around the BookingForm — no logic changes inside. */
+/** Branded container around the booking form — branches on is_permanent. */
 function BookingPanel({
   event,
   isReviewModalOpen,
   setIsReviewModalOpen,
   evtCode,
+  pricingOverrides = [],
 }: {
   event: Event;
   isReviewModalOpen: boolean;
   setIsReviewModalOpen: (v: boolean) => void;
   evtCode: string;
+  pricingOverrides?: PricingOverride[];
 }) {
+  const headerLabel = event.is_permanent ? 'Choisir une date' : 'Réserver';
+
   return (
     <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
       {/* Ticket-style header */}
       <div className="flex items-center justify-between px-5 py-3 bg-cream border-b border-line">
-        <span className="eyebrow !text-ink">Réserver</span>
+        <span className="eyebrow !text-ink">{headerLabel}</span>
         <span
           className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
           style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
@@ -714,14 +810,24 @@ function BookingPanel({
       </div>
 
       <div className="p-5">
-        {event.status === 'PUBLISHED' ? (
-          <BookingForm
-            eventId={event.id}
-            ticketTypes={event.ticket_types || []}
-            currency={event.currency}
-            onReviewOpen={() => setIsReviewModalOpen(true)}
-            onReviewClose={() => setIsReviewModalOpen(false)}
-          />
+        {event.status === 'PUBLISHED' || event.status === ('PERMANENT' as any) ? (
+          event.is_permanent ? (
+            <PermanentBookingPanel
+              eventId={event.id}
+              currency={event.currency}
+              eventTitle={event.title}
+              ticketTypes={event.ticket_types ?? []}
+              pricingOverrides={pricingOverrides}
+            />
+          ) : (
+            <BookingForm
+              eventId={event.id}
+              ticketTypes={event.ticket_types || []}
+              currency={event.currency}
+              onReviewOpen={() => setIsReviewModalOpen(true)}
+              onReviewClose={() => setIsReviewModalOpen(false)}
+            />
+          )
         ) : (
           <div className="text-center py-6">
             <p className="text-[14px] text-ink-mute">

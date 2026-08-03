@@ -160,11 +160,31 @@ Deno.serve(async (req) => {
     );
 
     if (!queued) {
-      // Sync fallback
-      const { error } = await supabase.rpc("admin_finalize_payment", { p_payment_id: payment_id });
-      if (error) {
-        console.error("[check-pawapay-status] RPC fallback error:", error);
-        return json({ error: error.message }, 500);
+      // Sync fallback: try RPC directly
+      const { error: rpcErr } = await supabase.rpc("admin_finalize_payment", { p_payment_id: payment_id });
+      if (rpcErr) {
+        console.error("[check-pawapay-status] RPC fallback error:", rpcErr);
+        // Both QStash and direct RPC failed — upsert a durable job so
+        // process-finalize-jobs can pick it up on the next schedule run.
+        const { error: jobErr } = await supabase
+          .from("payment_finalize_jobs")
+          .upsert(
+            {
+              payment_id,
+              provider: "pawapay",
+              status: "pending",
+              last_error: rpcErr.message,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "payment_id", ignoreDuplicates: false }
+          );
+        if (jobErr) {
+          console.error("[check-pawapay-status] Failed to queue finalize job:", jobErr);
+        } else {
+          console.log("[check-pawapay-status] Finalize job queued for:", payment_id);
+        }
+        // Return 5xx → QStash retries this safety-net function too
+        return json({ error: rpcErr.message }, 500);
       }
     }
 

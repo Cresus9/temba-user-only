@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Calendar, MapPin, Users, Edit2, Trash2, Star, AlertCircle, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import EventForm from '../../components/admin/events/EventForm';
+import GalleryManager from '../../components/venue/GalleryManager';
 import { useTranslation } from '../../context/TranslationContext';
 import { invalidateEventsCache } from '../../utils/invalidateEventsCache';
 import toast from 'react-hot-toast';
@@ -201,7 +202,7 @@ export default function EventManagement() {
           onSuccess={() => {
             setShowForm(false);
             setSelectedEvent(null);
-            invalidateEventsCache(); // new/edited event → bust Redis cache
+            invalidateEventsCache();
             fetchEvents();
           }}
           onCancel={() => {
@@ -209,6 +210,13 @@ export default function EventManagement() {
             setSelectedEvent(null);
           }}
         />
+
+        {/* Gallery manager — only shown when editing a permanent attraction */}
+        {selectedEvent?.is_permanent && selectedEvent?.id && (
+          <div className="mt-6 p-5 bg-white border border-gray-200 rounded-xl shadow-sm">
+            <GalleryManager eventId={selectedEvent.id} />
+          </div>
+        )}
       </div>
     );
   }

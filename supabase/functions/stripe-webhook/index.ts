@@ -229,8 +229,25 @@ Deno.serve(async (req) => {
                   .insert(ticketInserts);
 
                 if (ticketsError) {
-                  console.error("❌ Error creating tickets:", ticketsError);
-                  // Don't throw here - payment is still valid, just log the error
+                  console.error("❌ Error creating tickets — queuing for retry:", ticketsError);
+                  // Upsert a finalize job so process-finalize-jobs picks it up
+                  const { error: jobErr } = await supabase
+                    .from("payment_finalize_jobs")
+                    .upsert(
+                      {
+                        payment_id: payment.id,
+                        provider: "stripe",
+                        status: "pending",
+                        last_error: ticketsError.message,
+                        updated_at: new Date().toISOString(),
+                      },
+                      { onConflict: "payment_id", ignoreDuplicates: false }
+                    );
+                  if (jobErr) {
+                    console.error("❌ Failed to queue finalize job:", jobErr);
+                  } else {
+                    console.log("⏳ Finalize job queued for payment:", payment.id);
+                  }
                 } else {
                   console.log(`✅ Created ${ticketInserts.length} tickets for order ${order.id}`);
                 }
