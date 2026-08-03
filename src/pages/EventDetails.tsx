@@ -543,7 +543,7 @@ export default function EventDetails() {
         <div className="max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-10">
           <div className="grid lg:grid-cols-12 gap-6 lg:gap-10">
             {/* — Mobile: poster first, then booking, then content — */}
-            <div className="lg:hidden space-y-5">
+            <div className="lg:hidden space-y-5 w-full min-w-0">
               {event.is_permanent && galleryImages.length > 0 ? (
                 <div className="rounded-2xl overflow-hidden border border-line shadow-card">
                   <GalleryCarousel
@@ -797,9 +797,9 @@ function BookingPanel({
   const headerLabel = event.is_permanent ? 'Choisir une date' : 'Réserver';
 
   return (
-    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden w-full min-w-0">
       {/* Ticket-style header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-cream border-b border-line">
+      <div className="flex items-center justify-between px-4 py-3 bg-cream border-b border-line">
         <span className="eyebrow !text-ink">{headerLabel}</span>
         <span
           className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
@@ -809,7 +809,7 @@ function BookingPanel({
         </span>
       </div>
 
-      <div className="p-5">
+      <div className="p-3 sm:p-5">
         {event.status === 'PUBLISHED' || event.status === ('PERMANENT' as any) ? (
           event.is_permanent ? (
             <PermanentBookingPanel

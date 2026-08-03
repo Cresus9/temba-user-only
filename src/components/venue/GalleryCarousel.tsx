@@ -89,28 +89,28 @@ export default function GalleryCarousel({
           </span>
         </div>
 
-        {/* Zoom button */}
+        {/* Zoom button — always visible on touch, hover-only on desktop */}
         <button
           onClick={() => setLightbox(true)}
-          className="absolute top-3 left-3 w-8 h-8 grid place-items-center bg-ink/60 backdrop-blur-sm rounded-md text-paper opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-3 left-3 w-8 h-8 grid place-items-center bg-ink/60 backdrop-blur-sm rounded-md text-paper transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
           aria-label="Agrandir"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
 
-        {/* Prev / Next arrows */}
+        {/* Prev / Next arrows — always visible on touch, hover-only on desktop */}
         {total > 1 && (
           <>
             <button
               onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center bg-paper/80 backdrop-blur-sm rounded-full shadow-card text-ink hover:bg-paper transition-all opacity-0 group-hover:opacity-100"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center bg-paper/80 backdrop-blur-sm rounded-full shadow-card text-ink hover:bg-paper transition-all sm:opacity-0 sm:group-hover:opacity-100"
               aria-label="Photo précédente"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center bg-paper/80 backdrop-blur-sm rounded-full shadow-card text-ink hover:bg-paper transition-all opacity-0 group-hover:opacity-100"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center bg-paper/80 backdrop-blur-sm rounded-full shadow-card text-ink hover:bg-paper transition-all sm:opacity-0 sm:group-hover:opacity-100"
               aria-label="Photo suivante"
             >
               <ChevronRight className="w-5 h-5" />
@@ -182,7 +182,7 @@ export default function GalleryCarousel({
 
           {/* Image */}
           <div
-            className="relative max-w-5xl max-h-[80vh] w-full px-14 flex items-center justify-center"
+            className="relative max-w-5xl max-h-[80vh] w-full px-4 sm:px-14 flex items-center justify-center"
             onClick={e => e.stopPropagation()}
           >
             <img
@@ -204,17 +204,17 @@ export default function GalleryCarousel({
             <>
               <button
                 onClick={e => { e.stopPropagation(); prev(); }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 grid place-items-center rounded-full bg-paper/10 text-paper hover:bg-paper/20 transition-colors"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 grid place-items-center rounded-full bg-paper/10 text-paper hover:bg-paper/20 transition-colors"
                 aria-label="Précédent"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               <button
                 onClick={e => { e.stopPropagation(); next(); }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 grid place-items-center rounded-full bg-paper/10 text-paper hover:bg-paper/20 transition-colors"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 grid place-items-center rounded-full bg-paper/10 text-paper hover:bg-paper/20 transition-colors"
                 aria-label="Suivant"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </>
           )}

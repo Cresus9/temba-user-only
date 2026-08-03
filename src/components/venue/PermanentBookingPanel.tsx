@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Ticket, ChevronRight, Loader, AlertCircle, Check } from 'lucide-react';
+import { Calendar, Clock, Ticket, ChevronRight, Loader, Check } from 'lucide-react';
 import VisitDateCalendar from './VisitDateCalendar';
 import { initiatePermanentPurchase, formatOpeningHours, dayTypeLabel } from '../../services/permanentVenueService';
 import { useAuth } from '../../context/AuthContext';
@@ -177,7 +177,7 @@ export default function PermanentBookingPanel({
     : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       {/* ── Step breadcrumb ── */}
       <div className="flex items-center gap-1.5 text-[12px]" style={{ fontFamily: mono }}>
         {(['date', 'tickets', 'confirm'] as const).map((s, i) => (
@@ -341,14 +341,27 @@ export default function PermanentBookingPanel({
           {/* CTA */}
           {totalQty > 0 && (
             <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setStep('confirm')}
-                className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
-              >
-                <Ticket className="w-4 h-4" />
-                Continuer · {formatCurrency(totalAmount, currency)}
-              </button>
+              {!user ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/login', { state: { from: window.location.pathname } })
+                  }
+                  className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
+                >
+                  <Ticket className="w-4 h-4" />
+                  Se connecter pour continuer
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setStep('confirm')}
+                  className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
+                >
+                  <Ticket className="w-4 h-4" />
+                  Continuer · {formatCurrency(totalAmount, currency)}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -397,16 +410,6 @@ export default function PermanentBookingPanel({
               </p>
             </div>
           </div>
-
-          {/* Note for logged-out users */}
-          {!user && (
-            <div className="flex items-start gap-2.5 p-3 bg-amber-50 rounded-xl border border-amber-200">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[12px] text-amber-800 leading-relaxed">
-                Vous n'êtes pas connecté. Votre billet sera envoyé à votre adresse email.
-              </p>
-            </div>
-          )}
 
           <div className="flex gap-2">
             <button

@@ -165,9 +165,9 @@ export default function VisitDateCalendar({
   const canGoNext = !(viewYear > maxYear || (viewYear === maxYear && viewMonth >= maxMonth + 10));
 
   return (
-    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">
+    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden w-full min-w-0">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 py-3 bg-cream border-b border-line">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-3 bg-cream border-b border-line">
         <button
           onClick={prevMonth}
           disabled={!canGoPrev}
@@ -199,7 +199,7 @@ export default function VisitDateCalendar({
         {DAY_NAMES.map(d => (
           <div
             key={d}
-            className="py-2 text-center text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute"
+            className="py-1.5 sm:py-2 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-normal sm:tracking-[0.08em] text-ink-mute"
             style={{ fontFamily: mono }}
           >
             {d}
@@ -208,7 +208,7 @@ export default function VisitDateCalendar({
       </div>
 
       {/* ── Grid ── */}
-      <div className="grid grid-cols-7 p-2 gap-1">
+      <div className="grid grid-cols-7 p-1.5 sm:p-2 gap-0.5 sm:gap-1">
         {cells.map((cell, i) => {
           if (!cell.date) return <div key={i} />;
 
@@ -226,8 +226,8 @@ export default function VisitDateCalendar({
               disabled={state !== 'open'}
               onClick={() => handleClick(date)}
               className={`
-                relative flex flex-col items-center justify-center rounded-xl
-                aspect-square text-[13px] font-medium transition-all
+                relative flex flex-col items-center justify-center rounded-lg sm:rounded-xl
+                aspect-square text-[12px] sm:text-[13px] font-medium transition-all
                 ${state === 'open' && !isSelected
                   ? 'hover:bg-brand/8 hover:text-brand cursor-pointer text-ink'
                   : ''}
@@ -289,16 +289,16 @@ export default function VisitDateCalendar({
       </div>
 
       {/* ── Legend ── */}
-      <div className="flex items-center gap-4 px-4 py-2.5 border-t border-line bg-cream/50">
+      <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 px-3 sm:px-4 py-2 sm:py-2.5 border-t border-line bg-cream/50">
         {[
-          { dot: 'bg-brand',    label: 'Sélectionné' },
-          { dot: 'bg-amber-400',label: 'Presque complet' },
-          { dot: 'bg-red-400',  label: 'Complet' },
-          { dot: 'bg-line',     label: 'Fermé' },
+          { dot: 'bg-brand',     label: 'Sélectionné' },
+          { dot: 'bg-amber-400', label: 'Presque complet' },
+          { dot: 'bg-red-400',   label: 'Complet' },
+          { dot: 'bg-line',      label: 'Fermé' },
         ].map(({ dot, label }) => (
           <div key={label} className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-            <span className="text-[11px] text-ink-mute">{label}</span>
+            <span className="text-[11px] text-ink-mute whitespace-nowrap">{label}</span>
           </div>
         ))}
       </div>
