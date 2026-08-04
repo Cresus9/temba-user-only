@@ -25,6 +25,8 @@ interface GuestCheckoutFormProps {
   totalAmount: number;
   currency: string;
   eventId: string;
+  /** Extra amount from venue service add-ons selected on the checkout page */
+  addonTotal?: number;
   onSuccess: (orderId: string) => void;
 }
 
@@ -33,6 +35,7 @@ export default function GuestCheckoutForm({
   totalAmount,
   currency,
   eventId,
+  addonTotal = 0,
   onSuccess
 }: GuestCheckoutFormProps) {
   // Function to clear cart for specific event
@@ -179,10 +182,10 @@ export default function GuestCheckoutForm({
         currency: 'XOF'
       }));
 
-      // Calculate total
+      // Calculate total (tickets + service fee + venue add-ons)
       const subtotal = pricedSelections.reduce((sum, it) => sum + it.price * it.quantity, 0);
       const serviceFee = subtotal * 0.02; // 2% service fee
-      const grandTotal = subtotal + serviceFee;
+      const grandTotal = subtotal + serviceFee + addonTotal;
 
       // Create pawaPay payment
       const idempotencyKey = `web-pawapay-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -631,13 +634,19 @@ export default function GuestCheckoutForm({
               <span>Frais de traitement (2%)</span>
               <span className="tabular-nums text-ink">{formatCurrency(totalAmount * 0.02, currency)}</span>
             </div>
+            {addonTotal > 0 && (
+              <div className="flex justify-between text-[13px] text-ink-mute">
+                <span>Options &amp; services</span>
+                <span className="tabular-nums text-brand font-semibold">+{formatCurrency(addonTotal, currency)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-line">
               <span className="text-[14px] font-bold text-ink">Total</span>
               <span
                 className="text-[20px] font-bold text-ink tabular-nums tracking-tight"
                 style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
               >
-                {formatCurrency(totalAmount * 1.02, currency)}
+                {formatCurrency(totalAmount * 1.02 + addonTotal, currency)}
               </span>
             </div>
           </div>

@@ -206,11 +206,10 @@ export default function BookingForm({
 
   if (availableTickets.length === 0) {
     return (
-      <div className="text-center py-8">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun billet disponible</h3>
-        <p className="text-gray-600">
-          Les billets ne sont actuellement pas disponibles pour cet événement.
-          Revenez plus tard ou contactez l'organisateur pour plus d'informations.
+      <div className="text-center py-8 px-4">
+        <p className="text-[15px] font-bold text-ink mb-1">Aucun billet disponible</p>
+        <p className="text-[13px] text-ink-mute">
+          Les billets ne sont pas disponibles pour le moment. Revenez plus tard ou contactez l'organisateur.
         </p>
       </div>
     );
@@ -232,140 +231,112 @@ export default function BookingForm({
     <>
       <div className="space-y-6">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-            <AlertCircle className="h-5 w-5" />
+          <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-[13px] text-red-700">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Step 1: Date Selection - Integrated into booking flow */}
         {loadingDates ? (
-          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-6">
-            <div className="flex items-center gap-3 text-indigo-700">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
-              <span className="text-sm font-medium">Chargement des dates disponibles...</span>
-            </div>
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-cream rounded-xl border border-line">
+            <div className="w-4 h-4 rounded-full border-2 border-brand border-t-transparent animate-spin flex-shrink-0" />
+            <span className="text-[13px] text-ink-mute">Chargement des dates…</span>
           </div>
         ) : eventDates.length > 0 ? (
-          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center justify-center w-8 h-8 bg-indigo-600 text-white rounded-full font-bold text-sm">
-                1
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {eventDates.length > 1 ? 'Choisissez votre date' : 'Date de l\'événement'}
-              </h3>
-            </div>
-            
+          <div className="space-y-3">
+            {eventDates.length > 1 && (
+              <p className="eyebrow">
+                {eventDates.length > 1 ? 'Choisissez une date' : 'Date de l\'événement'}
+              </p>
+            )}
+
             {eventDates.length > 1 ? (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 {eventDates.map((eventDate) => {
                   const statusLower = eventDate.status?.toLowerCase() || '';
-                  const isSoldOut = statusLower === 'sold_out' || 
-                    (eventDate.capacity && eventDate.tickets_sold !== undefined && 
+                  const isSoldOut = statusLower === 'sold_out' ||
+                    (eventDate.capacity != null && eventDate.tickets_sold !== undefined &&
                      eventDate.tickets_sold >= eventDate.capacity);
                   const isDisabled = isSoldOut || statusLower === 'cancelled';
-                  
+                  const isSelected = selectedDateId === eventDate.id;
+
                   return (
                     <button
                       key={eventDate.id}
                       type="button"
                       onClick={() => !isDisabled && setSelectedDateId(eventDate.id)}
                       disabled={isDisabled}
-                      className={`relative p-4 rounded-lg border-2 text-left transition-all ${
+                      className={`relative w-full p-3.5 rounded-xl border text-left transition-all ${
                         isDisabled
-                          ? 'border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed'
-                          : selectedDateId === eventDate.id
-                          ? 'border-indigo-600 bg-white shadow-lg ring-2 ring-indigo-200'
-                          : 'border-gray-300 bg-white hover:border-indigo-400 hover:shadow-md cursor-pointer'
+                          ? 'border-line bg-cream opacity-50 cursor-not-allowed'
+                          : isSelected
+                          ? 'border-brand/40 bg-brand/5 shadow-sm'
+                          : 'border-line bg-paper hover:border-brand/30 hover:shadow-sm cursor-pointer'
                       }`}
                     >
-                      {selectedDateId === eventDate.id && (
-                        <div className="absolute top-2 right-2">
-                          <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? 'bg-brand/10' : 'bg-cream'
+                        }`}>
+                          <Calendar className={`h-4 w-4 ${isSelected ? 'text-brand' : 'text-ink-mute'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold leading-tight capitalize ${
+                            isSelected ? 'text-brand' : 'text-ink'
+                          }`}>
+                            {formatDate(eventDate.date)}
+                          </p>
+                          <p className="flex items-center gap-1.5 text-[11px] text-ink-mute mt-0.5">
+                            <Clock className="h-3 w-3" />
+                            {eventDate.start_time}
+                            {eventDate.end_time && ` – ${eventDate.end_time}`}
+                          </p>
+                        </div>
+                        {isSoldOut && (
+                          <span className="flex-shrink-0 px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-[10px] font-bold uppercase tracking-wide">
+                            Complet
+                          </span>
+                        )}
+                        {isSelected && !isSoldOut && (
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand grid place-items-center">
                             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                            selectedDateId === eventDate.id 
-                              ? 'bg-indigo-100' 
-                              : 'bg-gray-100'
-                          }`}>
-                            <Calendar className={`h-6 w-6 ${
-                              selectedDateId === eventDate.id 
-                                ? 'text-indigo-600' 
-                                : 'text-gray-600'
-                            }`} />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 mb-1">
-                            {formatDate(eventDate.date)}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                            <Clock className="h-4 w-4" />
-                            <span>
-                              {eventDate.start_time}
-                              {eventDate.end_time && ` - ${eventDate.end_time}`}
-                            </span>
-                          </div>
-                          {eventDate.capacity && eventDate.tickets_sold !== undefined && (
-                            <div className="text-xs text-gray-500">
-                              {eventDate.tickets_sold} / {eventDate.capacity} billets vendus
-                            </div>
-                          )}
-                          {isSoldOut && (
-                            <div className="inline-flex items-center px-2 py-1 mt-2 bg-red-100 text-red-700 text-xs font-medium rounded">
-                              Complet
-                            </div>
-                          )}
-                        </div>
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex items-center gap-3 p-4 bg-white rounded-lg border border-indigo-200">
-                <Calendar className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+              <div className="flex items-center gap-3 px-4 py-3 bg-cream rounded-xl border border-line">
+                <Calendar className="h-4 w-4 text-brand flex-shrink-0" />
                 <div>
-                  <div className="font-medium text-gray-900">
+                  <p className="text-[13px] font-semibold text-ink capitalize">
                     {formatDate(eventDates[0].date)}
-                  </div>
-                  <div className="text-sm text-gray-600">
+                  </p>
+                  <p className="text-[11px] text-ink-mute mt-0.5">
                     {eventDates[0].start_time}
-                    {eventDates[0].end_time && ` - ${eventDates[0].end_time}`}
-                  </div>
+                    {eventDates[0].end_time && ` – ${eventDates[0].end_time}`}
+                  </p>
                 </div>
               </div>
             )}
           </div>
         ) : (
-          // Debug: Show if we're not loading and have no dates
           !loadingDates && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-              <p>ℹ️ Aucune date configurée pour cet événement</p>
-              <p className="text-xs mt-1">Event ID: {eventId}</p>
+            <div className="px-4 py-3 bg-cream rounded-xl border border-line">
+              <p className="text-[12px] text-ink-mute">Aucune date configurée pour cet événement.</p>
             </div>
           )
         )}
 
         {/* Step 2: Ticket Selection */}
-        <div className="space-y-4">
-          {eventDates.length > 0 && (
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex items-center justify-center w-8 h-8 bg-indigo-600 text-white rounded-full font-bold text-sm">
-                2
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Sélectionnez vos billets
-              </h3>
-            </div>
+        <div className="space-y-3">
+          {eventDates.length > 1 && (
+            <p className="eyebrow">Sélectionnez vos billets</p>
           )}
           {ticketTypes.map((ticket) => (
             <TicketTypeCard

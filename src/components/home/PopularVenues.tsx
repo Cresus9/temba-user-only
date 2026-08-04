@@ -92,30 +92,50 @@ interface VenueCardProps {
 }
 
 function VenueCard({ venue }: VenueCardProps) {
+  const bgImage = venue.nextEvent?.image_url ?? null;
+
   return (
     <Link
       to={`/events?location=${encodeURIComponent(venue.name)}`}
       className="group block bg-paper rounded-xl2 border border-line overflow-hidden hover:border-ink hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-300"
     >
-      {/* Top — ink panel with map dots motif */}
-      <div className="relative h-20 bg-ink overflow-hidden">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: 'radial-gradient(rgba(255,255,255,0.25) 1px, transparent 1px)',
-            backgroundSize: '14px 14px',
-          }}
-        />
-        <div
-          aria-hidden
-          className="absolute -top-6 -right-4 w-20 h-20 rounded-full bg-accent/15 blur-xl"
-        />
+      {/* Top — photo from next event, or ink fallback */}
+      <div className="relative h-24 overflow-hidden">
+        {bgImage ? (
+          <>
+            <img
+              src={bgImage}
+              alt={venue.name}
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+            />
+            {/* Dark gradient so text stays readable */}
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/20 to-transparent" />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-ink" />
+            <div
+              aria-hidden
+              className="absolute inset-0 opacity-30"
+              style={{
+                backgroundImage: 'radial-gradient(rgba(255,255,255,0.25) 1px, transparent 1px)',
+                backgroundSize: '14px 14px',
+              }}
+            />
+            <div
+              aria-hidden
+              className="absolute -top-6 -right-4 w-20 h-20 rounded-full bg-accent/15 blur-xl"
+            />
+          </>
+        )}
+
+        {/* Pin icon + LIEU label — always on top */}
         <div className="relative h-full flex items-center justify-between px-4">
-          <div className="grid place-items-center w-10 h-10 rounded-xl bg-paper/10 border border-paper/15 backdrop-blur-sm group-hover:bg-accent group-hover:border-accent transition-colors">
-            <MapPin className="h-[18px] w-[18px] text-paper" />
+          <div className="grid place-items-center w-9 h-9 rounded-xl bg-paper/15 border border-paper/20 backdrop-blur-sm group-hover:bg-accent group-hover:border-accent transition-colors">
+            <MapPin className="h-4 w-4 text-paper" />
           </div>
-          <span className="text-[10px] uppercase tracking-[0.14em] font-bold text-paper/60">
+          <span className="text-[10px] uppercase tracking-[0.14em] font-bold text-paper/70">
             Lieu
           </span>
         </div>

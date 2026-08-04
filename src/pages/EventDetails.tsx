@@ -11,6 +11,9 @@ import {
   ShieldCheck,
   Zap,
   Banknote,
+  Building2,
+  CheckCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
@@ -57,6 +60,7 @@ export default function EventDetails() {
   const [isSaved,       setIsSaved]       = useState(false);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [pricingOverrides, setPricingOverrides] = useState<PricingOverride[]>([]);
+  const [venue,         setVenue]         = useState<{ id: string; name: string; slug: string | null; city: string | null; verified: boolean; serviceCount: number } | null>(null);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -156,6 +160,25 @@ export default function EventDetails() {
           .eq('event_id', id)
           .order('display_order');
         if (eaData) (data as any).event_artists = eaData;
+
+        // Fetch venue if the event has one
+        const venueId: string | null = (data as any).venue_id ?? null;
+        if (venueId) {
+          const { data: venueData } = await supabase
+            .from('venues')
+            .select('id, name, slug, city, verified')
+            .eq('id', venueId)
+            .maybeSingle();
+          if (venueData) {
+            // Count active services for this venue
+            const { data: svcData } = await supabase
+              .rpc('get_venue_services', { p_venue_id: venueId, p_include_inactive: false });
+            setVenue({
+              ...venueData,
+              serviceCount: (svcData ?? []).length,
+            });
+          }
+        }
 
         // Spread into a new object so React always detects the change
         const enrichedEvent = { ...data };
@@ -637,6 +660,40 @@ export default function EventDetails() {
                       ? <Link to={`/organizers/${org.slug}`} className="hover:opacity-80 transition-opacity">{inner}</Link>
                       : inner;
                   })()}
+                </div>
+              )}
+
+              {/* Venue */}
+              {venue && (
+                <div>
+                  <p className="eyebrow mb-2">Lieu</p>
+                  {venue.slug ? (
+                    <Link
+                      to={`/venues/${venue.slug}`}
+                      className="group flex items-center justify-between gap-3 px-4 py-3 bg-paper border border-line rounded-xl hover:border-brand/40 hover:shadow-sm transition-all"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-brand/10 grid place-items-center flex-shrink-0 group-hover:bg-brand/15 transition-colors">
+                          <Building2 className="w-4 h-4 text-brand" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[14px] font-bold text-ink group-hover:text-brand transition-colors truncate flex items-center gap-1.5">
+                            {venue.name}
+                            {venue.verified && <CheckCircle className="w-3.5 h-3.5 text-brand flex-shrink-0" />}
+                          </p>
+                          <p className="text-[11px] text-ink-mute">
+                            {[venue.city, venue.serviceCount > 0 ? `${venue.serviceCount} service${venue.serviceCount > 1 ? 's' : ''}` : null].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-ink-mute flex-shrink-0" />
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-paper border border-line rounded-xl">
+                      <Building2 className="w-4 h-4 text-ink-mute" />
+                      <span className="text-[14px] font-semibold text-ink">{venue.name}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

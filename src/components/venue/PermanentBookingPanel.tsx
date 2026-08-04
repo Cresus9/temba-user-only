@@ -8,6 +8,9 @@ import { formatCurrency } from '../../utils/formatters';
 import { supabase } from '../../lib/supabase-client';
 import type { VisitDate, PermanentTicketType, TimeSlot } from '../../types/event';
 import toast from 'react-hot-toast';
+import AddonSelector from '../tickets/AddonSelector';
+import { computeAddonsTotal, type AddonSelection } from '../../services/addonService';
+import { getServicesForEvent, type VenueService } from '../../services/venueServiceService';
 
 import type { PricingOverride } from '../../services/permanentVenueService';
 import DayTypePricingTable from './DayTypePricingTable';
@@ -44,6 +47,16 @@ export default function PermanentBookingPanel({
   const [selectedSlot,  setSelectedSlot]  = useState<TimeSlot | null>(null);
   const [selections,    setSelections]    = useState<Record<string, number>>({});
   const [submitting,    setSubmitting]    = useState(false);
+
+  // Add-on services state
+  const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
+  const [addonServices,   setAddonServices]   = useState<VenueService[]>([]);
+  const [showAddons,      setShowAddons]      = useState(false);
+
+  // Pre-fetch services so we can compute totals and pass to AddonSelector
+  useEffect(() => {
+    getServicesForEvent(eventId).then(setAddonServices).catch(() => {});
+  }, [eventId]);
 
   // When visitData has no ticket_types (fallback path), use the prop or fetch them directly
   useEffect(() => {
@@ -116,9 +129,11 @@ export default function PermanentBookingPanel({
   };
 
   const totalQty    = Object.values(selections).reduce((a, b) => a + b, 0);
-  const totalAmount = visitData?.ticket_types?.reduce((sum, tt) => {
+  const ticketsAmount = visitData?.ticket_types?.reduce((sum, tt) => {
     return sum + tt.effective_price * (selections[tt.id] ?? 0);
   }, 0) ?? 0;
+  const addonsAmount  = computeAddonsTotal(addonSelections, addonServices);
+  const totalAmount   = ticketsAmount + addonsAmount;
 
   // ── Purchase ─────────────────────────────────────────────────────────────
   const handlePurchase = async () => {
@@ -156,15 +171,16 @@ export default function PermanentBookingPanel({
       state: {
         tickets:     Object.fromEntries(sels.map(s => [s.ticket_type_id, s.quantity])),
         totals: {
-          subtotal:      totalAmount,
+          subtotal:      ticketsAmount,
           processingFee: 0,
-          total:         totalAmount,
+          total:         ticketsAmount,
         },
         currency,
         eventId,
         eventDateId:  visitData.event_date_id ?? null,
         visitDate:    selectedDate,
         isPermanent:  true,
+        addonTotal:   addonsAmount,
       },
     });
   };
@@ -401,6 +417,25 @@ export default function PermanentBookingPanel({
                 ))}
             </div>
 
+            {/* Add-ons line in summary (only if selected) */}
+            {addonsAmount > 0 && (
+              <div className="border-t border-line pt-3 space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute" style={{ fontFamily: mono }}>
+                  Options
+                </p>
+                {addonServices
+                  .filter(s => (addonSelections[s.id] ?? 0) > 0)
+                  .map(s => (
+                    <div key={s.id} className="flex items-center justify-between text-[13px]">
+                      <span className="text-ink/80">{s.name} × {addonSelections[s.id]}</span>
+                      <span className="font-bold tabular-nums text-brand" style={{ fontFamily: mono }}>
+                        +{formatCurrency(s.price * addonSelections[s.id]!, currency)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
             <div className="flex items-baseline justify-between pt-3 border-t border-line">
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute" style={{ fontFamily: mono }}>
                 Total
@@ -410,6 +445,41 @@ export default function PermanentBookingPanel({
               </p>
             </div>
           </div>
+
+          {/* ── Add-ons selector ── */}
+          {addonServices.length > 0 && (
+            <div>
+              {showAddons ? (
+                <div className="space-y-3">
+                  <AddonSelector
+                    eventId={eventId}
+                    currency={currency}
+                    value={addonSelections}
+                    onChange={next => setAddonSelections(next)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddonSelections({});
+                      setShowAddons(false);
+                    }}
+                    className="w-full text-[12px] text-ink-mute hover:text-ink transition-colors py-1"
+                  >
+                    Continuer sans options
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAddons(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-brand/30 text-[12px] font-semibold text-brand hover:bg-brand/5 transition-colors"
+                >
+                  <span>✦</span>
+                  Ajouter des services au séjour
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button

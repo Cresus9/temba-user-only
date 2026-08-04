@@ -35,6 +35,8 @@ interface CheckoutFormProps {
   currency: string;
   eventId: string;
   eventDateId?: string | null;
+  /** Extra amount from venue service add-ons selected on the checkout page */
+  addonTotal?: number;
   onSuccess: (orderId: string) => void;
 }
 
@@ -44,6 +46,7 @@ export default function CheckoutForm({
   currency, 
   eventId,
   eventDateId,
+  addonTotal = 0,
   onSuccess 
 }: CheckoutFormProps) {
 
@@ -90,7 +93,7 @@ export default function CheckoutForm({
   const { fees } = useFeeCalculation(eventId, pricedSelections);
   const subtotal = pricedSelections.reduce((s, it) => s + it.price * it.quantity, 0);
   const buyerFees = fees.total_buyer_fees || 0;
-  const grandTotal = subtotal + buyerFees;
+  const grandTotal = subtotal + buyerFees + addonTotal;
 
   // Detect if this is a FREE order (all tickets are free)
   const isFreeOrder = grandTotal === 0 && subtotal === 0;
@@ -1217,6 +1220,12 @@ export default function CheckoutForm({
                 <span>Frais de service</span>
                 <span className="tabular-nums text-ink">{formatCurrency(buyerFees, currency)}</span>
               </div>
+              {addonTotal > 0 && (
+                <div className="flex justify-between text-[13px] text-ink-mute">
+                  <span>Options &amp; services</span>
+                  <span className="tabular-nums text-brand font-semibold">+{formatCurrency(addonTotal, currency)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-line">
                 <span className="text-[14px] font-bold text-ink">Total</span>
                 <span

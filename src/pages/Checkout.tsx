@@ -4,7 +4,9 @@ import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
 import CheckoutForm from '../components/checkout/CheckoutForm';
+import AddonSelector from '../components/tickets/AddonSelector';
 import PageSEO from '../components/SEO/PageSEO';
+import { computeAddonsTotal, type AddonSelection } from '../services/addonService';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -15,39 +17,43 @@ interface CheckoutState {
   };
   currency: string;
   eventId: string;
-  eventDateId?: string | null; // Optional: for multi-date events
+  eventDateId?: string | null;
 }
+
+const mono = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [isGuest, setIsGuest] = useState(!isAuthenticated);
-  
-  // Get state from location
-  const state = location.state as CheckoutState;
+  const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
 
+  const state = location.state as CheckoutState;
   const hasValidState = Boolean(state?.tickets && state?.totals && state?.eventId);
 
-  // Redirect to events if no state (render Navigate to avoid setState during render warning)
-  if (!hasValidState) {
-    return <Navigate to="/events" replace />;
-  }
+  if (!hasValidState) return <Navigate to="/events" replace />;
 
-  const handleGuestSuccess = async (orderId: string, verificationToken: string) => {
-    // Redirect to verification notice page
-    navigate(`/verify-order/${verificationToken}`);
+  const handleGuestSuccess = (orderId: string) => {
+    navigate(`/booking/confirmation/${orderId}`);
   };
 
-  const handleAuthenticatedSuccess = async (orderId: string) => {
-    // Redirect to confirmation page
+  const handleAuthenticatedSuccess = (orderId: string) => {
     navigate(`/booking/confirmation/${orderId}`);
+  };
+
+  // Grand total = tickets + any add-ons selected
+  const [addonsAmount, setAddonsAmount] = useState(0);
+  const handleAddonChange = (next: AddonSelection, addons: import('../services/venueServiceService').VenueService[]) => {
+    setAddonSelections(next);
+    setAddonsAmount(computeAddonsTotal(next, addons));
   };
 
   return (
     <div>
       <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
-      {/* — — — Title band (cream) — — — */}
+
+      {/* ── Title band ── */}
       <section className="bg-cream bg-grain border-b border-line">
         <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
           <Link
@@ -61,7 +67,7 @@ export default function Checkout() {
           <div className="flex items-center gap-3 mb-1.5">
             <span
               className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute tabular-nums"
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+              style={{ fontFamily: mono }}
             >
               Étape 2 / 3
             </span>
@@ -76,7 +82,6 @@ export default function Checkout() {
             Choisissez votre méthode de paiement pour sécuriser vos billets.
           </p>
 
-          {/* Trust strip */}
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-mute">
             <span className="inline-flex items-center gap-1.5">
               <Lock className="h-3 w-3 text-brand" />
@@ -90,22 +95,38 @@ export default function Checkout() {
         </div>
       </section>
 
-      {/* — — — Form area — — — */}
+      {/* ── Main area ── */}
       <section className="bg-paper">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10 space-y-8">
+
+          {/* ── Add-ons (rendered if the event's venue has services) ── */}
+          <AddonSelectorWrapper
+            eventId={state.eventId}
+            currency={state.currency}
+            value={addonSelections}
+            onChange={handleAddonChange}
+          />
+
+          {/* ── Divider (only shown when addons loaded and present) ── */}
+          {addonsAmount > 0 && (
+            <div className="border-t border-line" />
+          )}
+
+          {/* ── Payment form ── */}
           {isGuest ? (
             <GuestCheckoutForm
               tickets={state.tickets}
               totalAmount={state.totals.total}
+              addonTotal={addonsAmount}
               currency={state.currency}
               eventId={state.eventId}
-              eventDateId={state.eventDateId}
               onSuccess={handleGuestSuccess}
             />
           ) : (
             <CheckoutForm
               tickets={state.tickets}
               totalAmount={state.totals.total}
+              addonTotal={addonsAmount}
               currency={state.currency}
               eventId={state.eventId}
               eventDateId={state.eventDateId}
@@ -114,16 +135,13 @@ export default function Checkout() {
           )}
 
           {!isAuthenticated && (
-            <div className="mt-6 pt-5 border-t border-line text-center">
+            <div className="pt-5 border-t border-line text-center">
               <p className="text-[13px] text-ink-mute">
                 Vous avez déjà un compte ?{' '}
                 <button
                   onClick={() =>
                     navigate('/login', {
-                      state: {
-                        from: location.pathname,
-                        checkoutData: state,
-                      },
+                      state: { from: location.pathname, checkoutData: state },
                     })
                   }
                   className="font-semibold text-brand hover:text-brand-700 transition-colors"
@@ -136,5 +154,42 @@ export default function Checkout() {
         </div>
       </section>
     </div>
+  );
+}
+
+// ── Thin wrapper that feeds the services list back to the parent ──────────────
+import { useEffect, useRef } from 'react';
+import { getServicesForEvent, type VenueService } from '../services/venueServiceService';
+
+function AddonSelectorWrapper({
+  eventId,
+  currency,
+  value,
+  onChange,
+}: {
+  eventId: string;
+  currency: string;
+  value: AddonSelection;
+  onChange: (next: AddonSelection, addons: VenueService[]) => void;
+}) {
+  const addonsRef = useRef<VenueService[]>([]);
+  const [addons, setAddons] = useState<VenueService[]>([]);
+
+  useEffect(() => {
+    getServicesForEvent(eventId).then(data => {
+      addonsRef.current = data;
+      setAddons(data);
+    });
+  }, [eventId]);
+
+  if (addons.length === 0) return null;
+
+  return (
+    <AddonSelector
+      eventId={eventId}
+      currency={currency}
+      value={value}
+      onChange={next => onChange(next, addonsRef.current)}
+    />
   );
 }

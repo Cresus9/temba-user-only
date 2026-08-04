@@ -51,7 +51,7 @@ export default function AttractionsHighlight() {
 
         {/* ── Skeleton ── */}
         {loading && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="rounded-xl2 border border-line bg-cream overflow-hidden animate-pulse">
                 <div className="aspect-[4/3] bg-cream-deep" />
@@ -66,7 +66,7 @@ export default function AttractionsHighlight() {
 
         {/* ── Cards ── */}
         {!loading && items.length > 0 && (
-          <Stagger className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+          <Stagger className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {items.map(a => {
               const minPrice  = lowestPrice(a);
               const typeIcon  = ATTRACTION_TYPE_ICONS[a.attraction_type ?? 'other'] ?? '📍';
@@ -79,7 +79,7 @@ export default function AttractionsHighlight() {
                     className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200 h-full"
                   >
                     {/* Image */}
-                    <div className="relative aspect-[4/3] bg-cream-deep overflow-hidden flex-shrink-0">
+                    <div className="relative aspect-[16/9] sm:aspect-[4/3] bg-cream-deep overflow-hidden flex-shrink-0">
                       {a.image_url ? (
                         <img
                           src={a.image_url}
