@@ -259,8 +259,9 @@ export default function VisitDateCalendar({
                 <span className="absolute inset-0 rounded-xl ring-2 ring-brand/40 pointer-events-none" />
               )}
               <span className={minPriceByDayType ? 'leading-none' : ''}>{date.getDate()}</span>
-              {/* Day-type price label — only when prices differ between day types */}
-              {state === 'open' && minPriceByDayType && (() => {
+              {/* Day-type price label — show for open AND future-state dates.
+                   'future' means "no schedule row yet", not "closed". */}
+              {(state === 'open' || state === 'future') && minPriceByDayType && (() => {
                 const dt    = getDayType(date);
                 const price = minPriceByDayType[dt];
                 const label = compactPrice(price);
@@ -268,7 +269,9 @@ export default function VisitDateCalendar({
                 return (
                   <span
                     className={`text-[8px] font-bold leading-none tabular-nums ${
-                      isSelected ? 'text-paper/80' : 'text-brand/70'
+                      isSelected           ? 'text-paper/80'   :
+                      state === 'future'   ? 'text-ink-mute/60' :
+                                             'text-brand/70'
                     }`}
                     style={{ fontFamily: mono }}
                   >

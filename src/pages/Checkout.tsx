@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
 import CheckoutForm from '../components/checkout/CheckoutForm';
 import AddonSelector from '../components/tickets/AddonSelector';
+import FoodMenuSelector from '../components/food/FoodMenuSelector';
 import PageSEO from '../components/SEO/PageSEO';
 import { computeAddonsTotal, type AddonSelection } from '../services/addonService';
+import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../services/foodMenuService';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -18,6 +20,10 @@ interface CheckoutState {
   currency: string;
   eventId: string;
   eventDateId?: string | null;
+  /** Pre-computed extras total passed from PermanentBookingPanel (addons + food) */
+  addonTotal?: number;
+  /** True when navigating from the permanent attraction booking panel */
+  isPermanent?: boolean;
 }
 
 const mono = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -28,11 +34,16 @@ export default function Checkout() {
   const { isAuthenticated } = useAuth();
   const [isGuest, setIsGuest] = useState(!isAuthenticated);
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
+  const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
 
   const state = location.state as CheckoutState;
   const hasValidState = Boolean(state?.tickets && state?.totals && state?.eventId);
 
   if (!hasValidState) return <Navigate to="/events" replace />;
+
+  // When coming from PermanentBookingPanel, extras are already selected there.
+  // Seed the amount from state so the total is correct from the first render.
+  const isPermanent = Boolean((state as any).isPermanent);
 
   const handleGuestSuccess = (orderId: string) => {
     navigate(`/booking/confirmation/${orderId}`);
@@ -42,12 +53,24 @@ export default function Checkout() {
     navigate(`/booking/confirmation/${orderId}`);
   };
 
-  // Grand total = tickets + any add-ons selected
-  const [addonsAmount, setAddonsAmount] = useState(0);
+  // Grand total = tickets + venue add-ons + food
+  // For permanent events, seed from state.addonTotal (already chosen in the panel)
+  const [addonsAmount, setAddonsAmount] = useState<number>((state as any).addonTotal ?? 0);
+  const [foodAmount,   setFoodAmount]   = useState(0);
+
   const handleAddonChange = (next: AddonSelection, addons: import('../services/venueServiceService').VenueService[]) => {
     setAddonSelections(next);
     setAddonsAmount(computeAddonsTotal(next, addons));
   };
+
+  const handleFoodChange = (next: FoodSelection, cats: FoodMenuCategory[]) => {
+    setFoodSelections(next);
+    setFoodAmount(computeFoodTotal(next, cats));
+  };
+
+  const extrasTotal = isPermanent
+    ? addonsAmount               // seeded from state.addonTotal on mount
+    : addonsAmount + foodAmount; // live selections on checkout page
 
   return (
     <div>
@@ -99,25 +122,50 @@ export default function Checkout() {
       <section className="bg-paper">
         <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10 space-y-8">
 
-          {/* ── Add-ons (rendered if the event's venue has services) ── */}
-          <AddonSelectorWrapper
-            eventId={state.eventId}
-            currency={state.currency}
-            value={addonSelections}
-            onChange={handleAddonChange}
-          />
+          {/* ── Extras section ──
+               For permanent attractions: selectors were already shown in the
+               booking panel — show a read-only summary if extras were chosen.
+               For regular events: show the live selectors here.              */}
+          {isPermanent ? (
+            (state as any).addonTotal > 0 && (
+              <div className="px-4 py-3 bg-brand/8 rounded-xl border border-brand/20 flex items-center justify-between">
+                <p className="text-[13px] font-semibold text-brand">
+                  Options &amp; repas inclus
+                </p>
+                <p className="text-[14px] font-extrabold text-brand tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  +{new Intl.NumberFormat('fr-FR').format((state as any).addonTotal)} {state.currency}
+                </p>
+              </div>
+            )
+          ) : (
+            <>
+              {/* ── Add-ons (rendered if the event's venue has services) ── */}
+              <AddonSelectorWrapper
+                eventId={state.eventId}
+                currency={state.currency}
+                value={addonSelections}
+                onChange={handleAddonChange}
+              />
 
-          {/* ── Divider (only shown when addons loaded and present) ── */}
-          {addonsAmount > 0 && (
-            <div className="border-t border-line" />
+              {/* ── Food menu (rendered if the event has a food menu) ── */}
+              <FoodMenuSelectorWrapper
+                eventId={state.eventId}
+                currency={state.currency}
+                value={foodSelections}
+                onChange={handleFoodChange}
+              />
+            </>
           )}
+
+          {/* ── Divider when either section has selections ── */}
+          {extrasTotal > 0 && <div className="border-t border-line" />}
 
           {/* ── Payment form ── */}
           {isGuest ? (
             <GuestCheckoutForm
               tickets={state.tickets}
               totalAmount={state.totals.total}
-              addonTotal={addonsAmount}
+              addonTotal={extrasTotal}
               currency={state.currency}
               eventId={state.eventId}
               onSuccess={handleGuestSuccess}
@@ -126,7 +174,7 @@ export default function Checkout() {
             <CheckoutForm
               tickets={state.tickets}
               totalAmount={state.totals.total}
-              addonTotal={addonsAmount}
+              addonTotal={extrasTotal}
               currency={state.currency}
               eventId={state.eventId}
               eventDateId={state.eventDateId}
@@ -178,7 +226,8 @@ function AddonSelectorWrapper({
   useEffect(() => {
     getServicesForEvent(eventId).then(data => {
       addonsRef.current = data;
-      setAddons(data);
+      // Only show if at least one service is active (admin toggle via is_active)
+      setAddons(data.filter(s => s.is_active !== false));
     });
   }, [eventId]);
 
@@ -190,6 +239,47 @@ function AddonSelectorWrapper({
       currency={currency}
       value={value}
       onChange={next => onChange(next, addonsRef.current)}
+    />
+  );
+}
+
+// ── FoodMenuSelectorWrapper ───────────────────────────────────────────────────
+import { getMenuForEvent } from '../services/foodMenuService';
+
+function FoodMenuSelectorWrapper({
+  eventId,
+  currency,
+  value,
+  onChange,
+}: {
+  eventId:  string;
+  currency: string;
+  value:    FoodSelection;
+  onChange: (next: FoodSelection, cats: FoodMenuCategory[]) => void;
+}) {
+  const catsRef = useRef<FoodMenuCategory[]>([]);
+  const [cats, setCats] = useState<FoodMenuCategory[]>([]);
+
+  useEffect(() => {
+    getMenuForEvent(eventId).then(data => {
+      catsRef.current = data;
+      // Only show if at least one item is available (admin toggle via is_available)
+      const hasAvailable = data.some(cat => cat.items.some(i => i.is_available));
+      setCats(hasAvailable ? data : []);
+    });
+  }, [eventId]);
+
+  if (cats.length === 0) return null;
+
+  return (
+    <FoodMenuSelector
+      eventId={eventId}
+      currency={currency}
+      value={value}
+      onChange={(next, updatedCats) => {
+        catsRef.current = updatedCats;
+        onChange(next, catsRef.current);
+      }}
     />
   );
 }

@@ -11,6 +11,8 @@ import toast from 'react-hot-toast';
 import AddonSelector from '../tickets/AddonSelector';
 import { computeAddonsTotal, type AddonSelection } from '../../services/addonService';
 import { getServicesForEvent, type VenueService } from '../../services/venueServiceService';
+import FoodMenuSelector from '../food/FoodMenuSelector';
+import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../../services/foodMenuService';
 
 import type { PricingOverride } from '../../services/permanentVenueService';
 import DayTypePricingTable from './DayTypePricingTable';
@@ -52,6 +54,11 @@ export default function PermanentBookingPanel({
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [addonServices,   setAddonServices]   = useState<VenueService[]>([]);
   const [showAddons,      setShowAddons]      = useState(false);
+
+  // Food menu state
+  const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
+  const [foodCategories,  setFoodCategories]  = useState<FoodMenuCategory[]>([]);
+  const [showFood,        setShowFood]        = useState(false);
 
   // Pre-fetch services so we can compute totals and pass to AddonSelector
   useEffect(() => {
@@ -128,12 +135,13 @@ export default function PermanentBookingPanel({
     });
   };
 
-  const totalQty    = Object.values(selections).reduce((a, b) => a + b, 0);
+  const totalQty      = Object.values(selections).reduce((a, b) => a + b, 0);
   const ticketsAmount = visitData?.ticket_types?.reduce((sum, tt) => {
     return sum + tt.effective_price * (selections[tt.id] ?? 0);
   }, 0) ?? 0;
   const addonsAmount  = computeAddonsTotal(addonSelections, addonServices);
-  const totalAmount   = ticketsAmount + addonsAmount;
+  const foodAmount    = computeFoodTotal(foodSelections, foodCategories);
+  const totalAmount   = ticketsAmount + addonsAmount + foodAmount;
 
   // ── Purchase ─────────────────────────────────────────────────────────────
   const handlePurchase = async () => {
@@ -180,7 +188,7 @@ export default function PermanentBookingPanel({
         eventDateId:  visitData.event_date_id ?? null,
         visitDate:    selectedDate,
         isPermanent:  true,
-        addonTotal:   addonsAmount,
+        addonTotal:   addonsAmount + foodAmount,
       },
     });
   };
@@ -436,6 +444,27 @@ export default function PermanentBookingPanel({
               </div>
             )}
 
+            {/* Food lines in summary */}
+            {foodAmount > 0 && (
+              <div className="border-t border-line pt-3 space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute" style={{ fontFamily: mono }}>
+                  Restauration
+                </p>
+                {foodCategories.flatMap(cat =>
+                  cat.items
+                    .filter(item => (foodSelections[item.id] ?? 0) > 0)
+                    .map(item => (
+                      <div key={item.id} className="flex items-center justify-between text-[13px]">
+                        <span className="text-ink/80">{item.name} × {foodSelections[item.id]}</span>
+                        <span className="font-bold tabular-nums text-brand" style={{ fontFamily: mono }}>
+                          +{formatCurrency(item.price * foodSelections[item.id]!, currency)}
+                        </span>
+                      </div>
+                    ))
+                )}
+              </div>
+            )}
+
             <div className="flex items-baseline justify-between pt-3 border-t border-line">
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute" style={{ fontFamily: mono }}>
                 Total
@@ -481,6 +510,22 @@ export default function PermanentBookingPanel({
             </div>
           )}
 
+          {/* ── Food menu selector ── */}
+          <FoodMenuToggle
+            eventId={eventId}
+            currency={currency}
+            show={showFood}
+            onToggle={() => {
+              setShowFood(v => !v);
+              if (showFood) setFoodSelections({});
+            }}
+            value={foodSelections}
+            onChange={(next, cats) => {
+              setFoodSelections(next);
+              setFoodCategories(cats);
+            }}
+          />
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -506,6 +551,74 @@ export default function PermanentBookingPanel({
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── FoodMenuToggle helper ─────────────────────────────────────────────────────
+// Checks if the event has at least one AVAILABLE menu item.
+// Returns null when there's no data — so the button is invisible automatically.
+// Admins control visibility by toggling is_available on individual items.
+
+import { useEffect as _ue, useState as _us } from 'react';
+import { getMenuForEvent as _gmfe, type FoodMenuCategory as _FMC } from '../../services/foodMenuService';
+import { UtensilsCrossed as _UC } from 'lucide-react';
+
+function FoodMenuToggle({
+  eventId, currency, show, onToggle, value, onChange,
+}: {
+  eventId:  string;
+  currency: string;
+  show:     boolean;
+  onToggle: () => void;
+  value:    FoodSelection;
+  onChange: (next: FoodSelection, cats: FoodMenuCategory[]) => void;
+}) {
+  const [hasMenu, setHasMenu] = _us<boolean | null>(null);
+
+  _ue(() => {
+    _gmfe(eventId)
+      .then(cats => {
+        // Only show the button if at least one item is available
+        const availableCount = cats.reduce(
+          (sum, cat) => sum + cat.items.filter(i => i.is_available).length, 0
+        );
+        setHasMenu(availableCount > 0);
+      })
+      .catch(() => setHasMenu(false));
+  }, [eventId]);
+
+  // null = still loading → render nothing (no flash)
+  if (hasMenu === null || !hasMenu) return null;
+
+  return (
+    <div>
+      {show ? (
+        <div className="space-y-3">
+          <FoodMenuSelector
+            eventId={eventId}
+            currency={currency}
+            value={value}
+            onChange={onChange}
+          />
+          <button
+            type="button"
+            onClick={onToggle}
+            className="w-full text-[12px] text-ink-mute hover:text-ink transition-colors py-1"
+          >
+            Continuer sans repas
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-brand/30 text-[12px] font-semibold text-brand hover:bg-brand/5 transition-colors"
+        >
+          <_UC className="w-3.5 h-3.5" />
+          Commander un repas
+        </button>
       )}
     </div>
   );
