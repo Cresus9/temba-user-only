@@ -43,9 +43,13 @@ export default function VisitDateCalendar({
 
   // ── Price helpers ───────────────────────────────────────────────────────
 
-  /** Min effective price for a given day type across all ticket types. */
+  /**
+   * Min effective price for a given day type across all ticket types.
+   * Returns { weekday, weekend, holiday } — values may differ or be equal.
+   * Returns null only when there are no ticket types at all.
+   */
   const minPriceByDayType = useMemo(() => {
-    if (!ticketTypes.length || !pricingOverrides.length) return null;
+    if (!ticketTypes.length) return null;
 
     const calc = (dt: 'weekday' | 'weekend' | 'holiday') => {
       let min = Infinity;
@@ -57,14 +61,12 @@ export default function VisitDateCalendar({
       return min === Infinity ? null : min;
     };
 
-    const weekday = calc('weekday');
-    const weekend = calc('weekend');
-    const holiday = calc('holiday');
+    // Base price: min across all ticket types ignoring overrides
+    const base = Math.min(...ticketTypes.map(tt => tt.price));
 
-    // Only worth showing if at least two day types differ
-    const prices = [weekday, weekend, holiday].filter(Boolean) as number[];
-    const allSame = prices.every(p => p === prices[0]);
-    if (allSame || prices.length < 2) return null;
+    const weekday = calc('weekday') ?? base;
+    const weekend = calc('weekend') ?? base;
+    const holiday = calc('holiday') ?? base;
 
     return { weekday, weekend, holiday };
   }, [pricingOverrides, ticketTypes]);
