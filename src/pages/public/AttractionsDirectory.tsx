@@ -231,10 +231,19 @@ export default function AttractionsDirectory() {
                         </span>
                       </div>
                       {/* Always open badge */}
-                      <div className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-emerald-500 rounded-md">
-                        <span className="text-[10px] font-bold text-paper uppercase tracking-wide" style={{ fontFamily: mono }}>
-                          Ouvert
-                        </span>
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                        {a.featured && (
+                          <div className="px-2 py-0.5 bg-amber-400 rounded-md">
+                            <span className="text-[10px] font-bold text-ink uppercase tracking-wide" style={{ fontFamily: mono }}>
+                              ★ Top
+                            </span>
+                          </div>
+                        )}
+                        <div className="px-2 py-0.5 bg-emerald-500 rounded-md">
+                          <span className="text-[10px] font-bold text-paper uppercase tracking-wide" style={{ fontFamily: mono }}>
+                            Ouvert
+                          </span>
+                        </div>
                       </div>
                     </div>
 

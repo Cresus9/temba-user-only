@@ -257,12 +257,14 @@ export async function listAttractions(filters?: {
     .select(`
       id, title, description, image_url, attraction_type,
       venue, location, city, country_code,
-      capacity, sales_start_date,
+      capacity, sales_start_date, featured,
       ticket_types(id, name, price, available, sales_enabled)
     `)
     .eq('is_permanent', true)
     .eq('status', 'PUBLISHED')
     .is('deleted_at', null)
+    // Featured/favorited attractions float to the top, then alphabetical
+    .order('featured', { ascending: false })
     .order('title');
 
   if (filters?.type)        query = query.eq('attraction_type', filters.type);

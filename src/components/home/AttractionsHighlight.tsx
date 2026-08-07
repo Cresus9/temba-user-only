@@ -51,9 +51,9 @@ export default function AttractionsHighlight() {
 
         {/* ── Skeleton ── */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="flex gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-xl2 border border-line bg-cream overflow-hidden animate-pulse">
+              <div key={i} className="rounded-xl2 border border-line bg-cream overflow-hidden animate-pulse flex-shrink-0 w-[75vw] sm:w-[45vw] md:w-auto">
                 <div className="aspect-[4/3] bg-cream-deep" />
                 <div className="p-4 space-y-2">
                   <div className="h-4 w-2/3 bg-cream-deep rounded" />
@@ -64,16 +64,21 @@ export default function AttractionsHighlight() {
           </div>
         )}
 
-        {/* ── Cards ── */}
+      {/* ── Cards ──
+             Mobile : horizontal snap-scroll strip (peek at next card).
+             md+    : regular 3-column grid.                               */}
         {!loading && items.length > 0 && (
-          <Stagger className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <Stagger className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth
+                              -mx-4 px-4 md:mx-0 md:px-0
+                              [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
+                              md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:snap-none md:flex-none">
             {items.map(a => {
               const minPrice  = lowestPrice(a);
               const typeIcon  = ATTRACTION_TYPE_ICONS[a.attraction_type ?? 'other'] ?? '📍';
               const typeLabel = ATTRACTION_TYPE_LABELS[a.attraction_type ?? 'other'] ?? '';
 
               return (
-                <StaggerItem key={a.id}>
+                <StaggerItem key={a.id} className="flex-shrink-0 w-[78vw] sm:w-[44vw] md:w-auto snap-start">
                   <Link
                     to={`/events/${a.id}`}
                     className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200 h-full"
@@ -105,12 +110,24 @@ export default function AttractionsHighlight() {
                       </span>
 
                       {/* Always open pill */}
-                      <span className="absolute top-2.5 right-2.5 px-1.5 py-0.5 bg-emerald-500 rounded-md">
-                        <span
-                          className="text-[9px] font-bold text-paper uppercase tracking-[0.1em]"
-                          style={{ fontFamily: mono }}
-                        >
-                          Ouvert
+                      <span className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                        {a.featured && (
+                          <span className="px-1.5 py-0.5 bg-amber-400 rounded-md">
+                            <span
+                              className="text-[9px] font-bold text-ink uppercase tracking-[0.1em]"
+                              style={{ fontFamily: mono }}
+                            >
+                              ★ Top
+                            </span>
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 bg-emerald-500 rounded-md">
+                          <span
+                            className="text-[9px] font-bold text-paper uppercase tracking-[0.1em]"
+                            style={{ fontFamily: mono }}
+                          >
+                            Ouvert
+                          </span>
                         </span>
                       </span>
                     </div>
