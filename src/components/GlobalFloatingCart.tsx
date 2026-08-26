@@ -133,14 +133,6 @@ export default function GlobalFloatingCart({ isOpen, onClose }: GlobalFloatingCa
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Veuillez vous connecter pour continuer');
-        navigate('/login', { state: { from: `/events/${eventId}` } });
-        onClose();
-        return;
-      }
-
       const { data: eventData, error } = await supabase
         .from('events')
         .select('*, ticket_types(id, name, price, quantity, available, max_per_order, sales_enabled)')

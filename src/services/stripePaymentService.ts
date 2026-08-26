@@ -33,7 +33,9 @@ export interface StripePaymentResponse {
   fx_rate: string;
   paymentToken?: string;
   orderId?: string;
+  guestToken?: string | null;
   duplicate?: boolean;
+  order_created?: boolean;
 }
 
 export interface StripePaymentError {
@@ -109,6 +111,7 @@ class StripePaymentService {
       ticket_quantities?: { [key: string]: number };
       payment_method?: string;
       guest_email?: string;
+      guest_phone?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -130,6 +133,7 @@ class StripePaymentService {
         ticket_quantities: options.ticket_quantities,
         payment_method: options.payment_method,
         guest_email: options.guest_email,
+        guest_phone: options.guest_phone,
       });
 
       if (!data?.clientSecret || !data?.paymentId) {
@@ -160,6 +164,7 @@ class StripePaymentService {
       ticket_quantities?: { [key: string]: number };
       payment_method?: string;
       guest_email?: string;
+      guest_phone?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -176,6 +181,7 @@ class StripePaymentService {
         ticket_quantities: options.ticket_quantities,
         payment_method: options.payment_method,
         guest_email: options.guest_email,
+        guest_phone: options.guest_phone,
       });
 
       if (!data?.clientSecret || !data?.paymentId) {

@@ -151,6 +151,31 @@ export default function PermanentBookingPanel({
       .filter(([, q]) => q > 0)
       .map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity }));
 
+    const goCheckout = () => {
+      navigate('/checkout', {
+        state: {
+          tickets:     Object.fromEntries(sels.map(s => [s.ticket_type_id, s.quantity])),
+          totals: {
+            subtotal:      ticketsAmount,
+            processingFee: 0,
+            total:         ticketsAmount,
+          },
+          currency,
+          eventId,
+          eventDateId:  visitData.event_date_id ?? null,
+          visitDate:    selectedDate,
+          isPermanent:  true,
+          addonTotal:   addonsAmount + foodAmount,
+        },
+      });
+    };
+
+    // Guests skip the auth-bound RPC and pay via guest checkout.
+    if (!user) {
+      goCheckout();
+      return;
+    }
+
     setSubmitting(true);
     try {
       // Try the permanent purchase RPC first
@@ -173,24 +198,7 @@ export default function PermanentBookingPanel({
       setSubmitting(false);
     }
 
-    // ── Fallback: standard checkout flow ───────────────────────────────────
-    // Build the same state shape the Checkout page expects
-    navigate('/checkout', {
-      state: {
-        tickets:     Object.fromEntries(sels.map(s => [s.ticket_type_id, s.quantity])),
-        totals: {
-          subtotal:      ticketsAmount,
-          processingFee: 0,
-          total:         ticketsAmount,
-        },
-        currency,
-        eventId,
-        eventDateId:  visitData.event_date_id ?? null,
-        visitDate:    selectedDate,
-        isPermanent:  true,
-        addonTotal:   addonsAmount + foodAmount,
-      },
-    });
+    goCheckout();
   };
 
   // ── Formatted date ────────────────────────────────────────────────────────
@@ -365,27 +373,14 @@ export default function PermanentBookingPanel({
           {/* CTA */}
           {totalQty > 0 && (
             <div className="pt-1">
-              {!user ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate('/login', { state: { from: window.location.pathname } })
-                  }
-                  className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
-                >
-                  <Ticket className="w-4 h-4" />
-                  Se connecter pour continuer
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setStep('confirm')}
-                  className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
-                >
-                  <Ticket className="w-4 h-4" />
-                  Continuer · {formatCurrency(totalAmount, currency)}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setStep('confirm')}
+                className="w-full flex items-center justify-center gap-2 h-12 px-5 bg-brand hover:bg-brand/90 text-paper rounded-xl text-[14px] font-bold transition-all shadow-card active:scale-[0.98]"
+              >
+                <Ticket className="w-4 h-4" />
+                Continuer · {formatCurrency(totalAmount, currency)}
+              </button>
             </div>
           )}
         </div>

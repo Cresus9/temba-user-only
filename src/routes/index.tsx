@@ -58,6 +58,8 @@ import NotificationDebugger from '../components/NotificationDebugger';
 // Guest Pages
 import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
 import GuestOrderVerification from '../components/checkout/GuestOrderVerification';
+import GuestTickets from '../pages/GuestTickets';
+import FindGuestTickets from '../pages/FindGuestTickets';
 import ReferralLanding from '../pages/ReferralLanding';
 import ReferralProgram from '../pages/profile/ReferralProgram';
 
@@ -132,9 +134,10 @@ export default function AppRoutes() {
         <Route path="/debug/notifications" element={<NotificationDebugger />} />
 
         {/* Guest Routes */}
+        <Route path="/find-tickets" element={<FindGuestTickets />} />
         <Route path="/verify/:token" element={<GuestTicketVerification />} />
         <Route path="/verify-order/:token" element={<GuestOrderVerification />} />
-        <Route path="/guest/tickets/:token" element={<BookingConfirmation />} />
+        <Route path="/guest/tickets/:token" element={<GuestTickets />} />
 
         {/* Payment Routes */}
         <Route path="/payment/success" element={<PaymentSuccess />} />

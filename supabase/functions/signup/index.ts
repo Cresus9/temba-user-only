@@ -20,30 +20,56 @@ interface SignupResponse {
   error?: string;
 }
 
-// Helper function to normalize phone number to E.164 format
+// Keep a real international number. Only default to +226 for local BF-style digits.
 function normalizePhone(phone: string): string {
   if (!phone) return phone;
-  // Remove all non-numeric characters except +
   let cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // If no +, add country code (default to +226 for Burkina Faso)
-  if (!cleaned.startsWith('+')) {
-    cleaned = cleaned.replace(/^0+/, ''); // Remove leading zeros
-    if (!cleaned.startsWith('226')) {
-      cleaned = '+226' + cleaned;
-    } else {
-      cleaned = '+' + cleaned;
+  if (!cleaned) return phone;
+
+  const known: { code: string; local: number[] }[] = [
+    { code: '226', local: [8] },
+    { code: '225', local: [10] },
+    { code: '233', local: [9] },
+    { code: '221', local: [9] },
+    { code: '223', local: [8] },
+    { code: '227', local: [8] },
+    { code: '228', local: [8] },
+    { code: '229', local: [8] },
+    { code: '234', local: [10, 11] },
+    { code: '33', local: [9] },
+    { code: '44', local: [10] },
+    { code: '1', local: [10] },
+  ];
+  known.sort((a, b) => b.code.length - a.code.length);
+
+  const matchKnown = (digits: string) => {
+    for (const { code, local } of known) {
+      if (digits.startsWith(code) && local.includes(digits.length - code.length)) {
+        return '+' + digits;
+      }
     }
-  } else if (!cleaned.startsWith('+226') && cleaned.length >= 8) {
-    // Has + but might not have country code, ensure proper format
-    const digitsAfterPlus = cleaned.substring(1);
-    if (digitsAfterPlus.length >= 8 && !digitsAfterPlus.startsWith('226')) {
-      // Likely local number, add +226
-      cleaned = '+226' + digitsAfterPlus.replace(/^0+/, '');
-    }
+    return null;
+  };
+
+  let digits = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned.replace(/^0+/, '');
+
+  // Signup used to force +226 onto any +number; unwrap that.
+  if (digits.startsWith('226') && digits.length > 11) {
+    const rest = digits.slice(3);
+    const inner = matchKnown(rest);
+    if (inner) return inner;
   }
-  
-  return cleaned;
+
+  const matched = matchKnown(digits);
+  if (matched) return matched;
+
+  if (cleaned.startsWith('+') && digits.length >= 8 && digits.length <= 15) {
+    return '+' + digits;
+  }
+
+  if (digits.length === 8) return '+226' + digits;
+  if (digits.startsWith('226')) return '+' + digits;
+  return '+' + digits;
 }
 
 serve(async (req) => {

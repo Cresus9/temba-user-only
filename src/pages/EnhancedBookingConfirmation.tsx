@@ -15,6 +15,12 @@ import { generateTicketPNG } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
 import PageSEO from '../components/SEO/PageSEO';
 import { referralService } from '../services/referralService';
+import {
+  getGuestTokenForOrder,
+  getGuestTicketsByToken,
+  guestTicketsPath,
+  type GuestTicketRow,
+} from '../services/guestTicketService';
 
 interface Ticket {
   id: string;
@@ -42,11 +48,31 @@ interface OrderSummary {
   booking_date: string;
 }
 
+function mapGuestRowsToTickets(rows: GuestTicketRow[]): Ticket[] {
+  return rows.map((row) => ({
+    id: row.id,
+    qr_code: row.qr_code,
+    ticket_type: {
+      id: row.id,
+      name: row.ticket_type_name || 'Billet',
+      price: Number(row.ticket_type_price || 0),
+    },
+    event: {
+      id: row.order_id,
+      title: row.event_title || 'Événement',
+      date: row.event_date || '',
+      time: row.event_time || '',
+      location: row.event_location || '',
+      image_url: row.event_image || '',
+    },
+  }));
+}
+
 export default function EnhancedBookingConfirmation() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
@@ -186,15 +212,24 @@ export default function EnhancedBookingConfirmation() {
   };
 
   useEffect(() => {
-    if (bookingId) {
-      const token = searchParams.get('token');
-      if (token) {
-        verifyPaymentAndFetchTickets(token);
-      } else {
-        fetchTickets();
+    if (!bookingId || authLoading) return;
+
+    if (!user) {
+      const guestToken = searchParams.get('guest') || getGuestTokenForOrder(bookingId);
+      if (guestToken) {
+        navigate(guestTicketsPath(guestToken), { replace: true });
+        return;
       }
     }
-  }, [bookingId, searchParams]);
+
+    const token = searchParams.get('token');
+    if (token) {
+      verifyPaymentAndFetchTickets(token);
+    } else {
+      fetchTickets();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId, authLoading, user]);
 
   // first_purchase referral completion (parity with mobile); fires once per order. Checkout credit logic unchanged.
   useEffect(() => {
@@ -304,6 +339,22 @@ export default function EnhancedBookingConfirmation() {
       if (!bookingId) {
         throw new Error('ID de réservation manquant');
       }
+
+      if (!user) {
+        const guestToken = searchParams.get('guest') || getGuestTokenForOrder(bookingId);
+        if (guestToken) {
+          try {
+            const guestRows = await getGuestTicketsByToken(guestToken);
+            if (guestRows.length > 0) {
+              setTickets(mapGuestRowsToTickets(guestRows));
+              setLoading(false);
+              return;
+            }
+          } catch (guestErr) {
+            console.warn('Guest ticket lookup failed:', guestErr);
+          }
+        }
+      }
       
       // Get token from URL params for payment lookup fallback and verification
       const token = searchParams.get('token');
@@ -348,7 +399,7 @@ export default function EnhancedBookingConfirmation() {
           .from('orders')
           .select('id, status, event_id, user_id')
           .eq('id', bookingId)
-          .single();
+          .maybeSingle();
         
         // Get payment from payments table using order_id
         let paymentData = null;
@@ -575,6 +626,17 @@ export default function EnhancedBookingConfirmation() {
           return;
         }
         
+        // Guests cannot read orders/tickets via RLS — stop the 406 retry loop.
+        if (!user) {
+          toast('Retrouvez vos billets avec le lien reçu ou votre numéro de téléphone.', {
+            duration: 6000,
+            icon: '🎫',
+          });
+          setTickets([]);
+          setLoading(false);
+          return;
+        }
+
         // If no tickets found and payment is not processing, retry once
         if (retryCount === 0) {
           console.log('⏳ No tickets found, retrying after 2 seconds...');
@@ -599,7 +661,7 @@ export default function EnhancedBookingConfirmation() {
         .from('orders')
         .select('total_amount, currency, payment_method, created_at')
         .eq('id', bookingId)
-        .single();
+        .maybeSingle();
 
       if (orderError) console.warn('Could not fetch order summary:', orderError);
 
@@ -749,7 +811,7 @@ export default function EnhancedBookingConfirmation() {
     });
   };
 
-  if (loading || verifyingPayment) {
+  if (loading || verifyingPayment || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex justify-center items-center">
         <div className="text-center">
@@ -776,13 +838,17 @@ export default function EnhancedBookingConfirmation() {
             <Ticket className="h-12 w-12 text-gray-400" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Aucun billet trouvé</h2>
-          <p className="text-gray-600 mb-8">Nous n'avons pas pu trouver de billets pour cette réservation.</p>
+          <p className="text-gray-600 mb-8">
+            {user
+              ? "Nous n'avons pas pu trouver de billets pour cette réservation."
+              : 'Cette page est réservée aux comptes connectés. Retrouvez vos billets avec votre numéro de téléphone.'}
+          </p>
           <Link
-            to="/events"
+            to={user ? '/events' : '/find-tickets'}
             className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
           >
             <ArrowLeft className="h-5 w-5" />
-            Parcourir les événements
+            {user ? 'Parcourir les événements' : 'Retrouver mes billets'}
           </Link>
         </div>
       </div>

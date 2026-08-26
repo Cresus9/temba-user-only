@@ -52,3 +52,19 @@ verify_jwt = false
 # PawaPay safety-net poller — called by QStash, auth via X-Finalize-Secret header
 [functions.check-pawapay-status]
 verify_jwt = false
+
+# Guest ticket retrieval by phone + OTP (no user JWT; OTP is the auth)
+[functions.lookup-guest-tickets]
+verify_jwt = false
+
+# Attach guest orders to the signed-in account (requires user JWT)
+[functions.claim-guest-orders]
+verify_jwt = true
+
+# Payment verify/self-heal (Stripe + others). Guests poll this after pay; no user JWT.
+[functions.verify-payment]
+verify_jwt = false
+
+# Guest card checkout (anon / publishable key). JWT would 401 phone-only guests.
+[functions.create-stripe-payment]
+verify_jwt = false

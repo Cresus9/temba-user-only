@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Mail, User, CreditCard, Loader, Check } from 'lucide-react';
+import { persistGuestWallet } from '../../services/guestTicketService';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
 import { supabase } from '../../lib/supabase-client';
@@ -27,6 +28,7 @@ interface GuestCheckoutFormProps {
   eventId: string;
   /** Extra amount from venue service add-ons selected on the checkout page */
   addonTotal?: number;
+  eventDateId?: string | null;
   onSuccess: (orderId: string) => void;
 }
 
@@ -36,6 +38,7 @@ export default function GuestCheckoutForm({
   currency,
   eventId,
   addonTotal = 0,
+  eventDateId = null,
   onSuccess
 }: GuestCheckoutFormProps) {
   // Function to clear cart for specific event
@@ -117,6 +120,7 @@ export default function GuestCheckoutForm({
           phone: toInternationalPhone(formData.phone),
           eventId,
           ticketQuantities: tickets,
+          eventDateId,
           paymentMethod: 'CARD',
           paymentDetails: {
             cardNumber: formData.cardNumber,
@@ -129,14 +133,25 @@ export default function GuestCheckoutForm({
           } as any
         });
 
+        if (result.orderId && result.token) {
+          persistGuestWallet({
+            token: result.token,
+            orderId: result.orderId,
+            phone: toInternationalPhone(formData.phone),
+            email: formData.email,
+          });
+        }
+
         if (result.success && result.paymentUrl) {
           // Stripe flow for guests
-          localStorage.setItem('paymentDetails', JSON.stringify({
-            orderId: result.orderId,
-            paymentToken: result.paymentToken,
-            eventId: eventId,
-            method: 'credit_card'
-          }));
+        localStorage.setItem('paymentDetails', JSON.stringify({
+          orderId: result.orderId,
+          paymentToken: result.paymentToken,
+          eventId: eventId,
+          method: 'credit_card',
+          isGuest: true,
+          guestToken: result.token,
+        }));
 
           if (result.paymentUrl) {
             window.location.href = result.paymentUrl;
@@ -162,6 +177,7 @@ export default function GuestCheckoutForm({
         phone: intlPhone,
         eventId,
         ticketQuantities: tickets,
+        eventDateId,
         paymentMethod: 'MOBILE_MONEY',
         paymentDetails: {
           provider: formData.provider,
@@ -172,6 +188,15 @@ export default function GuestCheckoutForm({
 
       if (!orderResult.success || !orderResult.orderId) {
         throw new Error('Failed to create guest order');
+      }
+
+      if (orderResult.token) {
+        persistGuestWallet({
+          token: orderResult.token,
+          orderId: orderResult.orderId,
+          phone: intlPhone,
+          email: formData.email,
+        });
       }
 
       // Prepare ticket lines for pawaPay
@@ -219,7 +244,8 @@ export default function GuestCheckoutForm({
           eventId: eventId,
           provider: 'pawapay',
           method: 'mobile_money',
-          isGuest: true
+          isGuest: true,
+          guestToken: orderResult.token,
         }));
 
         // Use window.location.assign for smoother flow (same tab)
@@ -254,7 +280,8 @@ export default function GuestCheckoutForm({
         eventId: eventId,
         provider: 'pawapay',
         method: 'mobile_money',
-        isGuest: true
+        isGuest: true,
+        guestToken: orderResult.token,
       }));
 
       // Fallback: redirect to success page if no payment URL

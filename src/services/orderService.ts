@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { notificationTriggers } from './notificationTriggers';
+import { getGuestTicketsByToken, resolveGuestEmail } from './guestTicketService';
 
 export interface CreateOrderInput {
   eventId: string;
@@ -233,7 +234,7 @@ class OrderService {
   }
 
   async createGuestOrder(input: {
-    email: string;
+    email?: string;
     name: string;
     phone?: string;
     eventId: string;
@@ -250,7 +251,6 @@ class OrderService {
   }) {
     try {
       // Input validation
-      if (!input.email?.trim()) throw new Error('Email requis');
       if (!input.name?.trim()) throw new Error('Nom requis');
       if (!input.eventId) throw new Error('ID d\'événement requis');
       if (!input.ticketQuantities || Object.keys(input.ticketQuantities).length === 0) {
@@ -258,9 +258,11 @@ class OrderService {
       }
       if (!input.paymentMethod) throw new Error('Méthode de paiement requise');
 
-      // Validate email format
+      const emailTyped = input.email?.trim() || '';
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-      if (!emailRegex.test(input.email)) throw new Error('Format d\'email invalide');
+      if (emailTyped && !emailRegex.test(emailTyped)) throw new Error('Format d\'email invalide');
+      const resolvedEmail = resolveGuestEmail(emailTyped, input.phone);
+      if (!resolvedEmail) throw new Error('E-mail ou téléphone requis');
 
       // Validate payment details
       if (input.paymentMethod === 'MOBILE_MONEY') {
@@ -274,7 +276,7 @@ class OrderService {
 
       // Create guest order using database function
       const { data, error } = await supabase.rpc('guest_order_processor', {
-        p_email: input.email.trim(),
+        p_email: resolvedEmail,
         p_name: input.name.trim(),
         p_phone: input.phone?.trim(),
         p_event_id: input.eventId,
@@ -305,20 +307,8 @@ class OrderService {
   }
 
   async getGuestTickets(token: string) {
-    try {
-      if (!token?.trim()) throw new Error('Jeton requis');
-
-      const { data, error } = await supabase
-        .from('guest_ticket_details')
-        .select('*')
-        .eq('token', token.trim());
-
-      if (error) throw error;
-      return data || [];
-    } catch (error: any) {
-      console.error('Erreur lors du chargement des billets invité:', error);
-      throw new Error(error.message || 'Échec du chargement des billets invité');
-    }
+    if (!token?.trim()) throw new Error('Jeton requis');
+    return getGuestTicketsByToken(token);
   }
 
   async verifyGuestOrder(token: string) {

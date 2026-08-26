@@ -10,6 +10,22 @@ const cors = {
   "Content-Type": "application/json",
 };
 
+const PLACEHOLDER_GUEST_EMAIL_DOMAIN = "@temba.temp";
+
+function realGuestEmail(email?: string | null): string | undefined {
+  const trimmed = (email || "").trim().toLowerCase();
+  if (!trimmed || trimmed.endsWith(PLACEHOLDER_GUEST_EMAIL_DOMAIN)) return undefined;
+  return trimmed;
+}
+
+function resolveGuestEmail(email?: string | null, phone?: string | null): string {
+  const real = realGuestEmail(email);
+  if (real) return real;
+  const phoneDigits = (phone || "").replace(/\D/g, "");
+  if (phoneDigits.length >= 8) return `${phoneDigits}${PLACEHOLDER_GUEST_EMAIL_DOMAIN}`;
+  return "";
+}
+
 type CreatePaymentBody = {
   // Simple mode (for testing) - will auto-convert XOF to USD
   amount?: number;
@@ -40,6 +56,7 @@ type CreatePaymentBody = {
   ticket_quantities?: { [key: string]: number };
   payment_method?: string;
   guest_email?: string | null;
+  guest_phone?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -75,6 +92,7 @@ Deno.serve(async (req) => {
       ticket_quantities,
       payment_method,
       guest_email,
+      guest_phone,
     } = body;
 
     // Determine mode and validate
@@ -174,6 +192,7 @@ Deno.serve(async (req) => {
 
     // Create order if requested (to bypass RLS in production)
     let finalOrderId = order_id;
+    let createdGuestToken: string | null = null;
     if (create_order && !order_id && ticket_quantities && payment_method) {
       console.log("🔵 Creating order via Edge Function (bypassing RLS)");
       
@@ -194,6 +213,13 @@ Deno.serve(async (req) => {
 
       console.log("🔵 Order total calculated:", totalAmount);
 
+      const resolvedGuestEmail = resolveGuestEmail(guest_email, guest_phone);
+      const storedGuestPhone = guest_phone?.trim() || "";
+
+      if (!user_id && !resolvedGuestEmail) {
+        throw new Error("E-mail ou téléphone requis pour payer sans compte");
+      }
+
       // Create order using service role (bypasses RLS)
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -204,7 +230,9 @@ Deno.serve(async (req) => {
           status: 'AWAITING_PAYMENT',
           payment_method: payment_method,
           ticket_quantities: ticket_quantities,
-          guest_email: guest_email || null,
+          // Constraint order_user_or_guest_check requires guest_email when user_id is null.
+          // Phone-only guests use a placeholder inbox; lookup ignores those for email search.
+          guest_email: resolvedGuestEmail || null,
           visible_in_history: false
         })
         .select('id')
@@ -217,6 +245,23 @@ Deno.serve(async (req) => {
 
       finalOrderId = orderData.id;
       console.log("✅ Order created successfully:", finalOrderId);
+
+      if (!user_id && resolvedGuestEmail && finalOrderId) {
+        createdGuestToken = crypto.randomUUID();
+        const guestRow: Record<string, string> = {
+          order_id: finalOrderId,
+          email: resolvedGuestEmail,
+          token: createdGuestToken,
+        };
+        if (storedGuestPhone) guestRow.phone = storedGuestPhone;
+        const { error: guestErr } = await supabase.from("guest_orders").insert(guestRow);
+        if (guestErr) {
+          console.error("⚠️ guest_orders insert failed:", guestErr.message);
+          createdGuestToken = null;
+        } else {
+          console.log("✅ guest_orders token created", storedGuestPhone ? "(with phone)" : "(email only)");
+        }
+      }
     }
 
     // Check idempotency
@@ -245,12 +290,22 @@ Deno.serve(async (req) => {
           );
           
           console.log("✅ Returning existing payment:", existingPayment.id);
+          let guestToken = createdGuestToken;
+          if (!guestToken && existingPayment.order_id) {
+            const { data: guestOrder } = await supabase
+              .from("guest_orders")
+              .select("token")
+              .eq("order_id", existingPayment.order_id)
+              .maybeSingle();
+            guestToken = guestOrder?.token ?? null;
+          }
           return new Response(
             JSON.stringify({ 
               clientSecret: intent.client_secret, 
               paymentId: existingPayment.id,
               orderId: existingPayment.order_id,
               paymentToken: existingPayment.token,
+              guestToken,
               duplicate: true 
             }), 
             { headers: cors }
@@ -274,7 +329,7 @@ Deno.serve(async (req) => {
         metadata: {
           user_id: user_id ?? "guest",
           event_id,
-          order_id: order_id ?? "",
+          order_id: finalOrderId ?? order_id ?? "",
           provider: "stripe",
           platform: "temba",
           display_amount: String(finalDisplayAmount),
@@ -359,6 +414,7 @@ Deno.serve(async (req) => {
         paymentId: paymentRow.id,
         paymentToken: paymentRow.token, // ✅ FIXED: Return token for redirect
         orderId: finalOrderId, // ✅ FIXED: Return finalOrderId (created or provided)
+        guestToken: createdGuestToken,
         status: intent.status,
         display_amount: `${finalDisplayAmount.toLocaleString('fr-FR')} ${finalDisplayCurrency}`,
         charge_amount: `${finalChargeCurrency === 'USD' ? '$' : ''}${(finalChargeAmount / 100).toFixed(2)} ${finalChargeCurrency}`,

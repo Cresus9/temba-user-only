@@ -1,101 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Check, X, RotateCcw, Loader, AlertCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
+import React, { useEffect } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Loader } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useTranslation } from '../../context/TranslationContext';
-import toast from 'react-hot-toast';
 
 export default function GuestTicketVerification() {
   const { token } = useParams<{ token: string }>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { isAuthenticated, login } = useAuth();
-  const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    if (!token) {
-      setError('No verification token provided');
-      setLoading(false);
+    if (!token) return;
+    if (isAuthenticated) {
+      navigate('/profile/my-tickets', { replace: true });
       return;
     }
+    navigate(`/guest/tickets/${token}`, { replace: true });
+  }, [token, isAuthenticated, navigate]);
 
-    verifyToken();
-  }, [token, isAuthenticated]);
-
-  const verifyToken = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // First verify the token is valid
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          status,
-          guest_orders!inner(
-            email,
-            token
-          )
-        `)
-        .eq('guest_orders.token', token)
-        .single();
-
-      if (orderError || !order) {
-        throw new Error('Invalid or expired verification token');
-      }
-
-      if (isAuthenticated) {
-        // User is already logged in, redirect to tickets
-        navigate(`/booking/confirmation/${order.id}`);
-        return;
-      }
-
-      // Show login form for the guest email
-      navigate('/login', { 
-        state: { 
-          email: order.guest_orders.email,
-          redirectTo: `/booking/confirmation/${order.id}`
-        }
-      });
-
-    } catch (error: any) {
-      console.error('Verification error:', error);
-      setError(error.message || 'Failed to verify ticket');
-      toast.error(error.message || 'Failed to verify ticket');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (!token) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="max-w-md mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-ink mb-2">Lien invalide</h2>
+        <p className="text-[14px] text-ink-mute mb-6">Aucun jeton de vérification fourni.</p>
+        <Link to="/find-tickets" className="font-semibold text-brand">
+          Retrouver mes billets
+        </Link>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-8 text-center">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">{error}</h2>
-        <p className="text-gray-600 mb-6">
-          The verification link may be invalid or has expired.
-        </p>
-        <button
-          onClick={verifyToken}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          <RotateCcw className="h-5 w-5" />
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="min-h-[400px] flex items-center justify-center">
+      <Loader className="h-8 w-8 animate-spin text-brand" />
+    </div>
+  );
 }

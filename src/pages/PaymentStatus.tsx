@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase-client';
 import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { waitForPawaPayPaymentTerminal } from '../lib/payments/pawapayWatcher';
+import { guestRedirectForOrder } from '../services/guestTicketService';
 
 type Phase = 'waiting' | 'otp' | 'success' | 'failed';
 
@@ -31,6 +32,28 @@ export default function PaymentStatus() {
 
   const isPawaPay = provider === 'pawapay' || provider === 'mobile_money' || provider === 'orange';
   const ussdCode = '*144*4*6#';
+
+  const ticketsPath = () => {
+    const guestPath = guestRedirectForOrder(orderId);
+    if (guestPath) return guestPath;
+    try {
+      const raw = localStorage.getItem('paymentDetails');
+      if (raw && JSON.parse(raw)?.isGuest) return '/find-tickets';
+    } catch {
+      /* ignore */
+    }
+    if (orderId) return `/booking/confirmation/${orderId}`;
+    return '/find-tickets';
+  };
+
+  const goToTickets = () => navigate(ticketsPath());
+
+  useEffect(() => {
+    if (phase !== 'success') return;
+    const t = window.setTimeout(goToTickets, 1200);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   useEffect(() => {
     if (!paymentId) return;
@@ -65,35 +88,57 @@ export default function PaymentStatus() {
           setPhase('waiting');
           setMessage(
             result.message ||
-              'La vérification du paiement prend plus de temps que prévu. Veuillez vérifier vos billets dans quelques minutes.'
+              'La confirmation prend un peu plus de temps. Vous pouvez déjà ouvrir vos billets.'
           );
           return;
         }
 
-        // Stripe/webhook flow: read row only (no verify-stripe function)
         const applyStripeStatus = (status: string, errorMessage?: string) => {
           const normalized = String(status || '').toLowerCase();
-          if (normalized === 'completed' || normalized === 'succeeded') {
+          if (normalized === 'completed' || normalized === 'succeeded' || normalized === 'finalized') {
             setPhase('success');
             setMessage('Paiement confirmé.');
             return true;
           }
-          if (normalized === 'failed') {
+          if (normalized === 'failed' || normalized === 'canceled' || normalized === 'cancelled') {
             setPhase('failed');
             setMessage(errorMessage || 'Paiement échoué.');
             return true;
           }
           setPhase('waiting');
-          setMessage('Paiement en attente de confirmation webhook.');
+          setMessage('Nous confirmons votre paiement. Cela peut prendre quelques secondes.');
           return false;
         };
 
-        const { data: initial, error: initialErr } = await supabase
+        const pollVerifyPayment = async () => {
+          const data = await postEdgeFunctionAnon<{
+            success?: boolean;
+            state?: string;
+            status?: string;
+            message?: string;
+          }>('verify-payment', {
+            payment_id: paymentId,
+            order_id: orderId,
+          });
+          const state = String(data?.state || data?.status || '').toLowerCase();
+          if (data?.success && !state) {
+            return applyStripeStatus('succeeded');
+          }
+          return applyStripeStatus(state, data?.message);
+        };
+
+        try {
+          if (await pollVerifyPayment()) return;
+        } catch {
+          // Guests often cannot read payments via RLS; keep polling verify-payment.
+        }
+
+        const { data: initial } = await supabase
           .from('payments')
           .select('status')
           .eq('id', paymentId)
           .maybeSingle();
-        if (initialErr) throw new Error(initialErr.message);
+        if (cancelled) return;
         if (applyStripeStatus(String(initial?.status || ''), '')) {
           return;
         }
@@ -107,20 +152,38 @@ export default function PaymentStatus() {
               const oldStatus = String(payload?.old?.status || '').toLowerCase();
               const newStatus = String(payload?.new?.status || '').toLowerCase();
               if (!newStatus || newStatus === oldStatus) return;
-              // error_message is optional — column may not exist on every env
               applyStripeStatus(newStatus, String(payload?.new?.error_message || ''));
             }
           )
           .subscribe();
 
+        let attempts = 0;
+        let inFlight = false;
         const fallbackInterval = setInterval(async () => {
-          const { data: row } = await supabase
-            .from('payments')
-            .select('status')
-            .eq('id', paymentId)
-            .maybeSingle();
-          applyStripeStatus(String(row?.status || ''), '');
-        }, 12000);
+          if (inFlight || cancelled) return;
+          inFlight = true;
+          attempts += 1;
+          try {
+            if (await pollVerifyPayment()) {
+              clearInterval(fallbackInterval);
+            }
+          } catch {
+            const { data: row } = await supabase
+              .from('payments')
+              .select('status')
+              .eq('id', paymentId)
+              .maybeSingle();
+            if (applyStripeStatus(String(row?.status || ''), '')) {
+              clearInterval(fallbackInterval);
+            }
+          } finally {
+            inFlight = false;
+          }
+          if (attempts >= 8) {
+            clearInterval(fallbackInterval);
+            setMessage('La confirmation prend un peu plus de temps. Vous pouvez déjà ouvrir vos billets.');
+          }
+        }, 6000);
 
         stripeCleanup = () => {
           clearInterval(fallbackInterval);
@@ -227,6 +290,13 @@ export default function PaymentStatus() {
               <p className="text-[11px] text-ink-mute/70">
                 Cette opération peut prendre jusqu'à 30 secondes.
               </p>
+              <button
+                type="button"
+                onClick={goToTickets}
+                className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
+              >
+                Voir mes billets →
+              </button>
             </div>
           </>
         )}
@@ -307,7 +377,7 @@ export default function PaymentStatus() {
               <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
               <button
                 type="button"
-                onClick={() => navigate(`/booking/confirmation/${orderId}`)}
+                onClick={goToTickets}
                 className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
               >
                 Voir mes billets →

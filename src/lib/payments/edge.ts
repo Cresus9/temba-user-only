@@ -1,4 +1,4 @@
-import { supabase, supabaseAnonKey } from '../supabase-client';
+import { supabase, supabaseAnonKey, supabaseUrl } from '../supabase-client';
 
 function messageFromEdgeJson(json: unknown, status: number, rawText: string): string {
   const sanitize = (value: string) =>
@@ -20,39 +20,34 @@ export async function postEdgeFunctionAnon<T>(
 ): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
     apikey: supabaseAnonKey,
+    'x-application-name': 'Temba',
   };
+  // Guest checkout uses the publishable key; functions with verify_jwt=false accept it.
+  headers.Authorization = `Bearer ${session?.access_token || supabaseAnonKey}`;
 
-  // Prefer user access token when available. If not authenticated, only send anon as bearer
-  // when it is a legacy JWT key (publishable keys are not JWTs and cause 401 when forced).
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  } else if (supabaseAnonKey.startsWith('eyJ')) {
-    headers.Authorization = `Bearer ${supabaseAnonKey}`;
-  }
-
-  const { data, error, response } = await supabase.functions.invoke(name, {
-    body,
+  const response = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+    method: 'POST',
     headers,
+    body: JSON.stringify(body),
   });
 
-  if (!error) {
-    return data as T;
-  }
-
-  let rawText = '';
+  const rawText = await response.text();
   let json: unknown = null;
-  let status = response?.status ?? 500;
-  try {
-    rawText = await response?.clone().text();
-    if (rawText) {
+  if (rawText) {
+    try {
       json = JSON.parse(rawText);
+    } catch {
+      json = null;
     }
-  } catch {
-    // ignore parse errors, fallback to raw text
   }
 
-  throw new Error(messageFromEdgeJson(json, status, rawText || error.message || `HTTP ${status}`));
+  if (!response.ok) {
+    throw new Error(messageFromEdgeJson(json, response.status, rawText));
+  }
+
+  return json as T;
 }
 
 export function makeIdempotencyKey(prefix: 'web-stripe' | 'web-pawapay'): string {

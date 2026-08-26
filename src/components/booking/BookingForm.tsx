@@ -4,7 +4,6 @@ import { AlertCircle, Calendar, Clock } from 'lucide-react';
 import { TicketType } from '../../types/event';
 import TicketTypeCard from './TicketTypeCard';
 import FloatingCartSummary from './FloatingCartSummary';
-import { useAuth } from '../../context/AuthContext';
 import { usePersistentCart } from '../../hooks/usePersistentCart';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
@@ -40,7 +39,6 @@ export default function BookingForm({
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
   const [loadingDates, setLoadingDates] = useState(true);
   
-  const { user } = useAuth();
   const navigate = useNavigate();
   
   // Use persistent cart hook
@@ -149,11 +147,6 @@ export default function BookingForm({
   };
 
   const handleProceedToCheckout = () => {
-    if (!user) {
-      navigate('/login', { state: { from: window.location.pathname } });
-      return;
-    }
-
     // Remove any paused tickets from selection
     let hadPaused = false;
     for (const t of ticketTypes) {

@@ -1,4 +1,5 @@
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -8,89 +9,116 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const OUTPUT_FILE = path.join(PUBLIC_DIR, 'sitemap.xml');
 
-const SITE_URL = process.env.SITE_URL?.replace(/\/$/, '') || 'https://tembas.com';
-const SUPABASE_URL =
-  process.env.VITE_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  process.env.PUBLIC_SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY =
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+async function loadEnvFile() {
+  for (const file of [path.join(ROOT_DIR, '.env'), path.join(ROOT_DIR, '.env.local')]) {
+    if (!existsSync(file)) continue;
+    try {
+      const raw = await readFile(file, 'utf-8');
+      for (const line of raw.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq < 1) continue;
+        const key = trimmed.slice(0, eq).trim();
+        const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
+        if (!process.env[key]) process.env[key] = value;
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function siteUrl() {
+  return process.env.SITE_URL?.replace(/\/$/, '') || 'https://tembas.com';
+}
+function supabaseUrl() {
+  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+}
+function supabaseKey() {
+  return process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+}
 
 const STATIC_ROUTES = [
   { loc: '/', changefreq: 'daily', priority: 1.0 },
-  { loc: '/events', changefreq: 'hourly', priority: 0.9 },
+  { loc: '/events', changefreq: 'hourly', priority: 0.95 },
+  { loc: '/attractions', changefreq: 'daily', priority: 0.9 },
+  { loc: '/venues', changefreq: 'weekly', priority: 0.7 },
+  { loc: '/organizers', changefreq: 'weekly', priority: 0.7 },
+  { loc: '/artists', changefreq: 'weekly', priority: 0.65 },
   { loc: '/categories', changefreq: 'daily', priority: 0.7 },
-  { loc: '/profile/my-tickets', changefreq: 'weekly', priority: 0.4 },
-  { loc: '/support', changefreq: 'monthly', priority: 0.3 },
-  { loc: '/about', changefreq: 'monthly', priority: 0.2 },
-  { loc: '/contact', changefreq: 'monthly', priority: 0.2 },
-  { loc: '/privacy', changefreq: 'yearly', priority: 0.1 },
-  { loc: '/terms', changefreq: 'yearly', priority: 0.1 },
+  { loc: '/blog', changefreq: 'daily', priority: 0.8 },
+  { loc: '/about', changefreq: 'monthly', priority: 0.5 },
+  { loc: '/contact', changefreq: 'monthly', priority: 0.4 },
+  { loc: '/support', changefreq: 'monthly', priority: 0.4 },
+  { loc: '/privacy', changefreq: 'yearly', priority: 0.2 },
+  { loc: '/terms', changefreq: 'yearly', priority: 0.2 },
+  { loc: '/cookies', changefreq: 'yearly', priority: 0.1 },
 ];
 
 const formatDate = (dateString) => {
-  if (!dateString) return new Date().toISOString();
+  if (!dateString) return new Date().toISOString().slice(0, 10);
   try {
-    return new Date(dateString).toISOString();
+    return new Date(dateString).toISOString().slice(0, 10);
   } catch {
-    return new Date().toISOString();
+    return new Date().toISOString().slice(0, 10);
   }
 };
 
-async function fetchPublishedEvents() {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn(
-      '[sitemap] SUPABASE credentials missing. Skipping dynamic event URLs.'
-    );
-    return [];
-  }
-
-  const url = new URL('/rest/v1/events', SUPABASE_URL);
-  url.searchParams.set('select', 'id,updated_at,status');
-  url.searchParams.set('status', 'eq.PUBLISHED');
-
+async function rest(tableQuery) {
+  const base = supabaseUrl();
+  const key = supabaseKey();
+  if (!base || !key) return [];
+  const url = `${base}/rest/v1/${tableQuery}`;
   try {
     const response = await fetch(url, {
       headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: key,
+        Authorization: `Bearer ${key}`,
       },
     });
-
     if (!response.ok) {
-      console.warn(
-        `[sitemap] Failed to fetch events (${response.status} ${response.statusText}).`
-      );
+      console.warn(`[sitemap] ${tableQuery} failed (${response.status})`);
       return [];
     }
-
     const data = await response.json();
-    if (!Array.isArray(data)) return [];
-
-    return data
-      .filter((event) => event?.id)
-      .map((event) => ({
-        loc: `/events/${event.id}`,
-        lastmod: formatDate(event.updated_at),
-        changefreq: 'daily',
-        priority: 0.8,
-      }));
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('[sitemap] Error fetching events:', error);
+    console.error('[sitemap] fetch error:', error);
     return [];
   }
+}
+
+async function fetchPublishedEvents() {
+  const data = await rest(
+    'events?select=id,updated_at,status,deleted_at&status=eq.PUBLISHED&deleted_at=is.null'
+  );
+  return data
+    .filter((event) => event?.id)
+    .map((event) => ({
+      loc: `/events/${event.id}`,
+      lastmod: formatDate(event.updated_at),
+      changefreq: 'daily',
+      priority: 0.8,
+    }));
+}
+
+async function fetchSlugPages(table, prefix) {
+  const data = await rest(`${table}?select=slug,updated_at&slug=not.is.null`);
+  return data
+    .filter((row) => row?.slug)
+    .map((row) => ({
+      loc: `${prefix}/${row.slug}`,
+      lastmod: formatDate(row.updated_at),
+      changefreq: 'weekly',
+      priority: 0.6,
+    }));
 }
 
 function buildXml(urlEntries) {
   const urls = urlEntries
     .map((entry) => {
-      const loc = `${SITE_URL}${entry.loc}`;
+      const loc = `${siteUrl()}${entry.loc}`;
       const lastmod = formatDate(entry.lastmod);
       const changefreq = entry.changefreq ?? 'weekly';
       const priority =
@@ -115,24 +143,31 @@ ${urls}
 }
 
 async function main() {
+  await loadEnvFile();
   console.log('[sitemap] Generating sitemap...');
-  const events = await fetchPublishedEvents();
-  const urls = [...STATIC_ROUTES, ...events];
-
-  if (!urls.length) {
-    throw new Error('No URLs available for sitemap generation.');
+  if (!supabaseUrl() || !supabaseKey()) {
+    console.warn('[sitemap] SUPABASE credentials missing. Static routes only.');
   }
 
+  const [events, venues, organizers, artists] = await Promise.all([
+    fetchPublishedEvents(),
+    fetchSlugPages('venues', '/venues'),
+    fetchSlugPages('organizer_profiles', '/organizers'),
+    fetchSlugPages('artists', '/artists'),
+  ]);
+
+  const urls = [...STATIC_ROUTES, ...events, ...venues, ...organizers, ...artists];
   const xml = buildXml(urls);
 
   await mkdir(PUBLIC_DIR, { recursive: true });
   await writeFile(OUTPUT_FILE, xml, 'utf8');
 
-  console.log(`[sitemap] Sitemap generated with ${urls.length} URLs at ${OUTPUT_FILE}`);
+  console.log(
+    `[sitemap] ${urls.length} URLs (${events.length} events, ${venues.length} venues, ${organizers.length} organizers, ${artists.length} artists)`
+  );
 }
 
 main().catch((error) => {
   console.error('[sitemap] Failed to generate sitemap:', error);
   process.exitCode = 1;
 });
-

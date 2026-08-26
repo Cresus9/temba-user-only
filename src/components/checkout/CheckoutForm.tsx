@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone, Gift, Ticket } from 'lucide-react';
+import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone, Gift, Ticket, Mail, User, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { orderService } from '../../services/orderService';
 import { paymentMethodService } from '../../services/paymentMethodService';
@@ -14,19 +14,22 @@ import StripePaymentForm from './StripePaymentForm';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { pawapayService } from '../../services/pawapayService';
 import { formatCurrency } from '../../utils/formatters';
+import { persistGuestWallet, realGuestEmail } from '../../services/guestTicketService';
+import CountryCodeSelector from '../CountryCodeSelector';
+import { isValidPhone, normalizePhone } from '../../utils/phoneValidation';
 
-/**
- * Normalize a phone input to E.164-ish for Burkina Faso (+226).
- * - Strips any non-digits.
- * - If the digits already start with `226` and are long enough, returns `+<digits>`.
- * - Otherwise prepends `+226`.
- * Returns empty string if there are no digits.
- */
-function toInternationalPhone(raw: string): string {
+const DEFAULT_DIAL_CODE = '+226';
+
+/** Combine selected dial code + local digits. Defaults to Burkina (+226). */
+function toInternationalPhone(raw: string, countryCode: string = DEFAULT_DIAL_CODE): string {
   const digits = (raw || '').replace(/\D/g, '');
   if (!digits) return '';
-  if (digits.startsWith('226') && digits.length >= 10) return `+${digits}`;
-  return `+226${digits}`;
+  const ccDigits = (countryCode || DEFAULT_DIAL_CODE).replace(/\D/g, '') || '226';
+  if ((raw || '').trim().startsWith('+')) return normalizePhone(raw, ccDigits);
+  if (digits.startsWith(ccDigits) && digits.length >= ccDigits.length + 7) {
+    return `+${digits}`;
+  }
+  return normalizePhone(`${countryCode}${digits}`, ccDigits);
 }
 
 interface CheckoutFormProps {
@@ -38,6 +41,7 @@ interface CheckoutFormProps {
   /** Extra amount from venue service add-ons selected on the checkout page */
   addonTotal?: number;
   onSuccess: (orderId: string) => void;
+  onCreateAccount?: () => void;
 }
 
 export default function CheckoutForm({ 
@@ -47,21 +51,35 @@ export default function CheckoutForm({
   eventId,
   eventDateId,
   addonTotal = 0,
-  onSuccess 
+  onSuccess,
+  onCreateAccount,
 }: CheckoutFormProps) {
+  const { user, login } = useAuth();
+  const isGuestCheckout = !user;
+  const [identityMode, setIdentityMode] = useState<'guest' | 'account'>('guest');
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
+  const [loginCountryCode, setLoginCountryCode] = useState('+226');
+  const [loginId, setLoginId] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const awaitingLogin = isGuestCheckout && identityMode === 'account';
 
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_DIAL_CODE);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
   const [selectedSavedMethod, setSelectedSavedMethod] = useState<string | null>(null);
   const [useNewMethod, setUseNewMethod] = useState(false);
-  const [loadingSavedMethods, setLoadingSavedMethods] = useState(true);
+  const [loadingSavedMethods, setLoadingSavedMethods] = useState(!isGuestCheckout);
   
   // Stripe payment state
   const [fxQuote, setFxQuote] = useState<FXQuote | null>(null);
   const [loadingFxQuote, setLoadingFxQuote] = useState(false);
   const [stripePaymentId, setStripePaymentId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     provider: 'orange',
     phone: '',
     preAuthorisationCode: '', // OTP code for Orange Money (required for ORANGE_BFA)
@@ -74,7 +92,6 @@ export default function CheckoutForm({
     billingCountry: '',
     saveMethod: false
   });
-  const { user } = useAuth();
   const selections = useMemo(() => Object.entries(tickets).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity: Number(quantity), price: 0 })), [tickets]);
 
   // Fetch prices for selections
@@ -192,21 +209,36 @@ export default function CheckoutForm({
   }, [paymentMethod, grandTotal, currency]);
 
   // Handle Stripe payment success
-  const handleStripePaymentSuccess = async (paymentId: string, orderId: string, paymentToken: string) => {
+  const handleStripePaymentSuccess = async (
+    paymentId: string,
+    orderId: string,
+    paymentToken: string,
+    guestToken?: string | null
+  ) => {
     console.log('🎉 [CHECKOUT] Stripe payment success handler called');
-    console.log('Parameters:', { paymentId, orderId, paymentToken });
+    console.log('Parameters:', { paymentId, orderId, paymentToken, guestToken });
     
     try {
       setIsProcessing(true);
+
+      if (isGuestCheckout && guestToken && orderId) {
+        persistGuestWallet({
+          token: guestToken,
+          orderId,
+          email: realGuestEmail(formData.email),
+          phone: formData.phone ? toInternationalPhone(formData.phone, phoneCountryCode) : undefined,
+        });
+      }
       
-      // Store payment details for saving after successful payment
       const paymentDetails = {
         orderId,
         paymentToken,
         eventId,
         method: 'credit_card',
         provider: 'stripe',
-        saveMethod: false
+        saveMethod: false,
+        isGuest: isGuestCheckout,
+        guestToken: guestToken || undefined,
       };
       
       console.log('💾 [CHECKOUT] Storing payment details in localStorage:', paymentDetails);
@@ -285,6 +317,27 @@ export default function CheckoutForm({
   };
 
   const validateForm = (): boolean => {
+    if (isGuestCheckout) {
+      if (!formData.name.trim()) {
+        toast.error('Veuillez entrer votre nom');
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailTyped = formData.email.trim();
+      if (emailTyped && !emailRegex.test(emailTyped)) {
+        toast.error('Veuillez entrer une adresse email valide');
+        return false;
+      }
+      if (paymentMethod === 'card') {
+        const phoneOk = isValidPhone(toInternationalPhone(formData.phone, phoneCountryCode));
+        const emailOk = emailRegex.test(emailTyped);
+        if (!emailOk && !phoneOk) {
+          toast.error('Pour la carte, entrez un e-mail ou un numéro de téléphone');
+          return false;
+        }
+      }
+    }
+
     // If using a saved payment method, no validation needed
     if (selectedSavedMethod && !useNewMethod) {
       return true;
@@ -309,11 +362,9 @@ export default function CheckoutForm({
         toast.error('Veuillez entrer votre numéro de téléphone');
         return false;
       }
-      // Validate phone number format
-      const phoneRegex = /^\+?[0-9]{8,}$/;
-      const cleanedPhone = formData.phone.replace(/\s+/g, '');
-      if (!phoneRegex.test(cleanedPhone)) {
-        console.error('❌ [VALIDATE] Invalid phone format:', cleanedPhone);
+      const fullPhone = toInternationalPhone(formData.phone, phoneCountryCode);
+      if (!isValidPhone(fullPhone)) {
+        console.error('❌ [VALIDATE] Invalid phone format:', fullPhone);
         toast.error('Veuillez entrer un numéro de téléphone valide');
         return false;
       }
@@ -366,6 +417,35 @@ export default function CheckoutForm({
     return true;
   };
 
+  const handleCheckoutLogin = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const identifier =
+      loginMethod === 'phone'
+        ? `${loginCountryCode}${loginId.replace(/\s/g, '')}`
+        : loginId.trim();
+    if (loginMethod === 'phone' && !isValidPhone(identifier)) {
+      toast.error('Numéro invalide');
+      return;
+    }
+    if (loginMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+      toast.error("Format d'email invalide");
+      return;
+    }
+    if (!loginPassword) {
+      toast.error('Entrez votre mot de passe');
+      return;
+    }
+    setLoginBusy(true);
+    try {
+      await login(identifier, loginPassword);
+      toast.success('Connecté. Finalisez le paiement.');
+    } catch (err: any) {
+      toast.error(err.message || 'Connexion impossible');
+    } finally {
+      setLoginBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('🔵 [FORM] Submit triggered', { 
@@ -379,12 +459,6 @@ export default function CheckoutForm({
     
     if (isProcessing) {
       console.warn('⚠️ [FORM] Already processing, ignoring submit');
-      return;
-    }
-    
-    if (!user) {
-      console.error('❌ [FORM] No user');
-      toast.error('Veuillez vous connecter pour continuer');
       return;
     }
 
@@ -424,7 +498,7 @@ export default function CheckoutForm({
         actualPaymentMethod = paymentMethod === 'mobile_money' ? 'MOBILE_MONEY' : 'CARD';
         paymentDetails = paymentMethod === 'mobile_money' ? {
           provider: formData.provider,
-          phone: toInternationalPhone(formData.phone),
+          phone: toInternationalPhone(formData.phone, phoneCountryCode),
           preAuthorisationCode: formData.preAuthorisationCode // Include OTP if provided
         } : {
           cardNumber: formData.cardNumber,
@@ -441,6 +515,47 @@ export default function CheckoutForm({
       // ✅ STRIPE CODE PATH - UNTOUCHED (Card payments)
       // ═══════════════════════════════════════════════════════
       if (actualPaymentMethod === 'CARD') {
+        if (isGuestCheckout) {
+          const result: any = await orderService.createGuestOrder({
+            email: formData.email.trim(),
+            name: formData.name.trim(),
+            phone: toInternationalPhone(formData.phone, phoneCountryCode),
+            eventId,
+            ticketQuantities: tickets,
+            eventDateId,
+            paymentMethod: actualPaymentMethod,
+            paymentDetails
+          });
+
+          if (result.orderId && result.token) {
+            persistGuestWallet({
+              token: result.token,
+              orderId: result.orderId,
+              phone: toInternationalPhone(formData.phone, phoneCountryCode),
+              email: realGuestEmail(formData.email),
+            });
+          }
+
+          if (result.success && result.paymentUrl) {
+            localStorage.setItem('paymentDetails', JSON.stringify({
+              orderId: result.orderId,
+              paymentToken: result.paymentToken,
+              eventId,
+              method: 'credit_card',
+              isGuest: true,
+              guestToken: result.token,
+            }));
+            window.location.href = result.paymentUrl;
+          } else if (result.orderId) {
+            clearCartForEvent(eventId, 'CheckoutForm');
+            onSuccess(result.orderId);
+            toast.success('Commande créée avec succès !');
+          } else {
+            throw new Error('Aucun ID de commande retourné');
+          }
+          return;
+        }
+
         // Card payments continue using existing Stripe flow through orderService
         const result = await orderService.createOrder({
           eventId,
@@ -490,13 +605,38 @@ export default function CheckoutForm({
       // ═══════════════════════════════════════════════════════
       // ⚠️ MOBILE MONEY CODE PATH - NOW USES PAWAPAY
       // ═══════════════════════════════════════════════════════
-      // Create order first
-      const orderResult = await orderService.createOrder({
-        eventId,
-        ticketQuantities: tickets,
-        paymentMethod: actualPaymentMethod,
-        paymentDetails
-      });
+      let orderResult: any;
+      let guestToken: string | undefined;
+
+      if (isGuestCheckout) {
+        orderResult = await orderService.createGuestOrder({
+          email: formData.email.trim(),
+          name: formData.name.trim(),
+          phone: toInternationalPhone(formData.phone, phoneCountryCode),
+          eventId,
+          ticketQuantities: tickets,
+          eventDateId,
+          paymentMethod: actualPaymentMethod,
+          paymentDetails
+        });
+        guestToken = orderResult.token;
+        if (orderResult.orderId && guestToken) {
+          persistGuestWallet({
+            token: guestToken,
+            orderId: orderResult.orderId,
+            phone: toInternationalPhone(formData.phone, phoneCountryCode),
+            email: realGuestEmail(formData.email),
+          });
+        }
+      } else {
+        orderResult = await orderService.createOrder({
+          eventId,
+          ticketQuantities: tickets,
+          paymentMethod: actualPaymentMethod,
+          paymentDetails,
+          eventDateId
+        });
+      }
 
       if (!orderResult.success || !orderResult.orderId) {
         throw new Error('Failed to create order');
@@ -515,7 +655,7 @@ export default function CheckoutForm({
       const pawapayResponse = await pawapayService.createPayment({
         idempotency_key: idempotencyKey,
         user_id: user?.id,
-        buyer_email: user?.email,
+        buyer_email: user?.email || formData.email.trim() || undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
         ticket_lines: ticketLines,
@@ -549,6 +689,8 @@ export default function CheckoutForm({
           paymentId: pawapayResponse.payment_id,
           eventId: eventId,
           provider: 'pawapay',
+          isGuest: isGuestCheckout,
+          guestToken,
           ...paymentDetailsForStorage
         }));
 
@@ -591,6 +733,8 @@ export default function CheckoutForm({
         paymentId: pawapayResponse.payment_id,
         eventId: eventId,
         provider: 'pawapay',
+        isGuest: isGuestCheckout,
+        guestToken,
         ...paymentDetailsForStorage
       }));
 
@@ -712,7 +856,7 @@ export default function CheckoutForm({
             className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
             style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
           >
-            Méthode de paiement
+            {isGuestCheckout ? 'Qui paie ?' : 'Méthode de paiement'}
           </h2>
         </div>
 
@@ -724,6 +868,197 @@ export default function CheckoutForm({
           className="space-y-5"
           noValidate
         >
+          {isGuestCheckout && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-cream rounded-xl2 border border-line">
+                <button
+                  type="button"
+                  onClick={() => setIdentityMode('guest')}
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-bold transition-all ${
+                    identityMode === 'guest'
+                      ? 'bg-paper text-brand shadow-card ring-1 ring-line'
+                      : 'text-ink-mute hover:text-ink'
+                  }`}
+                >
+                  Sans compte
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIdentityMode('account')}
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-bold transition-all ${
+                    identityMode === 'account'
+                      ? 'bg-paper text-brand shadow-card ring-1 ring-line'
+                      : 'text-ink-mute hover:text-ink'
+                  }`}
+                >
+                  J’ai un compte
+                </button>
+              </div>
+
+              {identityMode === 'guest' ? (
+                <div className="space-y-3.5">
+                  <p className="text-[13px] text-ink-mute leading-relaxed">
+                    {paymentMethod === 'card'
+                      ? 'E-mail ou téléphone — au moins un, pour retrouver vos billets.'
+                      : 'Le numéro Orange ou Moov sert à retrouver vos billets. L’e-mail est facultatif.'}
+                  </p>
+                  <div>
+                    <label className="block text-[12px] font-semibold text-ink mb-1.5">
+                      Nom complet
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
+                        placeholder="Nom et prénom"
+                        autoComplete="name"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-semibold text-ink mb-1.5">
+                      Adresse email
+                      {paymentMethod !== 'card' ? (
+                        <span className="font-medium text-ink-mute"> · facultatif</span>
+                      ) : null}
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
+                        placeholder="vous@email.com"
+                        autoComplete="email"
+                        required={paymentMethod === 'card' && !formData.phone.replace(/\s/g, '')}
+                      />
+                    </div>
+                  </div>
+                  {paymentMethod === 'card' && (
+                    <div>
+                      <label className="block text-[12px] font-semibold text-ink mb-1.5">
+                        Téléphone
+                        <span className="font-medium text-ink-mute"> · si pas d’e-mail</span>
+                      </label>
+                      <div className="flex">
+                        <CountryCodeSelector value={phoneCountryCode} onChange={setPhoneCountryCode} />
+                        <input
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^\d\s]/g, '') })}
+                          className="flex-1 min-w-0 h-11 px-3.5 border border-line border-l-0 rounded-r-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand tabular-nums"
+                          placeholder="70 00 00 00"
+                          inputMode="tel"
+                          autoComplete="tel-national"
+                          required={!formData.email.trim()}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  <p className="text-[13px] text-ink-mute leading-relaxed">
+                    Connectez-vous ici. Le panier reste en place.
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-cream rounded-xl border border-line">
+                    <button
+                      type="button"
+                      onClick={() => { setLoginMethod('phone'); setLoginId(''); }}
+                      className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-[12px] font-bold ${
+                        loginMethod === 'phone' ? 'bg-paper text-brand shadow-card ring-1 ring-line' : 'text-ink-mute'
+                      }`}
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      Téléphone
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLoginMethod('email'); setLoginId(''); }}
+                      className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-[12px] font-bold ${
+                        loginMethod === 'email' ? 'bg-paper text-brand shadow-card ring-1 ring-line' : 'text-ink-mute'
+                      }`}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Email
+                    </button>
+                  </div>
+                  {loginMethod === 'phone' ? (
+                    <div className="flex">
+                      <CountryCodeSelector value={loginCountryCode} onChange={setLoginCountryCode} />
+                      <input
+                        type="tel"
+                        value={loginId}
+                        onChange={(e) => setLoginId(e.target.value.replace(/[^\d\s]/g, ''))}
+                        className="flex-1 h-11 px-3.5 border border-line border-l-0 rounded-r-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand tabular-nums"
+                        placeholder="70 12 34 56"
+                        autoComplete="tel"
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                      <input
+                        type="email"
+                        value={loginId}
+                        onChange={(e) => setLoginId(e.target.value)}
+                        className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand"
+                        placeholder="vous@email.com"
+                        autoComplete="email"
+                      />
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full h-11 pl-10 pr-11 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand"
+                      placeholder="Mot de passe"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink"
+                      tabIndex={-1}
+                    >
+                      {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckoutLogin}
+                    disabled={loginBusy}
+                    className="w-full h-11 rounded-lg bg-brand text-paper text-[14px] font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  >
+                    {loginBusy ? <Loader className="w-4 h-4 animate-spin" /> : null}
+                    Se connecter et payer
+                  </button>
+                  <p className="text-center text-[13px] text-ink-mute">
+                    Pas encore de compte ?{' '}
+                    <button
+                      type="button"
+                      onClick={() => onCreateAccount?.()}
+                      className="font-bold text-brand hover:text-brand-700"
+                    >
+                      Créer un compte
+                    </button>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!awaitingLogin && (
+          <>
+
           {/* Loading state */}
           {loadingSavedMethods && (
             <div className="flex items-center justify-center py-4">
@@ -833,6 +1168,9 @@ export default function CheckoutForm({
               )}
 
               {/* Unified Payment Method Selector — 3 tiles like the mobile app */}
+              {isGuestCheckout && (
+                <p className="eyebrow !mb-0">Paiement</p>
+              )}
               <div className="grid grid-cols-3 gap-3">
 
                 {/* Orange Money */}
@@ -937,18 +1275,13 @@ export default function CheckoutForm({
                       Numéro {formData.provider === 'moov' ? 'Moov Money' : 'Orange Money'}
                     </label>
                     <div className="flex">
-                      <div
-                        className="inline-flex items-center px-3.5 h-11 border border-line border-r-0 rounded-l-lg bg-cream text-[13px] font-bold text-ink tabular-nums select-none"
-                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-                      >
-                        +226
-                      </div>
+                      <CountryCodeSelector value={phoneCountryCode} onChange={setPhoneCountryCode} />
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="flex-1 min-w-0 h-11 px-3.5 border border-line rounded-r-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow tabular-nums"
-                        placeholder="XX XX XX XX"
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^\d\s]/g, '') })}
+                        className="flex-1 min-w-0 h-11 px-3.5 border border-line border-l-0 rounded-r-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow tabular-nums"
+                        placeholder="70 00 00 00"
                         inputMode="tel"
                         autoComplete="tel-national"
                         style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
@@ -956,9 +1289,9 @@ export default function CheckoutForm({
                       />
                     </div>
                     <p className="text-[11px] text-ink-mute/85 mt-1.5 leading-relaxed">
-                      {formData.provider === 'moov'
-                        ? 'Saisissez votre numéro Moov enregistré au Burkina Faso.'
-                        : 'Saisissez votre numéro Orange enregistré au Burkina Faso.'}
+                      {isGuestCheckout
+                        ? 'Ce numéro paie et sert ensuite à retrouver vos billets. Burkina (+226) par défaut — autre pays possible.'
+                        : 'Burkina (+226) par défaut. Choisissez un autre pays si votre Orange ou Moov n’est pas burkinabè.'}
                     </p>
                   </div>
 
@@ -1042,6 +1375,8 @@ export default function CheckoutForm({
                         xofAmountMinor={Math.round(grandTotal)}
                         eventId={eventId}
                         userId={user?.id}
+                        guestEmail={isGuestCheckout ? formData.email.trim() : undefined}
+                        guestPhone={isGuestCheckout && formData.phone ? toInternationalPhone(formData.phone, phoneCountryCode) : undefined}
                         tickets={tickets}
                         fxQuote={fxQuote}
                         subtotal={subtotal}
@@ -1288,6 +1623,8 @@ export default function CheckoutForm({
                 </>
               )}
             </button>
+          )}
+          </>
           )}
         </form>
       </div>

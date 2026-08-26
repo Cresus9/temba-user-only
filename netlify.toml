@@ -35,7 +35,30 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Content-Security-Policy = "default-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co https://wlyncuwbzhzjafmqozcm.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://uwmlagvsivxqocklxbbo.supabase.co wss://uwmlagvsivxqocklxbbo.supabase.co https://wlyncuwbzhzjafmqozcm.supabase.co wss://wlyncuwbzhzjafmqozcm.supabase.co https://api.stripe.com https://www.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com; frame-src https://js.stripe.com;"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/blog-sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
 
 [[headers]]
   for = "/*.js"
@@ -68,7 +91,14 @@
     Content-Type = "application/json"
     Cache-Control = "public, max-age=3600"
 
-# Edge Functions for dynamic Open Graph meta tags
+[[edge_functions]]
+  function = "og-tags"
+  path = "/"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/events"
+
 [[edge_functions]]
   function = "og-tags"
   path = "/events/*"

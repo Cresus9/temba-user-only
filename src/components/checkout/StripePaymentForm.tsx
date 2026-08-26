@@ -3,6 +3,7 @@ import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { CreditCard, AlertCircle, Loader, Check } from 'lucide-react';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { orderService } from '../../services/orderService';
+import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -10,9 +11,11 @@ interface StripePaymentFormProps {
   xofAmountMinor: number;
   eventId: string;
   userId?: string;
+  guestEmail?: string;
+  guestPhone?: string;
   tickets: { [key: string]: number };
   description?: string;
-  onSuccess: (paymentId: string, orderId: string, paymentToken: string) => void;
+  onSuccess: (paymentId: string, orderId: string, paymentToken: string, guestToken?: string | null) => void;
   onError: (error: string) => void;
   fxQuote?: FXQuote;
   // Breakdown details
@@ -27,6 +30,8 @@ export default function StripePaymentForm({
   xofAmountMinor,
   eventId,
   userId,
+  guestEmail,
+  guestPhone,
   tickets,
   description,
   onSuccess,
@@ -67,31 +72,39 @@ export default function StripePaymentForm({
       // Step 1: Get order data (order will be created by Edge Function)
       console.log('📝 [STRIPE STEP 1] Preparing order data...');
       console.log('Order params:', { eventId, ticketQuantities: tickets, paymentMethod: 'CARD' });
-      
-      const orderResult = await orderService.createOrder({
-        eventId,
-        ticketQuantities: tickets,
-        paymentMethod: 'CARD', // This returns orderId: null and ticket data
-        paymentDetails: {
-          provider: 'stripe',
-          cardNumber: '****',
-          expiryDate: '**/**',
-          cvv: '***',
-          cardholderName: 'Card Holder'
+
+      let ticketQuantities = tickets;
+
+      if (userId) {
+        const orderResult = await orderService.createOrder({
+          eventId,
+          ticketQuantities: tickets,
+          paymentMethod: 'CARD', // This returns orderId: null and ticket data
+          paymentDetails: {
+            provider: 'stripe',
+            cardNumber: '****',
+            expiryDate: '**/**',
+            cvv: '***',
+            cardholderName: 'Card Holder'
+          }
+        });
+
+        console.log('📦 [STRIPE STEP 1] Order result:', orderResult);
+
+        if (!orderResult.success) {
+          console.error('❌ [STRIPE STEP 1] Order preparation failed:', orderResult);
+          throw new Error(orderResult.error || 'Échec de la préparation de la commande');
         }
-      });
 
-      console.log('📦 [STRIPE STEP 1] Order result:', orderResult);
-
-      if (!orderResult.success) {
-        console.error('❌ [STRIPE STEP 1] Order preparation failed:', orderResult);
-        throw new Error(orderResult.error || 'Échec de la préparation de la commande');
+        ticketQuantities = orderResult.ticketQuantities || tickets;
+      } else {
+        const resolved = resolveGuestEmail(guestEmail, guestPhone);
+        if (!resolved) {
+          throw new Error('Pour la carte, entrez un e-mail ou un numéro de téléphone');
+        }
       }
 
-      // Order will be created by Edge Function, so we don't have an orderId yet
       console.log('✅ [STRIPE STEP 1] Order data prepared successfully');
-      console.log('Ticket quantities:', orderResult.ticketQuantities);
-      console.log('Total amount:', orderResult.totalAmount);
 
       // Step 2: Create Stripe payment intent WITH order_id
       console.log('💳 [STRIPE STEP 2] Creating Stripe PaymentIntent...');
@@ -124,8 +137,10 @@ export default function StripePaymentForm({
             idempotencyKey,
             fx_margin_bps: fxQuote.margin_bps,
             create_order: true, // ✅ NEW: Create order via Edge Function
-            ticket_quantities: orderResult.ticketQuantities,
-            payment_method: 'CARD'
+            ticket_quantities: ticketQuantities,
+            payment_method: 'CARD',
+            guest_email: resolveGuestEmail(guestEmail, guestPhone) || undefined,
+            guest_phone: guestPhone?.trim() || undefined,
           }
         );
       } else {
@@ -146,8 +161,10 @@ export default function StripePaymentForm({
             idempotencyKey,
             amount_is_minor: true,
             create_order: true, // ✅ NEW: Create order via Edge Function
-            ticket_quantities: orderResult.ticketQuantities,
-            payment_method: 'CARD'
+            ticket_quantities: ticketQuantities,
+            payment_method: 'CARD',
+            guest_email: resolveGuestEmail(guestEmail, guestPhone) || undefined,
+            guest_phone: guestPhone?.trim() || undefined,
           }
         );
       }
@@ -170,6 +187,15 @@ export default function StripePaymentForm({
 
       if (!paymentResponse.paymentToken) {
         console.warn('⚠️ [STRIPE STEP 2] Payment token missing, using generated token');
+      }
+
+      if (paymentResponse.guestToken && paymentResponse.orderId) {
+        persistGuestWallet({
+          token: paymentResponse.guestToken,
+          orderId: paymentResponse.orderId,
+          email: realGuestEmail(guestEmail),
+          phone: guestPhone?.trim(),
+        });
       }
 
       // Step 3: Confirm payment with Stripe
@@ -208,7 +234,12 @@ export default function StripePaymentForm({
         console.log('- Payment Token:', finalPaymentToken);
         console.log('- Order Created:', paymentResponse.order_created);
         
-        onSuccess(paymentResponse.paymentId, paymentResponse.orderId, finalPaymentToken);
+        onSuccess(
+          paymentResponse.paymentId,
+          paymentResponse.orderId,
+          finalPaymentToken,
+          paymentResponse.guestToken
+        );
         toast.success('Paiement réussi !');
       } else {
         console.warn('⚠️ [STRIPE STEP 3] Payment not succeeded');

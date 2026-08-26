@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -13,6 +13,9 @@ import {
   LogIn,
   Settings,
   KeyRound,
+  Database,
+  Send,
+  CheckCircle,
 } from 'lucide-react';
 import PageSEO from '../components/SEO/PageSEO';
 
@@ -92,6 +95,36 @@ const retentionPeriods = [
 ];
 
 export default function AccountDeletion() {
+  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+
+  // Data-request form state
+  const [reqType,   setReqType]   = useState<'delete_data' | 'delete_account'>('delete_data');
+  const [email,     setEmail]     = useState('');
+  const [reason,    setReason]    = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [sending,   setSending]   = useState(false);
+
+  const handleDataRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    // Send request via mailto (no backend needed — opens mail client)
+    const subject = encodeURIComponent(
+      reqType === 'delete_account'
+        ? 'Demande de suppression de compte — Temba'
+        : 'Demande de suppression de données — Temba'
+    );
+    const body = encodeURIComponent(
+      `Type de demande: ${reqType === 'delete_account' ? 'Suppression du compte' : 'Suppression des données uniquement'}\n` +
+      `Email: ${email}\n` +
+      `Raison: ${reason || 'Non précisée'}\n\n` +
+      `---\nRequest type: ${reqType === 'delete_account' ? 'Full account deletion' : 'Data deletion only'}\nEmail: ${email}`
+    );
+    window.location.href = `mailto:support@tembas.com?subject=${subject}&body=${body}`;
+    setTimeout(() => { setSending(false); setSubmitted(true); }, 800);
+  };
+
+  const isFr = lang === 'fr';
+
   return (
     <div className="min-h-screen bg-paper">
       <PageSEO
@@ -103,12 +136,30 @@ export default function AccountDeletion() {
 
       {/* ── Breadcrumb ── */}
       <div className="border-b border-line bg-cream/40">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <nav aria-label="Fil d'Ariane" className="flex items-center gap-1.5 text-[12px] text-ink-mute">
-            <Link to="/" className="hover:text-ink transition-colors">Accueil</Link>
+            <Link to="/" className="hover:text-ink transition-colors">
+              {isFr ? 'Accueil' : 'Home'}
+            </Link>
             <ChevronRight className="w-3 h-3 text-ink-mute/50" />
-            <span className="text-ink font-semibold">Supprimer mon compte</span>
+            <span className="text-ink font-semibold">
+              {isFr ? 'Supprimer mon compte' : 'Delete my account'}
+            </span>
           </nav>
+          {/* Language toggle */}
+          <div className="flex items-center gap-1 p-0.5 bg-paper border border-line rounded-lg">
+            {(['fr', 'en'] as const).map(l => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                  lang === l ? 'bg-brand text-paper' : 'text-ink-mute hover:text-ink'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -135,7 +186,7 @@ export default function AccountDeletion() {
               className="text-[11px] font-bold uppercase tracking-[0.22em] text-red-600"
               style={{ fontFamily: monoFamily }}
             >
-              Suppression de compte
+              {isFr ? 'Suppression de compte' : 'Account Deletion'}
             </p>
           </div>
 
@@ -143,7 +194,7 @@ export default function AccountDeletion() {
             className="text-[clamp(26px,4.5vw,44px)] font-bold text-ink leading-[1.06] tracking-tight max-w-3xl"
             style={{ fontFamily: displayFamily }}
           >
-            Supprimer votre compte{' '}
+            {isFr ? 'Supprimer votre compte' : 'Delete your account'}{' '}
             <span className="relative inline-block">
               <span className="relative z-10">Temba</span>
               <span
@@ -153,7 +204,9 @@ export default function AccountDeletion() {
             </span>
           </h1>
           <p className="mt-4 text-[15px] sm:text-[16px] text-ink-mute leading-relaxed max-w-2xl">
-            Cette page vous explique comment supprimer définitivement votre compte et toutes vos données associées. Prenez le temps de lire attentivement.
+            {isFr
+              ? 'Cette page vous explique comment supprimer définitivement votre compte et toutes vos données associées. Prenez le temps de lire attentivement.'
+              : 'This page explains how to permanently delete your Temba account and all associated data. Please read carefully before proceeding.'}
           </p>
         </div>
       </section>
@@ -311,18 +364,135 @@ export default function AccountDeletion() {
           </div>
         </section>
 
+        {/* ── Data-only deletion request form ── */}
+        <section>
+          <div className="flex items-center gap-3 mb-4">
+            <Database className="w-5 h-5 text-brand" strokeWidth={2} />
+            <h2 className="text-[20px] font-bold text-ink tracking-tight" style={{ fontFamily: displayFamily }}>
+              {isFr ? 'Supprimer vos données sans fermer le compte' : 'Delete your data without closing your account'}
+            </h2>
+          </div>
+          <p className="text-[14px] text-ink-mute mb-6 leading-relaxed">
+            {isFr
+              ? 'Vous pouvez demander la suppression de certaines données (historique, préférences, données de navigation) sans supprimer votre compte. Remplissez le formulaire ci-dessous ou contactez-nous par e-mail.'
+              : 'You can request deletion of specific data (history, preferences, browsing data) without deleting your account. Fill in the form below or contact us by email.'}
+          </p>
+
+          {submitted ? (
+            <div className="flex items-start gap-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-200">
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" strokeWidth={2} />
+              <div>
+                <p className="text-[14px] font-bold text-emerald-800 mb-1">
+                  {isFr ? 'Demande envoyée' : 'Request sent'}
+                </p>
+                <p className="text-[13px] text-emerald-700">
+                  {isFr
+                    ? 'Nous avons bien reçu votre demande. Notre équipe traitera votre demande dans un délai de 30 jours.'
+                    : 'We have received your request. Our team will process it within 30 days.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleDataRequest} className="bg-paper border border-line rounded-2xl shadow-card p-6 space-y-5">
+              {/* Request type */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    value: 'delete_data',
+                    label: isFr ? 'Supprimer mes données uniquement' : 'Delete my data only',
+                    sub: isFr ? 'Le compte reste actif' : 'Keep the account active',
+                  },
+                  {
+                    value: 'delete_account',
+                    label: isFr ? 'Supprimer mon compte complet' : 'Delete my full account',
+                    sub: isFr ? 'Compte + toutes les données' : 'Account + all data',
+                  },
+                ].map(opt => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                      reqType === opt.value
+                        ? 'border-brand bg-brand/5'
+                        : 'border-line bg-cream hover:border-brand/40'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="reqType"
+                      value={opt.value}
+                      checked={reqType === opt.value}
+                      onChange={() => setReqType(opt.value as typeof reqType)}
+                      className="mt-0.5 accent-brand"
+                    />
+                    <div>
+                      <p className="text-[13px] font-bold text-ink">{opt.label}</p>
+                      <p className="text-[11px] text-ink-mute">{opt.sub}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-[12px] font-bold text-ink-mute uppercase tracking-wide mb-1.5" style={{ fontFamily: monoFamily }}>
+                  {isFr ? 'Adresse e-mail du compte' : 'Account email address'} *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder={isFr ? 'votre@email.com' : 'your@email.com'}
+                  className="w-full px-4 py-3 rounded-xl border border-line bg-cream focus:outline-none focus:border-brand text-[14px] text-ink placeholder-ink-mute/50 transition-colors"
+                />
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-[12px] font-bold text-ink-mute uppercase tracking-wide mb-1.5" style={{ fontFamily: monoFamily }}>
+                  {isFr ? 'Raison (optionnel)' : 'Reason (optional)'}
+                </label>
+                <textarea
+                  rows={3}
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  placeholder={isFr ? 'Dites-nous pourquoi vous souhaitez cette suppression…' : 'Tell us why you want this deletion…'}
+                  className="w-full px-4 py-3 rounded-xl border border-line bg-cream focus:outline-none focus:border-brand text-[14px] text-ink placeholder-ink-mute/50 transition-colors resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={sending || !email}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-brand text-paper rounded-xl text-[14px] font-bold hover:bg-brand/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <Send className="w-4 h-4" />
+                {sending
+                  ? (isFr ? 'Envoi…' : 'Sending…')
+                  : (isFr ? 'Envoyer la demande' : 'Send request')}
+              </button>
+
+              <p className="text-[11px] text-ink-mute/60">
+                {isFr
+                  ? 'Votre demande sera traitée dans un délai maximum de 30 jours, conformément au RGPD.'
+                  : 'Your request will be processed within 30 days, in compliance with GDPR.'}
+              </p>
+            </form>
+          )}
+        </section>
+
         {/* ── Support ── */}
         <section>
           <h2
             className="text-[20px] font-bold text-ink tracking-tight mb-2"
             style={{ fontFamily: displayFamily }}
           >
-            Besoin d'aide ?
+            {isFr ? "Besoin d'aide ?" : 'Need help?'}
           </h2>
           <p className="text-[14px] text-ink-mute mb-6 leading-relaxed">
-            Si vous rencontrez des difficultés pour supprimer votre compte ou si vous avez des
-            questions concernant la suppression de vos données, notre équipe de support est là pour
-            vous aider.
+            {isFr
+              ? "Si vous rencontrez des difficultés pour supprimer votre compte ou si vous avez des questions concernant la suppression de vos données, notre équipe de support est là pour vous aider."
+              : "If you have trouble deleting your account or have questions about your data, our support team is here to help."}
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">

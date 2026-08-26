@@ -3,8 +3,10 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-client';
 import { authService } from '../services/authService';
 import { ticketTransferService } from '../services/ticketTransferService';
+import { claimGuestOrdersForCurrentUser } from '../services/guestTicketService';
 import { referralService } from '../services/referralService';
 import { creditService } from '../services/creditService';
+import { normalizePhone } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
 
 interface AuthState {
@@ -111,6 +113,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.email, profile?.phone]); // Only depend on email and phone, not full objects
 
+  const guestClaimedForUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      guestClaimedForUserRef.current = null;
+      return;
+    }
+    if (loading) return;
+    if (guestClaimedForUserRef.current === user.id) return;
+    guestClaimedForUserRef.current = user.id;
+    let cancelled = false;
+    (async () => {
+      const claimed = await claimGuestOrdersForCurrentUser();
+      if (cancelled) return;
+      if (claimed > 0) {
+        toast.success(
+          claimed === 1
+            ? 'Votre billet invité a été ajouté à votre compte'
+            : `${claimed} commandes invitées ont été ajoutées à votre compte`
+        );
+        window.dispatchEvent(new CustomEvent('tickets-refreshed'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loading]);
+
   // Post-auth referral parity with mobile:
   // 1) track pending referral code, 2) grant signup bonus, 3) refresh credit wallet.
   useEffect(() => {
@@ -144,6 +174,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) throw error;
+      if (data?.phone) {
+        const repaired = normalizePhone(data.phone);
+        if (repaired && repaired !== data.phone) {
+          const { error: repairErr } = await supabase
+            .from('profiles')
+            .update({ phone: repaired })
+            .eq('user_id', userId);
+          if (!repairErr) data.phone = repaired;
+        }
+      }
       setProfile(data);
     } catch (error) {
       console.error('Erreur lors du chargement du profil:', error);

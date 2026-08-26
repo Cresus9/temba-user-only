@@ -1,4 +1,20 @@
 User-agent: *
 Allow: /
 
+Disallow: /checkout
+Disallow: /profile
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /admin
+Disallow: /organizer
+Disallow: /find-tickets
+Disallow: /guest
+Disallow: /verify
+Disallow: /verify-order
+Disallow: /payment
+
 Sitemap: https://tembas.com/sitemap.xml
+Sitemap: https://tembas.com/blog-sitemap.xml

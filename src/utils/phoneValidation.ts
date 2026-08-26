@@ -45,108 +45,60 @@ const COUNTRY_CODES: Record<string, { code: string; name: string; length: number
  * @returns Detected country code or null
  */
 const detectCountryCode = (phone: string): { code: string; name: string } | null => {
-  // Remove all non-digit characters for detection
   const digits = phone.replace(/\D/g, '');
-  
-  // Check for explicit country code (if starts with +)
-  if (phone.startsWith('+')) {
-    // Try to match known country codes (check longer codes first)
-    const sortedCodes = Object.keys(COUNTRY_CODES).sort((a, b) => b.length - a.length);
-    
-    for (const countryCode of sortedCodes) {
-      if (digits.startsWith(countryCode)) {
-        return {
-          code: countryCode,
-          name: COUNTRY_CODES[countryCode].name
-        };
-      }
-    }
-    
-    // If + present but no known code, try to extract first 1-3 digits as country code
-    if (digits.length >= 10) {
-      // Try 3-digit code
-      const code3 = digits.substring(0, 3);
-      if (COUNTRY_CODES[code3]) {
-        return { code: code3, name: COUNTRY_CODES[code3].name };
-      }
-      
-      // Try 2-digit code
-      const code2 = digits.substring(0, 2);
-      if (COUNTRY_CODES[code2]) {
-        return { code: code2, name: COUNTRY_CODES[code2].name };
-      }
-      
-      // Try 1-digit code
-      const code1 = digits.substring(0, 1);
-      if (COUNTRY_CODES[code1]) {
-        return { code: code1, name: COUNTRY_CODES[code1].name };
-      }
+  if (!digits) return null;
+
+  const sortedCodes = Object.keys(COUNTRY_CODES).sort((a, b) => b.length - a.length);
+  for (const countryCode of sortedCodes) {
+    if (!digits.startsWith(countryCode)) continue;
+    const localLen = digits.length - countryCode.length;
+    const allowed = COUNTRY_CODES[countryCode].length;
+    if (allowed.includes(localLen)) {
+      return { code: countryCode, name: COUNTRY_CODES[countryCode].name };
     }
   }
-  
+
   return null;
 };
 
+/** Undo a mistaken +226 prefix in front of another country (signup used to force BF). */
+function stripWrongBurkinaPrefix(digits: string): string {
+  if (!digits.startsWith('226') || digits.length <= 11) return digits;
+  const rest = digits.slice(3);
+  const inner = detectCountryCode(rest);
+  if (inner && inner.code !== '226') return rest;
+  return digits;
+}
+
 /**
- * Normalizes a phone number to international E.164 format
- * Auto-detects country code or defaults to Burkina Faso (+226)
- * 
- * @param phone - Phone number in any format
- * @param defaultCountryCode - Default country code if none detected (default: '226' for Burkina Faso)
- * @returns Normalized phone number in E.164 format (+[country][number])
+ * Normalizes a phone number to international E.164 format.
+ * Uses the selected country when provided; otherwise detects, then Burkina (+226).
  */
 export const normalizePhone = (phone: string, defaultCountryCode: string = '226'): string => {
   if (!phone) return '';
-  
-  // Remove all non-numeric characters except +
+
+  const defaultCode = (defaultCountryCode || '226').replace(/\D/g, '') || '226';
   let cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // Remove leading zeros
+  if (!cleaned) return '';
+
   if (!cleaned.startsWith('+')) {
     cleaned = cleaned.replace(/^0+/, '');
   }
-  
-  // If already in international format with +
-  if (cleaned.startsWith('+')) {
-    // Extract digits after +
-    const digitsAfterPlus = cleaned.substring(1);
-    
-    // Detect country code
-    const detected = detectCountryCode(cleaned);
-    
-    if (detected) {
-      // Already has valid country code
-      return `+${cleaned.substring(1)}`;
-    }
-    
-    // Has + but no recognized country code - assume first 1-3 digits are country code
-    if (digitsAfterPlus.length >= 10) {
-      // Try to find country code
-      for (let len = 3; len >= 1; len--) {
-        const potentialCode = digitsAfterPlus.substring(0, len);
-        if (COUNTRY_CODES[potentialCode]) {
-          return `+${digitsAfterPlus}`;
-        }
-      }
-      // If no match found, return as-is (might be valid country code we don't have in list)
-      return cleaned;
-    }
-  }
-  
-  // No + prefix - try to detect country code
-  const detected = detectCountryCode(cleaned);
-  
+
+  let digits = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
+  digits = stripWrongBurkinaPrefix(digits);
+
+  const detected = detectCountryCode(digits);
   if (detected) {
-    // Country code detected at start
-    return `+${cleaned}`;
+    return `+${digits}`;
   }
-  
-  // No country code detected - use default
-  // Remove any leading zeros
-  const localNumber = cleaned.replace(/^0+/, '');
-  
-  // Default to Burkina Faso (+226) if no country code detected
-  return `+${defaultCountryCode}${localNumber}`;
+
+  // Selected / default country + local digits (skip if local already includes that code)
+  const local = digits.replace(/^0+/, '');
+  if (local.startsWith(defaultCode)) {
+    return `+${local}`;
+  }
+  return `+${defaultCode}${local}`;
 };
 
 /**

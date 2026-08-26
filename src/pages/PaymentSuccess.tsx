@@ -4,6 +4,7 @@ import { Check, Loader, AlertCircle } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { clearCartForEvent } from '../utils/cartUtils';
 import toast from 'react-hot-toast';
+import { guestRedirectForOrder } from '../services/guestTicketService';
 
 export default function PaymentSuccess() {
   const [loading, setLoading] = useState(true);
@@ -56,31 +57,40 @@ export default function PaymentSuccess() {
     }
   }, [orderId, token, paymentId, navigate]);
 
+  const ticketsPath = () => {
+    try {
+      const raw = localStorage.getItem('paymentDetails');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.guestToken) return `/guest/tickets/${parsed.guestToken}`;
+        if (parsed?.isGuest) return '/find-tickets';
+      }
+    } catch { /* ignore */ }
+    return guestRedirectForOrder(orderId) || (orderId ? `/booking/confirmation/${orderId}?token=${token}` : '/find-tickets');
+  };
+
   const verifyPayment = async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let quickTimeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       setLoading(true);
       
       // Add timeout to prevent infinite loading - reduced to 5 seconds
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         console.log('⏰ Verification timeout - redirecting anyway');
         setLoading(false);
         setSuccess(true);
         toast.success('Paiement traité - Redirection vers vos billets...');
-        navigate(`/booking/confirmation/${orderId}?token=${token}`);
+        navigate(ticketsPath());
       }, 5000); // 5 second timeout (reduced from 7)
       
       // Add even quicker fallback - 2 seconds for immediate redirect option
-      const quickTimeoutId = setTimeout(() => {
+      quickTimeoutId = setTimeout(() => {
         console.log('🚀 Quick redirect - payment likely succeeded');
         // Don't stop the verification, but show user they can skip
         if (loading) {
-          toast.success('Paiement traité! Cliquez ici pour voir vos billets', {
+          toast.success('Paiement traité — vos billets sont prêts', {
             duration: 6000,
-            onClick: () => {
-              clearTimeout(timeoutId);
-              clearTimeout(quickTimeoutId);
-              navigate(`/booking/confirmation/${orderId}?token=${token}`);
-            }
           });
         }
       }, 2000); // 2 second quick option (reduced from 3)
@@ -181,7 +191,12 @@ export default function PaymentSuccess() {
         }
         
         // Clear cart after successful payment
-        const eventId = storedPaymentDetails?.eventId;
+        let eventId: string | undefined;
+        try {
+          eventId = storedPaymentDetails ? JSON.parse(storedPaymentDetails)?.eventId : undefined;
+        } catch {
+          eventId = undefined;
+        }
         console.log('🛒 PaymentSuccess: Stored payment details:', storedPaymentDetails);
         
         if (eventId) {
@@ -200,7 +215,7 @@ export default function PaymentSuccess() {
         // Redirect immediately since verification succeeded (or processing)
         console.log('✅ Verification successful/processing - redirecting immediately');
         setTimeout(() => {
-          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+          navigate(ticketsPath());
         }, 1000); // Reduced to 1 second
       } else {
         // Clear both timeouts
@@ -222,7 +237,7 @@ export default function PaymentSuccess() {
         setSuccess(true);
         toast.success('Vérification en cours... Redirection vers vos billets');
         setTimeout(() => {
-          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+          navigate(ticketsPath());
         }, 1000);
       }
       // If verification succeeded but other requests failed, still redirect
@@ -231,7 +246,7 @@ export default function PaymentSuccess() {
         setSuccess(true);
         toast.success('Billets déjà créés - redirection vers la confirmation');
         setTimeout(() => {
-          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+          navigate(ticketsPath());
         }, 1000);
       } else if (error.message && (error.message.includes('400') || error.message.includes('Bad Request'))) {
         // Ignore 400 errors if we have orderId and token (payment likely succeeded)
@@ -239,7 +254,7 @@ export default function PaymentSuccess() {
         setSuccess(true);
         toast.success('Paiement traité - redirection vers vos billets');
         setTimeout(() => {
-          navigate(`/booking/confirmation/${orderId}?token=${token}`);
+          navigate(ticketsPath());
         }, 1000);
       } else {
         setError(error.message || 'Échec de la vérification du paiement');
@@ -290,7 +305,7 @@ export default function PaymentSuccess() {
 
             <div className="pt-2 space-y-2">
               <button
-                onClick={() => navigate(`/booking/confirmation/${orderId}?token=${token}`)}
+                onClick={() => navigate(ticketsPath())}
                 className="w-full h-11 rounded-lg bg-brand hover:bg-brand-700 text-paper text-[14px] font-bold transition-colors"
               >
                 Voir mes billets maintenant →

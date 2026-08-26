@@ -284,11 +284,34 @@ export default function EventDetails() {
       },
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
       ...(tz !== 'Africa/Ouagadougou' && { inLanguage: 'fr' }),
-      organizer: {
-        '@type': 'Organization',
-        name: 'Temba',
-        url: 'https://tembas.com/',
-      },
+      organizer: (() => {
+        const org = (event as any).organizer_profiles;
+        if (org?.business_name) {
+          return {
+            '@type': 'Organization',
+            name: org.business_name,
+            url: org.slug ? `https://tembas.com/organizers/${org.slug}` : 'https://tembas.com/',
+          };
+        }
+        return {
+          '@type': 'Organization',
+          name: 'Temba',
+          url: 'https://tembas.com/',
+        };
+      })(),
+      performer: (() => {
+        const ea = (event as any).event_artists;
+        if (!Array.isArray(ea) || !ea.length) return undefined;
+        const artists = ea
+          .map((row: any) => row.artists)
+          .filter((a: any) => a?.name);
+        if (!artists.length) return undefined;
+        return artists.map((a: any) => ({
+          '@type': 'PerformingGroup',
+          name: a.name,
+          url: a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
+        }));
+      })(),
       offers: (event.ticket_types || []).map(ticketType => ({
         '@type': 'Offer',
         url: eventUrl,
@@ -313,6 +336,8 @@ export default function EventDetails() {
     event?.timezone,
     event?.ticket_types,
     event?.currency,
+    (event as any)?.organizer_profiles,
+    (event as any)?.event_artists,
     eventUrl,
     ogImage,
   ]);

@@ -2,7 +2,6 @@
 // deno-lint-ignore-file no-explicit-any
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
-import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -12,14 +11,28 @@ const cors = {
 };
 
 type ReqBody = {
-  // Preferred:
-  payment_id?: string;       // UUID of payments.id
-  // Legacy fallbacks (use only if payment_id not provided):
-  internal_token?: string;   // your internal payments.token
-  payment_token?: string;    // could be PayDunya token or "stripe-token-*"
-  order_id?: string;         // optional; we can fetch from payment
-  stripe_pi?: string;        // pi_... (fallback lookup)
+  payment_id?: string;
+  internal_token?: string;
+  payment_token?: string;
+  order_id?: string;
+  stripe_pi?: string;
 };
+
+async function retrieveStripePaymentIntent(
+  secretKey: string,
+  paymentIntentId: string
+): Promise<{ status?: string } | null> {
+  const res = await fetch(
+    `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
+    { headers: { Authorization: `Bearer ${secretKey}` } }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("Stripe PI retrieve failed:", res.status, text);
+    return null;
+  }
+  return await res.json();
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -29,9 +42,7 @@ Deno.serve(async (req) => {
     const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Supabase configuration missing");
 
-    // Stripe setup (optional until we know we need it)
     const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
-    const stripe = STRIPE_KEY ? new Stripe(STRIPE_KEY, { apiVersion: "2024-06-20" }) : null;
 
     const body: ReqBody = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -99,8 +110,7 @@ Deno.serve(async (req) => {
 
     // ---------- Handle STRIPE ----------
     if (provider === "stripe") {
-      if (!stripe) {
-        // If you ever call this for Stripe but didn't set STRIPE_SECRET_KEY
+      if (!STRIPE_KEY) {
         return new Response(JSON.stringify({ success: false, error: "Stripe not configured" }), { status: 500, headers: cors });
       }
 
@@ -137,7 +147,17 @@ Deno.serve(async (req) => {
         }), { headers: cors });
       }
 
-      const intent = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent_id);
+      const intent = await retrieveStripePaymentIntent(STRIPE_KEY, payment.stripe_payment_intent_id);
+      if (!intent?.status) {
+        return new Response(JSON.stringify({
+          success: false,
+          state: "processing",
+          message: "Impossible de confirmer le paiement auprès de Stripe",
+          provider: "stripe",
+          payment_id: paymentId,
+          order_id: orderId
+        }), { headers: cors });
+      }
       if (intent.status === "succeeded") {
         // Self-heal: finalize idempotently via SQL function
         const { error: rpcErr } = await supabase.rpc("admin_finalize_payment", { p_payment_id: paymentId });

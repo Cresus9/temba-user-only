@@ -134,6 +134,9 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-3 pl-4 border-l border-line">
+                <Link to="/find-tickets" className={navLinkBase}>
+                  Mes billets
+                </Link>
                 <Link to="/login" className={navLinkBase}>
                   Se connecter
                 </Link>
@@ -216,6 +219,16 @@ export default function Navbar() {
               </>
             ) : (
               <div className="pt-3 mt-2 border-t border-line space-y-2">
+                <Link
+                  to="/find-tickets"
+                  className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Ticket className="h-4 w-4 text-ink-mute" />
+                    Mes billets
+                  </div>
+                </Link>
                 <Link
                   to="/login"
                   className="btn btn-secondary w-full"

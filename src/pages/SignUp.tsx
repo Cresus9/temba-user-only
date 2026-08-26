@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Mail,
   Lock,
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
-import { isValidPhone, getPhoneInfo, detectInputType } from '../utils/phoneValidation';
+import { isValidPhone, getPhoneInfo, detectInputType, normalizePhone } from '../utils/phoneValidation';
 import CountryCodeSelector from '../components/CountryCodeSelector';
 import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
@@ -52,6 +52,19 @@ export default function SignUp() {
 
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const authReturn = (location.state as { redirectTo?: string; checkoutData?: unknown } | null) || {};
+  const redirectTo = authReturn.redirectTo || '/';
+
+  const goAfterAuth = () => {
+    navigate(redirectTo, { replace: true, state: authReturn.checkoutData || undefined });
+  };
+
+  const composedPhone = () =>
+    normalizePhone(
+      composedPhone(),
+      countryCode.replace(/\D/g, ''),
+    );
 
   const handleSendVerificationCode = async () => {
     setError('');
@@ -77,7 +90,7 @@ export default function SignUp() {
         return;
       }
     } else if (signupMethod === 'phone') {
-      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      const fullPhone = composedPhone();
       if (!isValidPhone(fullPhone)) {
         setError('Format de numéro invalide. Vérifiez le numéro saisi');
         return;
@@ -105,7 +118,7 @@ export default function SignUp() {
     }
 
     if (signupMethod === 'phone') {
-      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      const fullPhone = composedPhone();
 
       if (!REQUIRE_OTP_FOR_PHONE_SIGNUP) {
         setIsLoading(true);
@@ -116,7 +129,7 @@ export default function SignUp() {
             password: formData.password,
           });
           toast.success('Compte créé avec succès !');
-          navigate('/');
+          goAfterAuth();
         } catch (err: any) {
           const message = err.message || 'Échec de la création du compte';
           setError(message);
@@ -152,7 +165,7 @@ export default function SignUp() {
         password: formData.password,
       });
       toast.success('Compte créé avec succès !');
-      navigate('/');
+      goAfterAuth();
     } catch (err: any) {
       const message = err.message || 'Échec de la création du compte';
       setError(message);
@@ -172,7 +185,7 @@ export default function SignUp() {
 
     setIsLoading(true);
     try {
-      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      const fullPhone = composedPhone();
 
       const isValid = await authService.verifyOTP(fullPhone, otpCode);
       if (!isValid) {
@@ -189,7 +202,7 @@ export default function SignUp() {
       });
 
       toast.success('Compte créé avec succès !');
-      navigate('/');
+      goAfterAuth();
     } catch (err: any) {
       const message = err.message || 'Échec de la création du compte';
       setError(message);
@@ -203,7 +216,7 @@ export default function SignUp() {
     setError('');
     setIsSendingOTP(true);
     try {
-      const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+      const fullPhone = composedPhone();
       await authService.sendOTP(fullPhone);
       toast.success('Code renvoyé avec succès !');
     } catch (err: any) {
@@ -225,7 +238,7 @@ export default function SignUp() {
      OTP VERIFY STEP
   ───────────────────────────────────────────────── */
   if (step === 'verify') {
-    const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+    const fullPhone = composedPhone();
     const info = getPhoneInfo(fullPhone);
     const displayPhone = info?.normalized || fullPhone;
 
@@ -460,7 +473,7 @@ export default function SignUp() {
             <div className="mt-2">
               {signupMethod === 'phone'
                 ? (() => {
-                    const fullPhone = `${countryCode}${formData.emailOrPhone.replace(/\s/g, '')}`;
+                    const fullPhone = composedPhone();
                     const isValid = isValidPhone(fullPhone);
                     const info = isValid ? getPhoneInfo(fullPhone) : null;
                     return isValid && info ? (
@@ -598,6 +611,11 @@ export default function SignUp() {
           Vous avez déjà un compte ?{' '}
           <Link
             to="/login"
+            state={
+              redirectTo !== '/'
+                ? { redirectTo, checkoutData: authReturn.checkoutData }
+                : undefined
+            }
             className="font-bold text-brand hover:text-brand-700 transition-colors"
           >
             Se connecter

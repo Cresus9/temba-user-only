@@ -35,30 +35,46 @@ class AuthService {
       // used for phone signups: {phoneDigits}@temba.temp
       if (inputType === 'phone') {
         const normalizedPhone = normalizePhone(credentials.email);
-        // Generate temp email format: remove all non-digits and append @temba.temp
         const phoneDigits = normalizedPhone.replace(/[^0-9]/g, '');
-        emailForAuth = `${phoneDigits}@temba.temp`;
+        const attempts = [phoneDigits];
+        if (phoneDigits.startsWith('226') && phoneDigits.length > 11) {
+          attempts.push(phoneDigits.slice(3));
+        } else if (!phoneDigits.startsWith('226')) {
+          attempts.push(`226${phoneDigits}`);
+        }
+
+        let lastError: { message?: string } | null = null;
+        for (const digits of [...new Set(attempts)]) {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: `${digits}@temba.temp`,
+            password: credentials.password,
+          });
+          if (!error && data.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .single();
+            return { user: data.user, profile, session: data.session };
+          }
+          lastError = error;
+        }
+
+        if (lastError?.message?.includes('Invalid login credentials') ||
+            lastError?.message?.includes('Invalid password') ||
+            lastError?.message?.includes('Email not confirmed')) {
+          throw new Error('Numéro de téléphone ou mot de passe incorrect');
+        }
+        throw new Error('Aucun compte trouvé avec ce numéro de téléphone. Veuillez vérifier le numéro ou créer un compte.');
       }
 
-      // Try to authenticate with the email (original or constructed from phone)
+      // Email login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailForAuth,
         password: credentials.password
       });
 
-      // If authentication fails and we tried phone format, provide helpful error
-      if (error) {
-        if (inputType === 'phone') {
-          // Check if it's an invalid credentials error
-          if (error.message?.includes('Invalid login credentials') || 
-              error.message?.includes('Invalid password') ||
-              error.message?.includes('Email not confirmed')) {
-            throw new Error('Numéro de téléphone ou mot de passe incorrect');
-          }
-          throw new Error('Aucun compte trouvé avec ce numéro de téléphone. Veuillez vérifier le numéro ou créer un compte.');
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       // Get user profile after successful login
       const { data: profile } = await supabase

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import GuestCheckoutForm from '../components/checkout/GuestCheckoutForm';
 import CheckoutForm from '../components/checkout/CheckoutForm';
 import AddonSelector from '../components/tickets/AddonSelector';
 import FoodMenuSelector from '../components/food/FoodMenuSelector';
 import PageSEO from '../components/SEO/PageSEO';
 import { computeAddonsTotal, type AddonSelection } from '../services/addonService';
 import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../services/foodMenuService';
+import { guestRedirectForOrder } from '../services/guestTicketService';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -27,26 +27,52 @@ interface CheckoutState {
 }
 
 const mono = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+const CHECKOUT_DRAFT_KEY = 'temba_checkout_draft';
+
+function persistCheckoutDraft(data: CheckoutState) {
+  try {
+    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(data));
+  } catch {
+    /* private mode */
+  }
+}
+
+function readCheckoutDraft(): CheckoutState | null {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.tickets && parsed?.totals && parsed?.eventId) return parsed as CheckoutState;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [isGuest, setIsGuest] = useState(!isAuthenticated);
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
 
-  const state = location.state as CheckoutState;
-  const hasValidState = Boolean(state?.tickets && state?.totals && state?.eventId);
+  const locationState = location.state as CheckoutState | null;
+  const state =
+    locationState?.tickets && locationState?.totals && locationState?.eventId
+      ? locationState
+      : readCheckoutDraft();
 
-  if (!hasValidState) return <Navigate to="/events" replace />;
+  if (!state) return <Navigate to="/events" replace />;
+
+  persistCheckoutDraft(state);
 
   // When coming from PermanentBookingPanel, extras are already selected there.
   // Seed the amount from state so the total is correct from the first render.
   const isPermanent = Boolean((state as any).isPermanent);
 
   const handleGuestSuccess = (orderId: string) => {
-    navigate(`/booking/confirmation/${orderId}`);
+    const guestPath = guestRedirectForOrder(orderId);
+    navigate(guestPath || '/find-tickets');
   };
 
   const handleAuthenticatedSuccess = (orderId: string) => {
@@ -161,44 +187,21 @@ export default function Checkout() {
           {extrasTotal > 0 && <div className="border-t border-line" />}
 
           {/* ── Payment form ── */}
-          {isGuest ? (
-            <GuestCheckoutForm
-              tickets={state.tickets}
-              totalAmount={state.totals.total}
-              addonTotal={extrasTotal}
-              currency={state.currency}
-              eventId={state.eventId}
-              onSuccess={handleGuestSuccess}
-            />
-          ) : (
-            <CheckoutForm
-              tickets={state.tickets}
-              totalAmount={state.totals.total}
-              addonTotal={extrasTotal}
-              currency={state.currency}
-              eventId={state.eventId}
-              eventDateId={state.eventDateId}
-              onSuccess={handleAuthenticatedSuccess}
-            />
-          )}
-
-          {!isAuthenticated && (
-            <div className="pt-5 border-t border-line text-center">
-              <p className="text-[13px] text-ink-mute">
-                Vous avez déjà un compte ?{' '}
-                <button
-                  onClick={() =>
-                    navigate('/login', {
-                      state: { from: location.pathname, checkoutData: state },
-                    })
-                  }
-                  className="font-semibold text-brand hover:text-brand-700 transition-colors"
-                >
-                  Se connecter
-                </button>
-              </p>
-            </div>
-          )}
+          <CheckoutForm
+            tickets={state.tickets}
+            totalAmount={state.totals.total}
+            addonTotal={extrasTotal}
+            currency={state.currency}
+            eventId={state.eventId}
+            eventDateId={state.eventDateId}
+            onCreateAccount={() => {
+              persistCheckoutDraft(state);
+              navigate('/signup', {
+                state: { redirectTo: '/checkout', checkoutData: state },
+              });
+            }}
+            onSuccess={isAuthenticated ? handleAuthenticatedSuccess : handleGuestSuccess}
+          />
         </div>
       </section>
     </div>

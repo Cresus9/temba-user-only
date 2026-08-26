@@ -41,7 +41,10 @@ export default function Login() {
   const location = useLocation();
 
   const state = location.state as any;
-  const from = state?.redirectTo || state?.from?.pathname || '/dashboard';
+  const from =
+    state?.redirectTo ||
+    (typeof state?.from === 'string' ? state.from : state?.from?.pathname) ||
+    '/dashboard';
   const prefilledEmail = state?.email || '';
 
   React.useEffect(() => {
@@ -120,7 +123,7 @@ export default function Login() {
         localStorage.removeItem('rememberedPhone');
       }
 
-      navigate(from, { replace: true });
+      navigate(from, { replace: true, state: state?.checkoutData || undefined });
       toast.success('Connexion réussie !');
     } catch (err: any) {
       console.error('Erreur de connexion:', err);
@@ -353,6 +356,11 @@ export default function Login() {
           Pas encore de compte ?{' '}
           <Link
             to="/signup"
+            state={
+              state?.redirectTo
+                ? { redirectTo: state.redirectTo, checkoutData: state.checkoutData }
+                : undefined
+            }
             className="font-bold text-brand hover:text-brand-700 transition-colors"
           >
             Créer un compte

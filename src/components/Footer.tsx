@@ -127,6 +127,7 @@ export default function Footer() {
                   Centre d'aide
                 </Link>
               </li>
+              <li><Link to="/find-tickets" className={linkCls}>Retrouver mes billets</Link></li>
               <li><Link to="/contact" className={linkCls}>Contact</Link></li>
               <li><Link to="/terms" className={linkCls}>Conditions</Link></li>
               <li><Link to="/privacy" className={linkCls}>Confidentialité</Link></li>

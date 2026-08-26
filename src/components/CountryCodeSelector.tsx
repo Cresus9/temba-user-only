@@ -101,7 +101,7 @@ export default function CountryCodeSelector({ value, onChange, className = '' }:
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2.5 border border-line border-r-0 rounded-l-xl2 bg-paper hover:bg-cream focus:outline-none focus:ring-2 focus:ring-brand focus:z-10 transition-colors"
+        className="flex items-center gap-2 h-11 px-3 border border-line border-r-0 rounded-l-lg bg-paper hover:bg-cream focus:outline-none focus:ring-2 focus:ring-brand focus:z-10 transition-colors"
       >
         <span className="text-lg leading-none">{selectedCountry.flag}</span>
         <span className="text-[13px] font-bold text-ink tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
