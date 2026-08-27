@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Mail, User, CreditCard, Loader, Check } from 'lucide-react';
-import { persistGuestWallet } from '../../services/guestTicketService';
+import { persistGuestWallet, resolveGuestEmail } from '../../services/guestTicketService';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
 import { supabase } from '../../lib/supabase-client';
@@ -79,6 +79,8 @@ export default function GuestCheckoutForm({
   });
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [submitting, setSubmitting] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [nameError, setNameError] = useState(false);
   const [pricedSelections, setPricedSelections] = useState<Array<{ ticket_type_id: string; quantity: number; price: number }>>([]);
 
   // Fetch ticket prices
@@ -107,6 +109,17 @@ export default function GuestCheckoutForm({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      setNameError(true);
+      toast.error('Veuillez entrer votre nom');
+      const el = nameInputRef.current;
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => el.focus(), 250);
+      }
+      return;
+    }
+    setNameError(false);
     setSubmitting(true);
 
     try {
@@ -172,7 +185,7 @@ export default function GuestCheckoutForm({
       // Create guest order first
       const intlPhone = toInternationalPhone(formData.phone);
       const orderResult: any = await orderService.createGuestOrder({
-        email: formData.email,
+        email: '',
         name: formData.name,
         phone: intlPhone,
         eventId,
@@ -195,7 +208,6 @@ export default function GuestCheckoutForm({
           token: orderResult.token,
           orderId: orderResult.orderId,
           phone: intlPhone,
-          email: formData.email,
         });
       }
 
@@ -217,7 +229,7 @@ export default function GuestCheckoutForm({
       const pawapayResponse = await pawapayService.createPayment({
         idempotency_key: idempotencyKey,
         user_id: undefined, // Guest checkout
-        buyer_email: formData.email,
+        buyer_email: resolveGuestEmail('', intlPhone) || undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
         ticket_lines: ticketLines,
@@ -315,27 +327,47 @@ export default function GuestCheckoutForm({
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           {/* Contact Information */}
           <div className="space-y-3.5">
             <p className="eyebrow !mb-0">Informations de contact</p>
 
             <div>
-              <label className="block text-[12px] font-semibold text-ink mb-1.5">
+              <label
+                htmlFor="guest-form-name"
+                className={`block text-[12px] font-semibold mb-1.5 ${nameError ? 'text-red-700' : 'text-ink'}`}
+              >
                 Nom complet
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                <User className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${nameError ? 'text-red-500' : 'text-ink-mute'}`} />
                 <input
+                  id="guest-form-name"
+                  ref={nameInputRef}
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
+                  onChange={(e) => {
+                    setNameError(false);
+                    setFormData({ ...formData, name: e.target.value });
+                  }}
+                  className={`w-full h-11 pl-10 pr-3.5 rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none transition-shadow ${
+                    nameError
+                      ? 'border-2 border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                      : 'border border-line focus:border-brand focus:ring-2 focus:ring-brand/15'
+                  }`}
                   required
+                  aria-invalid={nameError}
+                  aria-describedby={nameError ? 'guest-form-name-error' : undefined}
                 />
               </div>
+              {nameError && (
+                <p id="guest-form-name-error" className="mt-1.5 text-[12px] font-semibold text-red-600">
+                  Indiquez votre nom pour continuer.
+                </p>
+              )}
             </div>
 
+            {paymentMethod === 'card' && (
             <div>
               <label className="block text-[12px] font-semibold text-ink mb-1.5">
                 Adresse email
@@ -351,6 +383,7 @@ export default function GuestCheckoutForm({
                 />
               </div>
             </div>
+            )}
 
             <div>
               <label className="flex items-center justify-between text-[12px] font-semibold text-ink mb-1.5">

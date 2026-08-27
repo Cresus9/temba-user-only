@@ -1,6 +1,9 @@
 # Mobile Checkout Guide (pawaPay)
 
-Last updated: {{DATE}}
+**Supabase (Paris):** `https://wlyncuwbzhzjafmqozcm.supabase.co`  
+Do not use the legacy US host `uwmlagvsivxqocklxbbo` in the endpoint examples below.
+
+**Guest checkout** (no account): [MOBILE-GUEST-CHECKOUT.md](./MOBILE-GUEST-CHECKOUT.md). For guests, omit `user_id` / `buyer_email` on `create-pawapay-payment` and persist `guest_orders.token`.
 
 ---
 

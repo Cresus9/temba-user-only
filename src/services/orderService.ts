@@ -274,7 +274,8 @@ class OrderService {
         if (!input.paymentDetails?.cvv) throw new Error('CVV de la carte requis');
       }
 
-      // Create guest order using database function
+      // Live Paris RPC is 7 args. Named p_event_date_id 404s in PostgREST
+      // ("not in the schema cache") even when null. Stash visit date in jsonb.
       const { data, error } = await supabase.rpc('guest_order_processor', {
         p_email: resolvedEmail,
         p_name: input.name.trim(),
@@ -282,8 +283,10 @@ class OrderService {
         p_event_id: input.eventId,
         p_payment_method: input.paymentMethod,
         p_ticket_quantities: input.ticketQuantities,
-        p_payment_details: input.paymentDetails || {},
-        p_event_date_id: input.eventDateId || null
+        p_payment_details: {
+          ...(input.paymentDetails || {}),
+          ...(input.eventDateId ? { event_date_id: input.eventDateId } : {}),
+        },
       });
 
       if (error) {

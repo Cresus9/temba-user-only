@@ -115,7 +115,7 @@ Flow:
 
 If inline ticket insert fails, **upsert** `payment_finalize_jobs` — never return 200 and drop the tickets.
 
-Guest checkout exists for regular events (`GuestCheckoutForm`). **Permanent attraction booking requires auth before payment.**
+Guest checkout: same `tickets` / QR as accounts; retrieval is `guest_orders.token` + `lookup-guest-tickets`. Mobile engineers: **`docs/MOBILE-GUEST-CHECKOUT.md`**. Permanent attractions on web skip `initiate_permanent_purchase` and go through checkout with `eventDateId` + `addonTotal` (auth-before-pay is no longer required on web).
 
 Service fee: `useFeeCalculation` / `calculate_service_fees` with fallback. Guest form uses a 2% fallback in places — do not “unify” without asking.
 
@@ -135,6 +135,7 @@ Service fee: `useFeeCalculation` / `calculate_service_fees` with fallback. Guest
 | Crawler HTML | `netlify/edge-functions/og-tags.ts` |
 | Sitemap gen | `scripts/generate-sitemap.mjs` (runs in `npm run build`) |
 | Tickets UI | `/profile/my-tickets` (not `/profile/tickets`) |
+| Guest checkout (mobile spec) | `docs/MOBILE-GUEST-CHECKOUT.md` |
 
 Public pages use `PageSEO`. Auth pages: `robots="noindex, nofollow"`.
 

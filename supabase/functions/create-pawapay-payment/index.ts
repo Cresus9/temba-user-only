@@ -154,30 +154,33 @@ Deno.serve(async (req) => {
       throw new Error("pawaPay mobile money payments must be in XOF currency");
     }
 
-    // Get user email for pawaPay
-    let customerEmail = payload.buyer_email;
+    // Internal record only — pawaPay v2 deposits use MSISDN, not this email.
+    let customerEmail = (payload.buyer_email || "").trim();
     if (!customerEmail && payload.user_id) {
-      try {
-        // Get user email from database
-        const { data: userProfile, error: userError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('user_id', payload.user_id)
-          .single();
-        
-        if (userError) {
-          console.error("Failed to get user email:", userError);
-          throw new Error(`Failed to get user information: ${userError.message}`);
-        }
-        customerEmail = userProfile.email;
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        throw new Error(`Error fetching user profile: ${error.message}`);
+      const { data: userProfile, error: userError } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("user_id", payload.user_id)
+        .maybeSingle();
+      if (userError) {
+        console.error("Failed to get user email:", userError);
       }
+      customerEmail = (userProfile?.email || "").trim();
     }
-
+    if (!customerEmail && payload.order_id) {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("guest_email")
+        .eq("id", payload.order_id)
+        .maybeSingle();
+      customerEmail = (orderRow?.guest_email || "").trim();
+    }
+    if (!customerEmail && payload.phone) {
+      const digits = payload.phone.replace(/\D/g, "");
+      if (digits.length >= 8) customerEmail = `${digits}@temba.temp`;
+    }
     if (!customerEmail) {
-      throw new Error("Customer email is required (either buyer_email or user_id must be provided)");
+      throw new Error("Customer email is required (either buyer_email, user_id, order guest_email, or phone must be provided)");
     }
 
     console.log("Customer email resolved:", customerEmail);

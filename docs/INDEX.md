@@ -17,6 +17,7 @@ This index provides a comprehensive overview of all Temba platform documentation
 - [Architecture](./ARCHITECTURE.md) - System design and components
 - [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
 - [Mobile Ticket Transfer Guide](./MOBILE-TICKET-TRANSFER-GUIDE.md) - Complete ticket transfer implementation for mobile apps
+- [Mobile Guest Checkout](./MOBILE-GUEST-CHECKOUT.md) - Guest pay, tables, RPCs, lookup/claim, QR without an account
 - [Mes Billets Logic](./MES-BILLETS-LOGIC.md) - How "My Tickets" fetching works and restrictions applied
 
 ### For DevOps
@@ -160,6 +161,16 @@ This index provides a comprehensive overview of all Temba platform documentation
 - Touch interactions and accessibility features
 - State transition diagrams
 - Mobile-specific design elements
+
+#### [Mobile Guest Checkout](./MOBILE-GUEST-CHECKOUT.md)
+**Purpose**: Implement buy-without-account on mobile (same tickets table as logged-in buyers)
+**Audience**: Mobile developers
+**Content**:
+- Tables: `guest_orders`, `orders`, `tickets` (do not use `guest_ticket_details`)
+- RPC `guest_order_processor` (Orange/Moov) and `create-stripe-payment` (card)
+- Lookup / recover via `lookup-guest-tickets`; attach after login via `claim-guest-orders`
+- Placeholder emails `{digits}@temba.temp`, E.164 phones, Paris Supabase URL
+- Device token wallet, OTP recovery, fees/addons, permanent attractions
 
 #### [Unregistered User Flow](./UNREGISTERED-USER-FLOW.md)
 **Purpose**: Complete implementation for unregistered users

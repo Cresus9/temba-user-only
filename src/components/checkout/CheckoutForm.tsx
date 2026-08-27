@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Wallet, AlertCircle, Loader, Plus, Check, Smartphone, Gift, Ticket, Mail, User, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +14,7 @@ import StripePaymentForm from './StripePaymentForm';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { pawapayService } from '../../services/pawapayService';
 import { formatCurrency } from '../../utils/formatters';
-import { persistGuestWallet, realGuestEmail } from '../../services/guestTicketService';
+import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import CountryCodeSelector from '../CountryCodeSelector';
 import { isValidPhone, normalizePhone } from '../../utils/phoneValidation';
 
@@ -66,6 +66,8 @@ export default function CheckoutForm({
   const awaitingLogin = isGuestCheckout && identityMode === 'account';
 
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_DIAL_CODE);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [nameError, setNameError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
@@ -319,16 +321,23 @@ export default function CheckoutForm({
   const validateForm = (): boolean => {
     if (isGuestCheckout) {
       if (!formData.name.trim()) {
+        setNameError(true);
         toast.error('Veuillez entrer votre nom');
+        const el = nameInputRef.current;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          window.setTimeout(() => el.focus(), 250);
+        }
         return false;
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const emailTyped = formData.email.trim();
-      if (emailTyped && !emailRegex.test(emailTyped)) {
-        toast.error('Veuillez entrer une adresse email valide');
-        return false;
-      }
+      setNameError(false);
       if (paymentMethod === 'card') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailTyped = formData.email.trim();
+        if (emailTyped && !emailRegex.test(emailTyped)) {
+          toast.error('Veuillez entrer une adresse email valide');
+          return false;
+        }
         const phoneOk = isValidPhone(toInternationalPhone(formData.phone, phoneCountryCode));
         const emailOk = emailRegex.test(emailTyped);
         if (!emailOk && !phoneOk) {
@@ -610,7 +619,7 @@ export default function CheckoutForm({
 
       if (isGuestCheckout) {
         orderResult = await orderService.createGuestOrder({
-          email: formData.email.trim(),
+          email: '',
           name: formData.name.trim(),
           phone: toInternationalPhone(formData.phone, phoneCountryCode),
           eventId,
@@ -625,7 +634,6 @@ export default function CheckoutForm({
             token: guestToken,
             orderId: orderResult.orderId,
             phone: toInternationalPhone(formData.phone, phoneCountryCode),
-            email: realGuestEmail(formData.email),
           });
         }
       } else {
@@ -655,7 +663,12 @@ export default function CheckoutForm({
       const pawapayResponse = await pawapayService.createPayment({
         idempotency_key: idempotencyKey,
         user_id: user?.id,
-        buyer_email: user?.email || formData.email.trim() || undefined,
+        // Phone-only guests have no inbox; EF still requires buyer_email or user_id.
+        // Placeholder {digits}@temba.temp is not shown in UI. PawaPay v2 uses MSISDN only.
+        buyer_email:
+          user?.email ||
+          resolveGuestEmail('', paymentDetails.phone) ||
+          undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
         ticket_lines: ticketLines,
@@ -900,31 +913,48 @@ export default function CheckoutForm({
                   <p className="text-[13px] text-ink-mute leading-relaxed">
                     {paymentMethod === 'card'
                       ? 'E-mail ou téléphone — au moins un, pour retrouver vos billets.'
-                      : 'Le numéro Orange ou Moov sert à retrouver vos billets. L’e-mail est facultatif.'}
+                      : 'Le numéro Orange ou Moov sert à payer et à retrouver vos billets.'}
                   </p>
                   <div>
-                    <label className="block text-[12px] font-semibold text-ink mb-1.5">
+                    <label
+                      htmlFor="guest-checkout-name"
+                      className={`block text-[12px] font-semibold mb-1.5 ${nameError ? 'text-red-700' : 'text-ink'}`}
+                    >
                       Nom complet
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
+                      <User className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${nameError ? 'text-red-500' : 'text-ink-mute'}`} />
                       <input
+                        id="guest-checkout-name"
+                        ref={nameInputRef}
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
+                        onChange={(e) => {
+                          setNameError(false);
+                          setFormData({ ...formData, name: e.target.value });
+                        }}
+                        className={`w-full h-11 pl-10 pr-3.5 rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none transition-shadow ${
+                          nameError
+                            ? 'border-2 border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                            : 'border border-line focus:border-brand focus:ring-2 focus:ring-brand/15'
+                        }`}
                         placeholder="Nom et prénom"
                         autoComplete="name"
                         required
+                        aria-invalid={nameError}
+                        aria-describedby={nameError ? 'guest-checkout-name-error' : undefined}
                       />
                     </div>
+                    {nameError && (
+                      <p id="guest-checkout-name-error" className="mt-1.5 text-[12px] font-semibold text-red-600">
+                        Indiquez votre nom pour continuer.
+                      </p>
+                    )}
                   </div>
+                  {paymentMethod === 'card' && (
                   <div>
                     <label className="block text-[12px] font-semibold text-ink mb-1.5">
                       Adresse email
-                      {paymentMethod !== 'card' ? (
-                        <span className="font-medium text-ink-mute"> · facultatif</span>
-                      ) : null}
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
@@ -935,10 +965,11 @@ export default function CheckoutForm({
                         className="w-full h-11 pl-10 pr-3.5 border border-line rounded-lg bg-paper text-[14px] text-ink placeholder:text-ink-mute/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-shadow"
                         placeholder="vous@email.com"
                         autoComplete="email"
-                        required={paymentMethod === 'card' && !formData.phone.replace(/\s/g, '')}
+                        required={!formData.phone.replace(/\s/g, '')}
                       />
                     </div>
                   </div>
+                  )}
                   {paymentMethod === 'card' && (
                     <div>
                       <label className="block text-[12px] font-semibold text-ink mb-1.5">
