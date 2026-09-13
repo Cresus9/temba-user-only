@@ -3,19 +3,38 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAM_ID.app.rork.temba",
-        "paths": [
-          "/event/*",
-          "/checkout/*",
-          "/category/*",
-          "/transfer/*"
+        "appIDs": ["ZKTVP26742.app.rork.temba"],
+        "components": [
+          { "/": "/reset-password", "exclude": true },
+          { "/": "/reset-password/*", "exclude": true },
+          { "/": "/terms", "exclude": true },
+          { "/": "/terms/*", "exclude": true },
+          { "/": "/privacy", "exclude": true },
+          { "/": "/privacy/*", "exclude": true },
+          { "/": "/login", "exclude": true },
+          { "/": "/register", "exclude": true },
+          { "/": "/event/*" },
+          { "/": "/checkout/*" },
+          { "/": "/category/*" },
+          { "/": "/ticket/*" },
+          { "/": "/tickets" },
+          { "/": "/transfer/*" },
+          { "/": "/guest/*" },
+          { "/": "/referrals" },
+          { "/": "/refer" },
+          { "/": "/ref/*" },
+          { "/": "/invite/*" },
+          { "/": "/promo/*" },
+          { "/": "/explore" },
+          { "/": "/search" },
+          { "/": "/profile" },
+          { "/": "/profile/*" },
+          { "/": "/notifications" }
         ]
       }
     ]
   },
   "webcredentials": {
-    "apps": [
-      "TEAM_ID.app.rork.temba"
-    ]
+    "apps": ["ZKTVP26742.app.rork.temba"]
   }
 }
