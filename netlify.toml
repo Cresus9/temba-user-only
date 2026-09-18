@@ -169,6 +169,22 @@
   function = "og-tags"
   path = "/ref/*"
 
+[[edge_functions]]
+  function = "og-tags"
+  path = "/ouagadougou"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/bobo-dioulasso"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/abidjan"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/dakar"
+
 # WhatsApp share: /w/SLUG → wa.me (no meta-refresh, not og-tags)
 [[edge_functions]]
   function = "wa-share"

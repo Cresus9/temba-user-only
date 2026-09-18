@@ -400,6 +400,23 @@ export default function Home() {
               Concerts, festivals, sport, culture — trouvez l'événement qui vous ressemble.
             </p>
           </FadeUp>
+          <div className="flex flex-wrap gap-2 mb-6">
+            {[
+              { slug: 'ouagadougou', name: 'Ouagadougou' },
+              { slug: 'bobo-dioulasso', name: 'Bobo-Dioulasso' },
+              { slug: 'abidjan', name: 'Abidjan' },
+              { slug: 'dakar', name: 'Dakar' },
+            ].map((c) => (
+              <Link
+                key={c.slug}
+                to={`/${c.slug}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cream border border-line text-[13px] font-semibold text-ink hover:border-brand/40"
+              >
+                <MapPin className="w-3.5 h-3.5 text-brand" />
+                {c.name}
+              </Link>
+            ))}
+          </div>
           <CategoryList />
         </div>
       </section>

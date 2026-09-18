@@ -255,9 +255,9 @@ export async function listAttractions(filters?: {
   let query = supabase
     .from('events')
     .select(`
-      id, title, description, image_url, attraction_type,
+      id, slug, title, description, image_url, attraction_type,
       venue, location, city, country_code,
-      capacity, sales_start_date, featured,
+      capacity, sales_start_date, featured, is_permanent,
       ticket_types(id, name, price, available, sales_enabled)
     `)
     .eq('is_permanent', true)

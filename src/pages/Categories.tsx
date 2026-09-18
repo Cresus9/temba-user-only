@@ -5,6 +5,7 @@ import CategoryList from '../components/categories/CategoryList';
 import { useCategoryStore } from '../stores/categoryStore';
 import { EventCategory } from '../types/event';
 import PageSEO from '../components/SEO/PageSEO';
+import { categoryPublicPath } from '../data/categoryLandings';
 
 const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
@@ -65,7 +66,7 @@ export default function Categories() {
     hasPart: categories.map((category) => ({
       '@type': 'CollectionPage',
       name: category.name,
-      url: `https://tembas.com/categories/${category.id}`,
+      url: `https://tembas.com${categoryPublicPath(category)}`,
       description: category.description || undefined,
     })),
   }), [categories]);

@@ -1,6 +1,6 @@
 export const CATEGORIES = [
   {
-    id: 'music-concerts',
+    id: 'concerts-de-musique',
     name: 'Concerts de Musique',
     description: 'Performances live des meilleurs artistes',
     icon: 'music',
@@ -16,7 +16,7 @@ export const CATEGORIES = [
     subcategories: ['Premières', 'Festivals de Film', 'Projections']
   },
   {
-    id: 'sports',
+    id: 'sport',
     name: 'Sports',
     description: 'Grands événements sportifs',
     icon: 'trophy',

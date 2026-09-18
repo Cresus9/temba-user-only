@@ -5,6 +5,7 @@ import { Event } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
 import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
+import { categoryPublicPath } from '../../data/categoryLandings';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
@@ -86,7 +87,7 @@ export default function UpcomingEvents({ limit = 6, category, countryFilter = ''
           <h2 className="text-ink">{sectionTitle}</h2>
         </div>
         <Link
-          to={category ? `/categories/${category}` : '/events'}
+          to={category ? categoryPublicPath({ name: category }) : '/events'}
           className="self-start md:self-end text-[14px] font-semibold text-ink hover:text-brand transition-colors inline-flex items-center gap-1.5"
         >
           Tout voir

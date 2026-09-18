@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Mail, MapPin, Phone, MessageSquare, ArrowUpRight } from 'lucide-react';
 import NewsletterForm from './NewsletterForm';
 import Logo from './brand/Logo';
+import { CITY_LANDINGS } from '../data/cityLandings';
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -13,14 +14,11 @@ export default function Footer() {
     'w-9 h-9 grid place-items-center rounded-lg bg-paper/[0.06] text-paper/70 hover:text-paper hover:bg-brand transition-all duration-200';
 
   const cities = [
-    'Ouagadougou',
-    'Bobo-Dioulasso',
-    'Abidjan',
-    'Dakar',
-    'Lomé',
-    'Cotonou',
-    'Niamey',
-    'Bamako',
+    ...CITY_LANDINGS.map((c) => ({ name: c.name, href: `/${c.slug}` as string | null })),
+    { name: 'Lomé', href: null },
+    { name: 'Cotonou', href: null },
+    { name: 'Niamey', href: null },
+    { name: 'Bamako', href: null },
   ];
 
   return (
@@ -179,8 +177,17 @@ export default function Footer() {
             <p className="eyebrow !text-paper/45 flex-shrink-0">Présent à</p>
             <p className="text-[12px] text-paper/55 leading-relaxed">
               {cities.map((city, i) => (
-                <span key={city}>
-                  <span className={i === 0 ? 'text-paper/90 font-semibold' : ''}>{city}</span>
+                <span key={city.name}>
+                  {city.href ? (
+                    <Link
+                      to={city.href}
+                      className={i === 0 ? 'text-paper/90 font-semibold hover:text-paper' : 'hover:text-paper'}
+                    >
+                      {city.name}
+                    </Link>
+                  ) : (
+                    <span className={i === 0 ? 'text-paper/90 font-semibold' : ''}>{city.name}</span>
+                  )}
                   {i < cities.length - 1 && (
                     <span aria-hidden className="mx-1.5 text-paper/25">·</span>
                   )}

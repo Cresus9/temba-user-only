@@ -74,6 +74,114 @@ const CRAWLER_USER_AGENTS = [
   "duckassist",
 ];
 
+const CITY_PAGES: Record<
+  string,
+  { name: string; title: string; description: string; aliases: string[]; countryCode: string }
+> = {
+  ouagadougou: {
+    name: "Ouagadougou",
+    countryCode: "BF",
+    title: "Événements à Ouagadougou — billets en FCFA",
+    description:
+      "Concerts, festivals, soirées et attractions à Ouagadougou. Achetez vos billets Temba en Orange Money, Moov ou carte.",
+    aliases: ["ouagadougou", "ouaga"],
+  },
+  "bobo-dioulasso": {
+    name: "Bobo-Dioulasso",
+    countryCode: "BF",
+    title: "Événements à Bobo-Dioulasso — billets Temba",
+    description:
+      "Agenda Temba à Bobo-Dioulasso : concerts, culture et sorties. Billets en ligne, paiement Mobile Money.",
+    aliases: ["bobo-dioulasso", "bobo dioulasso", "bobo"],
+  },
+  abidjan: {
+    name: "Abidjan",
+    countryCode: "CI",
+    title: "Événements à Abidjan — billets Temba",
+    description:
+      "Concerts et festivals à Abidjan sur Temba. Réservez en ligne, payez en FCFA, présentez votre QR à l’entrée.",
+    aliases: ["abidjan", "cocody", "plateau", "yopougon", "marcory"],
+  },
+  dakar: {
+    name: "Dakar",
+    countryCode: "SN",
+    title: "Événements à Dakar — billets Temba",
+    description: "Concerts et festivals à Dakar. Achetez vos billets Temba en ligne, QR sur mobile.",
+    aliases: ["dakar"],
+  },
+};
+
+const DEFAULT_CITY_BY_COUNTRY: Record<string, string> = {
+  BF: "ouagadougou",
+  CI: "abidjan",
+  SN: "dakar",
+};
+
+function foldAscii(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function frenchCategorySlug(category: { slug?: string; name?: string } | null, fallback: string): string {
+  const s = String(category?.slug ?? "").toLowerCase();
+  const n = foldAscii(String(category?.name ?? "").replace(/-/g, " "));
+  const f = foldAscii(fallback.replace(/-/g, " "));
+  if (
+    s === "music-concerts" ||
+    n.includes("music concert") ||
+    n.includes("concerts de musique") ||
+    f.includes("music concert") ||
+    fallback === "concerts-de-musique"
+  ) {
+    return "concerts-de-musique";
+  }
+  if (s === "sports" || n === "sports" || n === "sport" || fallback === "sports") {
+    return "sport";
+  }
+  if (s === "cinema" || n.includes("cinema") || fallback === "cinema") return "cinema";
+  if (s === "festivals" || n.includes("festival") || fallback === "festivals") return "festivals";
+  return s || fallback;
+}
+
+function frenchCategoryName(slug: string, dbName?: string): string {
+  if (slug === "concerts-de-musique") return "Concerts de Musique";
+  if (slug === "cinema") return "Cinéma";
+  if (slug === "sport") return "Sports";
+  if (slug === "festivals") return "Festivals";
+  return dbName || slug;
+}
+function aliasesHitHay(hay: string, aliases: string[]): boolean {
+  if (!hay) return false;
+  const tokens = hay.split(/[^a-z0-9]+/).filter(Boolean);
+  return aliases.some((alias) => {
+    const a = foldAscii(alias);
+    if (!a) return false;
+    if (a.includes(" ")) return hay.includes(a);
+    return tokens.includes(a);
+  });
+}
+
+function eventMatchesCityPage(
+  event: { city?: string; location?: string; address?: string; country_code?: string },
+  slug: string,
+  cityPage: { aliases: string[]; countryCode: string }
+): boolean {
+  const hay = foldAscii([event.city, event.location, event.address].filter(Boolean).join(" "));
+  if (aliasesHitHay(hay, cityPage.aliases)) return true;
+  const other = Object.entries(CITY_PAGES).some(
+    ([otherSlug, page]) => otherSlug !== slug && aliasesHitHay(hay, page.aliases)
+  );
+  if (other) return false;
+  const cc = String(event.country_code || "BF").toUpperCase();
+  if (cc !== cityPage.countryCode) return false;
+  return DEFAULT_CITY_BY_COUNTRY[cc] === slug;
+}
+
 function isCrawler(userAgent: string | null): boolean {
   if (!userAgent) return false;
   const ua = userAgent.toLowerCase();
@@ -139,7 +247,7 @@ function eventPublicPath(event: { id: string; slug?: string | null }): string {
 async function fetchPublishedEvents(limit = 30) {
   return (
     (await supabaseGet(
-      `events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency&status=eq.PUBLISHED&deleted_at=is.null&order=date.asc.nullslast&limit=${limit}`
+      `events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&order=date.asc.nullslast&limit=${limit}`
     )) ?? []
   );
 }
@@ -672,11 +780,14 @@ export default async function handler(request: Request, context: Context) {
         description:
           "Concerts, festivals, spectacles et sorties : parcourez les catégories Temba.",
         url: "https://tembas.com/categories",
-        items: categories.map((c) => ({
-          href: `https://tembas.com/categories/${c.slug || c.id}`,
-          name: c.name,
-          extra: stripHtml(c.description).slice(0, 80),
-        })),
+        items: categories.map((c) => {
+          const slug = frenchCategorySlug(c, c.slug || c.id);
+          return {
+            href: `https://tembas.com/categories/${slug}`,
+            name: frenchCategoryName(slug, c.name),
+            extra: stripHtml(c.description).slice(0, 80),
+          };
+        }),
       }),
       { headers: htmlHeaders }
     );
@@ -689,24 +800,77 @@ export default async function handler(request: Request, context: Context) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         key
       );
-    const rows = await supabaseGet(
+    let rows = await supabaseGet(
       isUuid
         ? `categories?id=eq.${key}&select=id,slug,name,description&limit=1`
         : `categories?slug=eq.${encodeEq(key)}&select=id,slug,name,description&limit=1`
     );
+    if (!rows?.[0] && !isUuid) {
+      const alias =
+        key === "concerts-de-musique"
+          ? "music-concerts"
+          : key === "sport"
+          ? "sports"
+          : key === "music-concerts"
+          ? "concerts-de-musique"
+          : key === "sports"
+          ? "sport"
+          : "";
+      if (alias) {
+        rows = await supabaseGet(
+          `categories?slug=eq.${encodeEq(alias)}&select=id,slug,name,description&limit=1`
+        );
+      }
+      if (!rows?.[0]) {
+        const nameGuess = key.replace(/-/g, " ");
+        rows = await supabaseGet(
+          `categories?name=ilike.${encodeEq(nameGuess)}&select=id,slug,name,description&limit=1`
+        );
+      }
+      if (!rows?.[0] && (key === "concerts-de-musique" || key === "music-concerts")) {
+        rows = await supabaseGet(
+          `categories?name=ilike.${encodeEq("Music Concerts")}&select=id,slug,name,description&limit=1`
+        );
+      }
+    }
     const category = rows?.[0];
-    const name = category?.name || key;
+    const publicSlug = frenchCategorySlug(category, key);
+    if (category && key !== publicSlug) {
+      return Response.redirect(`https://tembas.com/categories/${publicSlug}`, 301);
+    }
+    const name = frenchCategoryName(publicSlug, category?.name || key);
+    let items: { href: string; name: string; extra?: string }[] = [
+      { href: "https://tembas.com/categories", name: "Toutes les catégories" },
+      { href: "https://tembas.com/events", name: "Agenda Temba" },
+    ];
+    if (category?.id) {
+      const rels =
+        (await supabaseGet(
+          `event_category_relations?category_id=eq.${category.id}&select=event_id&limit=40`
+        )) ?? [];
+      const ids = [...new Set(rels.map((r) => r.event_id).filter(Boolean))];
+      if (ids.length) {
+        const listed =
+          (await supabaseGet(
+            `events?id=in.(${ids.join(",")})&status=eq.PUBLISHED&deleted_at=is.null&select=id,slug,title,city,location&limit=40`
+          )) ?? [];
+        if (listed.length) {
+          items = listed.map((e) => ({
+            href: `https://tembas.com${eventPublicPath(e)}`,
+            name: e.title,
+            extra: e.city || e.location || "",
+          }));
+        }
+      }
+    }
     return new Response(
       generateCollectionHtml({
-        title: name,
+        title: `${name} — billets Temba`,
         description:
           stripHtml(category?.description) ||
-          `Événements ${name} au Burkina Faso — billets sur Temba.`,
-        url: `https://tembas.com/categories/${key}`,
-        items: [
-          { href: "https://tembas.com/categories", name: "Toutes les catégories" },
-          { href: "https://tembas.com/events", name: "Agenda Temba" },
-        ],
+          `Événements ${name} au Burkina Faso — billets en FCFA sur Temba.`,
+        url: `https://tembas.com/categories/${publicSlug}`,
+        items,
       }),
       { headers: htmlHeaders }
     );
@@ -832,6 +996,37 @@ export default async function handler(request: Request, context: Context) {
     return new Response(generateReferralHtml(refMatch[1]), { headers: htmlHeaders });
   }
 
+  const citySlug = url.pathname.replace(/^\/+|\/+$/g, "");
+  const cityPage = CITY_PAGES[citySlug];
+  if (cityPage) {
+    const [dated, permanents] = await Promise.all([
+      fetchPublishedEvents(80),
+      supabaseGet(
+        "events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&is_permanent=eq.true&limit=40"
+      ),
+    ]);
+    const merged = [...(dated ?? []), ...(permanents ?? [])];
+    const seen = new Set<string>();
+    const events = merged.filter((e) => {
+      if (!e?.id || seen.has(e.id)) return false;
+      seen.add(e.id);
+      return eventMatchesCityPage(e, citySlug, cityPage);
+    });
+    return new Response(
+      generateCollectionHtml({
+        title: cityPage.title,
+        description: cityPage.description,
+        url: `https://tembas.com/${citySlug}`,
+        items: events.map((e) => ({
+          href: `https://tembas.com${eventPublicPath(e)}`,
+          name: e.title,
+          extra: e.city || e.location || "",
+        })),
+      }),
+      { headers: htmlHeaders }
+    );
+  }
+
   return context.next();
 }
 
@@ -855,5 +1050,9 @@ export const config = {
     "/support",
     "/tags/*",
     "/ref/*",
+    "/ouagadougou",
+    "/bobo-dioulasso",
+    "/abidjan",
+    "/dakar",
   ],
 };

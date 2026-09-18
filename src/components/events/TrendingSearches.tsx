@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { Event } from '../../types/event';
 import { CategoryService } from '../../services/categoryService';
+import { categoryPublicPath } from '../../data/categoryLandings';
 
 interface TrendingSearch {
   id: string;
@@ -146,7 +147,7 @@ export default function TrendingSearches() {
         {trendingSearches.map((search) => (
           <Link
             key={search.id}
-            to={`/categories/${search.id}`}
+            to={categoryPublicPath({ id: search.id, name: search.name })}
             className="flex-shrink-0 group"
           >
             <div className="relative w-48 h-32 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105">

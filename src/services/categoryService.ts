@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase-client';
 import { EventCategory, Event } from '../types/event';
 import { queryCache, TTL } from '../utils/queryCache';
+import { categoryLandingFromParam } from '../data/categoryLandings';
 
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL ?? '';
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
@@ -71,35 +72,55 @@ export class CategoryService {
     }
   }
 
-  // Fetch category by slug (fallback when route param is not a UUID)
+  // Fetch category by slug (French public slug, English aliases, or name)
   static async fetchCategoryBySlug(slug: string): Promise<EventCategory | null> {
     try {
-      const normalized = decodeURIComponent(slug).replace(/-/g, ' ').trim();
-      const { data, error } = await supabase
+      const landing = categoryLandingFromParam(slug);
+      const namesToTry = [
+        landing?.name,
+        decodeURIComponent(slug).replace(/-/g, ' ').trim(),
+        ...(landing?.aliases ?? []),
+      ].filter(Boolean) as string[];
+
+      const { data: bySlug } = await supabase
         .from('categories')
         .select('*')
-        .ilike('name', normalized)
-        .single();
+        .eq('slug', landing?.slug || slug)
+        .maybeSingle();
+      if (bySlug) return bySlug;
 
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      // Try a broader match as a second chance
-      try {
-        const likePattern = `%${decodeURIComponent(slug).replace(/-/g, ' ').trim()}%`;
+      if (landing) {
+        const { data: aliasSlug } = await supabase
+          .from('categories')
+          .select('*')
+          .in('slug', [landing.slug, ...landing.aliases.filter((a) => !a.includes(' '))])
+          .limit(1)
+          .maybeSingle();
+        if (aliasSlug) return aliasSlug;
+      }
+
+      for (const name of namesToTry) {
         const { data, error } = await supabase
           .from('categories')
           .select('*')
-          .ilike('name', likePattern)
+          .ilike('name', name)
           .limit(1)
-          .single();
-
-        if (error) throw error;
-        return data;
-      } catch (e) {
-        console.error('Error fetching category by slug:', e);
-        return null;
+          .maybeSingle();
+        if (!error && data) return data;
       }
+
+      const likePattern = `%${decodeURIComponent(slug).replace(/-/g, ' ').trim()}%`;
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .ilike('name', likePattern)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.error('Error fetching category by slug:', e);
+      return null;
     }
   }
 

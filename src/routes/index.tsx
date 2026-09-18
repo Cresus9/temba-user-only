@@ -49,6 +49,8 @@ import VenueProfile from '../pages/public/VenueProfile';
 import VenuesDirectory from '../pages/public/VenuesDirectory';
 import TagPage from '../pages/public/TagPage';
 import AttractionsDirectory from '../pages/public/AttractionsDirectory';
+import CityLanding from '../pages/public/CityLanding';
+import { CITY_LANDINGS } from '../data/cityLandings';
 
 // Test Components
 import CategoryTest from '../components/CategoryTest';
@@ -129,6 +131,9 @@ export default function AppRoutes() {
         <Route path="/venues/:slug" element={<VenueProfile />} />
         <Route path="/tags/:slug" element={<TagPage />} />
         <Route path="/attractions" element={<AttractionsDirectory />} />
+        {CITY_LANDINGS.map((city) => (
+          <Route key={city.slug} path={`/${city.slug}`} element={<CityLanding />} />
+        ))}
 
         {/* Test Routes */}
         <Route path="/test/categories" element={<CategoryTest />} />

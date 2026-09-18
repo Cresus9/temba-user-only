@@ -7,6 +7,7 @@ import { Event, EventCategory } from '../../types/event';
 import { CategoryService } from '../../services/categoryService';
 import { sortEventsForDisplay } from '../../utils/eventGeo';
 import { useEvents } from '../../context/EventContext';
+import { categoryPublicPath } from '../../data/categoryLandings';
 
 interface CategoryEventsDisplayProps {
   searchQuery?: string;
@@ -258,7 +259,7 @@ function CategorySection({ section }: CategorySectionProps) {
             </div>
           )}
           <Link
-            to={`/categories/${category.id || category.name}`}
+            to={categoryPublicPath(category)}
             className="text-[14px] font-semibold text-ink hover:text-brand transition-colors inline-flex items-center gap-1.5"
           >
             Tout voir

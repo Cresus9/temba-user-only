@@ -21,6 +21,10 @@
 - Venues: https://tembas.com/venues
 - Artists: https://tembas.com/artists
 - Categories: https://tembas.com/categories
+- Ouagadougou: https://tembas.com/ouagadougou
+- Bobo-Dioulasso: https://tembas.com/bobo-dioulasso
+- Abidjan: https://tembas.com/abidjan
+- Dakar: https://tembas.com/dakar
 - Help (public FAQ): https://tembas.com/support
 - Contact: https://tembas.com/contact
 - Blog: https://tembas.com/blog

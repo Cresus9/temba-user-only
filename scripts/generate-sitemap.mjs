@@ -47,6 +47,10 @@ const STATIC_ROUTES = [
   { loc: '/organizers', changefreq: 'weekly', priority: 0.7 },
   { loc: '/artists', changefreq: 'weekly', priority: 0.65 },
   { loc: '/categories', changefreq: 'daily', priority: 0.7 },
+  { loc: '/ouagadougou', changefreq: 'daily', priority: 0.85 },
+  { loc: '/bobo-dioulasso', changefreq: 'daily', priority: 0.8 },
+  { loc: '/abidjan', changefreq: 'daily', priority: 0.8 },
+  { loc: '/dakar', changefreq: 'weekly', priority: 0.7 },
   { loc: '/blog', changefreq: 'daily', priority: 0.8 },
   { loc: '/about', changefreq: 'monthly', priority: 0.5 },
   { loc: '/contact', changefreq: 'monthly', priority: 0.4 },
@@ -116,15 +120,30 @@ async function fetchSlugPages(table, prefix) {
 }
 
 async function fetchCategoryPages() {
-  const data = await rest('categories?select=id,slug,updated_at');
+  const data = await rest('categories?select=id,slug,name,updated_at');
   return data
-    .filter((row) => row?.slug || row?.id)
-    .map((row) => ({
-      loc: `/categories/${row.slug || row.id}`,
-      lastmod: formatDate(row.updated_at),
-      changefreq: 'weekly',
-      priority: 0.65,
-    }));
+    .filter((row) => row?.slug || row?.name || row?.id)
+    .map((row) => {
+      const name = String(row.name || '');
+      const folded = name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      let slug = row.slug || '';
+      if (slug === 'music-concerts' || folded.includes('music concert') || folded.includes('concerts de musique')) {
+        slug = 'concerts-de-musique';
+      } else if (slug === 'sports' || folded === 'sports' || folded === 'sport') {
+        slug = 'sport';
+      } else if (!slug && name) {
+        slug = folded.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      }
+      return {
+        loc: `/categories/${slug || row.id}`,
+        lastmod: formatDate(row.updated_at),
+        changefreq: 'weekly',
+        priority: 0.65,
+      };
+    });
 }
 
 function buildXml(urlEntries) {
