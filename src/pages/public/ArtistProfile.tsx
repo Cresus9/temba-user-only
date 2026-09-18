@@ -4,6 +4,8 @@ import { MapPin, Calendar, Music, Instagram, Facebook, Youtube, Twitter, Globe, 
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency } from '../../utils/formatters';
 import { countryFlag } from '../../utils/eventGeo';
+import PageSEO from '../../components/SEO/PageSEO';
+import { eventPublicPath } from '../../utils/eventPath';
 
 interface Artist {
   id: string;
@@ -28,6 +30,7 @@ interface EventCard {
   price: number;
   currency: string;
   role?: string;
+  slug?: string | null;
 }
 
 type Tab = 'upcoming' | 'past';
@@ -51,7 +54,7 @@ export default function ArtistProfile() {
 
       const { data: ea } = await supabase
         .from('event_artists')
-        .select('role, events(id, title, date, location, image_url, price, currency, status)')
+        .select('role, events(id, slug, title, date, location, image_url, price, currency, status)')
         .eq('artist_id', a.id)
         .order('display_order');
 
@@ -80,6 +83,16 @@ export default function ArtistProfile() {
   const social = artist.social_links ?? {};
 
   return (
+    <>
+    <PageSEO
+      title={artist.name}
+      description={
+        artist.bio ||
+        `Dates de ${artist.name}${artist.genre ? ` (${artist.genre})` : ''} — billets sur Temba.`
+      }
+      canonicalUrl={`https://tembas.com/artists/${artist.slug}`}
+      ogImage={artist.cover_image_url || artist.photo_url || undefined}
+    />
     <div className="min-h-screen bg-cream bg-grain">
       {/* Cover */}
       <div className="relative h-48 sm:h-64 bg-ink overflow-hidden">
@@ -149,7 +162,7 @@ export default function ArtistProfile() {
               const [y,m,d] = event.date.split('T')[0].split('-').map(Number);
               const dt = new Date(y,m-1,d);
               return (
-                <Link key={event.id} to={`/events/${event.id}`} className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
+                <Link key={event.id} to={eventPublicPath(event)} className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
                   <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-cream border border-line flex flex-col items-center justify-center text-center">
                     <span className="text-[10px] font-bold text-brand uppercase">{dt.toLocaleDateString('fr-FR',{month:'short'}).replace('.','')}</span>
                     <span className="text-[22px] font-extrabold text-ink leading-tight" style={{fontFamily:display}}>{String(d).padStart(2,'0')}</span>
@@ -168,5 +181,6 @@ export default function ArtistProfile() {
         </div>
       </div>
     </div>
+    </>
   );
 }

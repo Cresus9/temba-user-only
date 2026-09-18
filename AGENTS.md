@@ -115,6 +115,8 @@ Flow:
 
 If inline ticket insert fails, **upsert** `payment_finalize_jobs` — never return 200 and drop the tickets.
 
+WhatsApp booking: sibling adapter, not this repo. After tickets exist, `finalize-order` may POST `WHATSAPP_ADAPTER_URL/paid` (optional secret). See `docs/WHATSAPP-CHECKOUT.md`.
+
 Guest checkout: same `tickets` / QR as accounts; retrieval is `guest_orders.token` + `lookup-guest-tickets`. Mobile engineers: **`docs/MOBILE-GUEST-CHECKOUT.md`**. Permanent attractions on web skip `initiate_permanent_purchase` and go through checkout with `eventDateId` + `addonTotal` (auth-before-pay is no longer required on web).
 
 Service fee: `useFeeCalculation` / `calculate_service_fees` with fallback. Guest form uses a 2% fallback in places — do not “unify” without asking.
@@ -136,6 +138,7 @@ Service fee: `useFeeCalculation` / `calculate_service_fees` with fallback. Guest
 | Sitemap gen | `scripts/generate-sitemap.mjs` (runs in `npm run build`) |
 | Tickets UI | `/profile/my-tickets` (not `/profile/tickets`) |
 | Guest checkout (mobile spec) | `docs/MOBILE-GUEST-CHECKOUT.md` |
+| WhatsApp booking (adapter) | Sibling repo `temba-whatsapp-bot`. Contract: `docs/WHATSAPP-CHECKOUT.md`. Share: `/w/:slug` |
 
 Public pages use `PageSEO`. Auth pages: `robots="noindex, nofollow"`.
 

@@ -88,7 +88,7 @@ export default function GlobalFloatingCart({ isOpen, onClose }: GlobalFloatingCa
   const totalAmount = cartEvents.reduce((s, e) => s + e.subtotal, 0);
 
   const handleGoToEvent = (eventId: string) => {
-    navigate(`/events/${eventId}`);
+    navigate(`/e/${eventId}`);
     onClose();
   };
 

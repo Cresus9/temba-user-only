@@ -67,7 +67,7 @@ class NotificationTriggers {
         venue: eventData.venue,
         hours_until_event: eventData.hours_until_event,
       },
-      action_url: `/events/${eventData.event_id}`,
+      action_url: `/e/${eventData.event_id}`,
       action_text: 'Voir l\'événement'
     };
 
@@ -204,7 +204,7 @@ class NotificationTriggers {
         event_date: eventData.event_date,
         refund_info: eventData.refund_info,
       },
-      action_url: `/events/${eventData.event_id}`,
+      action_url: `/e/${eventData.event_id}`,
       action_text: 'Voir les détails'
     }));
 
@@ -230,7 +230,7 @@ class NotificationTriggers {
         event_title: eventData.event_title,
         changes: eventData.changes,
       },
-      action_url: `/events/${eventData.event_id}`,
+      action_url: `/e/${eventData.event_id}`,
       action_text: 'Voir les changements'
     }));
 
@@ -261,7 +261,7 @@ class NotificationTriggers {
         new_price: priceData.new_price,
         currency: priceData.currency,
       },
-      action_url: `/events/${priceData.event_id}`,
+      action_url: `/e/${priceData.event_id}`,
       action_text: 'Voir l\'événement'
     }));
 

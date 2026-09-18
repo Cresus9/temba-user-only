@@ -6,6 +6,17 @@ import { formatCurrency } from '../../utils/formatters';
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 
+function ticketCopy(value?: string | null) {
+  if (!value) return value || '';
+  const map: Record<string, string> = {
+    'General admission ticket': 'Billet entrée générale',
+    'Standard admission ticket': 'Billet d’entrée',
+    'General Admission': 'Entrée générale',
+    'Standard admission': 'Entrée',
+  };
+  return map[value] || value;
+}
+
 interface TicketTypeCardProps {
   ticket: TicketType;
   quantity: number;
@@ -67,11 +78,11 @@ export default function TicketTypeCard({
               className="text-[15px] font-bold text-ink leading-snug"
               style={{ fontFamily: display }}
             >
-              {ticket.name}
+              {ticketCopy(ticket.name)}
             </p>
             {ticket.description && (
               <p className="text-[12px] text-ink-mute mt-0.5 leading-snug">
-                {ticket.description}
+                {ticketCopy(ticket.description)}
               </p>
             )}
           </div>

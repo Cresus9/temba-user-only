@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Event } from '../../types/event';
 import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { eventPublicPath } from '../../utils/eventPath';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
@@ -173,7 +174,7 @@ function FeaturedEventCard({ event }: FeaturedEventCardProps) {
 
   return (
     <Link
-      to={`/events/${event.id}`}
+      to={eventPublicPath(event)}
       className="group relative block rounded-xl2 overflow-hidden bg-ink shadow-card hover:shadow-card-hover transition-all duration-300"
     >
       <div className="relative aspect-[16/9] md:aspect-[21/9] overflow-hidden">

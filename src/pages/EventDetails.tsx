@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Calendar,
   MapPin,
@@ -26,6 +26,7 @@ import { formatEventDateTime, fullAddressDisplay, countryFlag, countryNameFr } f
 import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
+import { eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath';
 import PageSEO from '../components/SEO/PageSEO';
 import PermanentBookingPanel from '../components/venue/PermanentBookingPanel';
 import GalleryCarousel from '../components/venue/GalleryCarousel';
@@ -48,8 +49,10 @@ interface EventDate {
 }
 
 export default function EventDetails() {
-  const { id } = useParams<{ id: string }>();
+  const { id, eventId } = useParams<{ id?: string; eventId?: string }>();
+  const eventIdOrSlug = eventId || id;
   const navigate = useNavigate();
+  const route = useLocation();
   const { user } = useAuth();
   const { getEvent } = useEvents();
   const [event,         setEvent]         = useState<Event | null>(null);
@@ -65,21 +68,20 @@ export default function EventDetails() {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        if (!id) return;
+        if (!eventIdOrSlug) return;
 
         // 1. Serve from EventContext in-memory cache first (instant, no network)
-        const cached = getEvent(id);
+        const cached = getEvent(eventIdOrSlug);
         if (cached) {
           setEvent(cached);
           setLoading(false);
-          // Still revalidate in background so ticket availability is fresh
-          queryCache.invalidate(`event:${id}`);
+          queryCache.invalidate(`event:${cached.id}`);
         } else {
           setLoading(true);
         }
 
         // 2. Check per-event TTL cache before hitting Supabase
-        const cacheKey = `event:${id}`;
+        const cacheKey = `event:${eventIdOrSlug}`;
         const fresh = queryCache.peek<Event>(cacheKey);
         if (fresh && cached && (fresh as any).organizer_profiles) {
           // Cache is fresh AND already has organizer data — skip network
@@ -91,7 +93,7 @@ export default function EventDetails() {
         let eventData: any = null;
 
         if (!eventData) {
-          const { data, error } = await supabase
+          let query = supabase
             .from('events')
             .select(`
               *,
@@ -105,11 +107,18 @@ export default function EventDetails() {
                 max_per_order,
                 sales_enabled
               )
-            `)
-            .eq('id', id)
-            .single();
+            `);
+          query = isEventUuid(eventIdOrSlug)
+            ? query.eq('id', eventIdOrSlug)
+            : query.eq('slug', eventIdOrSlug);
+
+          const { data, error } = await query.maybeSingle();
 
           if (error) throw error;
+          if (!data) {
+            navigate('/events');
+            return;
+          }
 
           if (data.status !== 'PUBLISHED' && !user) {
             navigate('/events');
@@ -157,7 +166,7 @@ export default function EventDetails() {
         const { data: eaData } = await supabase
           .from('event_artists')
           .select('role, display_order, artists(id, name, slug, photo_url, genre, verified)')
-          .eq('event_id', id)
+          .eq('event_id', data.id)
           .order('display_order');
         if (eaData) (data as any).event_artists = eaData;
 
@@ -182,14 +191,15 @@ export default function EventDetails() {
 
         // Spread into a new object so React always detects the change
         const enrichedEvent = { ...data };
-        queryCache.set(`event:${id}`, enrichedEvent, TTL.EVENT_DETAIL);
+        queryCache.set(`event:${data.id}`, enrichedEvent, TTL.EVENT_DETAIL);
+        if (data.slug) queryCache.set(`event:${data.slug}`, enrichedEvent, TTL.EVENT_DETAIL);
         setEvent(enrichedEvent);
         setLoading(false);
 
         let { data: datesData, error: datesError } = await supabase
           .from('event_dates')
           .select('id, date, start_time, end_time, status')
-          .eq('event_id', id)
+          .eq('event_id', data.id)
           .ilike('status', 'active')
           .order('date', { ascending: true });
 
@@ -197,7 +207,7 @@ export default function EventDetails() {
           const { data: allDates } = await supabase
             .from('event_dates')
             .select('id, date, start_time, end_time, status')
-            .eq('event_id', id)
+            .eq('event_id', data.id)
             .order('date', { ascending: true });
 
           datesData =
@@ -241,11 +251,19 @@ export default function EventDetails() {
     };
 
     fetchEvent();
-  }, [id, user, navigate]);
+  }, [eventIdOrSlug, user, navigate]);
+
+  useEffect(() => {
+    if (!event?.id) return;
+    const canonical = eventPublicPath(event);
+    if (route.pathname !== canonical) {
+      navigate(canonical, { replace: true });
+    }
+  }, [event, route.pathname, navigate]);
 
   const eventUrl = useMemo(
-    () => (event?.id ? `https://tembas.com/events/${event.id}` : undefined),
-    [event?.id]
+    () => (event?.id ? eventPublicUrl(event) : undefined),
+    [event]
   );
 
   const ogImage = useMemo(() => {

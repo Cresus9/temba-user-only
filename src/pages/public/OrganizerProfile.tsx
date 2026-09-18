@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase-client';
 import { formatCurrency, parseLocalDate } from '../../utils/formatters';
 import { countryFlag } from '../../utils/eventGeo';
 import OptimizedImage from '../../components/common/Image';
+import PageSEO from '../../components/SEO/PageSEO';
+import { eventPublicPath } from '../../utils/eventPath';
 
 interface OrganizerProfile {
   organizer_id: string;
@@ -43,6 +45,7 @@ interface EventCard {
   status: string;
   tickets_sold: number;
   capacity: number;
+  slug?: string | null;
 }
 
 type Tab = 'upcoming' | 'past';
@@ -61,7 +64,7 @@ function EventTile({ event }: { event: EventCard }) {
 
   return (
     <Link
-      to={`/events/${event.id}`}
+      to={eventPublicPath(event)}
       className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all"
     >
       {/* Date badge */}
@@ -138,7 +141,7 @@ export default function OrganizerProfile() {
       // Fetch all events for this organizer
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, date, time, location, image_url, price, currency, status, tickets_sold, capacity')
+        .select('id, slug, title, date, time, location, image_url, price, currency, status, tickets_sold, capacity')
         .eq('organizer_id', org.organizer_id)
         .eq('status', 'PUBLISHED')
         .order('date', { ascending: true });
@@ -196,6 +199,16 @@ export default function OrganizerProfile() {
   }
 
   return (
+    <>
+    <PageSEO
+      title={organizer.business_name}
+      description={
+        organizer.bio ||
+        `Événements de ${organizer.business_name}${organizer.city ? ` à ${organizer.city}` : ''} — billets sur Temba.`
+      }
+      canonicalUrl={`https://tembas.com/organizers/${organizer.slug || ''}`}
+      ogImage={organizer.cover_image_url || organizer.logo_url || undefined}
+    />
     <div className="min-h-screen bg-cream bg-grain">
 
       {/* ── Hero / Cover ── */}
@@ -369,5 +382,6 @@ export default function OrganizerProfile() {
         </div>
       </div>
     </div>
+    </>
   );
 }

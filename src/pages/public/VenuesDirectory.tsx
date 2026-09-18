@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, MapPin, Building2, CheckCircle, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { countryFlag } from '../../utils/eventGeo';
+import PageSEO from '../../components/SEO/PageSEO';
 
 interface Venue {
   id: string;
@@ -75,6 +76,11 @@ export default function VenuesDirectory() {
 
   return (
     <div className="min-h-screen bg-cream bg-grain py-8">
+      <PageSEO
+        title="Lieux"
+        description="Salles et sites partenaires Temba. Trouvez où se jouent les concerts et festivals, puis achetez vos billets en FCFA."
+        canonicalUrl="https://tembas.com/venues"
+      />
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="bg-paper border border-line rounded-2xl shadow-card p-5 sm:p-6 mb-6">
           <div className="flex items-center gap-3 mb-5">

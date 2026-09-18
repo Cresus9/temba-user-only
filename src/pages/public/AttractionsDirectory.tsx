@@ -9,6 +9,7 @@ import {
 import { formatCurrency } from '../../utils/formatters';
 import { countryFlag, countryNameFr, SUPPORTED_COUNTRIES } from '../../utils/eventGeo';
 import PageSEO from '../../components/SEO/PageSEO';
+import { eventPublicPath } from '../../utils/eventPath';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -206,7 +207,7 @@ export default function AttractionsDirectory() {
                 return (
                   <Link
                     key={a.id}
-                    to={`/events/${a.id}`}
+                    to={eventPublicPath(a)}
                     className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200"
                   >
                     {/* Image */}

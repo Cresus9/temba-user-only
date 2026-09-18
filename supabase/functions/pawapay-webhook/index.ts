@@ -8,6 +8,7 @@ import {
   PAYMENT_STATUS_TTL,
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
+import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -429,6 +430,12 @@ async function handleSuccessfulPayment(
     console.warn("No order ID found for payment:", payment.id);
   }
 
+  await notifyWhatsAppAdapter({
+    payment_id: payment.id,
+    order_id: orderId,
+    status: "completed",
+  });
+
   console.log("✅ Payment completed successfully:", payment.id);
 }
 
@@ -470,6 +477,12 @@ async function handleFailedPayment(
   }
 
   console.log("❌ Payment marked as failed:", payment.id);
+
+  await notifyWhatsAppAdapter({
+    payment_id: payment.id,
+    order_id: orderId,
+    status: "failed",
+  });
 }
 
 async function handlePendingPayment(

@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, ArrowLeft, Tag } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency } from '../../utils/formatters';
+import PageSEO from '../../components/SEO/PageSEO';
+import { eventPublicPath } from '../../utils/eventPath';
 
 interface TagRow {
   id: string;
@@ -20,6 +22,7 @@ interface EventCard {
   image_url: string | null;
   price: number;
   currency: string;
+  slug?: string | null;
 }
 
 type Tab = 'upcoming' | 'past';
@@ -43,7 +46,7 @@ export default function TagPage() {
 
       const { data: et } = await supabase
         .from('event_tags')
-        .select('events(id, title, date, location, image_url, price, currency, status)')
+        .select('events(id, slug, title, date, location, image_url, price, currency, status)')
         .eq('tag_id', t.id);
 
       const evts: EventCard[] = (et || [])
@@ -73,6 +76,11 @@ export default function TagPage() {
 
   return (
     <div className="min-h-screen bg-cream bg-grain">
+      <PageSEO
+        title={tag.name}
+        description={tag.description || `Événements ${tag.name} — billets sur Temba.`}
+        canonicalUrl={`https://tembas.com/tags/${tag.slug}`}
+      />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
         <div className="bg-paper border border-line rounded-2xl shadow-card p-5 sm:p-6 mb-6">
@@ -107,7 +115,7 @@ export default function TagPage() {
               const [y,m,d] = event.date.split('T')[0].split('-').map(Number);
               const dt = new Date(y,m-1,d);
               return (
-                <Link key={event.id} to={`/events/${event.id}`} className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
+                <Link key={event.id} to={eventPublicPath(event)} className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all">
                   <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-cream border border-line flex flex-col items-center justify-center">
                     <span className="text-[10px] font-bold text-brand uppercase">{dt.toLocaleDateString('fr-FR',{month:'short'}).replace('.','')}</span>
                     <span className="text-[22px] font-extrabold text-ink leading-tight" style={{fontFamily:display}}>{String(d).padStart(2,'0')}</span>

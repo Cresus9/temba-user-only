@@ -9,6 +9,7 @@ import PageSEO from '../components/SEO/PageSEO';
 import { computeAddonsTotal, type AddonSelection } from '../services/addonService';
 import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../services/foodMenuService';
 import { guestRedirectForOrder } from '../services/guestTicketService';
+import { eventPublicPath } from '../utils/eventPath';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -19,6 +20,7 @@ interface CheckoutState {
   };
   currency: string;
   eventId: string;
+  eventSlug?: string | null;
   eventDateId?: string | null;
   /** Pre-computed extras total passed from PermanentBookingPanel (addons + food) */
   addonTotal?: number;
@@ -106,7 +108,11 @@ export default function Checkout() {
       <section className="bg-cream bg-grain border-b border-line">
         <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
           <Link
-            to={state?.eventId ? `/events/${state.eventId}` : '/events'}
+            to={
+              state?.eventId
+                ? eventPublicPath({ id: state.eventId, slug: state.eventSlug })
+                : '/events'
+            }
             className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors mb-3"
           >
             <ArrowLeft className="h-3.5 w-3.5" />

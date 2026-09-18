@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Music, MapPin, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { countryFlag } from '../../utils/eventGeo';
+import PageSEO from '../../components/SEO/PageSEO';
 
 interface Artist {
   id: string;
@@ -71,6 +72,11 @@ export default function ArtistsDirectory() {
 
   return (
     <div className="min-h-screen bg-cream bg-grain py-8">
+      <PageSEO
+        title="Artistes"
+        description="Artistes programmés sur Temba. Découvrez les dates et achetez vos billets en ligne."
+        canonicalUrl="https://tembas.com/artists"
+      />
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="bg-paper border border-line rounded-2xl shadow-card p-5 sm:p-6 mb-6">

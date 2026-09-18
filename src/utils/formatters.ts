@@ -8,6 +8,15 @@ export const parseLocalDate = (dateString: string): Date => {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 };
 
+/** Local calendar day as YYYY-MM-DD (not UTC). */
+export function localTodayYmd(): string {
+  const n = new Date();
+  const y = n.getFullYear();
+  const m = String(n.getMonth() + 1).padStart(2, '0');
+  const d = String(n.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export const formatCurrency = (amount: number, currency: string = 'XOF'): string => {
   const normalizedCurrency = currency?.toUpperCase?.() ?? 'XOF';
 

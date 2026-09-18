@@ -26,6 +26,9 @@ yarn-error.log*
 # IDE
 .idea
 .vscode
+
+# WhatsApp adapter lives in a sibling repo (temba-whatsapp-bot), not here
+/whatsapp-bot/
 *.swp
 *.swo
 

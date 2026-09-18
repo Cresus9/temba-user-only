@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Event } from '../types/event';
 import { formatCurrency, parseLocalDate } from '../utils/formatters';
 import { shortDateLabel, eventLocationLabel, isAbroadEvent } from '../utils/eventGeo';
+import { eventPublicPath } from '../utils/eventPath';
 import PosterMedia from './common/PosterMedia';
 
 interface EventCardProps extends Event {
@@ -31,13 +32,21 @@ const EventCard = memo(({
   country_code,
   city,
   timezone,
+  is_permanent,
+  slug,
 }: EventCardProps) => {
   const availabilityPercentage = (tickets_sold / capacity) * 100;
-  const eventDate = parseLocalDate(date);
-  const isUpcoming = eventDate > new Date();
-
   const tz = timezone ?? 'Africa/Ouagadougou';
-  const formattedDate = shortDateLabel(date, tz);
+  const isPermanent = is_permanent === true;
+  const eventDate = !isPermanent && date ? parseLocalDate(date) : null;
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const isUpcoming = isPermanent || (eventDate ? eventDate >= dayStart : false);
+  const formattedDate = isPermanent
+    ? 'Toute l’année'
+    : date
+      ? shortDateLabel(date, tz)
+      : 'Date à confirmer';
 
   const abroad = isAbroadEvent(country_code);
   const { primary: locationLabel, badge: flagBadge } = eventLocationLabel({
@@ -54,7 +63,7 @@ const EventCard = memo(({
       className="h-full"
     >
     <Link
-      to={`/events/${id}`}
+      to={eventPublicPath({ id, slug })}
       className={`group block h-full bg-paper rounded-xl2 border border-line hover:border-brand/40 shadow-card overflow-hidden transition-colors duration-300 ${className}`}
       aria-label={`Voir les détails de l'événement ${title}`}
     >
@@ -92,7 +101,7 @@ const EventCard = memo(({
         {/* Content — compact */}
         <div className="flex flex-col flex-1 p-3 min-h-0">
           <p className="text-[10px] uppercase tracking-[0.12em] font-bold text-accent mb-1">
-            {formattedDate} · {time}
+            {isPermanent ? formattedDate : `${formattedDate}${time ? ` · ${time}` : ''}`}
           </p>
 
           <h3
@@ -134,6 +143,7 @@ const EventCard = memo(({
           {/* Footer — price + CTA */}
           <footer className="mt-auto flex-shrink-0 flex items-center justify-between pt-2.5 border-t border-line">
             <p className="text-[13px] font-bold text-ink leading-none tracking-tight">
+              <span className="block text-[10px] font-semibold text-ink-mute mb-0.5">À partir de</span>
               {formatCurrency(price, currency)}
             </p>
             <span className="text-[12px] font-semibold text-ink group-hover:text-brand transition-colors inline-flex items-center gap-0.5">

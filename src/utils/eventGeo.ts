@@ -154,40 +154,29 @@ export function formatEventDateTime(
   tzLabel: string;    // e.g. "heure de Paris"
   isoFull: string;    // e.g. "2026-07-15T20:00:00"
 } {
-  // Build a wall-clock datetime string and interpret it in the event timezone.
-  const timePart = time?.slice(0, 5) ?? '00:00'; // normalize to HH:MM
-  const isoFull = `${isoDate}T${timePart}:00`;
-
-  const dtf = new Intl.DateTimeFormat(locale, {
-    timeZone: timezone,
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const timeFmt = new Intl.DateTimeFormat(locale, {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  // Build a Date that represents the exact wall-clock moment in the tz.
-  // We treat the DB values as "local time in the event timezone".
-  const asUtc = new Date(`${isoDate}T${timePart}:00Z`);
-
-  const offsetMs = getTimezoneOffsetMs(timezone, asUtc);
-  const localMs = asUtc.getTime() - offsetMs;
-  const localDate = new Date(localMs);
+  const timePart = (time || '').slice(0, 5) || '';
+  const datePart = String(isoDate ?? '').split('T')[0];
+  const [year, month, day] = datePart.split('-').map(Number);
+  const calendar =
+    Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+      ? new Date(year, month - 1, day)
+      : null;
 
   const tzLabel = formatTzLabel(timezone, locale);
+  const dateLabel = calendar
+    ? calendar.toLocaleDateString(locale, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
 
   return {
-    date: dtf.format(localDate),
-    time: timeFmt.format(localDate),
+    date: dateLabel,
+    time: timePart,
     tzLabel,
-    isoFull,
+    isoFull: timePart ? `${datePart}T${timePart}:00` : datePart,
   };
 }
 
@@ -196,16 +185,16 @@ export function formatEventDateTime(
  */
 export function shortDateLabel(
   isoDate: string,
-  timezone: string = 'Africa/Ouagadougou',
+  _timezone: string = 'Africa/Ouagadougou',
   locale: string = 'fr-FR'
 ): string {
-  const dtf = new Intl.DateTimeFormat(locale, {
-    timeZone: timezone,
+  const datePart = String(isoDate ?? '').split('T')[0];
+  const [y, m, d] = datePart.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
   });
-  // Interpret as noon UTC to avoid date-boundary edge cases when tz offsets differ.
-  return dtf.format(new Date(`${isoDate}T12:00:00Z`));
 }
 
 /**
@@ -222,17 +211,6 @@ function formatTzLabel(timezone: string, locale: string): string {
   } catch {
     return timezone;
   }
-}
-
-/**
- * Returns the timezone offset (ms) for a given IANA tz at a specific Date.
- * Positive = behind UTC, negative = ahead of UTC (standard JS convention inverted).
- */
-function getTimezoneOffsetMs(timezone: string, date: Date): number {
-  // Trick: format the date in UTC and in the target tz, compute the difference.
-  const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
-  const tzStr = date.toLocaleString('en-US', { timeZone: timezone });
-  return new Date(utcStr).getTime() - new Date(tzStr).getTime();
 }
 
 // ── Location display helpers ──────────────────────────────────────────────
@@ -264,6 +242,46 @@ export function eventLocationLabel(event: {
  * (ordered by date), followed by all other events (also by date).
  * When `priorityCountry` is null/undefined the original date order is preserved.
  */
+/**
+ * Homepage “à la une”: soonest upcoming dates, then permanent attractions.
+ * Never returns empty if the catalog has anything published.
+ */
+export function pickSpotlightEvents<
+  T extends { id: string; date?: string | null; featured?: boolean; is_permanent?: boolean }
+>(events: T[], limit: number, todayYmd: string): T[] {
+  const dateKey = (e: T) => String(e.date ?? '').split('T')[0];
+  const isPermanent = (e: T) => e.is_permanent === true;
+  const isUpcomingDated = (e: T) => {
+    if (isPermanent(e)) return false;
+    const d = dateKey(e);
+    return Boolean(d) && d >= todayYmd;
+  };
+
+  const byFeaturedThenDate = (a: T, b: T) => {
+    const feat = Number(!!b.featured) - Number(!!a.featured);
+    if (feat !== 0) return feat;
+    return dateKey(a).localeCompare(dateKey(b));
+  };
+
+  const upcoming = events.filter(isUpcomingDated).sort(byFeaturedThenDate);
+  const permanents = events
+    .filter(isPermanent)
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
+  const past = events
+    .filter((e) => !isPermanent(e) && !isUpcomingDated(e))
+    .sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
+
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const e of [...upcoming, ...permanents, ...past]) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    out.push(e);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 export function sortEventsByCountryPriority<T extends { date: string; country_code?: string }>(
   events: T[],
   priorityCountry: string | null | undefined

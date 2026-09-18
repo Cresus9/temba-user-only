@@ -3,6 +3,7 @@ export interface EventCategory {
   name: string;
   icon: string;
   color: string;
+  slug?: string;
   description?: string;
   subcategories?: string[]; // Array of subcategory names
   created_at?: string;
@@ -23,6 +24,8 @@ export interface Event {
   tickets_sold: number;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   featured: boolean;
+  /** Public URL segment when set (unique). Fallback is `id`. */
+  slug?: string | null;
   categories?: string[]; // Array of category IDs (legacy support)
   category_relations?: EventCategory[]; // New normalized categories
   ticket_types?: TicketType[];

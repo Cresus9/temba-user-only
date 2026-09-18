@@ -91,12 +91,12 @@ async function rest(tableQuery) {
 
 async function fetchPublishedEvents() {
   const data = await rest(
-    'events?select=id,updated_at,status,deleted_at&status=eq.PUBLISHED&deleted_at=is.null'
+    'events?select=id,slug,updated_at,status,deleted_at&status=eq.PUBLISHED&deleted_at=is.null'
   );
   return data
     .filter((event) => event?.id)
     .map((event) => ({
-      loc: `/events/${event.id}`,
+      loc: `/e/${event.slug || event.id}`,
       lastmod: formatDate(event.updated_at),
       changefreq: 'daily',
       priority: 0.8,
@@ -112,6 +112,18 @@ async function fetchSlugPages(table, prefix) {
       lastmod: formatDate(row.updated_at),
       changefreq: 'weekly',
       priority: 0.6,
+    }));
+}
+
+async function fetchCategoryPages() {
+  const data = await rest('categories?select=id,slug,updated_at');
+  return data
+    .filter((row) => row?.slug || row?.id)
+    .map((row) => ({
+      loc: `/categories/${row.slug || row.id}`,
+      lastmod: formatDate(row.updated_at),
+      changefreq: 'weekly',
+      priority: 0.65,
     }));
 }
 
@@ -149,21 +161,31 @@ async function main() {
     console.warn('[sitemap] SUPABASE credentials missing. Static routes only.');
   }
 
-  const [events, venues, organizers, artists] = await Promise.all([
+  const [events, venues, organizers, artists, categories, tags] = await Promise.all([
     fetchPublishedEvents(),
     fetchSlugPages('venues', '/venues'),
     fetchSlugPages('organizer_profiles', '/organizers'),
     fetchSlugPages('artists', '/artists'),
+    fetchCategoryPages(),
+    fetchSlugPages('tags', '/tags'),
   ]);
 
-  const urls = [...STATIC_ROUTES, ...events, ...venues, ...organizers, ...artists];
+  const urls = [
+    ...STATIC_ROUTES,
+    ...events,
+    ...venues,
+    ...organizers,
+    ...artists,
+    ...categories,
+    ...tags,
+  ];
   const xml = buildXml(urls);
 
   await mkdir(PUBLIC_DIR, { recursive: true });
   await writeFile(OUTPUT_FILE, xml, 'utf8');
 
   console.log(
-    `[sitemap] ${urls.length} URLs (${events.length} events, ${venues.length} venues, ${organizers.length} organizers, ${artists.length} artists)`
+    `[sitemap] ${urls.length} URLs (${events.length} events, ${venues.length} venues, ${organizers.length} organizers, ${artists.length} artists, ${categories.length} categories, ${tags.length} tags)`
   );
 }
 

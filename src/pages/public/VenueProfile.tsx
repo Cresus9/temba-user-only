@@ -8,6 +8,8 @@ import {
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency } from '../../utils/formatters';
 import { countryFlag } from '../../utils/eventGeo';
+import { eventPublicPath } from '../../utils/eventPath';
+import PageSEO from '../../components/SEO/PageSEO';
 import {
   getServicesForVenue, groupByCategory, CATEGORY_ICONS,
   type VenueService,
@@ -51,6 +53,7 @@ interface EventCard {
   price: number;
   currency: string;
   is_permanent?: boolean;
+  slug?: string | null;
 }
 
 type Tab = 'upcoming' | 'past';
@@ -82,7 +85,7 @@ export default function VenueProfile() {
       const [evtsResult, svcsResult] = await Promise.all([
         supabase
           .from('events')
-          .select('id, title, date, image_url, price, currency, status, is_permanent')
+          .select('id, slug, title, date, image_url, price, currency, status, is_permanent')
           .eq('venue_id', v.id)
           .eq('status', 'PUBLISHED')
           .order('date'),
@@ -135,6 +138,16 @@ export default function VenueProfile() {
   );
 
   return (
+    <>
+    <PageSEO
+      title={venue.name}
+      description={
+        venue.description ||
+        `Événements à ${venue.name}${venue.city ? ` (${venue.city})` : ''} — billets sur Temba.`
+      }
+      canonicalUrl={`https://tembas.com/venues/${venue.slug || ''}`}
+      ogImage={photos[0]}
+    />
     <div className="min-h-screen bg-cream bg-grain">
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div className="relative h-56 sm:h-80 bg-ink overflow-hidden">
@@ -409,7 +422,7 @@ export default function VenueProfile() {
                 return (
                   <Link
                     key={event.id}
-                    to={`/events/${event.id}`}
+                    to={eventPublicPath(event)}
                     className="group flex gap-4 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 hover:shadow-card transition-all"
                   >
                     {/* Date badge or "Ouvert" */}
@@ -472,5 +485,6 @@ export default function VenueProfile() {
         </div>
       </div>
     </div>
+    </>
   );
 }

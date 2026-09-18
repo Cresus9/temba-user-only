@@ -180,7 +180,7 @@ export default function Notifications() {
     if (!n.read_at) handleMarkAsRead(n.id);
     if (n.data?.action_url)  window.location.href = n.data.action_url;
     else if (n.data?.order_id)  window.location.href = `/booking/confirmation/${n.data.order_id}`;
-    else if (n.data?.event_id)  window.location.href = `/events/${n.data.event_id}`;
+    else if (n.data?.event_id)  window.location.href = `/e/${n.data.event_id}`;
   };
 
   const formatTimeAgo = (ds: string) => {

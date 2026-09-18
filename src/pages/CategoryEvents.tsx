@@ -5,6 +5,7 @@ import EventCard from '../components/EventCard';
 import { CategoryService } from '../services/categoryService';
 import { Event, EventCategory } from '../types/event';
 import toast from 'react-hot-toast';
+import { parseLocalDate } from '../utils/formatters';
 
 export default function CategoryEvents() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -46,7 +47,7 @@ export default function CategoryEvents() {
       }
     } catch (error) {
       console.error('Error fetching category and events:', error);
-      toast.error('Failed to load events');
+      toast.error('Impossible de charger les événements');
     } finally {
       setLoading(false);
     }
@@ -70,16 +71,16 @@ export default function CategoryEvents() {
         return (b.tickets_sold || 0) - (a.tickets_sold || 0);
       case 'date':
       default:
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        return parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime();
     }
   });
 
   if (!category && !loading) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Category not found</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Catégorie introuvable</h2>
         <Link to="/categories" className="mt-4 text-indigo-600 hover:text-indigo-700">
-          Back to Categories
+          Retour aux catégories
         </Link>
       </div>
     );
@@ -87,12 +88,22 @@ export default function CategoryEvents() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {category && (
+        <PageSEO
+          title={category.name}
+          description={
+            category.description ||
+            `Événements ${category.name} au Burkina Faso — billets en FCFA sur Temba.`
+          }
+          canonicalUrl={`https://tembas.com/categories/${category.slug || categoryId}`}
+        />
+      )}
       <Link
         to="/categories"
         className="mb-8 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="h-5 w-5" />
-        Back to Categories
+        Retour aux catégories
       </Link>
 
       <div className="mb-8">
@@ -107,7 +118,7 @@ export default function CategoryEvents() {
               style={{ backgroundColor: category.color }}
             />
             <span className="text-sm text-gray-500">
-              {events.length} events available
+              {events.length} événement{events.length !== 1 ? 's' : ''}
             </span>
           </div>
         )}
@@ -119,7 +130,7 @@ export default function CategoryEvents() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search events..."
+            placeholder="Rechercher un événement…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -132,10 +143,10 @@ export default function CategoryEvents() {
             onChange={(e) => setSortBy(e.target.value)}
             className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="date">Date: Soonest</option>
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-            <option value="popularity">Most Popular</option>
+            <option value="date">Date : les plus proches</option>
+            <option value="price_asc">Prix : croissant</option>
+            <option value="price_desc">Prix : décroissant</option>
+            <option value="popularity">Les plus demandés</option>
           </select>
         </div>
       </div>

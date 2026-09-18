@@ -61,6 +61,12 @@
     Cache-Control = "public, max-age=3600"
 
 [[headers]]
+  for = "/llms.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
   for = "/*.js"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
@@ -105,4 +111,65 @@
 
 [[edge_functions]]
   function = "og-tags"
+  path = "/e/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/attractions"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/venues"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/venues/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/organizers"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/organizers/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/artists"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/artists/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/categories"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/categories/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/blog"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/blog/post/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/support"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/tags/*"
+
+[[edge_functions]]
+  function = "og-tags"
   path = "/ref/*"
+
+# WhatsApp share: /w/SLUG → wa.me (no meta-refresh, not og-tags)
+[[edge_functions]]
+  function = "wa-share"
+  path = "/w/*"

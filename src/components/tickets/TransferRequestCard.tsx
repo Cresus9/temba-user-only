@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/TranslationContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
+import { eventPublicPath } from '../../utils/eventPath';
 
 interface TransferRequest {
   id: string;
@@ -73,7 +74,7 @@ export default function TransferRequestCard({ request, onUpdate }: TransferReque
   };
 
   const handleOrderTickets = () => {
-    navigate(`/events/${request.event.id}`);
+    navigate(eventPublicPath(request.event));
   };
 
   const reqCode = request.id.slice(0, 8).toUpperCase();

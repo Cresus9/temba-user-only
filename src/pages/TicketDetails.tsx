@@ -154,7 +154,7 @@ export default function TicketDetails() {
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
       >
         <ArrowLeft className="h-5 w-5" />
-        Back to Support
+        Retour à l’aide
       </Link>
 
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">

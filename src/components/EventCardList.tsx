@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import EventCard from './EventCard';
 import { useEvents } from '../context/EventContext';
+import { pickSpotlightEvents } from '../utils/eventGeo';
+import { localTodayYmd } from '../utils/formatters';
 
 interface EventCardListProps {
   featured?: boolean;
@@ -14,19 +16,18 @@ export default function EventCardList({
   limit, 
   showNavigation = true 
 }: EventCardListProps) {
-  const { events, featuredEvents, loading, error } = useEvents();
+  const { events, filteredEvents: countryEvents, loading, error } = useEvents();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [eventsPerView, setEventsPerView] = useState(3);
 
-  // Filter events based on props
-  const today = new Date().toISOString().split('T')[0];
-  const baseEvents = featured ? featuredEvents : events;
-  // Featured section: upcoming only. Full list: all events.
-  const displayEvents = featured
-    ? baseEvents.filter(e => e.date >= today)
-    : baseEvents;
-  const filteredEvents = limit ? displayEvents.slice(0, limit) : displayEvents;
+  const catalog = countryEvents?.length ? countryEvents : events;
+  const filteredEvents = useMemo(() => {
+    if (featured) {
+      return pickSpotlightEvents(catalog, limit ?? 9, localTodayYmd());
+    }
+    return limit ? catalog.slice(0, limit) : catalog;
+  }, [featured, catalog, limit]);
   
   // Calculate how many events to show based on screen size
   const getEventsPerView = () => {
@@ -106,13 +107,13 @@ export default function EventCardList({
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
+        <p className="text-red-600 mb-4">Impossible de charger les événements.</p>
         <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 mx-auto"
         >
           <Loader className="h-5 w-5" />
-          Try Again
+          Réessayer
         </button>
       </div>
     );
@@ -121,8 +122,8 @@ export default function EventCardList({
   if (!filteredEvents.length) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Found</h3>
-        <p className="text-gray-600">Check back later for upcoming events.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun événement pour le moment</h3>
+        <p className="text-gray-600">Revenez un peu plus tard — de nouvelles dates arrivent bientôt.</p>
       </div>
     );
   }

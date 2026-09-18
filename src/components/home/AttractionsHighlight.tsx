@@ -4,6 +4,7 @@ import { MapPin, ArrowRight, Ticket } from 'lucide-react';
 import { listAttractions, ATTRACTION_TYPE_LABELS, ATTRACTION_TYPE_ICONS } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
 import { FadeUp, Stagger, StaggerItem } from '../common/Motion';
+import { eventPublicPath } from '../../utils/eventPath';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -80,7 +81,7 @@ export default function AttractionsHighlight() {
               return (
                 <StaggerItem key={a.id} className="flex-shrink-0 w-[78vw] sm:w-[44vw] md:w-auto snap-start">
                   <Link
-                    to={`/events/${a.id}`}
+                    to={eventPublicPath(a)}
                     className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200 h-full"
                   >
                     {/* Image */}

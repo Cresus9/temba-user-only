@@ -16,6 +16,7 @@ import {
   paymentStatusKey,
   PAYMENT_STATUS_TTL,
 } from "../_shared/upstash.ts";
+import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -70,6 +71,13 @@ Deno.serve(async (req) => {
       if (order?.status === "COMPLETED") {
         console.log("[finalize-order] order already completed, skipping:", payment.order_id);
         await redisSet(paymentStatusKey(payment_id), "finalized", PAYMENT_STATUS_TTL);
+        if (provider !== "stripe") {
+          await notifyWhatsAppAdapter({
+            payment_id,
+            order_id: payment.order_id,
+            status: "completed",
+          });
+        }
         return json({ ok: true, note: "already finalized" });
       }
     }
@@ -87,6 +95,14 @@ Deno.serve(async (req) => {
 
     // ── Mark finalized in Redis ───────────────────────────────────────────
     await redisSet(paymentStatusKey(payment_id), "finalized", PAYMENT_STATUS_TTL);
+
+    if (provider !== "stripe") {
+      await notifyWhatsAppAdapter({
+        payment_id,
+        order_id: payment.order_id,
+        status: "completed",
+      });
+    }
 
     console.log("[finalize-order] finalized:", payment_id);
     return json({ ok: true, payment_id });

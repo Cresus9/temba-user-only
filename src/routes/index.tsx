@@ -60,6 +60,7 @@ import GuestTicketVerification from '../components/tickets/GuestTicketVerificati
 import GuestOrderVerification from '../components/checkout/GuestOrderVerification';
 import GuestTickets from '../pages/GuestTickets';
 import FindGuestTickets from '../pages/FindGuestTickets';
+import WhatsAppShare from '../pages/WhatsAppShare';
 import ReferralLanding from '../pages/ReferralLanding';
 import ReferralProgram from '../pages/profile/ReferralProgram';
 
@@ -89,6 +90,7 @@ export default function AppRoutes() {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/e/:eventId" element={<EventDetails />} />
         <Route path="/events/:id" element={<EventDetails />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/categories/:categoryId" element={<CategoryEvents />} />
@@ -138,6 +140,7 @@ export default function AppRoutes() {
         <Route path="/verify/:token" element={<GuestTicketVerification />} />
         <Route path="/verify-order/:token" element={<GuestOrderVerification />} />
         <Route path="/guest/tickets/:token" element={<GuestTickets />} />
+        <Route path="/w/:slug" element={<WhatsAppShare />} />
 
         {/* Payment Routes */}
         <Route path="/payment/success" element={<PaymentSuccess />} />
@@ -157,11 +160,7 @@ export default function AppRoutes() {
         } />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/booking/confirmation/:bookingId" element={<EnhancedBookingConfirmation />} />
-        <Route path="/support" element={
-          <RequireAuth>
-            <Support />
-          </RequireAuth>
-        } />
+        <Route path="/support" element={<Support />} />
         <Route path="/support/:id" element={
           <RequireAuth>
             <TicketDetails />

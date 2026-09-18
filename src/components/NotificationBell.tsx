@@ -100,7 +100,7 @@ export default function NotificationBell() {
     } else if (notification.metadata?.order_id) {
       navigate(`/booking/confirmation/${notification.metadata.order_id}`);
     } else if (notification.metadata?.event_id) {
-      navigate(`/events/${notification.metadata.event_id}`);
+      navigate(`/e/${notification.metadata.event_id}`);
     } else if (notification.metadata?.ticket_id) {
       navigate(`/profile/tickets`);
     } else if (notification.type === 'SUPPORT_REPLY' && notification.metadata?.support_ticket_id) {

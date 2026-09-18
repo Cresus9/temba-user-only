@@ -18,6 +18,7 @@ This index provides a comprehensive overview of all Temba platform documentation
 - [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
 - [Mobile Ticket Transfer Guide](./MOBILE-TICKET-TRANSFER-GUIDE.md) - Complete ticket transfer implementation for mobile apps
 - [Mobile Guest Checkout](./MOBILE-GUEST-CHECKOUT.md) - Guest pay, tables, RPCs, lookup/claim, QR without an account
+- [WhatsApp Checkout](./WHATSAPP-CHECKOUT.md) - Cloud API adapter contract, share links `/w/:slug`, notify after finalize
 - [Mes Billets Logic](./MES-BILLETS-LOGIC.md) - How "My Tickets" fetching works and restrictions applied
 
 ### For DevOps

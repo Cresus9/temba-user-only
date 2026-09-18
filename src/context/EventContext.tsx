@@ -137,7 +137,8 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyData]);
 
-  const getEvent = (id: string) => events.find(e => e.id === id);
+  const getEvent = (idOrSlug: string) =>
+    events.find((e) => e.id === idOrSlug || e.slug === idOrSlug);
 
   useEffect(() => {
     // Initial load — serve cache immediately, re-fetch in bg if stale

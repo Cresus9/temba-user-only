@@ -65,7 +65,7 @@ export default function Banner() {
 
   const handleBannerClick = () => {
     const banner = banners[currentIndex];
-    if (banner.event_id) navigate(`/events/${banner.event_id}`);
+    if (banner.event_id) navigate(`/e/${banner.event_id}`);
     else if (banner.link) navigate(banner.link);
   };
 

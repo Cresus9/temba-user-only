@@ -1,9 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Plus, Clock, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
+import {
+  MessageSquare,
+  Plus,
+  Clock,
+  Loader,
+  Phone,
+  Mail,
+  HelpCircle,
+  QrCode,
+  Smartphone,
+  ArrowRightLeft,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import NewTicketModal from '../components/support/NewTicketModal';
-import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import PageSEO from '../components/SEO/PageSEO';
 
@@ -18,232 +29,229 @@ interface SupportTicket {
   message_count: number;
 }
 
+const display = '"Plus Jakarta Sans", Inter, sans-serif';
+
+const FAQS = [
+  {
+    q: 'Comment payer avec Orange Money ?',
+    a: 'Au paiement, choisissez Orange Money (proposé en premier), entrez votre numéro et validez le message USSD. Le QR s’affiche dès que le paiement est confirmé.',
+  },
+  {
+    q: 'Faut-il un compte pour acheter ?',
+    a: 'Non. Vous pouvez payer en invité (Sans compte). Créez un compte plus tard pour retrouver vos billets plus facilement.',
+  },
+  {
+    q: 'Où est mon billet QR ?',
+    a: 'Après paiement, le QR est sur la page de confirmation et dans Mes billets si vous êtes connecté. Invité : le lien reçu par SMS/e-mail. Présentez-le à l’entrée, même sans réseau.',
+  },
+  {
+    q: 'Puis-je transférer un billet ?',
+    a: 'Oui, depuis Mes billets, vers un numéro Temba. Le QR original est désactivé dès que le transfert est accepté.',
+  },
+];
+
+function statusLabel(status: string) {
+  switch (status) {
+    case 'OPEN':
+      return 'Ouvert';
+    case 'IN_PROGRESS':
+      return 'En cours';
+    case 'RESOLVED':
+      return 'Résolu';
+    case 'CLOSED':
+      return 'Fermé';
+    default:
+      return status;
+  }
+}
+
 export default function Support() {
+  const { user, isAuthenticated } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingTickets, setLoadingTickets] = useState(false);
   const [showNewTicket, setShowNewTicket] = useState(false);
-  const { t } = useTranslation();
+
+  const [ticketNonce, setTicketNonce] = useState(0);
 
   useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setTickets([]);
+      return;
+    }
+    const fetchTickets = async () => {
+      try {
+        setLoadingTickets(true);
+        const { data, error } = await supabase
+          .from('support_ticket_details')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setTickets(data || []);
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
+        toast.error('Impossible de charger vos tickets');
+      } finally {
+        setLoadingTickets(false);
+      }
+    };
     fetchTickets();
-  }, []);
+  }, [isAuthenticated, user, ticketNonce]);
 
-  const fetchTickets = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('support_ticket_details')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTickets(data || []);
-    } catch (error) {
-      console.error('Error fetching tickets:', error);
-      toast.error('Failed to load support tickets');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'bg-blue-100 text-blue-800';
-      case 'IN_PROGRESS':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'RESOLVED':
-        return 'bg-green-100 text-green-800';
-      case 'CLOSED':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'LOW':
-        return 'text-gray-600';
-      case 'MEDIUM':
-        return 'text-blue-600';
-      case 'HIGH':
-        return 'text-orange-600';
-      case 'URGENT':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
-  const breadcrumbSchema = useMemo(
+  const faqSchema = useMemo(
     () => ({
       '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Accueil',
-          item: 'https://tembas.com/',
-        },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: 'Support',
-          item: 'https://tembas.com/support',
-        },
-      ],
+      '@type': 'FAQPage',
+      mainEntity: FAQS.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
     }),
     []
   );
-
-  const customerServiceSchema = useMemo(
-    () => ({
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      name: 'Support Temba',
-      url: 'https://tembas.com/support',
-      description:
-        'Consultez et gérez vos tickets d’assistance Temba. Créez un ticket, suivez son statut et échangez avec notre équipe support.',
-      potentialAction: {
-        '@type': 'CommunicateAction',
-        target: 'https://tembas.com/support',
-        agent: {
-          '@type': 'Organization',
-          name: 'Temba',
-        },
-        recipient: {
-          '@type': 'Audience',
-          audienceType: 'Customer',
-        },
-      },
-    }),
-    []
-  );
-
-  const structuredData = useMemo(() => [breadcrumbSchema, customerServiceSchema], [
-    breadcrumbSchema,
-    customerServiceSchema,
-  ]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Loader className="h-8 w-8 animate-spin text-indigo-600" />
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-cream bg-grain">
       <PageSEO
-        title="Support"
-        description="Accédez à votre espace support Temba : suivez vos tickets d’assistance, ouvrez une nouvelle demande et consultez l’historique de vos échanges."
+        title="Aide et support"
+        description="Paiement Orange Money, QR à l’entrée, transfert de billets. Contact Temba : support@tembas.com · +226 74 75 08 15. Pas besoin de compte pour lire l’aide."
         canonicalUrl="https://tembas.com/support"
-        ogImage="https://tembas.com/temba-app.png"
-        keywords={[
-          'support Temba',
-          'assistance billets',
-          'service client billetterie',
-          'tickets support Temba',
-        ]}
-        structuredData={structuredData}
+        structuredData={faqSchema}
+        keywords={['support Temba', 'Orange Money billets', 'QR Temba', 'aide billetterie Burkina']}
       />
-      {/* Back button */}
-      <Link
-        to="/dashboard"
-        className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        {t('support.back_to_dashboard', { default: 'Back to Dashboard' })}
-      </Link>
 
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {t('support.title', { default: 'Support' })}
-          </h1>
-          <p className="text-gray-600">
-            {t('support.description', { default: 'View and manage your support tickets' })}
-          </p>
+      <div className="max-w-3xl mx-auto px-4 py-10 md:py-14">
+        <p className="eyebrow mb-2">Centre d’aide</p>
+        <h1 className="text-[28px] font-extrabold text-ink leading-tight mb-3" style={{ fontFamily: display }}>
+          Besoin d’aide ?
+        </h1>
+        <p className="text-[15px] text-ink-mute leading-relaxed mb-8">
+          Questions fréquentes, WhatsApp et e-mail. Pas besoin de vous connecter pour nous joindre.
+        </p>
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-10">
+          <a
+            href="https://wa.me/22674750815"
+            className="flex items-start gap-3 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 transition-colors"
+          >
+            <Phone className="w-5 h-5 text-brand mt-0.5 shrink-0" />
+            <div>
+              <p className="text-[13px] font-bold text-ink">WhatsApp / téléphone</p>
+              <p className="text-[13px] text-ink-mute tabular-nums">+226 74 75 08 15</p>
+            </div>
+          </a>
+          <a
+            href="mailto:support@tembas.com"
+            className="flex items-start gap-3 p-4 bg-paper border border-line rounded-2xl hover:border-brand/40 transition-colors"
+          >
+            <Mail className="w-5 h-5 text-brand mt-0.5 shrink-0" />
+            <div>
+              <p className="text-[13px] font-bold text-ink">E-mail</p>
+              <p className="text-[13px] text-ink-mute">support@tembas.com</p>
+            </div>
+          </a>
         </div>
-        <button
-          onClick={() => setShowNewTicket(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          <Plus className="h-5 w-5" />
-          {t('support.new_ticket', { default: 'New Ticket' })}
-        </button>
-      </div>
 
-      {tickets.length > 0 ? (
-        <div className="space-y-4">
-          {tickets.map((ticket) => (
-            <Link
-              key={ticket.id}
-              to={`/support/${ticket.id}`}
-              className="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <MessageSquare className="h-5 w-5 text-gray-400" />
-                      <h3 className="font-medium text-gray-900">{ticket.subject}</h3>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                        {ticket.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>{ticket.category_name}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(ticket.created_at).toLocaleDateString()}
-                      </span>
-                      {ticket.last_reply_at && (
-                        <span>Last reply: {new Date(ticket.last_reply_at).toLocaleDateString()}</span>
-                      )}
-                      <span>Messages: {ticket.message_count}</span>
-                    </div>
-                  </div>
-                  <span className={`text-sm font-medium ${getPriorityColor(ticket.priority)}`}>
-                    {ticket.priority}
-                  </span>
-                </div>
-              </div>
-            </Link>
+        <h2 className="text-[18px] font-extrabold text-ink mb-4" style={{ fontFamily: display }}>
+          Questions fréquentes
+        </h2>
+        <div className="space-y-3 mb-12">
+          {FAQS.map((item) => (
+            <details key={item.q} className="group bg-paper border border-line rounded-2xl px-4 py-3">
+              <summary className="cursor-pointer list-none flex items-start gap-2 font-semibold text-[14px] text-ink">
+                <HelpCircle className="w-4 h-4 text-brand mt-0.5 shrink-0" />
+                {item.q}
+              </summary>
+              <p className="text-[13px] text-ink-mute leading-relaxed mt-2 pl-6">{item.a}</p>
+            </details>
           ))}
         </div>
-      ) : (
-        <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {t('support.no_tickets.title', { default: 'No Support Tickets' })}
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {t('support.no_tickets.description', { default: 'You haven\'t created any support tickets yet' })}
-          </p>
-          <button
-            onClick={() => setShowNewTicket(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <Plus className="h-5 w-5" />
-            {t('support.create_first_ticket', { default: 'Create Your First Ticket' })}
-          </button>
+
+        <div className="flex flex-wrap gap-3 text-[12px] text-ink-mute mb-12">
+          <span className="inline-flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" /> Orange Money / Moov</span>
+          <span className="inline-flex items-center gap-1.5"><QrCode className="w-3.5 h-3.5" /> QR à l’entrée</span>
+          <span className="inline-flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> Transfert de billet</span>
         </div>
-      )}
+
+        <div className="border-t border-line pt-8">
+          <div className="flex justify-between items-center mb-4 gap-3">
+            <div>
+              <h2 className="text-[18px] font-extrabold text-ink" style={{ fontFamily: display }}>
+                Vos tickets
+              </h2>
+              <p className="text-[13px] text-ink-mute">Suivi des demandes déjà ouvertes.</p>
+            </div>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => setShowNewTicket(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-brand text-paper rounded-xl text-[13px] font-bold hover:bg-brand/90"
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau ticket
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                state={{ redirectTo: '/support' }}
+                className="flex items-center gap-2 px-4 py-2 border border-line rounded-xl text-[13px] font-bold text-ink hover:border-brand/40"
+              >
+                Se connecter
+              </Link>
+            )}
+          </div>
+
+          {!isAuthenticated && (
+            <p className="text-[13px] text-ink-mute bg-paper border border-line rounded-2xl p-4">
+              Connectez-vous seulement pour ouvrir un ticket interne. Pour une urgence le jour J, passez par WhatsApp.
+            </p>
+          )}
+
+          {isAuthenticated && loadingTickets && (
+            <div className="flex justify-center py-10">
+              <Loader className="h-8 w-8 animate-spin text-brand" />
+            </div>
+          )}
+
+          {isAuthenticated && !loadingTickets && tickets.length > 0 && (
+            <div className="space-y-3">
+              {tickets.map((ticket) => (
+                <Link
+                  key={ticket.id}
+                  to={`/support/${ticket.id}`}
+                  className="block bg-paper border border-line rounded-2xl p-4 hover:border-brand/40"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageSquare className="h-4 w-4 text-ink-mute" />
+                    <h3 className="font-medium text-ink">{ticket.subject}</h3>
+                    <span className="text-[11px] font-bold uppercase text-brand">{statusLabel(ticket.status)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[12px] text-ink-mute">
+                    <span>{ticket.category_name}</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {new Date(ticket.created_at).toLocaleDateString('fr-FR')}
+                    </span>
+                    <span>{ticket.message_count} message{ticket.message_count > 1 ? 's' : ''}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {isAuthenticated && !loadingTickets && tickets.length === 0 && (
+            <p className="text-[13px] text-ink-mute">Aucun ticket pour le moment.</p>
+          )}
+        </div>
+      </div>
 
       {showNewTicket && (
         <NewTicketModal
           onClose={() => setShowNewTicket(false)}
           onSuccess={() => {
             setShowNewTicket(false);
-            fetchTickets();
+            setTicketNonce((n) => n + 1);
           }}
         />
       )}

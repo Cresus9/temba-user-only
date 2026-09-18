@@ -106,7 +106,7 @@ export default function EventMap({
           className="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 text-gray-700 font-medium"
         >
           <Navigation className="h-5 w-5" />
-          Get Directions
+          Itinéraire
         </button>
       )}
     </div>

@@ -1,159 +1,133 @@
-#!/usr/bin/env node
-/**
- * Generate sitemap entries for blog posts
- * Run this script to update sitemap.xml with latest blog posts
- * 
- * Usage: node scripts/generate-blog-sitemap.mjs
- */
-
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { writeFile, mkdir, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
+import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, '..');
+const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
+const OUTPUT_FILE = path.join(PUBLIC_DIR, 'blog-sitemap.xml');
 
-// Load environment variables from .env file
-const envPath = join(__dirname, '../.env');
-if (existsSync(envPath)) {
-  const envFile = readFileSync(envPath, 'utf-8');
-  envFile.split('\n').forEach(line => {
-    const [key, ...valueParts] = line.split('=');
-    if (key && valueParts.length > 0) {
-      const value = valueParts.join('=').trim();
-      process.env[key.trim()] = value;
+async function loadEnvFile() {
+  for (const file of [path.join(ROOT_DIR, '.env'), path.join(ROOT_DIR, '.env.local')]) {
+    if (!existsSync(file)) continue;
+    try {
+      const raw = await readFile(file, 'utf-8');
+      for (const line of raw.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq < 1) continue;
+        const key = trimmed.slice(0, eq).trim();
+        const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
+        if (!process.env[key]) process.env[key] = value;
+      }
+    } catch {
+      // ignore
     }
-  });
-}
-
-// Supabase configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://uwmlagvsivxqocklxbbo.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bWxhZ3ZzaXZ4cW9ja2x4YmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzIyNzE5NzUsImV4cCI6MjA0Nzg0Nzk3NX0.kHJUJlrNMtemNOE_KI-S_l_XEo9KPMeCVjTqb1lUQ2E';
-
-console.log('🔑 Using Supabase URL:', SUPABASE_URL);
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const SITE_URL = 'https://tembas.com';
-
-async function generateBlogSitemap() {
-  console.log('🔍 Fetching published blog posts...');
-
-  try {
-    // Fetch all published blog posts
-    const { data: posts, error } = await supabase
-      .from('blog_posts')
-      .select('slug, updated_at, created_at, published_at')
-      .eq('status', 'PUBLISHED')
-      .order('published_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error fetching blog posts:', error);
-      throw error;
-    }
-
-    if (!posts || posts.length === 0) {
-      console.log('⚠️  No published blog posts found.');
-      return;
-    }
-
-    console.log(`✅ Found ${posts.length} published blog posts`);
-
-    // Fetch all categories
-    const { data: categories, error: catError } = await supabase
-      .from('blog_categories')
-      .select('slug, updated_at');
-
-    if (catError) {
-      console.error('⚠️  Error fetching categories:', catError);
-    }
-
-    // Fetch all tags
-    const { data: tags, error: tagError } = await supabase
-      .from('blog_tags')
-      .select('slug, updated_at');
-
-    if (tagError) {
-      console.error('⚠️  Error fetching tags:', tagError);
-    }
-
-    // Read existing sitemap
-    const sitemapPath = join(__dirname, '../public/sitemap.xml');
-    let sitemap = readFileSync(sitemapPath, 'utf-8');
-
-    // Remove old blog entries
-    sitemap = sitemap.replace(/\s*<!-- Blog Section Start -->[\s\S]*?<!-- Blog Section End -->/g, '');
-    sitemap = sitemap.replace(/\s*<!-- Blog Posts Start -->[\s\S]*?<!-- Blog Posts End -->/g, '');
-
-    // Generate blog post entries
-    let blogEntries = '\n  <!-- Blog Section Start -->\n';
-    
-    // Add blog home
-    blogEntries += `  <url>
-    <loc>${SITE_URL}/blog</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>\n`;
-
-    // Add categories
-    if (categories && categories.length > 0) {
-      categories.forEach(cat => {
-        blogEntries += `  <url>
-    <loc>${SITE_URL}/blog/category/${cat.slug}</loc>
-    <lastmod>${cat.updated_at || new Date().toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>\n`;
-      });
-    }
-
-    // Add tags
-    if (tags && tags.length > 0) {
-      tags.forEach(tag => {
-        blogEntries += `  <url>
-    <loc>${SITE_URL}/blog/tag/${tag.slug}</loc>
-    <lastmod>${tag.updated_at || new Date().toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>\n`;
-      });
-    }
-
-    blogEntries += '  <!-- Blog Section End -->\n';
-    blogEntries += '  <!-- Blog Posts Start -->\n';
-
-    // Add individual blog posts
-    posts.forEach(post => {
-      const lastmod = post.updated_at || post.published_at || post.created_at;
-      blogEntries += `  <url>
-    <loc>${SITE_URL}/blog/post/${post.slug}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>\n`;
-    });
-
-    blogEntries += '  <!-- Blog Posts End -->\n';
-
-    // Insert before closing </urlset>
-    sitemap = sitemap.replace('</urlset>', `${blogEntries}</urlset>`);
-
-    // Write updated sitemap
-    writeFileSync(sitemapPath, sitemap, 'utf-8');
-
-    console.log('✅ Sitemap updated successfully!');
-    console.log(`📊 Added ${posts.length} blog posts`);
-    console.log(`📁 Added ${categories?.length || 0} categories`);
-    console.log(`🏷️  Added ${tags?.length || 0} tags`);
-    console.log(`📍 Sitemap location: ${sitemapPath}`);
-
-  } catch (error) {
-    console.error('❌ Error generating sitemap:', error);
-    process.exit(1);
   }
 }
 
-// Run the script
-generateBlogSitemap();
+function siteUrl() {
+  return process.env.SITE_URL?.replace(/\/$/, '') || 'https://tembas.com';
+}
+
+function supabaseUrl() {
+  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+}
+
+function supabaseKey() {
+  return process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return new Date().toISOString().slice(0, 10);
+  try {
+    return new Date(dateString).toISOString().slice(0, 10);
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+async function rest(tableQuery) {
+  const base = supabaseUrl();
+  const key = supabaseKey();
+  if (!base || !key) return [];
+  try {
+    const response = await fetch(`${base}/rest/v1/${tableQuery}`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    });
+    if (!response.ok) {
+      console.warn(`[blog-sitemap] ${tableQuery} failed (${response.status})`);
+      return [];
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('[blog-sitemap] fetch error:', error);
+    return [];
+  }
+}
+
+function urlXml(loc, lastmod, changefreq, priority) {
+  return `  <url>
+    <loc>${siteUrl()}${loc}</loc>
+    <lastmod>${formatDate(lastmod)}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+}
+
+async function main() {
+  await loadEnvFile();
+  console.log('[blog-sitemap] Generating blog-sitemap.xml...');
+
+  const [posts, categories, tags] = await Promise.all([
+    rest(
+      'blog_posts?select=slug,updated_at,published_at,created_at,status&status=eq.PUBLISHED'
+    ),
+    rest('blog_categories?select=slug,updated_at'),
+    rest('blog_tags?select=slug,updated_at'),
+  ]);
+
+  const entries = [
+    urlXml('/blog', new Date().toISOString(), 'daily', '0.8'),
+    ...categories
+      .filter((row) => row?.slug)
+      .map((row) => urlXml(`/blog/category/${row.slug}`, row.updated_at, 'weekly', '0.6')),
+    ...tags
+      .filter((row) => row?.slug)
+      .map((row) => urlXml(`/blog/tag/${row.slug}`, row.updated_at, 'weekly', '0.5')),
+    ...posts
+      .filter((row) => row?.slug)
+      .map((row) =>
+        urlXml(
+          `/blog/post/${row.slug}`,
+          row.updated_at || row.published_at || row.created_at,
+          'weekly',
+          '0.7'
+        )
+      ),
+  ];
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.join('\n')}
+</urlset>
+`;
+
+  await mkdir(PUBLIC_DIR, { recursive: true });
+  await writeFile(OUTPUT_FILE, xml, 'utf8');
+  console.log(
+    `[blog-sitemap] ${entries.length} URLs (${posts.length} posts, ${categories.length} categories, ${tags.length} tags)`
+  );
+}
+
+main().catch((error) => {
+  console.error('[blog-sitemap] Failed:', error);
+  process.exitCode = 1;
+});

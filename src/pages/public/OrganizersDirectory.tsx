@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, MapPin, Users, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { countryFlag } from '../../utils/eventGeo';
+import PageSEO from '../../components/SEO/PageSEO';
 
 interface Organizer {
   organizer_id: string;
@@ -74,6 +75,11 @@ export default function OrganizersDirectory() {
 
   return (
     <div className="min-h-screen bg-cream bg-grain py-8">
+      <PageSEO
+        title="Organisateurs"
+        description="Découvrez les organisateurs d'événements sur Temba : concerts, festivals et attractions en Afrique de l'Ouest."
+        canonicalUrl="https://tembas.com/organizers"
+      />
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="bg-paper border border-line rounded-2xl shadow-card p-5 sm:p-6 mb-6">

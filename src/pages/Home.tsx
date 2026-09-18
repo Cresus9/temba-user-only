@@ -19,6 +19,8 @@ import PopularVenues from '../components/home/PopularVenues';
 import AttractionsHighlight from '../components/home/AttractionsHighlight';
 import Image from '../components/common/Image';
 import { FadeUp, SlideIn, Stagger, StaggerItem } from '../components/common/Motion';
+import { pickSpotlightEvents } from '../utils/eventGeo';
+import { localTodayYmd, parseLocalDate } from '../utils/formatters';
 
 // Hero poster mosaic — three fanned event posters, content-aware
 function HeroPosterMosaic({ events }: { events: any[] }) {
@@ -83,9 +85,11 @@ function HeroPosterMosaic({ events }: { events: any[] }) {
                 <div className="flex items-center gap-3 mt-1.5 text-[11px] text-paper/75">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {event.date
-                      ? new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                      : 'Ouvert'}
+                    {event.is_permanent
+                      ? 'Toute l’année'
+                      : event.date
+                        ? parseLocalDate(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                        : 'Ouvert'}
                   </span>
                   <span className="flex items-center gap-1 truncate">
                     <MapPin className="h-3 w-3" />
@@ -103,23 +107,22 @@ function HeroPosterMosaic({ events }: { events: any[] }) {
 
 export default function Home() {
   const { t } = useTranslation();
-  const { featuredEvents, filteredEvents } = useEvents();
+  const { filteredEvents } = useEvents();
+  const spotlight = useMemo(
+    () => pickSpotlightEvents(filteredEvents ?? [], 9, localTodayYmd()),
+    [filteredEvents]
+  );
 
   // Preload featured event images for instant loading
   useEffect(() => {
-    if (featuredEvents && featuredEvents.length > 0) {
-      // Preload first 6 featured event images
-      const imagesToPreload = featuredEvents
-        .slice(0, 6)
-        .filter(event => event.image_url)
-        .map(event => ({ image_url: event.image_url, title: event.title }));
-
-      if (imagesToPreload.length > 0) {
-        console.log('🚀 Preloading', imagesToPreload.length, 'featured event images...');
-        imagePreloader.preloadEventImages(imagesToPreload);
-      }
+    const toPreload = spotlight
+      .slice(0, 6)
+      .filter(event => event.image_url)
+      .map(event => ({ image_url: event.image_url, title: event.title }));
+    if (toPreload.length > 0) {
+      imagePreloader.preloadEventImages(toPreload);
     }
-  }, [featuredEvents]);
+  }, [spotlight]);
 
   const structuredData = useMemo(
     () => [
@@ -340,11 +343,7 @@ export default function Home() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
             >
-              <HeroPosterMosaic events={
-                (filteredEvents ?? [])
-                  .filter(e => e.date >= new Date().toISOString().split('T')[0])
-                  .slice(0, 3)
-              } />
+              <HeroPosterMosaic events={spotlight.slice(0, 3)} />
             </motion.div>
           </div>
         </div>

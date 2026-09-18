@@ -4,6 +4,7 @@ import { MapPin, ArrowRight } from 'lucide-react';
 import { Event } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
 import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { eventPublicPath } from '../../utils/eventPath';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
 
@@ -120,7 +121,7 @@ function UpcomingEventCard({ event }: UpcomingEventCardProps) {
 
   return (
     <Link
-      to={`/events/${event.id}`}
+      to={eventPublicPath(event)}
       className="group flex items-stretch gap-4 bg-paper border border-line rounded-xl2 hover:border-ink hover:shadow-card-hover transition-all duration-200 p-3 md:p-4"
     >
       {/* Date block — calendar-style */}
