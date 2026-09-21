@@ -385,11 +385,12 @@ export default function Home() {
 
       {/* ───── Attractions permanentes ───── */}
       <AttractionsHighlight />
-      <ArtistsHighlight />
 
-      {/* ───── Bientôt + catégories + venues sur surface cream ───── */}
+      {/* ───── Agenda ───── */}
       <section className="section-normal surface-cream">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 space-y-10 md:space-y-12">
+          <ArtistsHighlight />
+
           <UpcomingEvents limit={6} />
 
           <CategoryEventsDisplay

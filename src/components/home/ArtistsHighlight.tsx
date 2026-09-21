@@ -3,22 +3,22 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { localTodayYmd, parseLocalDate } from '../../utils/formatters';
+import { eventPublicPath } from '../../utils/eventPath';
 import { FadeUp } from '../common/Motion';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
+const MAX = 4;
 
 type Row = {
-  artist_id: string;
   artists: {
     id: string;
     name: string;
     slug: string;
     photo_url: string | null;
-    genre: string | null;
-    city: string | null;
   } | null;
   events: {
     id: string;
+    slug?: string | null;
     title: string;
     date: string | null;
     status: string | null;
@@ -30,9 +30,12 @@ type Card = {
   id: string;
   name: string;
   slug: string;
-  photo_url: string | null;
-  genre: string | null;
-  nextTitle: string | null;
+  photo_url: string;
+  nextTitle: string;
+  nextDate: string;
+  nextTs: number;
+  eventId: string;
+  eventSlug?: string | null;
 };
 
 export default function ArtistsHighlight() {
@@ -44,41 +47,40 @@ export default function ArtistsHighlight() {
     (async () => {
       const { data } = await supabase
         .from('event_artists')
-        .select('artist_id, artists(id, name, slug, photo_url, genre, city), events(id, title, date, status, deleted_at)')
+        .select('artists(id, name, slug, photo_url), events(id, slug, title, date, status, deleted_at)')
         .limit(120);
       if (cancelled) return;
       const today = parseLocalDate(localTodayYmd());
-      const byId = new Map<string, Card & { nextTs: number }>();
+      const byId = new Map<string, Card>();
       for (const row of (data || []) as Row[]) {
         const a = Array.isArray(row.artists) ? row.artists[0] : row.artists;
         const e = Array.isArray(row.events) ? row.events[0] : row.events;
-        if (!a?.id || !a.slug) continue;
-        if (e?.status !== 'PUBLISHED' || e.deleted_at || !e.date) continue;
-        const ts = parseLocalDate(e.date).getTime();
+        const photo = a?.photo_url?.trim();
+        if (!a?.id || !a.slug || !photo || !e?.id) continue;
+        if (e.status !== 'PUBLISHED' || e.deleted_at || !e.date) continue;
+        const when = parseLocalDate(e.date);
+        if (when < today) continue;
+        const ts = when.getTime();
         const existing = byId.get(a.id);
-        const upcoming = parseLocalDate(e.date) >= today;
-        if (!existing) {
+        if (!existing || ts < existing.nextTs) {
           byId.set(a.id, {
             id: a.id,
             name: a.name,
             slug: a.slug,
-            photo_url: a.photo_url,
-            genre: a.genre,
-            nextTitle: upcoming ? e.title : null,
-            nextTs: upcoming ? ts : Number.MAX_SAFE_INTEGER,
+            photo_url: photo,
+            nextTitle: e.title,
+            nextDate: e.date,
+            nextTs: ts,
+            eventId: e.id,
+            eventSlug: e.slug,
           });
-          continue;
-        }
-        if (upcoming && ts < existing.nextTs) {
-          existing.nextTitle = e.title;
-          existing.nextTs = ts;
         }
       }
-      const ranked = [...byId.values()]
-        .sort((x, y) => x.nextTs - y.nextTs || x.name.localeCompare(y.name, 'fr'))
-        .slice(0, 10)
-        .map(({ nextTs: _t, ...card }) => card);
-      setItems(ranked);
+      setItems(
+        [...byId.values()]
+          .sort((x, y) => x.nextTs - y.nextTs || x.name.localeCompare(y.name, 'fr'))
+          .slice(0, MAX)
+      );
       setLoading(false);
     })();
     return () => {
@@ -89,72 +91,73 @@ export default function ArtistsHighlight() {
   if (!loading && items.length === 0) return null;
 
   return (
-    <section className="section-normal bg-cream bg-grain border-t border-line">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6">
-        <FadeUp className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
-          <div className="max-w-2xl">
-            <p className="eyebrow mb-2">À l’affiche</p>
-            <h2 className="text-ink mb-2">Artistes — concerts et billets</h2>
-            <p className="text-[14px] text-ink-mute">
-              Fiches officielles : dates réellement mises en vente à Ouagadougou et en Afrique de l’Ouest.
-            </p>
-          </div>
-          <Link
-            to="/artists"
-            className="self-start md:self-end inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink hover:text-brand transition-colors"
-          >
-            Tous les artistes
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </FadeUp>
+    <section>
+      <FadeUp className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
+        <div>
+          <p className="eyebrow mb-2">À l’affiche</p>
+          <h2 className="text-ink">Artistes en concert</h2>
+        </div>
+        <Link
+          to="/artists"
+          className="self-start md:self-end inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink hover:text-brand"
+        >
+          Tous les artistes
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </FadeUp>
 
-        {loading ? (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-[42vw] sm:w-[22vw] md:w-auto md:flex-1">
-                <div className="aspect-[4/5] rounded-xl2 bg-cream-deep animate-pulse" />
+      <div className="space-y-2.5">
+        {loading
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex gap-3 animate-pulse bg-paper border border-line rounded-xl2 p-3">
+                <div className="w-20 h-20 bg-line rounded-xl flex-shrink-0" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-4 bg-line rounded w-1/3" />
+                  <div className="h-3 bg-line rounded w-1/2" />
+                </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth
-              -mx-4 px-4 md:mx-0 md:px-0
-              [&::-webkit-scrollbar]:hidden [scrollbar-width:none]
-              md:grid md:grid-cols-5 md:overflow-visible md:pb-0 md:snap-none"
-          >
-            {items.map((a) => (
-              <Link
-                key={a.id}
-                to={`/artists/${a.slug}`}
-                className="group flex-shrink-0 w-[42vw] sm:w-[22vw] md:w-auto snap-start"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden rounded-xl2 bg-ink">
-                  {a.photo_url ? (
+            ))
+          : items.map((a) => {
+              const d = parseLocalDate(a.nextDate);
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
+              const weekday = d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+              return (
+                <Link
+                  key={a.id}
+                  to={eventPublicPath({ id: a.eventId, slug: a.eventSlug })}
+                  className="group flex items-center gap-3 bg-paper border border-line rounded-xl2 hover:border-ink hover:shadow-card-hover transition-all duration-200 p-3"
+                >
+                  <div className="hidden sm:flex flex-col items-center justify-center w-14 flex-shrink-0">
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-bold text-ink-mute">{weekday}</span>
+                    <span className="text-[22px] font-bold text-ink leading-none mt-0.5 tabular-nums" style={{ fontFamily: display }}>
+                      {day}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-bold text-accent mt-0.5">{month}</span>
+                  </div>
+                  <div className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-xl overflow-hidden flex-shrink-0 bg-ink">
                     <img
                       src={a.photo_url}
                       alt={`${a.name}, concert et billets`}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                      className="w-full h-full object-cover group-hover:scale-[1.06] transition-transform duration-500"
                     />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <span className="text-[40px] font-semibold text-white/25" style={{ fontFamily: display }}>
-                        {a.name.charAt(0)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/75 to-transparent" />
-                </div>
-                <p className="mt-2.5 text-[14px] font-semibold text-ink truncate tracking-tight" style={{ fontFamily: display }}>
-                  {a.name}
-                </p>
-                <p className="text-[12px] text-ink-mute truncate">
-                  {a.nextTitle || a.genre || 'Concerts sur Temba'}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.12em] font-semibold text-ink-mute mb-0.5 sm:hidden">
+                      {weekday} {day} {month}
+                    </p>
+                    <h3 className="text-[15px] font-bold text-ink tracking-tight truncate" style={{ fontFamily: display }}>
+                      {a.name}
+                    </h3>
+                    <p className="text-[13px] text-ink-mute truncate">{a.nextTitle}</p>
+                  </div>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand text-paper rounded-xl text-[13px] font-semibold group-hover:bg-brand-700 transition-colors flex-shrink-0">
+                    Billets
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              );
+            })}
       </div>
     </section>
   );
