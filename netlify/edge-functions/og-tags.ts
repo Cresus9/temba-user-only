@@ -959,7 +959,6 @@ export default async function handler(request: Request, context: Context) {
           : undefined,
       },
     ];
-    const next = shows.find((s) => s.date) || shows[0];
     const place = artist.city || next?.city || "Ouagadougou";
     jsonLd.push({
       "@context": "https://schema.org",
