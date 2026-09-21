@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   MapPin, Calendar, Instagram, Facebook, Youtube, Twitter, Globe,
@@ -10,7 +10,15 @@ import { formatCurrency, parseLocalDate, localTodayYmd } from '../../utils/forma
 import { countryFlag } from '../../utils/eventGeo';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
+import {
+  artistCanonicalUrl,
+  artistMetaDescription,
+  artistSeoTitle,
+  artistSocialHref,
+  artistStructuredData,
+} from '../../utils/artistSeo';
 import { FadeUp, Stagger, StaggerItem } from '../../components/common/Motion';
+import { ArtistStage } from '../../components/ui/artist-stage';
 
 interface Artist {
   id: string;
@@ -57,20 +65,57 @@ interface ShowCard {
 type Tab = 'upcoming' | 'past';
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 
-function socialHref(kind: 'instagram' | 'facebook' | 'youtube' | 'twitter' | 'website', raw: string) {
-  const v = raw.trim();
-  if (/^https?:\/\//i.test(v)) return v;
-  const handle = v.replace(/^@/, '').replace(/^\//, '');
-  if (kind === 'instagram') return `https://instagram.com/${handle}`;
-  if (kind === 'facebook') return `https://facebook.com/${handle}`;
-  if (kind === 'twitter') return `https://twitter.com/${handle}`;
-  if (kind === 'youtube') return `https://youtube.com/${handle.includes('/') ? handle : `@${handle}`}`;
-  return v.startsWith('http') ? v : `https://${v}`;
-}
+const ROLE_FR: Record<string, string> = {
+  headliner: 'Tête d’affiche',
+  opening_act: 'Première partie',
+  performer: 'Sur scène',
+  dj: 'DJ',
+  host: 'Hôte',
+  support: 'Support',
+  special_guest: 'Invité',
+};
+
 
 function todayLocal() {
   const [y, m, d] = localTodayYmd().split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+const STOCK_COVER_HOSTS = [
+  'images.pexels.com',
+  'pexels.com',
+  'images.unsplash.com',
+  'unsplash.com',
+  'cdn-images.dzcdn.net',
+  'e-cdns-images.dzcdn.net',
+  'lastfm.freetls.fastly.net',
+  'i.scdn.co',
+];
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function isStockCover(url: string) {
+  const host = hostOf(url);
+  return STOCK_COVER_HOSTS.some((b) => host === b || host.endsWith(`.${b}`));
+}
+
+function isBannerUrl(url?: string | null) {
+  return Boolean(url && !isStockCover(url));
+}
+
+function pickPoster(artist: Artist, shows: ShowCard[]) {
+  const fromShow = shows.find((s) => isBannerUrl(s.image_url))?.image_url || '';
+  if (fromShow) return fromShow;
+  const cover = artist.cover_image_url?.trim() || '';
+  const photo = artist.photo_url?.trim() || '';
+  if (isBannerUrl(cover) && cover !== photo) return cover;
+  return '';
 }
 
 export default function ArtistProfile() {
@@ -100,7 +145,7 @@ export default function ArtistProfile() {
       const [{ data: ea }, { data: similar }] = await Promise.all([
         supabase
           .from('event_artists')
-          .select('role, events(id, slug, title, date, location, image_url, price, currency, status)')
+          .select('role, events(id, slug, title, date, location, image_url, price, currency, status, deleted_at)')
           .eq('artist_id', a.id),
         supabase
           .from('artists')
@@ -113,7 +158,10 @@ export default function ArtistProfile() {
       if (cancelled) return;
 
       const evts: ShowCard[] = (ea || [])
-        .filter((row: { events?: ShowCard & { status?: string } }) => row.events?.status === 'PUBLISHED')
+        .filter(
+          (row: { events?: ShowCard & { status?: string; deleted_at?: string | null } }) =>
+            row.events?.status === 'PUBLISHED' && !row.events.deleted_at
+        )
         .map((row: { role?: string; events: ShowCard }) => ({ ...row.events, role: row.role }));
       setEvents(evts);
 
@@ -139,6 +187,12 @@ export default function ArtistProfile() {
   if (notFound || !artist) {
     return (
       <div className="min-h-screen bg-cream bg-grain flex flex-col items-center justify-center gap-4 px-4">
+        <PageSEO
+          title="Artiste introuvable"
+          description="Cette fiche artiste n’existe pas sur Temba."
+          canonicalUrl={slug ? artistCanonicalUrl(slug) : 'https://tembas.com/artists'}
+          robots="noindex, follow"
+        />
         <div className="w-16 h-16 rounded-2xl bg-paper border border-line grid place-items-center">
           <Users className="w-7 h-7 text-ink-mute" />
         </div>
@@ -154,11 +208,11 @@ export default function ArtistProfile() {
   const social = artist.social_links ?? {};
   const socials = (
     [
-      social.instagram && { kind: 'instagram' as const, label: 'Instagram', href: socialHref('instagram', social.instagram), Icon: Instagram },
-      social.facebook && { kind: 'facebook' as const, label: 'Facebook', href: socialHref('facebook', social.facebook), Icon: Facebook },
-      social.youtube && { kind: 'youtube' as const, label: 'YouTube', href: socialHref('youtube', social.youtube), Icon: Youtube },
-      social.twitter && { kind: 'twitter' as const, label: 'X', href: socialHref('twitter', social.twitter), Icon: Twitter },
-      social.website && { kind: 'website' as const, label: 'Site', href: socialHref('website', social.website), Icon: Globe },
+      social.instagram && { kind: 'instagram' as const, label: 'Instagram', href: artistSocialHref('instagram', social.instagram), Icon: Instagram },
+      social.facebook && { kind: 'facebook' as const, label: 'Facebook', href: artistSocialHref('facebook', social.facebook), Icon: Facebook },
+      social.youtube && { kind: 'youtube' as const, label: 'YouTube', href: artistSocialHref('youtube', social.youtube), Icon: Youtube },
+      social.twitter && { kind: 'twitter' as const, label: 'X', href: artistSocialHref('twitter', social.twitter), Icon: Twitter },
+      social.website && { kind: 'website' as const, label: 'Site', href: artistSocialHref('website', social.website), Icon: Globe },
     ] as const
   ).filter(Boolean) as { kind: string; label: string; href: string; Icon: typeof Instagram }[];
 
@@ -171,9 +225,29 @@ export default function ArtistProfile() {
     .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
   const shown = tab === 'upcoming' ? upcoming : past;
   const nextShow = upcoming[0];
-  const heroSrc = artist.cover_image_url || artist.photo_url;
+  const datedShows = [...upcoming, ...past];
+  const posterSrc = pickPoster(artist, datedShows);
+  const ogImage = posterSrc || artist.photo_url || undefined;
   const pageUrl = `https://tembas.com/artists/${artist.slug}`;
   const place = [artist.city, artist.country_code ? countryFlag(artist.country_code) : null].filter(Boolean).join(' ');
+  const seoDescription = artistMetaDescription({
+    name: artist.name,
+    bio: artist.bio,
+    genre: artist.genre,
+    city: artist.city,
+    nextShow,
+  });
+  const structuredData = artistStructuredData({
+    name: artist.name,
+    slug: artist.slug,
+    bio: artist.bio,
+    genre: artist.genre,
+    city: artist.city,
+    countryCode: artist.country_code,
+    image: artist.photo_url || ogImage,
+    social: artist.social_links,
+    shows: upcoming,
+  });
 
   const share = async () => {
     const text = `${artist.name} — dates et billets sur Temba`;
@@ -201,43 +275,26 @@ export default function ArtistProfile() {
   return (
     <>
       <PageSEO
-        title={`${artist.name} — billets`}
-        description={
-          artist.bio ||
-          `Dates de ${artist.name}${artist.genre ? ` (${artist.genre})` : ''}${artist.city ? ` à ${artist.city}` : ''} — billets sur Temba.`
-        }
+        title={artistSeoTitle(artist.name)}
+        description={seoDescription}
         canonicalUrl={pageUrl}
         ogType="profile"
-        ogImage={heroSrc || undefined}
-        keywords={[artist.name, artist.genre, artist.city, 'concert Burkina', 'billets Temba'].filter(Boolean) as string[]}
-        structuredData={{
-          '@context': 'https://schema.org',
-          '@type': 'MusicGroup',
-          name: artist.name,
-          url: pageUrl,
-          image: heroSrc || undefined,
-          description: artist.bio || undefined,
-          genre: artist.genre || undefined,
-          address: artist.city
-            ? { '@type': 'PostalAddress', addressLocality: artist.city, addressCountry: artist.country_code || 'BF' }
-            : undefined,
-        }}
+        ogImage={artist.photo_url || ogImage}
+        keywords={[
+          artist.name,
+          artist.genre,
+          artist.city,
+          'concert',
+          'billets Temba',
+          'Burkina Faso',
+          'Ouagadougou',
+        ].filter(Boolean) as string[]}
+        structuredData={structuredData}
       />
 
       <div className="min-h-screen bg-cream bg-grain">
-        <section className="relative bg-ink overflow-hidden">
-          {heroSrc ? (
-            <img src={heroSrc} alt="" className="absolute inset-0 w-full h-full object-cover scale-[1.04]" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-brand/40 via-ink to-accent/30" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/20" />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-16 top-10 w-72 h-72 rounded-full bg-accent/25 blur-3xl"
-          />
-
-          <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-4 pb-7 md:pt-6 md:pb-12 min-h-[320px] md:min-h-[480px] flex flex-col">
+        <ArtistStage className="min-h-[360px] md:min-h-[400px]" watermark={artist.name}>
+          <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-4 pb-8 md:pt-5 md:pb-10">
             <Link
               to="/artists"
               className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 bg-paper/12 backdrop-blur-sm text-paper rounded-lg text-[12px] font-medium hover:bg-paper/20 transition-colors"
@@ -245,34 +302,40 @@ export default function ArtistProfile() {
               <ArrowLeft className="w-3.5 h-3.5" /> Artistes
             </Link>
 
-            <div className="mt-auto flex flex-col md:flex-row md:items-end gap-5 md:gap-8">
-              <div className="w-28 h-36 sm:w-36 sm:h-44 rounded-xl2 overflow-hidden border border-paper/20 shadow-pop flex-shrink-0 bg-ink">
-                {artist.photo_url ? (
-                  <img src={artist.photo_url} alt={artist.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full grid place-items-center bg-accent/20">
-                    <span className="text-[40px] font-extrabold text-paper" style={{ fontFamily: display }}>
-                      {artist.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className="eyebrow !text-paper/55 mb-2">
+            <div className="mt-8 md:mt-10 relative z-10 max-w-xl">
+              <div className="min-w-0 flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-6">
+                <div className="relative w-fit flex-shrink-0 self-start">
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute left-1.5 top-1.5 h-full w-full rounded-xl2 border border-accent/45"
+                  />
+                  <div className="relative w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-xl2 overflow-hidden border border-paper/15 bg-ink">
+                  {artist.photo_url ? (
+                    <img src={artist.photo_url} alt={`${artist.name}, artiste`} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center bg-accent/20">
+                      <span className="text-[40px] font-extrabold text-paper" style={{ fontFamily: display }}>
+                        {artist.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                </div>
+                <div className="min-w-0">
+                <p className="eyebrow !text-white/45 mb-2 tracking-[0.22em]">
                   {artist.genre || 'Artiste'}
                   {artist.verified ? ' · Vérifié' : ''}
                 </p>
                 <div className="flex items-start gap-2.5 mb-3">
                   <h1
-                    className="text-[clamp(32px,6vw,64px)] font-extrabold text-paper leading-[0.95] tracking-tight"
-                    style={{ fontFamily: display }}
+                    className="text-[clamp(34px,5.2vw,58px)] font-semibold text-white leading-[1.02] tracking-[-0.045em] antialiased"
+                    style={{ fontFamily: display, fontWeight: 600 }}
                   >
                     {artist.name}
                   </h1>
-                  {artist.verified && <CheckCircle className="w-6 h-6 text-accent flex-shrink-0 mt-2" />}
+                  {artist.verified && <CheckCircle className="w-5 h-5 text-white/80 flex-shrink-0 mt-2.5" />}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-paper/75 mb-5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-white/50 mb-5">
                   {place && (
                     <span className="inline-flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-accent" />
@@ -320,237 +383,259 @@ export default function ArtistProfile() {
                     Copier le lien
                   </button>
                 </div>
+                </div>
               </div>
             </div>
           </div>
-        </section>
+        </ArtistStage>
 
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 md:py-12">
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
-            <div className="lg:col-span-8 space-y-8">
-              <FadeUp>
-                <section className="bg-paper border border-line rounded-xl2 shadow-card p-5 sm:p-7">
-                  <p className="eyebrow mb-3">À propos</p>
-                  {artist.bio ? (
-                    <p className="text-[15px] text-ink/85 leading-relaxed">{artist.bio}</p>
-                  ) : (
-                    <p className="text-[14px] text-ink-mute">
-                      Fiche {artist.name} sur Temba. Les dates publiées par les organisateurs apparaissent ici.
+        <div className="bg-cream bg-grain">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-14">
+            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16">
+              <div className="lg:col-span-8 space-y-14">
+                <FadeUp>
+                  <section>
+                    <p className="eyebrow mb-4 tracking-[0.18em]">À propos</p>
+                    {artist.bio ? (
+                      <p
+                        className="text-[18px] sm:text-[20px] text-ink leading-[1.5] tracking-[-0.02em] max-w-[38rem]"
+                        style={{ fontFamily: display }}
+                      >
+                        {artist.bio}
+                      </p>
+                    ) : (
+                      <p className="text-[15px] text-ink-mute max-w-lg leading-relaxed">
+                        Fiche officielle de {artist.name} sur Temba. Les dates publiées par les organisateurs et les billets en FCFA apparaissent ici.
+                      </p>
+                    )}
+                    <p className="mt-4 text-[13px] text-ink-mute max-w-lg leading-relaxed">
+                      Temba est la billetterie de référence : seuls les concerts réellement programmés sur la plateforme sont listés ci-dessous.
                     </p>
-                  )}
-                  {socials.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-line">
-                      {socials.map(({ kind, label, href, Icon }) => (
-                        <a
-                          key={kind}
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cream border border-line rounded-lg text-[12px] font-medium text-ink hover:border-brand/40 hover:text-brand transition-colors"
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                          {label}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </FadeUp>
-
-              <FadeUp delay={0.06}>
-                <section id="dates">
-                  <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-                    <div>
-                      <p className="eyebrow mb-1">Sur Temba</p>
-                      <h2 className="text-[22px] font-extrabold text-ink" style={{ fontFamily: display }}>
-                        Concerts
-                      </h2>
-                    </div>
-                    {events.length > 0 && (
-                      <div className="flex gap-1 p-1 bg-paper border border-line rounded-xl">
-                        {(['upcoming', 'past'] as Tab[]).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setTab(t)}
-                            className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
-                              tab === t ? 'bg-brand text-paper shadow-sm' : 'text-ink-mute hover:text-ink'
-                            }`}
+                    {socials.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-6">
+                        {socials.map(({ kind, label, href, Icon }) => (
+                          <a
+                            key={kind}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer me"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-ink/80 transition-colors"
                           >
-                            {t === 'upcoming' ? `À venir (${upcoming.length})` : `Passés (${past.length})`}
-                          </button>
+                            <Icon className="w-3.5 h-3.5" />
+                            {label}
+                          </a>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </section>
+                </FadeUp>
 
-                  {events.length === 0 ? (
-                    <div className="relative overflow-hidden rounded-xl2 border border-line bg-paper shadow-card p-6 sm:p-8">
-                      <div className="pointer-events-none absolute -right-8 -top-10 w-40 h-40 rounded-full bg-accent/10 blur-2xl" />
-                      <p className="text-[16px] font-extrabold text-ink mb-1.5" style={{ fontFamily: display }}>
-                        Pas encore de date sur Temba
-                      </p>
-                      <p className="text-[14px] text-ink-mute leading-relaxed max-w-lg mb-5">
-                        Dès qu’un organisateur programme {artist.name}, les billets s’achètent ici — Orange Money, Moov, carte.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Link
-                          to="/events"
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-paper text-[13px] font-bold hover:bg-brand/90"
+                <FadeUp delay={0.06}>
+                  <section id="dates">
+                    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+                      <div>
+                        <p className="eyebrow mb-2 tracking-[0.18em]">Sur Temba</p>
+                        <h2
+                          className="text-[28px] sm:text-[32px] font-semibold text-ink tracking-[-0.04em] leading-none"
+                          style={{ fontFamily: display }}
                         >
-                          Explorer l’agenda
-                        </Link>
-                        <Link
-                          to="/artists"
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-line text-[13px] font-semibold text-ink hover:border-brand/40"
-                        >
-                          Autres artistes
-                        </Link>
+                          Concerts
+                        </h2>
                       </div>
+                      {events.length > 0 && (
+                        <div className="flex gap-5">
+                          {(['upcoming', 'past'] as Tab[]).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setTab(t)}
+                              className={`pb-1 text-[12px] font-semibold uppercase tracking-[0.14em] border-b transition-colors ${
+                                tab === t
+                                  ? 'text-ink border-accent'
+                                  : 'text-ink-mute border-transparent hover:text-ink'
+                              }`}
+                            >
+                              {t === 'upcoming' ? `À venir ${upcoming.length}` : `Passés ${past.length}`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ) : shown.length === 0 ? (
-                    <div className="rounded-xl2 border border-line bg-paper p-8 text-center">
-                      <Calendar className="w-7 h-7 text-ink-mute mx-auto mb-2" />
-                      <p className="text-[14px] font-bold text-ink">
-                        {tab === 'upcoming' ? 'Aucune date à venir' : 'Aucun concert passé'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {shown.map((event) => {
-                        const dt = parseLocalDate(event.date);
-                        const d = dt.getDate();
-                        return (
-                          <Link
-                            key={event.id}
-                            to={eventPublicPath(event)}
-                            className="group flex gap-4 p-4 bg-paper border border-line rounded-xl2 hover:border-brand/40 hover:shadow-card transition-all"
-                          >
-                            <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-cream border border-line flex flex-col items-center justify-center text-center">
-                              <span className="text-[10px] font-bold text-brand uppercase tracking-wider">
-                                {dt.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
-                              </span>
-                              <span className="text-[22px] font-extrabold text-ink leading-tight" style={{ fontFamily: display }}>
-                                {String(d).padStart(2, '0')}
-                              </span>
-                            </div>
-                            {event.image_url && (
-                              <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden hidden xs:block sm:block">
-                                <img
-                                  src={event.image_url}
-                                  alt=""
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[15px] font-bold text-ink truncate group-hover:text-brand transition-colors" style={{ fontFamily: display }}>
-                                {event.title}
-                              </p>
-                              {event.role && (
-                                <span className="inline-block mt-0.5 text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
-                                  {event.role}
-                                </span>
-                              )}
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <MapPin className="w-3 h-3 text-ink-mute flex-shrink-0" />
-                                <span className="text-[12px] text-ink-mute truncate">{event.location}</span>
-                              </div>
-                            </div>
-                            <span className="text-[12px] font-bold text-brand flex-shrink-0 self-center">
-                              {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              </FadeUp>
-            </div>
 
-            <aside className="lg:col-span-4 space-y-5 lg:sticky lg:top-24 self-start">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-paper border border-line rounded-xl2 p-4">
-                  <p className="text-[26px] font-extrabold text-ink tabular-nums leading-none" style={{ fontFamily: display }}>
-                    {upcoming.length}
-                  </p>
-                  <p className="text-[11px] text-ink-mute mt-1.5">Dates à venir</p>
-                </div>
-                <div className="bg-paper border border-line rounded-xl2 p-4">
-                  <p className="text-[26px] font-extrabold text-ink tabular-nums leading-none" style={{ fontFamily: display }}>
-                    {past.length}
-                  </p>
-                  <p className="text-[11px] text-ink-mute mt-1.5">Passés</p>
-                </div>
+                    {events.length === 0 ? (
+                      <div className="py-7 border-y border-line">
+                        <p
+                          className="text-[20px] font-semibold text-ink tracking-tight mb-2"
+                          style={{ fontFamily: display }}
+                        >
+                          Pas encore de date sur Temba
+                        </p>
+                        <p className="text-[14px] text-ink-mute leading-relaxed max-w-lg mb-6">
+                          Dès qu’un organisateur programme {artist.name}, les billets s’achètent ici — Orange Money, Moov, carte.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            to="/events"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-ink text-[13px] font-bold hover:bg-accent/90"
+                          >
+                            Explorer l’agenda
+                          </Link>
+                          <Link
+                            to="/artists"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-ink/15 text-[13px] font-semibold text-ink hover:border-ink/40"
+                          >
+                            Autres artistes
+                          </Link>
+                        </div>
+                      </div>
+                    ) : shown.length === 0 ? (
+                      <div className="py-10 border-y border-line text-center">
+                        <Calendar className="w-6 h-6 text-ink-mute mx-auto mb-3" />
+                        <p className="text-[14px] font-medium text-ink-mute">
+                          {tab === 'upcoming' ? 'Aucune date à venir' : 'Aucun concert passé'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="border-t border-line">
+                        {shown.map((event) => {
+                          const dt = parseLocalDate(event.date);
+                          const d = dt.getDate();
+                          return (
+                            <Link
+                              key={event.id}
+                              to={eventPublicPath(event)}
+                              className="group grid grid-cols-[auto_1fr_auto] sm:grid-cols-[4.5rem_1fr_auto] gap-4 sm:gap-6 items-center py-5 border-b border-line hover:bg-paper/70 transition-colors -mx-2 px-2 sm:mx-0 sm:px-1"
+                            >
+                              <div className="flex flex-col items-start sm:items-center min-w-[3.25rem]">
+                                <span className="text-[10px] font-semibold text-ink-mute uppercase tracking-[0.16em]">
+                                  {dt.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
+                                </span>
+                                <span
+                                  className="text-[28px] font-semibold text-ink tabular-nums leading-none tracking-tight"
+                                  style={{ fontFamily: display }}
+                                >
+                                  {String(d).padStart(2, '0')}
+                                </span>
+                              </div>
+                              <div className="min-w-0 flex items-center gap-4">
+                                {event.image_url ? (
+                                  <div className="hidden sm:block flex-shrink-0 w-14 h-14 overflow-hidden rounded-lg bg-paper">
+                                    <img src={event.image_url} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                ) : null}
+                                <div className="min-w-0">
+                                  <p
+                                    className="text-[16px] font-semibold text-ink truncate tracking-tight"
+                                    style={{ fontFamily: display }}
+                                  >
+                                    {event.title}
+                                  </p>
+                                  <p className="mt-1 text-[12px] text-ink-mute truncate">
+                                    {event.role ? `${ROLE_FR[event.role] || event.role} · ` : ''}
+                                    {event.location}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-[13px] font-semibold text-accent tabular-nums flex-shrink-0">
+                                {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                </FadeUp>
               </div>
 
-              {nextShow && (
-                <Link
-                  to={eventPublicPath(nextShow)}
-                  className="block group bg-paper border border-line rounded-xl2 overflow-hidden hover:border-brand/40 shadow-card"
-                >
-                  <div className="aspect-[16/9] bg-ink relative">
-                    {nextShow.image_url ? (
-                      <img src={nextShow.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-brand/30 to-ink" />
-                    )}
-                    <span className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-accent text-ink text-[10px] font-extrabold uppercase tracking-wide">
-                      Prochain
-                    </span>
+              <aside className="lg:col-span-4 space-y-10 lg:sticky lg:top-24 self-start lg:border-l lg:border-line lg:pl-10">
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <p
+                      className="text-[40px] font-semibold text-ink tabular-nums leading-none tracking-tight"
+                      style={{ fontFamily: display }}
+                    >
+                      {upcoming.length}
+                    </p>
+                    <p className="text-[11px] text-ink-mute mt-2 uppercase tracking-[0.16em]">À venir</p>
                   </div>
-                  <div className="p-4">
-                    <p className="text-[14px] font-bold text-ink leading-snug" style={{ fontFamily: display }}>
-                      {nextShow.title}
+                  <div>
+                    <p
+                      className="text-[40px] font-semibold text-ink tabular-nums leading-none tracking-tight"
+                      style={{ fontFamily: display }}
+                    >
+                      {past.length}
                     </p>
-                    <p className="text-[12px] text-ink-mute mt-1">
-                      {parseLocalDate(nextShow.date).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      })}
-                    </p>
-                    <p className="text-[13px] font-bold text-brand mt-2">
-                      {nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}
-                    </p>
+                    <p className="text-[11px] text-ink-mute mt-2 uppercase tracking-[0.16em]">Passés</p>
                   </div>
-                </Link>
-              )}
-
-              {peers.length > 0 && (
-                <div className="bg-paper border border-line rounded-xl2 p-4">
-                  <p className="eyebrow mb-3">À découvrir</p>
-                  <Stagger className="space-y-1">
-                    {peers.map((p) => (
-                      <StaggerItem key={p.id}>
-                        <Link
-                          to={`/artists/${p.slug}`}
-                          className="flex items-center gap-3 rounded-xl p-2 -mx-1 hover:bg-cream transition-colors"
-                        >
-                          <div className="w-11 h-11 rounded-xl overflow-hidden bg-cream flex-shrink-0">
-                            {p.photo_url ? (
-                              <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full grid place-items-center text-[13px] font-extrabold text-accent">
-                                {p.name.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-bold text-ink truncate" style={{ fontFamily: display }}>
-                              {p.name}
-                            </p>
-                            <p className="text-[11px] text-ink-mute truncate">{p.genre || p.city || 'Artiste'}</p>
-                          </div>
-                          {p.verified && <CheckCircle className="w-3.5 h-3.5 text-brand flex-shrink-0" />}
-                        </Link>
-                      </StaggerItem>
-                    ))}
-                  </Stagger>
                 </div>
-              )}
-            </aside>
+
+                {nextShow && (
+                  <Link to={eventPublicPath(nextShow)} className="block group">
+                    <p className="eyebrow mb-3 tracking-[0.18em]">Prochain</p>
+                    <div className="relative overflow-hidden rounded-xl2 bg-ink aspect-[4/5] max-h-[320px]">
+                      {nextShow.image_url ? (
+                        <img
+                          src={nextShow.image_url}
+                          alt=""
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-ink" />
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 to-transparent">
+                        <p className="text-[15px] font-semibold text-white leading-snug tracking-tight" style={{ fontFamily: display }}>
+                          {nextShow.title}
+                        </p>
+                        <p className="text-[12px] text-white/60 mt-1 capitalize">
+                          {parseLocalDate(nextShow.date).toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                          })}
+                        </p>
+                        <p className="text-[13px] font-semibold text-accent mt-2 tabular-nums">
+                          {nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                )}
+
+                {peers.length > 0 && (
+                  <div>
+                    <p className="eyebrow mb-4 tracking-[0.18em]">À découvrir</p>
+                    <Stagger className="divide-y divide-line border-t border-line">
+                      {peers.map((p) => (
+                        <StaggerItem key={p.id}>
+                          <Link
+                            to={`/artists/${p.slug}`}
+                            className="flex items-center gap-3 py-3 group -mx-1 px-1 hover:bg-paper/80 transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-paper flex-shrink-0">
+                              {p.photo_url ? (
+                                <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full grid place-items-center text-[13px] font-semibold text-ink">
+                                  {p.name.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold text-ink truncate tracking-tight" style={{ fontFamily: display }}>
+                                {p.name}
+                              </p>
+                              <p className="text-[11px] text-ink-mute truncate">{p.genre || p.city || 'Artiste'}</p>
+                            </div>
+                            {p.verified && <CheckCircle className="w-3.5 h-3.5 text-ink/40 flex-shrink-0" />}
+                          </Link>
+                        </StaggerItem>
+                      ))}
+                    </Stagger>
+                  </div>
+                )}
+              </aside>
+            </div>
           </div>
         </div>
       </div>

@@ -45,7 +45,7 @@ const STATIC_ROUTES = [
   { loc: '/attractions', changefreq: 'daily', priority: 0.9 },
   { loc: '/venues', changefreq: 'weekly', priority: 0.7 },
   { loc: '/organizers', changefreq: 'weekly', priority: 0.7 },
-  { loc: '/artists', changefreq: 'weekly', priority: 0.65 },
+  { loc: '/artists', changefreq: 'daily', priority: 0.8 },
   { loc: '/categories', changefreq: 'daily', priority: 0.7 },
   { loc: '/ouagadougou', changefreq: 'daily', priority: 0.85 },
   { loc: '/bobo-dioulasso', changefreq: 'daily', priority: 0.8 },
@@ -107,15 +107,15 @@ async function fetchPublishedEvents() {
     }));
 }
 
-async function fetchSlugPages(table, prefix) {
+async function fetchSlugPages(table, prefix, extras = {}) {
   const data = await rest(`${table}?select=slug,updated_at&slug=not.is.null`);
   return data
     .filter((row) => row?.slug)
     .map((row) => ({
       loc: `${prefix}/${row.slug}`,
       lastmod: formatDate(row.updated_at),
-      changefreq: 'weekly',
-      priority: 0.6,
+      changefreq: extras.changefreq ?? 'weekly',
+      priority: extras.priority ?? 0.6,
     }));
 }
 
@@ -184,7 +184,7 @@ async function main() {
     fetchPublishedEvents(),
     fetchSlugPages('venues', '/venues'),
     fetchSlugPages('organizer_profiles', '/organizers'),
-    fetchSlugPages('artists', '/artists'),
+    fetchSlugPages('artists', '/artists', { priority: 0.75, changefreq: 'daily' }),
     fetchCategoryPages(),
     fetchSlugPages('tags', '/tags'),
   ]);

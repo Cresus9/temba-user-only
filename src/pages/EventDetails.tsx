@@ -325,7 +325,8 @@ export default function EventDetails() {
           .filter((a: any) => a?.name);
         if (!artists.length) return undefined;
         return artists.map((a: any) => ({
-          '@type': 'PerformingGroup',
+          '@type': 'Person',
+          '@id': a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
           name: a.name,
           url: a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
         }));

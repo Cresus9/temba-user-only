@@ -189,6 +189,12 @@ p {
   background-size: 24px 24px;
 }
 
+/* Gold-dust grain on dark artist / concert heroes */
+.bg-grain-dark {
+  background-image: radial-gradient(rgba(246, 225, 181, 0.07) 0.8px, transparent 0.8px);
+  background-size: 16px 16px;
+}
+
 /* Focus rings — branded, not Tailwind default */
 *:focus-visible {
   outline: 2px solid var(--brand);

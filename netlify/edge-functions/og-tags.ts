@@ -226,6 +226,64 @@ async function supabaseGet(path: string): Promise<any[] | null> {
   }
 }
 
+async function fetchEventPerformers(eventId: string) {
+  const rows =
+    (await supabaseGet(
+      `event_artists?event_id=eq.${eventId}&select=role,display_order,artists(name,slug,photo_url)&order=display_order.asc`
+    )) ?? [];
+  return rows
+    .map((row) => ({
+      role: row.role,
+      ...(row.artists || {}),
+    }))
+    .filter((a) => a.name);
+}
+
+async function fetchArtistPublishedShows(artistId: string) {
+  const rows =
+    (await supabaseGet(
+      `event_artists?artist_id=eq.${artistId}&select=role,events(id,slug,title,date,location,city,status,deleted_at)`
+    )) ?? [];
+  return rows
+    .map((row) => ({ role: row.role, ...(row.events || {}) }))
+    .filter((e) => e.id && e.status === "PUBLISHED" && !e.deleted_at)
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+}
+
+function artistSameAs(social: Record<string, string> | null | undefined): string[] {
+  if (!social || typeof social !== "object") return [];
+  const out: string[] = [];
+  const push = (kind: string, raw?: string) => {
+    const v = String(raw || "").trim();
+    if (!v) return;
+    if (/^https?:\/\//i.test(v)) {
+      out.push(v);
+      return;
+    }
+    const handle = v.replace(/^@/, "").replace(/^\//, "");
+    if (kind === "instagram") out.push(`https://www.instagram.com/${handle}`);
+    else if (kind === "facebook") out.push(`https://www.facebook.com/${handle}`);
+    else if (kind === "twitter") out.push(`https://twitter.com/${handle}`);
+    else if (kind === "youtube") {
+      out.push(`https://www.youtube.com/${handle.includes("/") ? handle : `@${handle}`}`);
+    } else if (kind === "website") out.push(v.startsWith("http") ? v : `https://${v}`);
+  };
+  push("instagram", social.instagram);
+  push("facebook", social.facebook);
+  push("youtube", social.youtube);
+  push("twitter", social.twitter);
+  push("website", social.website);
+  return Array.from(new Set(out));
+}
+
+function clampMeta(text: string, max = 158) {
+  const clean = stripHtml(text);
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  const sp = cut.lastIndexOf(" ");
+  return `${(sp > 80 ? cut.slice(0, sp) : cut).trim()}…`;
+}
+
 async function fetchEvent(param: string) {
   const key = decodeURIComponent(param);
   const select =
@@ -283,6 +341,7 @@ function layout(opts: {
   url: string;
   image?: string;
   ogType?: string;
+  robots?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   body: string;
 }): string {
@@ -294,6 +353,7 @@ function layout(opts: {
   const url = escapeHtml(opts.url);
   const image = escapeHtml(opts.image || "https://tembas.com/temba-wordmark-dark.jpg");
   const ogType = escapeHtml(opts.ogType || "website");
+  const robots = escapeHtml(opts.robots || "index, follow");
   const jsonLd = opts.jsonLd
     ? `<script type="application/ld+json">${JSON.stringify(opts.jsonLd).replace(/</g, "\\u003c")}</script>`
     : "";
@@ -305,7 +365,7 @@ function layout(opts: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="${robots}" />
   <link rel="canonical" href="${url}" />
   <meta property="og:type" content="${ogType}" />
   <meta property="og:site_name" content="Temba" />
@@ -329,6 +389,7 @@ function layout(opts: {
   ${opts.body}
   <nav>
     <a href="https://tembas.com/events">Événements</a> ·
+    <a href="https://tembas.com/artists">Artistes</a> ·
     <a href="https://tembas.com/attractions">Attractions</a> ·
     <a href="https://tembas.com/venues">Lieux</a> ·
     <a href="https://tembas.com/organizers">Organisateurs</a> ·
@@ -351,7 +412,12 @@ function eventListHtml(events: any[]): string {
     .join("")}</ul>`;
 }
 
-function generateEventHtml(event: any, requestParam: string, related: any[]): string {
+function generateEventHtml(
+  event: any,
+  requestParam: string,
+  related: any[],
+  performers: { name: string; slug?: string; role?: string }[] = []
+): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
   const location = event?.city || event?.location || "";
@@ -404,6 +470,14 @@ function generateEventHtml(event: any, requestParam: string, related: any[]): st
       name: "Temba",
       url: "https://tembas.com/",
     },
+    performer: performers.length
+      ? performers.map((a) => ({
+          "@type": "Person",
+          "@id": a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
+          name: a.name,
+          url: a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
+        }))
+      : undefined,
     offers: (tickets.length ? tickets : [{ price: minPrice, available: 1 }]).map((t) => ({
       "@type": "Offer",
       url: eventUrl,
@@ -424,12 +498,21 @@ function generateEventHtml(event: any, requestParam: string, related: any[]): st
     )
     .join("");
 
+  const artistLines = performers
+    .map((a) => {
+      const href = a.slug ? `https://tembas.com/artists/${a.slug}` : "";
+      const name = escapeHtml(a.name);
+      return `<li>${href ? `<a href="${escapeHtml(href)}">${name}</a>` : name}</li>`;
+    })
+    .join("");
+
   const body = `
   <article>
     <h1>${escapeHtml(title)}</h1>
     ${eventDate ? `<p>Date : ${escapeHtml(eventDate)}${eventTime ? ` à ${escapeHtml(eventTime)}` : ""}</p>` : ""}
     ${location ? `<p>Lieu : ${escapeHtml(location)}</p>` : ""}
     <p>${escapeHtml(description)}</p>
+    ${artistLines ? `<h2>À l'affiche</h2><ul>${artistLines}</ul>` : ""}
     ${ticketLines ? `<h2>Tarifs</h2><ul>${ticketLines}</ul>` : ""}
     <p><a href="${escapeHtml(eventUrl)}">Acheter des billets sur Temba</a></p>
     ${event?.image_url ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />` : ""}
@@ -581,6 +664,10 @@ export default async function handler(request: Request, context: Context) {
       if (url.pathname !== canonical) {
         return Response.redirect(`https://tembas.com${canonical}`, 301);
       }
+      const performers = await fetchEventPerformers(event.id);
+      return new Response(generateEventHtml(event, requestParam, related, performers), {
+        headers: htmlHeaders,
+      });
     }
     return new Response(generateEventHtml(event, requestParam, related), {
       headers: htmlHeaders,
@@ -719,20 +806,43 @@ export default async function handler(request: Request, context: Context) {
   if (url.pathname === "/artists" || url.pathname === "/artists/") {
     const artists =
       (await supabaseGet(
-        "artists?select=slug,name,genre,city&slug=not.is.null&order=name.asc&limit=40"
+        "artists?select=slug,name,genre,city&slug=not.is.null&order=name.asc&limit=200"
       )) ?? [];
+    const items = artists
+      .filter((a) => a.slug)
+      .map((a) => ({
+        href: `https://tembas.com/artists/${a.slug}`,
+        name: a.name,
+        extra: [a.genre, a.city].filter(Boolean).join(" · "),
+      }));
+    const description =
+      "Fiches officielles des artistes programmés sur Temba : concerts à Ouagadougou et en Afrique de l’Ouest, dates publiées et billets en FCFA.";
     return new Response(
       generateCollectionHtml({
-        title: "Artistes",
-        description: "Artistes programmés sur Temba : concerts et festivals en Afrique de l'Ouest.",
+        title: "Artistes — concerts et billets Burkina Faso",
+        description,
         url: "https://tembas.com/artists",
-        items: artists
-          .filter((a) => a.slug)
-          .map((a) => ({
-            href: `https://tembas.com/artists/${a.slug}`,
-            name: a.name,
-            extra: [a.genre, a.city].filter(Boolean).join(" · "),
-          })),
+        items,
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: "Artistes — Temba",
+            url: "https://tembas.com/artists",
+            description,
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "Artistes Temba",
+            itemListElement: items.slice(0, 80).map((a, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              url: a.href,
+              name: a.name,
+            })),
+          },
+        ],
       }),
       { headers: htmlHeaders }
     );
@@ -744,27 +854,105 @@ export default async function handler(request: Request, context: Context) {
     const artist = await fetchBySlug(
       "artists",
       slug,
-      "slug,name,bio,photo_url,cover_image_url,genre,city"
+      "id,slug,name,bio,photo_url,cover_image_url,genre,city,country_code,social_links,verified"
     );
-    const name = artist?.name || slug;
-    return new Response(
-      generateCollectionHtml({
-        title: name,
-        description:
-          stripHtml(artist?.bio) ||
-          `Dates de ${name}${artist?.genre ? ` (${artist.genre})` : ""} sur Temba.`,
-        url: `https://tembas.com/artists/${slug}`,
-        image: artist?.cover_image_url || artist?.photo_url,
-        items: [
-          { href: "https://tembas.com/artists", name: "Tous les artistes" },
-          { href: "https://tembas.com/events", name: "Agenda Temba" },
-        ],
-        jsonLd: {
-          "@context": "https://schema.org",
-          "@type": "Person",
-          name,
+    if (!artist) {
+      return new Response(
+        layout({
+          title: "Artiste introuvable",
+          description: "Cette fiche artiste n’existe pas sur Temba.",
           url: `https://tembas.com/artists/${slug}`,
-        },
+          robots: "noindex, follow",
+          body: `<h1>Artiste introuvable</h1><p>Cette fiche n’existe pas, ou le lien a changé.</p><p><a href="https://tembas.com/artists">Tous les artistes</a></p>`,
+        }),
+        { status: 404, headers: htmlHeaders }
+      );
+    }
+    const name = artist.name || slug;
+    const pageUrl = `https://tembas.com/artists/${artist.slug || slug}`;
+    const shows = artist.id ? await fetchArtistPublishedShows(artist.id) : [];
+    const next = shows.find((s) => s.date) || shows[0];
+    const description = next?.title
+      ? clampMeta(
+          `${name}${artist.genre ? ` (${artist.genre})` : ""} : « ${next.title} »${
+            next.date ? ` le ${formatFrDate(next.date)}` : ""
+          }${next.location || next.city ? ` à ${next.city || next.location}` : ""}. Billets officiels sur Temba.`
+        )
+      : clampMeta(
+          stripHtml(artist.bio) ||
+            `Fiche officielle de ${name}${artist.genre ? `, ${artist.genre}` : ""} sur Temba. Dates publiées et billets en FCFA.`
+        );
+    const sameAs = artistSameAs(artist.social_links);
+    const jsonLd = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tembas.com/" },
+          { "@type": "ListItem", position: 2, name: "Artistes", item: "https://tembas.com/artists" },
+          { "@type": "ListItem", position: 3, name, item: pageUrl },
+        ],
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": ["Person", "MusicGroup"],
+        "@id": pageUrl,
+        name,
+        url: pageUrl,
+        image: artist.photo_url || undefined,
+        description: stripHtml(artist.bio) || undefined,
+        genre: artist.genre || undefined,
+        sameAs: sameAs.length ? sameAs : undefined,
+        homeLocation: artist.city
+          ? {
+              "@type": "Place",
+              name: artist.city,
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: artist.city,
+                addressCountry: artist.country_code || "BF",
+              },
+            }
+          : undefined,
+        performerIn: shows.length
+          ? shows.map((s) => ({
+              "@type": "MusicEvent",
+              name: s.title,
+              url: `https://tembas.com${eventPublicPath(s)}`,
+              startDate: s.date || undefined,
+              location: {
+                "@type": "Place",
+                name: s.city || s.location || "Afrique de l'Ouest",
+              },
+            }))
+          : undefined,
+      },
+    ];
+    const showItems = shows.map((s) => ({
+      href: `https://tembas.com${eventPublicPath(s)}`,
+      name: s.title,
+      extra: [formatFrDate(s.date), s.city || s.location].filter(Boolean).join(" · "),
+    }));
+    const bio = stripHtml(artist.bio);
+    const body = `<article>
+      <nav><a href="https://tembas.com/artists">Artistes</a> / ${escapeHtml(name)}</nav>
+      <h1>${escapeHtml(name)}</h1>
+      ${artist.genre ? `<p>${escapeHtml(artist.genre)}${artist.city ? ` · ${escapeHtml(artist.city)}` : ""}</p>` : ""}
+      ${bio ? `<p>${escapeHtml(bio)}</p>` : ""}
+      <p>Fiche officielle Temba : seuls les concerts réellement mis en vente sur la plateforme sont listés.</p>
+      ${artist.photo_url ? `<img src="${escapeHtml(artist.photo_url)}" alt="${escapeHtml(name)}, artiste" />` : ""}
+      <h2>Concerts sur Temba</h2>
+      ${showItems.length ? linkList(showItems) : "<p>Pas encore de date publiée sur Temba.</p>"}
+    </article>`;
+    return new Response(
+      layout({
+        title: `${name} — concerts et billets`,
+        description,
+        url: pageUrl,
+        image: artist.photo_url || artist.cover_image_url,
+        ogType: "profile",
+        jsonLd,
+        body,
       }),
       { headers: htmlHeaders }
     );
