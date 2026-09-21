@@ -251,6 +251,7 @@ export async function listAttractions(filters?: {
   type?: string;
   countryCode?: string;
   city?: string;
+  limit?: number;
 }) {
   let query = supabase
     .from('events')
@@ -270,6 +271,7 @@ export async function listAttractions(filters?: {
   if (filters?.type)        query = query.eq('attraction_type', filters.type);
   if (filters?.countryCode) query = query.eq('country_code', filters.countryCode);
   if (filters?.city)        query = query.ilike('city', `%${filters.city}%`);
+  if (filters?.limit)       query = query.limit(filters.limit);
 
   const { data, error } = await query;
   if (error) console.error('[permanentVenueService] listAttractions:', error);

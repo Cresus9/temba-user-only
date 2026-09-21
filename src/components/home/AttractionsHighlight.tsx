@@ -1,38 +1,62 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight, Ticket } from 'lucide-react';
 import { listAttractions, ATTRACTION_TYPE_LABELS, ATTRACTION_TYPE_ICONS } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
 import { FadeUp, Stagger, StaggerItem } from '../common/Motion';
 import { eventPublicPath } from '../../utils/eventPath';
+import { useEvents } from '../../context/EventContext';
+import { Event } from '../../types/event';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 
 export default function AttractionsHighlight() {
-  const [items,   setItems]   = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { events, loading: eventsLoading } = useEvents();
+  const [fallback, setFallback] = useState<Event[] | null>(null);
+
+  const fromCatalog = useMemo(() => {
+    return events
+      .filter((e) => e.is_permanent)
+      .sort((a, b) => {
+        if (!!a.featured !== !!b.featured) return a.featured ? -1 : 1;
+        return (a.title || '').localeCompare(b.title || '', 'fr');
+      })
+      .slice(0, 6);
+  }, [events]);
 
   useEffect(() => {
-    listAttractions().then(data => {
-      setItems(data.slice(0, 6));
-      setLoading(false);
-    });
-  }, []);
+    if (eventsLoading || fromCatalog.length > 0) {
+      setFallback(null);
+      return;
+    }
+    let cancelled = false;
+    listAttractions({ limit: 6 })
+      .then((data) => {
+        if (!cancelled) setFallback((data as Event[]).slice(0, 6));
+      })
+      .catch(() => {
+        if (!cancelled) setFallback([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventsLoading, fromCatalog.length]);
 
-  // Don't render the section if there are no attractions
+  const items = fromCatalog.length > 0 ? fromCatalog : (fallback ?? []);
+  const loading = eventsLoading || (fromCatalog.length === 0 && fallback === null);
+
   if (!loading && items.length === 0) return null;
 
-  const lowestPrice = (a: any): number | null => {
-    const tts = (a.ticket_types ?? []).filter((t: any) => t.available > 0);
+  const lowestPrice = (a: typeof items[number]): number | null => {
+    const tts = (a.ticket_types ?? []).filter((t) => t.available > 0);
     if (!tts.length) return null;
-    return Math.min(...tts.map((t: any) => t.price));
+    return Math.min(...tts.map((t) => t.price));
   };
 
   return (
     <section className="section-normal bg-paper border-t border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
-        {/* ── Header ── */}
         <FadeUp className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
           <div className="max-w-2xl">
             <p className="eyebrow mb-2">Ouvert toute l'année</p>
@@ -50,7 +74,6 @@ export default function AttractionsHighlight() {
           </Link>
         </FadeUp>
 
-        {/* ── Skeleton ── */}
         {loading && (
           <div className="flex gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -65,9 +88,6 @@ export default function AttractionsHighlight() {
           </div>
         )}
 
-      {/* ── Cards ──
-             Mobile : horizontal snap-scroll strip (peek at next card).
-             md+    : regular 3-column grid.                               */}
         {!loading && items.length > 0 && (
           <Stagger className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth
                               -mx-4 px-4 md:mx-0 md:px-0
@@ -84,7 +104,6 @@ export default function AttractionsHighlight() {
                     to={eventPublicPath(a)}
                     className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200 h-full"
                   >
-                    {/* Image */}
                     <div className="relative aspect-[16/9] sm:aspect-[4/3] bg-cream-deep overflow-hidden flex-shrink-0">
                       {a.image_url ? (
                         <img
@@ -99,7 +118,6 @@ export default function AttractionsHighlight() {
                         </div>
                       )}
 
-                      {/* Type badge */}
                       <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2 py-0.5 bg-ink/65 backdrop-blur-sm rounded-md">
                         <span className="text-[10px]">{typeIcon}</span>
                         <span
@@ -110,7 +128,6 @@ export default function AttractionsHighlight() {
                         </span>
                       </span>
 
-                      {/* Always open pill */}
                       <span className="absolute top-2.5 right-2.5 flex items-center gap-1">
                         {a.featured && (
                           <span className="px-1.5 py-0.5 bg-amber-400 rounded-md">
@@ -133,7 +150,6 @@ export default function AttractionsHighlight() {
                       </span>
                     </div>
 
-                    {/* Info */}
                     <div className="flex flex-col gap-1 p-3.5 flex-1">
                       <h3
                         className="text-[13px] font-bold text-ink leading-snug group-hover:text-brand transition-colors line-clamp-2"
@@ -149,7 +165,6 @@ export default function AttractionsHighlight() {
                         </p>
                       )}
 
-                      {/* Price + CTA */}
                       <div className="mt-auto pt-2.5 flex items-center justify-between gap-2">
                         <p
                           className="text-[12px] font-bold text-brand tabular-nums"
@@ -172,7 +187,6 @@ export default function AttractionsHighlight() {
           </Stagger>
         )}
 
-        {/* ── Bottom CTA strip ── */}
         {!loading && items.length > 0 && (
           <FadeUp className="mt-6 flex justify-center">
             <Link

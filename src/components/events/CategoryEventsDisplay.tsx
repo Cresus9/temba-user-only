@@ -22,13 +22,66 @@ interface CategorySectionData {
   priority: number;
 }
 
+function pushEventToCategory(grouped: Map<string, Event[]>, name: string, event: Event) {
+  const existing = grouped.get(name) || [];
+  if (!existing.find((e) => e.id === event.id)) {
+    grouped.set(name, [...existing, event]);
+  }
+}
+
+function groupEventsByCategory(eventsData: Event[], namesByEventId?: Map<string, string[]>) {
+  const grouped = new Map<string, Event[]>();
+
+  eventsData.forEach((event: any) => {
+    const fromJoin = event.event_category_relations?.map((rel: any) => rel.categories).filter(Boolean) || [];
+    const names = [
+      ...(namesByEventId?.get(event.id) || []),
+      ...fromJoin.map((cat: any) => cat?.name).filter(Boolean),
+      ...(event.category_relations || []).map((c: any) => c?.name || c).filter(Boolean),
+      ...(Array.isArray(event.categories) ? event.categories : []),
+    ];
+
+    if (names.length === 0) {
+      pushEventToCategory(grouped, 'Autres', event);
+    } else {
+      names.forEach((categoryName: string) => pushEventToCategory(grouped, categoryName, event));
+    }
+  });
+
+  return grouped;
+}
+
+async function fetchCategoryNamesByEvent(eventIds: string[]) {
+  const namesByEventId = new Map<string, string[]>();
+  const chunkSize = 80;
+  for (let i = 0; i < eventIds.length; i += chunkSize) {
+    const chunk = eventIds.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from('event_category_relations')
+      .select('event_id, categories(name)')
+      .in('event_id', chunk);
+    if (error) throw error;
+    for (const rel of data || []) {
+      const cat = Array.isArray((rel as any).categories)
+        ? (rel as any).categories[0]
+        : (rel as any).categories;
+      const name = cat?.name;
+      if (!name) continue;
+      const list = namesByEventId.get(rel.event_id) || [];
+      if (!list.includes(name)) list.push(name);
+      namesByEventId.set(rel.event_id, list);
+    }
+  }
+  return namesByEventId;
+}
+
 export default function CategoryEventsDisplay({
   searchQuery = '',
   locationFilter = '',
   dateFilter = '',
   countryFilter = '',
 }: CategoryEventsDisplayProps) {
-  const { activeCountry } = useEvents();
+  const { events: contextEvents, loading: contextLoading, activeCountry } = useEvents();
   // Authoritative country: explicit prop (from Events page filter bar) › global nav selection
   const effectiveCountry = countryFilter || activeCountry || '';
 
@@ -42,85 +95,71 @@ export default function CategoryEventsDisplay({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const needsFilteredQuery = !!(debouncedSearch || locationFilter || dateFilter);
+
   useEffect(() => {
-    fetchData();
-  }, [debouncedSearch, locationFilter, dateFilter, effectiveCountry]);
+    let cancelled = false;
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+    const fetchData = async () => {
+      if (!needsFilteredQuery && contextLoading) return;
 
-      const categoriesData = await CategoryService.fetchCategories();
-      setCategories(categoriesData);
+      try {
+        setLoading(true);
+        const categoriesData = await CategoryService.fetchCategories();
+        if (cancelled) return;
+        setCategories(categoriesData);
 
-      let eventsQuery = supabase
-        .from('events')
-        .select(`
-          *,
-          ticket_types (*),
-          event_category_relations (
-            category_id,
-            categories (*)
-          )
-        `)
-        .eq('status', 'PUBLISHED');
+        if (needsFilteredQuery) {
+          let eventsQuery = supabase
+            .from('events')
+            .select(`
+              *,
+              ticket_types (*),
+              event_category_relations (
+                category_id,
+                categories (*)
+              )
+            `)
+            .eq('status', 'PUBLISHED');
 
-      if (debouncedSearch) {
-        eventsQuery = eventsQuery.or(
-          `title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`
-        );
-      }
-      if (locationFilter) {
-        eventsQuery = eventsQuery.ilike('location', `%${locationFilter}%`);
-      }
-      if (dateFilter) {
-        eventsQuery = eventsQuery.eq('date', dateFilter);
-      }
+          if (debouncedSearch) {
+            eventsQuery = eventsQuery.or(
+              `title.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`
+            );
+          }
+          if (locationFilter) {
+            eventsQuery = eventsQuery.ilike('location', `%${locationFilter}%`);
+          }
+          if (dateFilter) {
+            eventsQuery = eventsQuery.eq('date', dateFilter);
+          }
 
-      const { data: raw, error } = await eventsQuery.order('date', { ascending: true });
-
-      if (error) throw error;
-
-      // Sort: selected country → upcoming → past (country-others follow same pattern)
-      const eventsData = sortEventsForDisplay(raw ?? [], effectiveCountry);
-
-      // Group events by category
-      const grouped = new Map<string, Event[]>();
-
-      eventsData?.forEach((event: any) => {
-        const eventCategories = event.event_category_relations?.map(
-          (rel: any) => rel.categories
-        ).filter(Boolean) || [];
-
-        const legacyCategories = event.categories || [];
-        const normalizedCategories = event.category_relations || [];
-
-        const allCategoryNames = [
-          ...eventCategories.map((cat: any) => cat?.name).filter(Boolean),
-          ...normalizedCategories.map((cat: any) => cat?.name || cat).filter(Boolean),
-          ...(Array.isArray(legacyCategories) ? legacyCategories : [])
-        ];
-
-        if (allCategoryNames.length === 0) {
-          const others = grouped.get('Autres') || [];
-          grouped.set('Autres', [...others, event]);
-        } else {
-          allCategoryNames.forEach((categoryName: string) => {
-            const existing = grouped.get(categoryName) || [];
-            if (!existing.find(e => e.id === event.id)) {
-              grouped.set(categoryName, [...existing, event]);
-            }
-          });
+          const { data: raw, error } = await eventsQuery.order('date', { ascending: true });
+          if (error) throw error;
+          if (cancelled) return;
+          const eventsData = sortEventsForDisplay(raw ?? [], effectiveCountry);
+          setEventsByCategory(groupEventsByCategory(eventsData));
+          return;
         }
-      });
 
-      setEventsByCategory(grouped);
-    } catch (error) {
-      console.error('Error fetching events by category:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const eventsData = sortEventsForDisplay(contextEvents ?? [], effectiveCountry);
+        const namesByEventId = eventsData.length
+          ? await fetchCategoryNamesByEvent(eventsData.map((e) => e.id))
+          : new Map<string, string[]>();
+        if (cancelled) return;
+        setEventsByCategory(groupEventsByCategory(eventsData, namesByEventId));
+      } catch (error) {
+        console.error('Error fetching events by category:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, locationFilter, dateFilter, effectiveCountry, needsFilteredQuery, contextLoading, contextEvents]);
 
   const categorySections = useMemo(() => {
     const sections: CategorySectionData[] = [];

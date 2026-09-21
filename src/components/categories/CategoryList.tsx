@@ -14,12 +14,11 @@ export default function CategoryList() {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    // Fetch counts from DB to reflect PUBLISHED events accurately
+    let cancelled = false;
     const fetchCounts = async () => {
       const entries = await Promise.all(
         CATEGORIES.map(async (cat) => {
           try {
-            // Resolve slug to real category UUID first
             const resolved = await CategoryService.fetchCategoryBySlug(cat.id);
             if (!resolved?.id) return [cat.id, 0] as const;
             const count = await CategoryService.getPublishedEventCountByCategory(resolved.id);
@@ -29,10 +28,19 @@ export default function CategoryList() {
           }
         })
       );
-      setCounts(Object.fromEntries(entries));
+      if (!cancelled) setCounts(Object.fromEntries(entries));
     };
 
-    fetchCounts();
+    // Counts are decorative — wait until the main catalog has bandwidth.
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(() => { void fetchCounts(); }, { timeout: 4000 })
+      : window.setTimeout(() => { void fetchCounts(); }, 2500);
+
+    return () => {
+      cancelled = true;
+      if (typeof idle === 'number') window.clearTimeout(idle);
+      else window.cancelIdleCallback?.(idle);
+    };
   }, []);
 
   const getEventCount = (categoryId: string) => counts[categoryId] ?? 0;

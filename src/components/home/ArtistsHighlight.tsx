@@ -1,30 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { localTodayYmd, parseLocalDate } from '../../utils/formatters';
 import { eventPublicPath } from '../../utils/eventPath';
 import { FadeUp } from '../common/Motion';
+import { useEvents } from '../../context/EventContext';
+import { Event } from '../../types/event';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const MAX = 4;
-
-type Row = {
-  artists: {
-    id: string;
-    name: string;
-    slug: string;
-    photo_url: string | null;
-  } | null;
-  events: {
-    id: string;
-    slug?: string | null;
-    title: string;
-    date: string | null;
-    status: string | null;
-    deleted_at: string | null;
-  } | null;
-};
 
 type Card = {
   id: string;
@@ -39,56 +24,98 @@ type Card = {
 };
 
 export default function ArtistsHighlight() {
+  const { events, loading: eventsLoading } = useEvents();
   const [items, setItems] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const upcomingById = useMemo(() => {
+    const today = localTodayYmd();
+    const map = new Map<string, Event>();
+    for (const e of events) {
+      if (e.is_permanent || !e.date || e.date < today) continue;
+      map.set(e.id, e);
+    }
+    return map;
+  }, [events]);
+
   useEffect(() => {
+    if (eventsLoading) return;
+
+    const eventIds = [...upcomingById.keys()];
+    if (eventIds.length === 0) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data: links, error: linkErr } = await supabase
         .from('event_artists')
-        .select('artists(id, name, slug, photo_url), events(id, slug, title, date, status, deleted_at)')
-        .limit(120);
+        .select('event_id, artist_id')
+        .in('event_id', eventIds.slice(0, 80));
+
       if (cancelled) return;
-      const today = parseLocalDate(localTodayYmd());
-      const byId = new Map<string, Card>();
-      for (const row of (data || []) as Row[]) {
-        const a = Array.isArray(row.artists) ? row.artists[0] : row.artists;
-        const e = Array.isArray(row.events) ? row.events[0] : row.events;
-        const photo = a?.photo_url?.trim();
-        if (!a?.id || !a.slug || !photo || !e?.id) continue;
-        if (e.status !== 'PUBLISHED' || e.deleted_at || !e.date) continue;
-        const when = parseLocalDate(e.date);
-        if (when < today) continue;
-        const ts = when.getTime();
-        const existing = byId.get(a.id);
+      if (linkErr || !links?.length) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      const artistIds = [...new Set(links.map((r) => r.artist_id).filter(Boolean))];
+      const { data: artists, error: artistErr } = await supabase
+        .from('artists')
+        .select('id, name, slug, photo_url')
+        .in('id', artistIds);
+
+      if (cancelled) return;
+      if (artistErr || !artists?.length) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      const byArtist = new Map<string, (typeof artists)[number]>(
+        artists.map((a) => [a.id, a])
+      );
+      const cards = new Map<string, Card>();
+
+      for (const link of links) {
+        const artist = byArtist.get(link.artist_id);
+        const event = upcomingById.get(link.event_id);
+        const photo = artist?.photo_url?.trim();
+        if (!artist?.id || !artist.slug || !photo || !event?.date) continue;
+        const ts = parseLocalDate(event.date).getTime();
+        const existing = cards.get(artist.id);
         if (!existing || ts < existing.nextTs) {
-          byId.set(a.id, {
-            id: a.id,
-            name: a.name,
-            slug: a.slug,
+          cards.set(artist.id, {
+            id: artist.id,
+            name: artist.name,
+            slug: artist.slug,
             photo_url: photo,
-            nextTitle: e.title,
-            nextDate: e.date,
+            nextTitle: event.title,
+            nextDate: event.date,
             nextTs: ts,
-            eventId: e.id,
-            eventSlug: e.slug,
+            eventId: event.id,
+            eventSlug: event.slug,
           });
         }
       }
+
       setItems(
-        [...byId.values()]
+        [...cards.values()]
           .sort((x, y) => x.nextTs - y.nextTs || x.name.localeCompare(y.name, 'fr'))
           .slice(0, MAX)
       );
       setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [eventsLoading, upcomingById]);
 
-  if (!loading && items.length === 0) return null;
+  if (!loading && !eventsLoading && items.length === 0) return null;
 
   return (
     <section>
@@ -107,7 +134,7 @@ export default function ArtistsHighlight() {
       </FadeUp>
 
       <div className="space-y-2.5">
-        {loading
+        {loading || eventsLoading
           ? Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="flex gap-3 animate-pulse bg-paper border border-line rounded-xl2 p-3">
                 <div className="w-20 h-20 bg-line rounded-xl flex-shrink-0" />
