@@ -13,6 +13,7 @@
     "test:ui": "vitest --ui",
     "generate:sitemap": "node scripts/generate-sitemap.mjs",
     "generate:blog-sitemap": "node scripts/generate-blog-sitemap.mjs",
+    "validate:artists": "node scripts/validate-artists.mjs",
     "deploy:functions:paris": "bash scripts/deploy-edge-functions-paris.sh"
   },
   "dependencies": {
