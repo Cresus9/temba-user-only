@@ -239,6 +239,29 @@ async function fetchEventPerformers(eventId: string) {
     .filter((a) => a.name);
 }
 
+async function fetchBilledArtists(limit = 24) {
+  const rows =
+    (await supabaseGet(
+      `event_artists?select=artists(slug,name,genre,city),events(status,deleted_at,date,title)&limit=120`
+    )) ?? [];
+  const seen = new Set<string>();
+  const out: { href: string; name: string; extra?: string }[] = [];
+  for (const row of rows) {
+    const a = row.artists;
+    const e = row.events;
+    if (!a?.slug || !a.name || seen.has(a.slug)) continue;
+    if (e?.status !== "PUBLISHED" || e.deleted_at) continue;
+    seen.add(a.slug);
+    out.push({
+      href: `https://tembas.com/artists/${a.slug}`,
+      name: a.name,
+      extra: [a.genre, a.city].filter(Boolean).join(" · "),
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 async function fetchArtistPublishedShows(artistId: string) {
   const rows =
     (await supabaseGet(
@@ -589,11 +612,13 @@ function generateListingHtml(events: any[]): string {
         name: e.title,
       })),
     },
-    body: `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p>${eventListHtml(events)}`,
+    body: `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p>
+      ${eventListHtml(events)}
+      <p><a href="https://tembas.com/artists">Artistes — concerts et billets</a></p>`,
   });
 }
 
-function generateHomeHtml(events: any[]): string {
+function generateHomeHtml(events: any[], artists: { href: string; name: string; extra?: string }[] = []) {
   const title = "Temba – N°1 Billetterie Burkina Faso | Concerts, Festivals & Événements";
   const description =
     "Achetez vos billets en ligne pour les concerts, festivals et événements à Ouagadougou et partout au Burkina Faso. Paiement sécurisé en FCFA.";
@@ -611,7 +636,10 @@ function generateHomeHtml(events: any[]): string {
     body: `<h1>Temba — Billetterie en ligne</h1>
       <p>${escapeHtml(description)}</p>
       <h2>Événements à l'affiche</h2>
-      ${eventListHtml(events)}`,
+      ${eventListHtml(events)}
+      <h2>Artistes — concerts et billets</h2>
+      <p><a href="https://tembas.com/artists">Tous les artistes sur Temba</a></p>
+      ${artists.length ? linkList(artists) : ""}`,
   });
 }
 
@@ -643,8 +671,11 @@ export default async function handler(request: Request, context: Context) {
   };
 
   if (url.pathname === "/" || url.pathname === "") {
-    const events = await fetchPublishedEvents(20);
-    return new Response(generateHomeHtml(events), { headers: htmlHeaders });
+    const [events, artists] = await Promise.all([
+      fetchPublishedEvents(20),
+      fetchBilledArtists(24),
+    ]);
+    return new Response(generateHomeHtml(events, artists), { headers: htmlHeaders });
   }
 
   if (url.pathname === "/events" || url.pathname === "/events/") {
@@ -928,6 +959,32 @@ export default async function handler(request: Request, context: Context) {
           : undefined,
       },
     ];
+    const next = shows.find((s) => s.date) || shows[0];
+    const place = artist.city || next?.city || "Ouagadougou";
+    jsonLd.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: `Où acheter des billets pour ${name} ?`,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: `Sur Temba, fiche officielle ${name}. Seuls les concerts réellement mis en vente sur tembas.com sont listés.`,
+          },
+        },
+        {
+          "@type": "Question",
+          name: `${name} en concert à ${place} ?`,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: next?.title
+              ? `Oui : « ${next.title} »${next.date ? ` le ${formatFrDate(next.date)}` : ""}. Billets sur Temba.`
+              : `${name} n’a pas encore de date publiée sur Temba.`,
+          },
+        },
+      ],
+    });
     const showItems = shows.map((s) => ({
       href: `https://tembas.com${eventPublicPath(s)}`,
       name: s.title,
@@ -941,12 +998,18 @@ export default async function handler(request: Request, context: Context) {
       ${bio ? `<p>${escapeHtml(bio)}</p>` : ""}
       <p>Fiche officielle Temba : seuls les concerts réellement mis en vente sur la plateforme sont listés.</p>
       ${artist.photo_url ? `<img src="${escapeHtml(artist.photo_url)}" alt="${escapeHtml(name)}, artiste" />` : ""}
-      <h2>Concerts sur Temba</h2>
+      <h2>Concerts et billets ${escapeHtml(name)}</h2>
       ${showItems.length ? linkList(showItems) : "<p>Pas encore de date publiée sur Temba.</p>"}
+      <h2>Où acheter des billets pour ${escapeHtml(name)} ?</h2>
+      <p>Sur Temba. Orange Money, Moov Money ou carte — QR sur le téléphone.</p>
     </article>`;
+    const placeTitle = artist.city || next?.city || next?.location || "";
+    const seoTitle = placeTitle
+      ? `${name} — concert à ${/bobo/i.test(placeTitle) ? "Bobo-Dioulasso" : /ouaga/i.test(placeTitle) ? "Ouagadougou" : placeTitle}, billets`
+      : `${name} — concert et billets`;
     return new Response(
       layout({
-        title: `${name} — concerts et billets`,
+        title: seoTitle,
         description,
         url: pageUrl,
         image: artist.photo_url || artist.cover_image_url,
@@ -1205,11 +1268,17 @@ export default async function handler(request: Request, context: Context) {
         title: cityPage.title,
         description: cityPage.description,
         url: `https://tembas.com/${citySlug}`,
-        items: events.map((e) => ({
-          href: `https://tembas.com${eventPublicPath(e)}`,
-          name: e.title,
-          extra: e.city || e.location || "",
-        })),
+        items: [
+          {
+            href: "https://tembas.com/artists",
+            name: `Artistes et concerts à ${cityPage.name}`,
+          },
+          ...events.map((e) => ({
+            href: `https://tembas.com${eventPublicPath(e)}`,
+            name: e.title,
+            extra: e.city || e.location || "",
+          })),
+        ],
       }),
       { headers: htmlHeaders }
     );

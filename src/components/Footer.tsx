@@ -99,6 +99,7 @@ export default function Footer() {
             <p className="eyebrow !text-paper/45 mb-3.5">Explorer</p>
             <ul className="space-y-2">
               <li><Link to="/events" className={linkCls}>Événements</Link></li>
+              <li><Link to="/artists" className={linkCls}>Artistes</Link></li>
               <li><Link to="/categories" className={linkCls}>Catégories</Link></li>
               <li><Link to="/blog" className={linkCls}>Blog</Link></li>
               <li><Link to="/about" className={linkCls}>À propos</Link></li>

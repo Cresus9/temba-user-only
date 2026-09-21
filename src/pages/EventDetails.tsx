@@ -27,6 +27,7 @@ import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
 import { eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath';
+import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import PermanentBookingPanel from '../components/venue/PermanentBookingPanel';
 import GalleryCarousel from '../components/venue/GalleryCarousel';
@@ -764,7 +765,7 @@ export default function EventDetails() {
                           </div>
                           <div>
                             <p className="text-[13px] font-semibold text-ink leading-tight">{artist.name}</p>
-                            {artist.role && <p className="text-[10px] text-ink-mute">{artist.role}</p>}
+                            {artist.role && <p className="text-[10px] text-ink-mute">{ARTIST_ROLE_FR[artist.role] || artist.role}</p>}
                           </div>
                         </Link>
                       ))}

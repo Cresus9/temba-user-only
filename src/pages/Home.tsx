@@ -17,6 +17,7 @@ import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
 import UpcomingEvents from '../components/events/UpcomingEvents';
 import PopularVenues from '../components/home/PopularVenues';
 import AttractionsHighlight from '../components/home/AttractionsHighlight';
+import ArtistsHighlight from '../components/home/ArtistsHighlight';
 import Image from '../components/common/Image';
 import { FadeUp, SlideIn, Stagger, StaggerItem } from '../components/common/Motion';
 import { pickSpotlightEvents } from '../utils/eventGeo';
@@ -201,6 +202,14 @@ export default function Home() {
           },
           {
             '@type': 'Question',
+            name: 'Comment acheter un billet de concert au Burkina Faso ?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Sur Temba : ouvrez la fiche de l’artiste ou de l’événement, payez en Orange Money, Moov ou carte, et présentez le QR à l’entrée.',
+            },
+          },
+          {
+            '@type': 'Question',
             name: 'Quels événements trouve-t-on sur Temba ?',
             acceptedAnswer: {
               '@type': 'Answer',
@@ -236,6 +245,8 @@ export default function Home() {
           'festivals Burkina Faso',
           'concerts Ouagadougou',
           'billets soirées Burkina',
+          'artistes Burkina Faso',
+          'billets concert Ouagadougou',
           'billetterie africaine en ligne',
         ]}
         structuredData={structuredData}
@@ -374,6 +385,7 @@ export default function Home() {
 
       {/* ───── Attractions permanentes ───── */}
       <AttractionsHighlight />
+      <ArtistsHighlight />
 
       {/* ───── Bientôt + catégories + venues sur surface cream ───── */}
       <section className="section-normal surface-cream">

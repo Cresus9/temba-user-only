@@ -109,7 +109,16 @@ export default function ArtistsDirectory() {
         title="Artistes — concerts et billets Burkina Faso"
         description="Fiches officielles des artistes programmés sur Temba : concerts à Ouagadougou et en Afrique de l’Ouest, dates publiées et billets en FCFA."
         canonicalUrl="https://tembas.com/artists"
-        keywords={['artistes Burkina Faso', 'concerts Ouagadougou', 'billets Temba', 'afro', 'rap', 'live']}
+        keywords={[
+          'artistes Burkina Faso',
+          'concerts Ouagadougou',
+          'billets concert Burkina',
+          'artistes Temba',
+          'billets Temba',
+          'afro',
+          'rap',
+          'live',
+        ]}
         structuredData={directorySchema}
       />
 

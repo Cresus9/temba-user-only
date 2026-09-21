@@ -11,7 +11,9 @@ import { countryFlag } from '../../utils/eventGeo';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
 import {
+  ARTIST_ROLE_FR,
   artistCanonicalUrl,
+  artistFaqItems,
   artistMetaDescription,
   artistSeoTitle,
   artistSocialHref,
@@ -65,15 +67,6 @@ interface ShowCard {
 type Tab = 'upcoming' | 'past';
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 
-const ROLE_FR: Record<string, string> = {
-  headliner: 'Tête d’affiche',
-  opening_act: 'Première partie',
-  performer: 'Sur scène',
-  dj: 'DJ',
-  host: 'Hôte',
-  support: 'Support',
-  special_guest: 'Invité',
-};
 
 
 function todayLocal() {
@@ -275,19 +268,20 @@ export default function ArtistProfile() {
   return (
     <>
       <PageSEO
-        title={artistSeoTitle(artist.name)}
+        title={artistSeoTitle(artist.name, { city: artist.city, nextLocation: nextShow?.location })}
         description={seoDescription}
         canonicalUrl={pageUrl}
         ogType="profile"
         ogImage={artist.photo_url || ogImage}
         keywords={[
           artist.name,
+          `concert ${artist.name}`,
+          `billets ${artist.name}`,
           artist.genre,
           artist.city,
-          'concert',
+          'concert Ouagadougou',
           'billets Temba',
           'Burkina Faso',
-          'Ouagadougou',
         ].filter(Boolean) as string[]}
         structuredData={structuredData}
       />
@@ -301,6 +295,13 @@ export default function ArtistProfile() {
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Artistes
             </Link>
+            <p className="mt-3 text-[11px] text-white/40">
+              <Link to="/" className="hover:text-white/70">Accueil</Link>
+              {' · '}
+              <Link to="/artists" className="hover:text-white/70">Artistes</Link>
+              {' · '}
+              <span className="text-white/70">{artist.name}</span>
+            </p>
 
             <div className="mt-8 md:mt-10 relative z-10 max-w-xl">
               <div className="min-w-0 flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-6">
@@ -439,7 +440,7 @@ export default function ArtistProfile() {
                           className="text-[28px] sm:text-[32px] font-semibold text-ink tracking-[-0.04em] leading-none"
                           style={{ fontFamily: display }}
                         >
-                          Concerts
+                          Concerts et billets {artist.name}
                         </h2>
                       </div>
                       {events.length > 0 && (
@@ -531,7 +532,7 @@ export default function ArtistProfile() {
                                     {event.title}
                                   </p>
                                   <p className="mt-1 text-[12px] text-ink-mute truncate">
-                                    {event.role ? `${ROLE_FR[event.role] || event.role} · ` : ''}
+                                    {event.role ? `${ARTIST_ROLE_FR[event.role] || event.role} · ` : ''}
                                     {event.location}
                                   </p>
                                 </div>
@@ -544,6 +545,27 @@ export default function ArtistProfile() {
                         })}
                       </div>
                     )}
+                  </section>
+                </FadeUp>
+
+                <FadeUp delay={0.08}>
+                  <section aria-labelledby="artist-faq">
+                    <p className="eyebrow mb-3 tracking-[0.18em]">Billets</p>
+                    <h2
+                      id="artist-faq"
+                      className="text-[22px] sm:text-[26px] font-semibold text-ink tracking-[-0.04em] leading-none mb-6"
+                      style={{ fontFamily: display }}
+                    >
+                      Concert {artist.name} : questions fréquentes
+                    </h2>
+                    <dl className="space-y-5 border-t border-line pt-6">
+                      {artistFaqItems({ name: artist.name, city: artist.city, nextShow }).map((item) => (
+                        <div key={item.q}>
+                          <dt className="text-[15px] font-semibold text-ink mb-1.5">{item.q}</dt>
+                          <dd className="text-[14px] text-ink-mute leading-relaxed max-w-lg">{item.a}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   </section>
                 </FadeUp>
               </div>

@@ -158,6 +158,12 @@ export default function CityLanding() {
                 >
                   Lieux ouverts
                 </a>
+                <Link
+                  to="/artists"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl2 bg-paper border border-line text-[13px] font-bold text-ink hover:border-brand/40"
+                >
+                  Artistes
+                </Link>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-[12px] text-ink-mute">

@@ -66,8 +66,32 @@ function formatFrDay(iso: string) {
   });
 }
 
-export function artistSeoTitle(name: string) {
-  return `${name} — concerts et billets`;
+export const ARTIST_ROLE_FR: Record<string, string> = {
+  headliner: 'Tête d’affiche',
+  opening_act: 'Première partie',
+  performer: 'Sur scène',
+  dj: 'DJ',
+  host: 'Hôte',
+  support: 'Support',
+  special_guest: 'Invité',
+};
+
+function placeLabel(city?: string | null, location?: string | null) {
+  const hay = `${city || ''} ${location || ''}`.toLowerCase();
+  if (hay.includes('bobo')) return 'Bobo-Dioulasso';
+  if (hay.includes('ouaga')) return 'Ouagadougou';
+  if (hay.includes('abidjan')) return 'Abidjan';
+  if (hay.includes('dakar')) return 'Dakar';
+  return city?.trim() || '';
+}
+
+export function artistSeoTitle(
+  name: string,
+  opts?: { city?: string | null; nextLocation?: string | null }
+) {
+  const place = placeLabel(opts?.city, opts?.nextLocation);
+  if (place) return `${name} — concert à ${place}, billets`;
+  return `${name} — concert et billets`;
 }
 
 export function artistMetaDescription(opts: {
@@ -150,7 +174,51 @@ export function artistStructuredData(opts: {
     ],
   };
 
-  return [breadcrumb, person];
+  return [breadcrumb, person, artistFaqJsonLd({ name: opts.name, city: opts.city, nextShow: shows[0] })];
+}
+
+export function artistFaqItems(opts: {
+  name: string;
+  city?: string | null;
+  nextShow?: ArtistSeoShow | null;
+}): { q: string; a: string }[] {
+  const name = opts.name;
+  const place = placeLabel(opts.city, opts.nextShow?.location) || 'Ouagadougou';
+  const next = opts.nextShow;
+  const dateLine =
+    next?.title && next.date
+      ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${next.location}` : ''}. Les billets s’achètent sur Temba (Orange Money, Moov, carte).`
+      : `${name} n’a pas encore de date publiée sur Temba. Dès qu’un organisateur met des billets en vente, ils apparaissent sur cette fiche.`;
+  return [
+    {
+      q: `Où acheter des billets pour ${name} ?`,
+      a: `Sur Temba, fiche officielle ${name}. Seuls les concerts réellement mis en vente sur tembas.com sont listés — paiement en FCFA.`,
+    },
+    {
+      q: `${name} en concert à ${place} ?`,
+      a: dateLine,
+    },
+    {
+      q: `Comment payer un concert de ${name} ?`,
+      a: `Orange Money (par défaut), puis Moov Money, puis carte. Le billet QR arrive sur le téléphone après paiement.`,
+    },
+  ];
+}
+
+export function artistFaqJsonLd(opts: {
+  name: string;
+  city?: string | null;
+  nextShow?: ArtistSeoShow | null;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: artistFaqItems(opts).map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
 }
 
 export function artistsDirectoryStructuredData(
