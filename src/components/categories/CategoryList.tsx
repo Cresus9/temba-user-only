@@ -2,48 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import CategoryCard from './CategoryCard';
 import { CATEGORIES } from '../../constants/categories';
-import { useEvents } from '../../context/EventContext';
-import { CategoryService } from '../../services/categoryService';
 
 export default function CategoryList() {
-  const { events } = useEvents();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [useGridLayout, setUseGridLayout] = useState(false);
-
-  const [counts, setCounts] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchCounts = async () => {
-      const entries = await Promise.all(
-        CATEGORIES.map(async (cat) => {
-          try {
-            const resolved = await CategoryService.fetchCategoryBySlug(cat.id);
-            if (!resolved?.id) return [cat.id, 0] as const;
-            const count = await CategoryService.getPublishedEventCountByCategory(resolved.id);
-            return [cat.id, count] as const;
-          } catch {
-            return [cat.id, 0] as const;
-          }
-        })
-      );
-      if (!cancelled) setCounts(Object.fromEntries(entries));
-    };
-
-    // Counts are decorative — wait until the main catalog has bandwidth.
-    const idle = window.requestIdleCallback
-      ? window.requestIdleCallback(() => { void fetchCounts(); }, { timeout: 4000 })
-      : window.setTimeout(() => { void fetchCounts(); }, 2500);
-
-    return () => {
-      cancelled = true;
-      if (typeof idle === 'number') window.clearTimeout(idle);
-      else window.cancelIdleCallback?.(idle);
-    };
-  }, []);
-
-  const getEventCount = (categoryId: string) => counts[categoryId] ?? 0;
 
   // Update layout based on screen size
   useEffect(() => {
@@ -95,7 +58,6 @@ export default function CategoryList() {
           <CategoryCard
             key={category.id}
             {...category}
-            eventCount={getEventCount(category.id)}
           />
         ))}
       </div>
@@ -112,7 +74,6 @@ export default function CategoryList() {
           <CategoryCard
             key={category.id}
             {...category}
-            eventCount={getEventCount(category.id)}
           />
         ))}
       </div>
@@ -157,7 +118,6 @@ export default function CategoryList() {
           >
             <CategoryCard
               {...category}
-              eventCount={getEventCount(category.id)}
             />
           </div>
         ))}

@@ -1,178 +1,129 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useEffect, useRef } from 'react';
 
 type EffectMode = 'light' | 'dark';
 
 export type TopologyFieldProps = {
   mode?: EffectMode;
-  hue?: number;
-  saturation?: number;
-  brightness?: number;
   className?: string;
-  style?: CSSProperties;
 };
 
-export const TOPOLOGY_FIELD_DEFAULTS = {
-  mode: 'dark',
-  hue: 0,
-  saturation: 1,
-  brightness: 1,
-} as const;
+type Node = { x: number; y: number; z: number; pulse: number; speed: number };
 
-const topologySource = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
-  <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-    canvas { display: block; width: 100%; height: 100%; }
-  </style>
-</head>
-<body>
-  <canvas id="animationCanvas"></canvas>
-  <script>
-    const canvas = document.getElementById('animationCanvas');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x000000, 300, 950);
-    const camera = new THREE.PerspectiveCamera(60, width / height, 1, 2000);
-    camera.position.z = 650;
-    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    const group = new THREE.Group();
-    scene.add(group);
-    const numNodes = 120;
-    const nodes = [];
-    const nodeGeo = new THREE.SphereGeometry(1, 16, 16);
-    for (let i = 0; i < numNodes; i++) {
-      const phi = Math.acos(-1 + (2 * i) / numNodes);
-      const theta = Math.sqrt(numNodes * Math.PI) * phi;
-      const x = Math.cos(theta) * Math.sin(phi);
-      const y = Math.sin(theta) * Math.sin(phi);
-      const z = Math.cos(phi);
-      const mesh = new THREE.Mesh(
-        nodeGeo,
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-      );
-      mesh.position.set(x, y, z);
-      mesh.userData = {
-        baseSize: Math.random() * 1.5 + 1.0,
-        pulseSpeed: Math.random() * 0.02 + 0.015,
-        pulseOffset: Math.random() * Math.PI * 2
-      };
-      group.add(mesh);
-      nodes.push(mesh);
-    }
-    const linePos = [];
-    const lineColors = [];
-    for (let i = 0; i < numNodes; i++) {
-      for (let j = i + 1; j < numNodes; j++) {
-        const dist = nodes[i].position.distanceTo(nodes[j].position);
-        const threshold = 0.45;
-        if (dist < threshold) {
-          linePos.push(nodes[i].position.x, nodes[i].position.y, nodes[i].position.z);
-          linePos.push(nodes[j].position.x, nodes[j].position.y, nodes[j].position.z);
-          const alpha = (1 - dist / threshold) * 0.8;
-          lineColors.push(alpha, alpha, alpha);
-          lineColors.push(alpha, alpha, alpha);
-        }
-      }
-    }
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
-    lineGeo.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 3));
-    const lines = new THREE.LineSegments(
-      lineGeo,
-      new THREE.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        opacity: 0.65
-      })
-    );
-    group.add(lines);
-    function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-      const R = width > 640 ? Math.min(height * 0.56, 290) : 155;
-      group.scale.set(R, R, R);
-      const centerX = width > 640 ? width * 0.34 : width * 0.38;
-      const centerY = width > 640 ? -height * 0.04 : -height * 0.08;
-      group.position.set(centerX, centerY, 0);
-    }
-    window.addEventListener('resize', resize);
-    resize();
-    let time = 0;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    function animate() {
-      requestAnimationFrame(animate);
-      if (!reduce) time += 1;
-      group.rotation.y = time * 0.0018;
-      group.rotation.x = 0.2;
-      group.rotation.z = time * 0.0006;
-      nodes.forEach(function (mesh) {
-        const p = mesh.userData;
-        const pulse = reduce ? 0.5 : (Math.sin(time * p.pulseSpeed + p.pulseOffset) + 1) / 2;
-        const targetRadius = p.baseSize + pulse * 1.8;
-        const scale = targetRadius / group.scale.x;
-        mesh.scale.set(scale, scale, scale);
-        mesh.material.opacity = 0.4 + pulse * 0.6;
-      });
-      renderer.render(scene, camera);
-    }
-    animate();
-  <\/script>
-</body>
-</html>`;
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(maximum, Math.max(minimum, value));
+function fibSphere(count: number): Node[] {
+  const nodes: Node[] = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / (count - 1)) * 2;
+    const r = Math.sqrt(1 - y * y);
+    const theta = golden * i;
+    nodes.push({
+      x: Math.cos(theta) * r,
+      y,
+      z: Math.sin(theta) * r,
+      pulse: Math.random() * Math.PI * 2,
+      speed: 0.018 + Math.random() * 0.02,
+    });
+  }
+  return nodes;
 }
 
-export default function TopologyField({
-  mode = TOPOLOGY_FIELD_DEFAULTS.mode,
-  hue = TOPOLOGY_FIELD_DEFAULTS.hue,
-  saturation = TOPOLOGY_FIELD_DEFAULTS.saturation,
-  brightness = TOPOLOGY_FIELD_DEFAULTS.brightness,
-  className,
-  style,
-}: TopologyFieldProps) {
-  const safeMode: EffectMode = mode === 'light' ? 'light' : 'dark';
-  const source = useMemo(() => topologySource, []);
-  const safeHue = clamp(hue, -180, 180);
-  const safeSaturation = clamp(saturation, 0, 2);
-  const safeBrightness = clamp(brightness, 0.35, 1.65);
-  const filter =
-    safeHue === 0 && safeSaturation === 1 && safeBrightness === 1
-      ? undefined
-      : `hue-rotate(${safeHue}deg) saturate(${safeSaturation}) brightness(${safeBrightness})`;
+export default function TopologyField({ className, mode = 'dark' }: TopologyFieldProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const nodes = fibSphere(96);
+    const links: [number, number][] = [];
+    const threshold = 0.42;
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dz = nodes[i].z - nodes[j].z;
+        if (dx * dx + dy * dy + dz * dz < threshold * threshold) links.push([i, j]);
+      }
+    }
+
+    let raf = 0;
+    let time = 0;
+    let rotY = 0.4;
+    let rotX = 0.22;
+
+    const draw = () => {
+      const parent = canvas.parentElement;
+      const w = parent?.clientWidth || canvas.clientWidth;
+      const h = parent?.clientHeight || canvas.clientHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      if (!reduce) {
+        time += 1;
+        rotY += 0.0032;
+        rotX = 0.2 + Math.sin(time * 0.004) * 0.04;
+      }
+
+      const cy = Math.cos(rotY);
+      const sy = Math.sin(rotY);
+      const cx = Math.cos(rotX);
+      const sx = Math.sin(rotX);
+      const radius = Math.min(h * 0.48, w * 0.22, 200);
+      const originX = w * 0.82;
+      const originY = h * 0.48;
+      const projected = nodes.map((n) => {
+        let x = n.x * cy - n.z * sy;
+        let z = n.x * sy + n.z * cy;
+        const y = n.y * cx - z * sx;
+        z = n.y * sx + z * cx;
+        const pulse = reduce ? 0.55 : (Math.sin(time * n.speed + n.pulse) + 1) / 2;
+        return { x: originX + x * radius, y: originY + y * radius, z, pulse };
+      });
+
+      ctx.lineWidth = 1;
+      for (const [a, b] of links) {
+        const pa = projected[a];
+        const pb = projected[b];
+        const depth = (pa.z + pb.z) * 0.5;
+        const alpha = (0.18 + (depth + 1) * 0.16) * (mode === 'dark' ? 1 : 0.7);
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
+        ctx.stroke();
+      }
+
+      for (const p of projected) {
+        const r = 1.1 + p.pulse * 1.6;
+        ctx.fillStyle = `rgba(255,255,255,${0.35 + p.pulse * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [mode]);
 
   return (
-    <iframe
+    <canvas
+      ref={canvasRef}
       className={className}
-      data-mode={safeMode}
-      title="Topology field"
-      srcDoc={source}
-      sandbox="allow-scripts"
-      loading="eager"
       aria-hidden
-      style={{
-        display: 'block',
-        width: '100%',
-        height: '100%',
-        border: 0,
-        background: '#000000',
-        filter,
-        ...style,
-      }}
+      style={{ display: 'block', width: '100%', height: '100%' }}
     />
   );
 }

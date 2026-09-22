@@ -17,7 +17,7 @@ export function ArtistStage({ children, className, watermark }: ArtistStageProps
       className={cn('relative overflow-hidden', className)}
       style={{ backgroundColor: '#000000' }}
     >
-      <div className="pointer-events-none absolute inset-0 z-0">
+      <div className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
         <TopologyField className="h-full w-full" mode="dark" />
       </div>
 

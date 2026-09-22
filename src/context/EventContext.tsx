@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase-client';
 import { Event } from '../types/event';
 import { sortEventsByCountryPriority } from '../utils/eventGeo';
@@ -55,9 +55,6 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [activeCountries, setActiveCountries] = useState<string[]>([]);
-
-  // Debounce ref for realtime-triggered refetches
-  const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Restore persisted country on mount
   const [activeCountry, setActiveCountryState] = useState<string | null>(() => {
@@ -141,26 +138,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     events.find((e) => e.id === idOrSlug || e.slug === idOrSlug);
 
   useEffect(() => {
-    // Initial load — serve cache immediately, re-fetch in bg if stale
     fetchEvents();
-
-    // Realtime: debounce re-fetches so rapid admin saves don't flood the DB.
-    // We also invalidate the cache so the next fetch actually hits Supabase.
-    const subscription = supabase
-      .channel('events_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
-        if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
-        realtimeDebounce.current = setTimeout(() => {
-          queryCache.invalidate(CACHE_KEY);
-          fetchEvents(true);
-        }, 3000); // Wait 3 s before re-fetching after a DB change
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
-    };
   }, [fetchEvents]);
 
   return (
