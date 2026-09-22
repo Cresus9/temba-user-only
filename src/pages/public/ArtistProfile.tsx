@@ -287,8 +287,8 @@ export default function ArtistProfile() {
       />
 
       <div className="min-h-screen bg-cream bg-grain">
-        <ArtistStage className="min-h-[360px] md:min-h-[400px]" watermark={artist.name}>
-          <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-4 pb-8 md:pt-5 md:pb-10">
+        <ArtistStage className="min-h-[240px] md:min-h-[300px]" watermark={artist.name}>
+          <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-3 pb-5 md:pt-4 md:pb-7">
             <Link
               to="/artists"
               className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 bg-paper/12 backdrop-blur-sm text-paper rounded-lg text-[12px] font-medium hover:bg-paper/20 transition-colors"
@@ -303,77 +303,79 @@ export default function ArtistProfile() {
               <span className="text-white/70">{artist.name}</span>
             </p>
 
-            <div className="mt-8 md:mt-10 relative z-10 max-w-xl">
-              <div className="min-w-0 flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-6">
-                <div className="relative w-fit flex-shrink-0 self-start">
+            <div className="mt-4 md:mt-6 relative z-10 max-w-3xl">
+              <div className="min-w-0 flex flex-row items-stretch gap-4 sm:gap-6">
+                <div className="relative w-fit flex-shrink-0">
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute left-1.5 top-1.5 h-full w-full rounded-xl2 border border-accent/45"
+                    className="pointer-events-none absolute left-1 top-1 h-full w-full rounded-xl2 border border-accent/45"
                   />
-                  <div className="relative w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-xl2 overflow-hidden border border-paper/15 bg-ink">
+                  <div className="relative size-40 sm:size-44 md:size-48 rounded-xl2 overflow-hidden border border-paper/15 bg-ink">
                   {artist.photo_url ? (
                     <img src={artist.photo_url} alt={`${artist.name}, artiste`} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full grid place-items-center bg-accent/20">
-                      <span className="text-[40px] font-extrabold text-paper" style={{ fontFamily: display }}>
+                      <span className="text-[44px] sm:text-[52px] font-extrabold text-paper" style={{ fontFamily: display }}>
                         {artist.name.charAt(0)}
                       </span>
                     </div>
                   )}
                 </div>
                 </div>
-                <div className="min-w-0">
-                <p className="eyebrow !text-white/45 mb-2 tracking-[0.22em]">
+                <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
+                <div>
+                <p className="eyebrow !text-white/45 mb-1.5 tracking-[0.18em] !text-[10px] sm:!text-[11px]">
                   {artist.genre || 'Artiste'}
                   {artist.verified ? ' · Vérifié' : ''}
                 </p>
-                <div className="flex items-start gap-2.5 mb-3">
+                <div className="flex items-start gap-1.5 mb-1.5">
                   <h1
-                    className="text-[clamp(34px,5.2vw,58px)] font-semibold text-white leading-[1.02] tracking-[-0.045em] antialiased"
+                    className="text-[clamp(22px,4vw,40px)] font-semibold text-white leading-[1.05] tracking-[-0.045em] antialiased"
                     style={{ fontFamily: display, fontWeight: 600 }}
                   >
                     {artist.name}
                   </h1>
-                  {artist.verified && <CheckCircle className="w-5 h-5 text-white/80 flex-shrink-0 mt-2.5" />}
+                  {artist.verified && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 flex-shrink-0 mt-1.5" />}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-white/50 mb-5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] sm:text-[13px] text-white/50">
                   {place && (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-accent" />
                       {place}
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1">
                     <Ticket className="w-3.5 h-3.5 text-accent" />
                     {upcoming.length > 0
                       ? `${upcoming.length} date${upcoming.length > 1 ? 's' : ''} à venir`
                       : 'Pas encore de date Temba'}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                </div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3">
                   {nextShow ? (
                     <a
                       href="#dates"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-ink text-[13px] font-bold hover:bg-accent/90 transition-colors"
+                      className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-accent text-ink text-[12px] sm:text-[13px] font-bold hover:bg-accent/90 transition-colors"
                     >
                       Prochain concert
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </a>
                   ) : (
                     <Link
                       to="/events"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-ink text-[13px] font-bold hover:bg-accent/90 transition-colors"
+                      className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-accent text-ink text-[12px] sm:text-[13px] font-bold hover:bg-accent/90 transition-colors"
                     >
                       Voir l’agenda
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </Link>
                   )}
                   <button
                     type="button"
                     onClick={share}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-paper/12 text-paper text-[13px] font-semibold hover:bg-paper/20 transition-colors"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-paper/12 text-paper text-[12px] sm:text-[13px] font-semibold hover:bg-paper/20 transition-colors"
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     Partager
                   </button>
                   <button
@@ -547,27 +549,6 @@ export default function ArtistProfile() {
                     )}
                   </section>
                 </FadeUp>
-
-                <FadeUp delay={0.08}>
-                  <section aria-labelledby="artist-faq">
-                    <p className="eyebrow mb-3 tracking-[0.18em]">Billets</p>
-                    <h2
-                      id="artist-faq"
-                      className="text-[22px] sm:text-[26px] font-semibold text-ink tracking-[-0.04em] leading-none mb-6"
-                      style={{ fontFamily: display }}
-                    >
-                      Concert {artist.name} : questions fréquentes
-                    </h2>
-                    <dl className="space-y-5 border-t border-line pt-6">
-                      {artistFaqItems({ name: artist.name, city: artist.city, nextShow }).map((item) => (
-                        <div key={item.q}>
-                          <dt className="text-[15px] font-semibold text-ink mb-1.5">{item.q}</dt>
-                          <dd className="text-[14px] text-ink-mute leading-relaxed max-w-lg">{item.a}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </section>
-                </FadeUp>
               </div>
 
               <aside className="lg:col-span-4 space-y-10 lg:sticky lg:top-24 self-start lg:border-l lg:border-line lg:pl-10">
@@ -658,6 +639,38 @@ export default function ArtistProfile() {
                 )}
               </aside>
             </div>
+
+            <FadeUp delay={0.08}>
+              <section
+                aria-labelledby="artist-faq"
+                className="mt-14 md:mt-16 pt-10 border-t border-line"
+              >
+                <p className="eyebrow mb-3 tracking-[0.18em]">Billets</p>
+                <h2
+                  id="artist-faq"
+                  className="text-[22px] sm:text-[28px] font-semibold text-ink tracking-[-0.04em] leading-none mb-6"
+                  style={{ fontFamily: display }}
+                >
+                  Concert {artist.name} : questions fréquentes
+                </h2>
+                <div className="divide-y divide-line border-y border-line">
+                  {artistFaqItems({ name: artist.name, city: artist.city, nextShow }).map((item) => (
+                    <details key={item.q} className="group py-4">
+                      <summary className="cursor-pointer list-none flex items-start justify-between gap-4 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                        <span>{item.q}</span>
+                        <span className="text-ink-mute text-[18px] leading-none mt-0.5 group-open:hidden" aria-hidden>
+                          +
+                        </span>
+                        <span className="text-ink-mute text-[18px] leading-none mt-0.5 hidden group-open:inline" aria-hidden>
+                          −
+                        </span>
+                      </summary>
+                      <p className="mt-2.5 text-[14px] text-ink-mute leading-relaxed max-w-2xl">{item.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            </FadeUp>
           </div>
         </div>
       </div>

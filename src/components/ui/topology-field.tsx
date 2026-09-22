@@ -78,7 +78,7 @@ export default function TopologyField({ className, mode = 'dark' }: TopologyFiel
       const sy = Math.sin(rotY);
       const cx = Math.cos(rotX);
       const sx = Math.sin(rotX);
-      const radius = Math.min(h * 0.48, w * 0.22, 200);
+      const radius = Math.min(h * 0.32, w * 0.15, 140);
       const originX = w * 0.82;
       const originY = h * 0.48;
       const projected = nodes.map((n) => {
