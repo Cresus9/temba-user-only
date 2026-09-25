@@ -73,24 +73,31 @@ async function rest(tableQuery) {
   const base = supabaseUrl();
   const key = supabaseKey();
   if (!base || !key) return [];
-  const url = `${base}/rest/v1/${tableQuery}`;
+  const page = 1000;
+  const out = [];
   try {
-    const response = await fetch(url, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-    });
-    if (!response.ok) {
-      console.warn(`[sitemap] ${tableQuery} failed (${response.status})`);
-      return [];
+    for (let offset = 0; offset < 20000; offset += page) {
+      const joiner = tableQuery.includes('?') ? '&' : '?';
+      const url = `${base}/rest/v1/${tableQuery}${joiner}limit=${page}&offset=${offset}`;
+      const response = await fetch(url, {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+      });
+      if (!response.ok) {
+        console.warn(`[sitemap] ${tableQuery} failed (${response.status})`);
+        break;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+      out.push(...data);
+      if (data.length < page) break;
     }
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('[sitemap] fetch error:', error);
-    return [];
   }
+  return out;
 }
 
 async function fetchPublishedEvents() {
