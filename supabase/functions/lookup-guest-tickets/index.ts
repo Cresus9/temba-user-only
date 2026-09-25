@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendResendEmail, recoveryCodeEmailHtml } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -349,36 +350,14 @@ async function sendRecoveryEmail(to: string, code: string) {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) throw new Error("Email service configuration missing");
 
-  const html = `
-    <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;color:#14141F">
-      <p style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6B6B80;font-weight:600">Temba</p>
-      <h1 style="font-size:22px;margin:8px 0 12px">Votre code billets</h1>
-      <p style="font-size:15px;line-height:1.5;color:#4A4A5C">
-        Entrez ce code pour retrouver vos billets achetés sans compte.
-      </p>
-      <p style="font-size:32px;letter-spacing:.28em;font-weight:800;margin:24px 0">${code}</p>
-      <p style="font-size:13px;color:#6B6B80">Valide 10 minutes. Si vous n’êtes pas à l’origine de cette demande, ignorez cet e-mail.</p>
-      <p style="font-size:13px;color:#6B6B80">Besoin d’aide ? support@tembas.com · +226 74 75 08 15</p>
-    </div>
-  `;
-
-  const resendResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "support@tembas.com",
+  try {
+    await sendResendEmail({
       to,
       subject: `${code} — votre code Temba`,
-      html,
-    }),
-  });
-
-  if (!resendResponse.ok) {
-    const errorData = await resendResponse.text();
-    console.error("Resend API error:", errorData);
+      html: recoveryCodeEmailHtml(code),
+    });
+  } catch (err) {
+    console.error("Resend API error:", err);
     throw new Error("Impossible d'envoyer l'e-mail. Réessayez ou utilisez le téléphone.");
   }
 }

@@ -325,10 +325,24 @@ function eventPublicPath(event: { id: string; slug?: string | null }): string {
   return `/e/${slug || event.id}`;
 }
 
+function todayYmdOuaga(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Ouagadougou",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")?.value;
+  const mo = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${mo}-${d}`;
+}
+
 async function fetchPublishedEvents(limit = 30) {
+  const today = todayYmdOuaga();
   return (
     (await supabaseGet(
-      `events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&order=date.asc.nullslast&limit=${limit}`
+      `events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&or=(is_permanent.eq.true,date.gte.${today})&order=date.asc.nullslast&limit=${limit}`
     )) ?? []
   );
 }
@@ -412,6 +426,10 @@ function layout(opts: {
   ${opts.body}
   <nav>
     <a href="https://tembas.com/events">Événements</a> ·
+    <a href="https://tembas.com/ouagadougou">Ouagadougou</a> ·
+    <a href="https://tembas.com/bobo-dioulasso">Bobo-Dioulasso</a> ·
+    <a href="https://tembas.com/abidjan">Abidjan</a> ·
+    <a href="https://tembas.com/dakar">Dakar</a> ·
     <a href="https://tembas.com/artists">Artistes</a> ·
     <a href="https://tembas.com/attractions">Attractions</a> ·
     <a href="https://tembas.com/venues">Lieux</a> ·
@@ -622,21 +640,66 @@ function generateHomeHtml(events: any[], artists: { href: string; name: string; 
   const title = "Temba – N°1 Billetterie Burkina Faso | Concerts, Festivals & Événements";
   const description =
     "Achetez vos billets en ligne pour les concerts, festivals et événements à Ouagadougou et partout au Burkina Faso. Paiement sécurisé en FCFA.";
+  const upcoming = events.slice(0, 24);
   return layout({
     title,
     description,
     url: "https://tembas.com/",
-    jsonLd: {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: "Temba",
-      url: "https://tembas.com/",
-      logo: "https://tembas.com/temba-wordmark-dark.jpg",
-    },
-    body: `<h1>Temba — Billetterie en ligne</h1>
+    image: "https://tembas.com/temba-mark-navy.jpg",
+    jsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: "Temba",
+        url: "https://tembas.com/",
+        logo: "https://tembas.com/temba-mark-navy.jpg",
+        description,
+        areaServed: ["BF", "CI", "SN"],
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Ouagadougou",
+          addressCountry: "BF",
+        },
+        contactPoint: {
+          "@type": "ContactPoint",
+          telephone: "+22674750815",
+          email: "support@tembas.com",
+          contactType: "customer support",
+          availableLanguage: "French",
+        },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "Temba",
+        url: "https://tembas.com/",
+        inLanguage: "fr-BF",
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Événements à l'affiche",
+        itemListElement: upcoming.map((e, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `https://tembas.com${eventPublicPath(e)}`,
+          name: e.title,
+        })),
+      },
+    ],
+    body: `<h1>Temba — Billetterie n°1 au Burkina Faso</h1>
       <p>${escapeHtml(description)}</p>
+      <p>Orange Money, Moov Money ou carte. Billet QR sur le téléphone. Support à Ouagadougou : support@tembas.com · +226 74 75 08 15.</p>
+      <h2>Villes</h2>
+      <ul>
+        <li><a href="https://tembas.com/ouagadougou">Événements à Ouagadougou</a></li>
+        <li><a href="https://tembas.com/bobo-dioulasso">Événements à Bobo-Dioulasso</a></li>
+        <li><a href="https://tembas.com/abidjan">Événements à Abidjan</a></li>
+        <li><a href="https://tembas.com/dakar">Événements à Dakar</a></li>
+      </ul>
       <h2>Événements à l'affiche</h2>
-      ${eventListHtml(events)}
+      ${eventListHtml(upcoming)}
+      <p><a href="https://tembas.com/events">Tout l’agenda</a> · <a href="https://tembas.com/attractions">Attractions</a></p>
       <h2>Artistes — concerts et billets</h2>
       <p><a href="https://tembas.com/artists">Tous les artistes sur Temba</a></p>
       ${artists.length ? linkList(artists) : ""}`,

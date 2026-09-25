@@ -30,13 +30,14 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'chart-vendor': ['chart.js', 'react-chartjs-2'],
           'map-vendor': ['leaflet', 'react-leaflet'],
+          'globe-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
           'supabase': ['@supabase/supabase-js']
         }
       }
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'chart.js', 'leaflet', '@supabase/supabase-js']
+    include: ['react', 'react-dom', 'react-router-dom', 'chart.js', 'leaflet', '@supabase/supabase-js', 'three']
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
