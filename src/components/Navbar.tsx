@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Menu, X, MessageSquare, Ticket } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/TranslationContext';
@@ -17,6 +17,7 @@ export default function Navbar() {
   const { user, profile, isAuthenticated, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,44 +49,60 @@ export default function Navbar() {
     }
   };
 
-  const navLinkBase =
-    'text-[14px] font-medium text-ink-mute hover:text-brand transition-colors duration-200';
+  const sectionActive = (path: string) =>
+    path === '/'
+      ? location.pathname === '/'
+      : location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+  const sectionClass = (active: boolean) =>
+    `relative inline-flex h-full items-center text-[13px] font-medium tracking-[0.01em] transition-colors ${
+      active ? 'text-brand' : 'text-ink hover:text-brand'
+    }`;
 
   return (
-    <nav className="bg-paper/90 backdrop-blur-md border-b border-line sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" aria-label="Temba — accueil" className="flex items-center group">
-            <Logo size={28} />
+    <nav className="sticky top-0 z-50 border-b border-ink/15 bg-paper">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="grid h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center md:grid-cols-[auto_minmax(0,1fr)_auto]">
+          <Link to="/" aria-label="Temba — accueil" className="justify-self-start">
+            <Logo size={34} />
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link to="/" className={navLinkBase}>Accueil</Link>
-            <Link to="/events" className={navLinkBase}>Événements</Link>
-            <Link to="/attractions" className={navLinkBase}>Attractions</Link>
+          <div className="hidden h-full items-center justify-center gap-6 md:flex lg:gap-8">
+            <Link to="/" className={sectionClass(sectionActive('/'))}>
+              Accueil
+              {sectionActive('/') ? <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-brand" /> : null}
+            </Link>
+            <Link to="/events" className={sectionClass(sectionActive('/events'))}>
+              Événements
+              {sectionActive('/events') ? <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-brand" /> : null}
+            </Link>
+            <Link to="/attractions" className={sectionClass(sectionActive('/attractions'))}>
+              Attractions
+              {sectionActive('/attractions') ? <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-brand" /> : null}
+            </Link>
             <a
               href="https://admin.tembas.com/login"
               target="_blank"
               rel="noopener noreferrer"
-              className={navLinkBase}
+              className={`${sectionClass(false)} hidden lg:inline-flex`}
             >
               Devenir organisateur
             </a>
+          </div>
 
-            {/* Country picker — only visible when ≥2 countries have events */}
+          <div className="justify-self-end">
+          <div className="hidden md:flex items-center gap-5">
             <CountryPicker variant="nav" />
 
             {isAuthenticated ? (
-              <div className="flex items-center gap-4 pl-4 border-l border-line">
+              <div className="flex items-center gap-4">
                 {/* TEMPORARILY HIDDEN: Cart feature - Payment system stabilization */}
                 {/* <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} /> */}
                 <NotificationBell />
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="flex items-center gap-2 text-[14px] font-medium text-ink-mute hover:text-brand focus:outline-none transition-colors"
+                    className="flex items-center gap-2 text-[13px] font-medium text-ink hover:text-brand focus:outline-none transition-colors"
                   >
                     <span className="grid place-items-center w-8 h-8 rounded-full bg-brand-50 border border-brand/20 group-hover:border-brand transition-colors">
                       <User className="h-4 w-4 text-brand" />
@@ -133,11 +150,11 @@ export default function Navbar() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3 pl-4 border-l border-line">
-                <Link to="/find-tickets" className={navLinkBase}>
+              <div className="flex items-center gap-5">
+                <Link to="/find-tickets" className="text-[13px] font-medium text-ink hover:text-brand">
                   Mes billets
                 </Link>
-                <Link to="/login" className={navLinkBase}>
+                <Link to="/login" className="text-[13px] font-medium text-ink hover:text-brand">
                   Se connecter
                 </Link>
                 <Link to="/signup" className="btn btn-primary btn-sm">
@@ -147,41 +164,34 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu */}
-          <div className="md:hidden flex items-center gap-2">
-            {/* TEMPORARILY HIDDEN: Cart feature - Payment system stabilization */}
-            {/* <GlobalCartIndicator onClick={() => setIsGlobalCartOpen(true)} /> */}
+          <div className="flex items-center md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="rounded-lg p-2 hover:bg-cream focus:outline-none transition-colors"
+              className="grid h-10 w-10 place-items-center text-ink"
               aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             >
-              {isOpen ? (
-                <X className="h-5 w-5 text-ink" />
-              ) : (
-                <Menu className="h-5 w-5 text-ink" />
-              )}
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
+          </div>
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden py-3 space-y-1 border-t border-line">
-            <Link to="/" className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg" onClick={() => setIsOpen(false)}>
+          <div className="border-t border-ink/15 md:hidden">
+            <Link to="/" className={`block border-b border-ink/10 py-3.5 text-[15px] ${sectionActive('/') ? 'text-brand' : 'text-ink'}`} onClick={() => setIsOpen(false)}>
               Accueil
             </Link>
-            <Link to="/events" className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg" onClick={() => setIsOpen(false)}>
+            <Link to="/events" className={`block border-b border-ink/10 py-3.5 text-[15px] ${sectionActive('/events') ? 'text-brand' : 'text-ink'}`} onClick={() => setIsOpen(false)}>
               Événements
             </Link>
-            <Link to="/attractions" className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg" onClick={() => setIsOpen(false)}>
+            <Link to="/attractions" className={`block border-b border-ink/10 py-3.5 text-[15px] ${sectionActive('/attractions') ? 'text-brand' : 'text-ink'}`} onClick={() => setIsOpen(false)}>
               Attractions
             </Link>
             <a
               href="https://admin.tembas.com/login"
               target="_blank"
               rel="noopener noreferrer"
-              className="block px-2 py-3 text-[15px] text-ink hover:bg-cream rounded-lg"
+              className="block border-b border-ink/10 py-3.5 text-[15px] text-ink"
               onClick={() => setIsOpen(false)}
             >
               Devenir organisateur
