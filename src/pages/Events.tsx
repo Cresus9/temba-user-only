@@ -9,7 +9,7 @@ import { formatCalendarDate } from '../utils/formatters';
 import { categoryLabelFr } from '../utils/labels';
 import { useEvents } from '../context/EventContext';
 import PageSEO from '../components/SEO/PageSEO';
-import EventsCatalog from '../components/events/EventsCatalog';
+import EventsBoard from '../components/events/EventsBoard';
 
 const initialFilters = {
   search: '',
@@ -200,29 +200,7 @@ export default function Events() {
         structuredData={[breadcrumbSchema]}
       />
 
-      <EventsCatalog
-        events={events}
-        loading={loading}
-        filters={filters}
-        categories={categories}
-        locations={locations}
-        countries={countriesWithEvents.map(c => ({ code: c.code, name: c.nameFr }))}
-        totalEvents={totalEvents}
-        onChange={(patch) => {
-          setFilters(prev => ({ ...prev, ...patch }));
-          const next = new URLSearchParams(searchParams);
-          const map: Record<string, string> = { search: 'query', location: 'location', category: 'category', date: 'date', country: 'country' };
-          (Object.keys(patch) as (keyof typeof patch)[]).forEach((key) => {
-            const param = map[key] || key;
-            const value = patch[key] ?? '';
-            if (value) next.set(param, value);
-            else next.delete(param);
-          });
-          if ('country' in patch) setActiveCountry(patch.country || null);
-          setSearchParams(next, { replace: true });
-        }}
-        onClear={clearFilters}
-      />
+      <EventsBoard events={events} loading={loading} />
     </div>
   );
 }

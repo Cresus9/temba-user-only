@@ -296,7 +296,7 @@ function PlaceRow({ attraction }: { attraction: AttractionCardData }) {
           {price === null ? (
             <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
           ) : price <= 0 ? (
-            <span className="!text-[16px] !font-semibold text-[#0B7A52]">Gratuit</span>
+            <span className="!text-[16px] !font-semibold text-ink">Prix bientôt disponible</span>
           ) : (
             <>
               <span className="block !text-[12px] !leading-none text-ink/50">Dès</span>

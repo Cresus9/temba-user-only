@@ -95,7 +95,7 @@ function EventTile({ event }: { event: EventCard }) {
       {/* Price + availability */}
       <div className="flex-shrink-0 flex flex-col items-end justify-between">
         <span className="text-[12px] font-bold text-brand">
-          {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
+          {event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}
         </span>
         <div className="w-16">
           <div className="h-1 bg-cream rounded-full overflow-hidden">

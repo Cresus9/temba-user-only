@@ -262,7 +262,7 @@ export default function DashboardView({
                   <PosterTile src={event.image_url} alt="" className="aspect-[4/5] w-full rounded-[10px]" />
                   <p className="mt-2 text-[12.5px] font-semibold text-brand">{formatCalendarDate(event.date, { weekday: 'short', day: 'numeric', month: 'short' })}</p>
                   <p className="mt-0.5 line-clamp-2 font-display text-[15px] font-bold">{event.title}</p>
-                  <p className="mt-0.5 text-[13px] text-ink-3">{event.city || 'À l’affiche'}{event.price != null ? ` · ${event.price <= 0 ? 'Gratuit' : formatCurrency(event.price, event.currency || 'XOF')}` : ''}</p>
+                  <p className="mt-0.5 text-[13px] text-ink-3">{event.city || 'À l’affiche'}{event.price != null ? ` · ${event.price <= 0 ? 'Prix bientôt disponible' : formatCurrency(event.price, event.currency || 'XOF')}` : ''}</p>
                 </Link>
               ))}
             </div>

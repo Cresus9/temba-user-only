@@ -32,7 +32,7 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
   const amount = price === null
     ? null
     : price <= 0
-      ? 'Gratuit'
+      ? 'Prix bientôt disponible'
       : `Dès ${formatCurrency(price, attraction.currency ?? 'XOF')}`;
 
   return (
@@ -61,7 +61,7 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
         {place ? (
           <p className="mt-1 truncate text-[13px] text-ink-mute">{place}</p>
         ) : null}
-        <p className={`mt-auto pt-3 text-[13px] font-semibold tabular-nums ${amount === 'Gratuit' ? 'text-[#0B7A52]' : 'text-ink'}`}>
+        <p className="mt-auto pt-3 text-[13px] font-semibold tabular-nums text-ink">
           {amount ?? 'Tarifs sur la fiche'}
         </p>
       </div>

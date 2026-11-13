@@ -53,16 +53,6 @@ const EventCard = memo(({
               loading="lazy"
             />
           ) : null}
-          {priceInfo.tone === 'free' && (
-            <span className="absolute left-2.5 top-2.5 inline-flex h-[22px] items-center rounded-[5px] bg-[#E6F4EE] px-1.5 text-[11px] font-bold uppercase tracking-wide text-[#0B7A52]">
-              Gratuit
-            </span>
-          )}
-          {priceInfo.tone === 'soon' && (
-            <span className="absolute left-2.5 top-2.5 inline-flex h-[22px] items-center rounded-[5px] bg-white/95 px-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-2">
-              Bientôt
-            </span>
-          )}
         </div>
         <p className="mt-3 text-[13px] font-semibold text-brand">{dateLabel}</p>
         <h3 className="mt-0.5 line-clamp-2 font-display text-[17px] font-bold leading-snug tracking-[-0.015em] text-ink">

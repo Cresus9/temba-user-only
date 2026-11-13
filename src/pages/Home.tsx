@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -20,12 +20,13 @@ import { useEvents } from '../context/EventContext';
 import PageSEO from '../components/SEO/PageSEO';
 import DomePattern from '../components/design/DomePattern';
 import StoreBadges from '../components/design/StoreBadges';
-import EventCard from '../components/EventCard';
-import { pickSpotlightEvents, shortPlace } from '../utils/eventGeo';
-import { calendarDayInZone, formatCalendarDate, formatEventTime } from '../utils/formatters';
+import HomeRails from '../components/events/HomeRails';
+import QuickFilters, { type QuickFilterState } from '../components/events/QuickFilters';
+import { useEventSchedule } from '../hooks/useEventSchedule';
+import { shortPlace } from '../utils/eventGeo';
+import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import { eventPricePresentation } from '../utils/labels';
 import { eventPublicPath } from '../utils/eventPath';
-import { supabase } from '../lib/supabase-client';
 
 const CATS = [
   { icon: MusicNotes, label: 'Concerts', to: '/categories/concerts-de-musique' },
@@ -38,42 +39,18 @@ const CATS = [
 
 export default function Home() {
   const navigate = useNavigate();
-  const { filteredEvents } = useEvents();
-  const today = calendarDayInZone();
-  const spotlight = useMemo(
-    () => pickSpotlightEvents(filteredEvents ?? [], 12, today),
-    [filteredEvents, today],
-  );
-  const dated = spotlight.filter((event) => !event.is_permanent);
-  const hero = dated[0] ?? spotlight[0];
-  const grid = dated.slice(0, 5);
-  const upcoming = dated.slice(0, 5);
-
-  const countCity = (needle: string) =>
-    (filteredEvents ?? []).filter((event) => {
-      const blob = `${event.city ?? ''} ${event.location ?? ''}`.toLowerCase();
-      const day = (event.date ?? '').split('T')[0];
-      return blob.includes(needle) && (event.is_permanent || !day || day >= today);
-    }).length;
+  const { filteredEvents, loading } = useEvents();
+  const { spans, kinds } = useEventSchedule(filteredEvents ?? []);
+  const [filters, setFilters] = useState<QuickFilterState>({
+    city: 'Ouagadougou',
+    tonight: false,
+    weekend: false,
+    free: false,
+  });
 
   const [query, setQuery] = useState('');
   const [where, setWhere] = useState('');
   const [when, setWhen] = useState('');
-  const [artists, setArtists] = useState<{ id: string; name: string; slug: string; genre: string | null; photo_url: string | null }[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('artists')
-      .select('id, name, slug, genre, photo_url')
-      .limit(6)
-      .then(({ data }) => {
-        if (!cancelled && data) setArtists(data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -92,6 +69,10 @@ export default function Home() {
     navigate(`/events${params.toString() ? `?${params}` : ''}`);
   };
 
+  const hero = useMemo(() => {
+    const list = filteredEvents ?? [];
+    return list.find((event) => event.featured && event.image_url) ?? list.find((event) => event.image_url);
+  }, [filteredEvents]);
   const heroPrice = hero ? eventPricePresentation(hero) : null;
 
   return (
@@ -106,13 +87,13 @@ export default function Home() {
       <section className="relative -mt-14 overflow-hidden bg-brand pt-14 text-white lg:-mt-[72px] lg:pt-[72px]">
         <DomePattern variant="hero" className="hidden md:block" />
         <DomePattern variant="hero-mobile" className="md:hidden" />
-        <div className="relative mx-auto grid max-w-[1200px] items-end gap-10 px-5 pb-14 pt-10 md:grid-cols-[minmax(0,1fr)_320px] md:gap-14 md:px-10 md:pb-20 md:pt-[72px]">
+        <div className="relative mx-auto grid max-w-[1200px] items-end gap-8 px-5 pb-10 pt-7 md:grid-cols-[minmax(0,1fr)_320px] md:gap-10 md:px-10 md:pb-14 md:pt-14">
           <div>
             <p className="text-[14px] font-semibold text-white/80">Billetterie officielle · Burkina Faso · Côte d'Ivoire</p>
             <h1 className="mt-4 max-w-[680px] font-display text-[36px] font-bold leading-[1.02] tracking-[-0.035em] text-white md:text-[64px]">
               Les meilleures sorties, réservées en FCFA.
             </h1>
-            <p className="mb-8 mt-5 max-w-[560px] text-[17px] leading-relaxed text-white/85 md:text-[19px]">
+            <p className="mb-6 mt-4 max-w-[560px] text-[17px] leading-relaxed text-white/85 md:text-[19px]">
               Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée.
             </p>
             <form onSubmit={onSearch} className="flex max-w-[760px] flex-col gap-2 rounded-xl bg-white p-1.5 text-ink shadow-[0_12px_32px_rgba(3,6,30,0.18)] md:flex-row md:items-stretch md:gap-0">
@@ -156,7 +137,7 @@ export default function Home() {
                 Rechercher
               </button>
             </form>
-            <div className="mt-7 flex flex-wrap gap-x-7 gap-y-2 text-[14px] font-medium text-white/90">
+            <div className="mt-5 flex flex-wrap gap-x-7 gap-y-2 text-[14px] font-medium text-white/90">
               <span className="inline-flex items-center gap-2"><UsersThree size={20} /><b className="font-bold">15 000+</b> utilisateurs</span>
               <span className="inline-flex items-center gap-2"><DeviceMobile size={20} />Mobile Money et carte</span>
               <span className="inline-flex items-center gap-2"><SealCheck size={20} />Prix officiels, sans revente</span>
@@ -166,7 +147,7 @@ export default function Home() {
           {hero && (
             <Link to={eventPublicPath(hero)} className="hidden overflow-hidden rounded-xl bg-white text-ink md:block">
               <div className="relative">
-                {hero.image_url ? <img src={hero.image_url} alt="" className="h-[340px] w-full object-cover" /> : <div className="h-[340px] bg-surf" />}
+                {hero.image_url ? <img src={hero.image_url} alt="" className="h-[272px] w-full object-cover" /> : <div className="h-[272px] bg-surf" />}
                 <span className="absolute left-3 top-3 inline-flex h-[22px] items-center rounded-[5px] bg-ink px-2 text-[11px] font-bold uppercase tracking-wide text-white">À la une</span>
               </div>
               <div className="px-[18px] pb-[18px] pt-4">
@@ -196,95 +177,8 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-[1200px] px-5 pt-12 md:px-10 md:pt-16">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">À l'affiche</p>
-            <h2 className="mt-1.5 font-display text-[28px] font-bold tracking-[-0.03em] md:text-[32px]">À ne pas manquer</h2>
-          </div>
-          <Link to="/events" className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand">
-            Tout l'agenda <ArrowRight size={16} />
-          </Link>
-        </div>
-        {grid.length === 0 ? (
-          <p className="rounded-xl border border-line bg-surf px-5 py-10 text-[15px] text-ink-3">Les prochaines dates arrivent. Revenez bientôt, ou parcourez l'agenda.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-5 lg:gap-x-6">
-            {grid.map((event) => (
-              <EventCard key={event.id} {...event} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mx-auto grid max-w-[1200px] gap-6 px-5 pt-14 md:grid-cols-2 md:px-10 md:pt-[72px]">
-        {[
-          { slug: 'ouagadougou', name: 'Ouagadougou', needle: 'ouaga', image: dated.find((e) => `${e.city} ${e.location}`.toLowerCase().includes('ouaga'))?.image_url },
-          { slug: 'bobo-dioulasso', name: 'Bobo-Dioulasso', needle: 'bobo', image: dated.find((e) => `${e.city} ${e.location}`.toLowerCase().includes('bobo'))?.image_url },
-        ].map((city) => (
-          <Link key={city.slug} to={`/${city.slug}`} className="relative block h-[220px] overflow-hidden rounded-xl bg-ink text-white md:h-[260px]">
-            {city.image ? <img src={city.image} alt="" className="absolute right-0 top-0 h-full w-[55%] object-cover" /> : null}
-            <div className="absolute inset-0 bg-gradient-to-r from-ink from-45% to-transparent" />
-            <div className="relative p-7 md:p-8">
-              <p className="text-[13px] font-semibold text-white/70">Sortir à</p>
-              <p className="mt-1 font-display text-[32px] font-bold tracking-[-0.03em] md:text-[36px]">{city.name}</p>
-              <p className="mt-2 text-white/80">{countCity(city.needle)} dates à venir</p>
-              <span className="mt-8 inline-flex h-10 items-center rounded-lg bg-white px-3.5 text-[14px] font-semibold text-ink">Voir l'agenda</span>
-            </div>
-          </Link>
-        ))}
-      </section>
-
-      <section className="mx-auto grid max-w-[1200px] gap-12 px-5 pt-14 md:grid-cols-[1.25fr_1fr] md:px-10 md:pt-[72px]">
-        <div>
-          <div className="mb-2 flex items-end justify-between">
-            <h2 className="font-display text-[28px] font-bold tracking-[-0.03em]">Prochaines dates</h2>
-            <Link to="/events" className="inline-flex items-center gap-1 text-[15px] font-semibold text-brand">Tout voir <ArrowRight size={16} /></Link>
-          </div>
-          <div>
-            {upcoming.map((event) => {
-              const price = eventPricePresentation(event);
-              const day = event.date ? formatCalendarDate(event.date, { day: '2-digit' }, event.timezone) : '';
-              const month = event.date ? formatCalendarDate(event.date, { month: 'short' }, event.timezone).replace('.', '') : '';
-              return (
-                <Link key={event.id} to={eventPublicPath(event)} className="flex items-center gap-4 border-t border-line py-3.5 last:border-b">
-                  <span className="w-14 shrink-0 rounded-lg border border-line py-1.5 text-center">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-brand">{month}</span>
-                    <b className="block font-display text-[22px] leading-none">{day}</b>
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-[16px] font-bold tracking-tight">{event.title}</span>
-                    <span className="mt-0.5 block truncate text-[14px] text-ink-3">{shortPlace(event.location, event.city).label}</span>
-                  </span>
-                  <span className={`shrink-0 text-[15px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : ''}`}>{price.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-        <div>
-          <div className="mb-5 flex items-end justify-between">
-            <h2 className="font-display text-[28px] font-bold tracking-[-0.03em]">Artistes</h2>
-            <Link to="/artists" className="inline-flex items-center gap-1 text-[15px] font-semibold text-brand">Tous les artistes <ArrowRight size={16} /></Link>
-          </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-5">
-            {artists.map((artist) => (
-              <Link key={artist.id} to={`/artists/${artist.slug}`}>
-                {artist.photo_url ? (
-                  <img src={artist.photo_url} alt="" className="aspect-square w-full rounded-[10px] object-cover object-[50%_25%]" />
-                ) : (
-                  <span className="relative grid aspect-square place-items-center overflow-hidden rounded-[10px] bg-brand font-display text-[28px] font-bold text-white">
-                    <DomePattern variant="tile" />
-                    <span className="relative">{artist.name.slice(0, 1)}</span>
-                  </span>
-                )}
-                <p className="mt-2.5 font-display text-[15px] font-bold">{artist.name}</p>
-                {artist.genre ? <p className="text-[13px] text-ink-3">{artist.genre}</p> : null}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <QuickFilters value={filters} onChange={setFilters} />
+      <HomeRails events={filteredEvents ?? []} loading={loading} spans={spans} kinds={kinds} filters={filters} />
 
       <section className="mx-auto max-w-[1200px] px-5 pt-16 md:px-10 md:pt-20">
         <div className="relative grid min-h-[280px] overflow-hidden rounded-2xl bg-brand text-white md:grid-cols-[1.1fr_1fr]">

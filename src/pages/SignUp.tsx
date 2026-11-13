@@ -62,7 +62,7 @@ export default function SignUp() {
 
   const composedPhone = () =>
     normalizePhone(
-      composedPhone(),
+      formData.emailOrPhone,
       countryCode.replace(/\D/g, ''),
     );
 

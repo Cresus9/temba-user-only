@@ -813,7 +813,7 @@ export default function CheckoutForm({
             <div className="grid place-items-center w-14 h-14 rounded-full bg-green-50 mx-auto mb-3 ring-1 ring-green-200">
               <Gift className="h-7 w-7 text-green-600" />
             </div>
-            <p className="eyebrow !mb-1">Événement gratuit</p>
+            <p className="eyebrow !mb-1">Prix bientôt disponible</p>
             <h2
               className="!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-1.5"
               style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
@@ -837,8 +837,8 @@ export default function CheckoutForm({
                   <span className="text-ink-mute tabular-nums">
                     {selection.quantity}× Billet
                   </span>
-                  <span className="font-bold text-green-600 uppercase tracking-[0.04em] text-[12px]">
-                    Gratuit
+                  <span className="font-bold text-ink uppercase tracking-[0.04em] text-[12px]">
+                    Prix bientôt disponible
                   </span>
                 </div>
               ))}
@@ -849,7 +849,7 @@ export default function CheckoutForm({
                 className="text-[18px] font-bold text-green-600 tracking-tight"
                 style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
               >
-                Gratuit
+                Prix bientôt disponible
               </span>
             </div>
           </div>

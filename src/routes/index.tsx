@@ -103,6 +103,7 @@ export default function AppRoutes() {
         <Route path="/categories/:categoryId" element={<CategoryEvents />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/terms" element={<Terms />} />

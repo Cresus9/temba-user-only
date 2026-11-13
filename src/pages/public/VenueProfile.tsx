@@ -623,7 +623,7 @@ export default function VenueProfile() {
                                 </div>
                               </div>
                               <span className="text-[13px] font-semibold text-accent tabular-nums flex-shrink-0">
-                                {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
+                                {event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}
                               </span>
                             </Link>
                           );
@@ -692,7 +692,7 @@ export default function VenueProfile() {
                               : ''}
                         </p>
                         <p className="text-[13px] font-semibold text-accent mt-2 tabular-nums">
-                          {nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}
+                          {nextShow.price > 0 ? formatCurrency(nextShow.price, nextShow.currency) : 'Prix bientôt disponible'}
                         </p>
                       </div>
                     </div>

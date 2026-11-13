@@ -325,7 +325,7 @@ export default function ArtistProfile() {
                   <p className="mt-1 font-display text-[18px] font-bold">{nextShow.title}</p>
                   <p className="mt-1 text-[14px] text-ink-3">{shortPlace(nextShow.location).label}</p>
                   <div className="mt-4 flex items-center justify-between">
-                    <b className="tabular-nums">{nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}</b>
+                    <b className="tabular-nums">{nextShow.price > 0 ? formatCurrency(nextShow.price, nextShow.currency) : 'Prix bientôt disponible'}</b>
                     <Link to={eventPublicPath(nextShow)} className="inline-flex h-10 items-center rounded-lg bg-brand px-3 text-[14px] font-semibold text-white">Billets</Link>
                   </div>
                 </div>
@@ -482,7 +482,7 @@ export default function ArtistProfile() {
                                 </div>
                               </div>
                               <span className="text-[13px] font-semibold text-accent tabular-nums flex-shrink-0">
-                                {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
+                                {event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}
                               </span>
                             </Link>
                           );
@@ -540,7 +540,7 @@ export default function ArtistProfile() {
                           })}
                         </p>
                         <p className="text-[13px] font-semibold text-accent mt-2 tabular-nums">
-                          {nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}
+                          {nextShow.price > 0 ? formatCurrency(nextShow.price, nextShow.currency) : 'Prix bientôt disponible'}
                         </p>
                       </div>
                     </div>

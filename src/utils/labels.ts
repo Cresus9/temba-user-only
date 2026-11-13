@@ -68,36 +68,51 @@ export function isTicketSellable(ticket: SellableTicket): boolean {
   return true;
 }
 
-export type PriceTone = 'free' | 'paid' | 'soon' | 'soldout';
+export type PriceTone = 'free' | 'paid' | 'soon' | 'soldout' | 'unpriced';
+
+/**
+ * A price of 0, or tickets that are not on sale, is not a free event.
+ * Flip this only when `events.is_free` exists. See docs/redesign/db-expansion.md.
+ */
+export const SHOW_FREE_FROM_ZERO_PRICE = false;
 
 export function eventPricePresentation(event: {
   price?: number | null;
   currency?: string | null;
+  is_free?: boolean | null;
   ticket_types?: SellableTicket[] | null;
 }): { tone: PriceTone; label: string } {
-  const types = event.ticket_types ?? [];
-  const sellable = types.filter(isTicketSellable);
+  const currency = event.currency ?? 'XOF';
+  if (event.is_free === true) return { tone: 'free', label: 'Gratuit' };
 
-  if (types.length > 0 && sellable.length === 0) {
-    const allGone = types.every(
-      (ticket) =>
-        (typeof ticket.available === 'number' && ticket.available <= 0) ||
-        (ticket.status ?? '').toUpperCase() === 'SOLD_OUT',
-    );
-    return allGone
-      ? { tone: 'soldout', label: 'Complet' }
-      : { tone: 'soon', label: 'Bientôt en vente' };
+  const types = event.ticket_types;
+  const opened = (types ?? []).filter(
+    (ticket) => ticket.sales_enabled === true && Number(ticket.price) > 0,
+  );
+  if (opened.length > 0) {
+    const prices = opened.map((ticket) => Number(ticket.price));
+    const min = Math.min(...prices);
+    const distinct = new Set(prices);
+    const amount = formatCurrency(min, currency);
+    return {
+      tone: 'paid',
+      label: distinct.size > 1 ? `Dès ${amount}` : amount,
+    };
   }
 
-  const prices = sellable.length
-    ? sellable.map((ticket) => Number(ticket.price ?? 0))
-    : [Number(event.price ?? 0)];
-  const min = prices.length ? Math.min(...prices) : 0;
-  if (!Number.isFinite(min) || min <= 0) return { tone: 'free', label: 'Gratuit' };
-  return {
-    tone: 'paid',
-    label: `Dès ${formatCurrency(min, event.currency ?? 'XOF')}`,
-  };
+  // Tariffs are loaded and none are on sale: a zero or a stale price is not "Gratuit".
+  if (types && types.length > 0) {
+    return { tone: 'unpriced', label: 'Prix bientôt disponible' };
+  }
+
+  const fallback = Number(event.price ?? NaN);
+  if (SHOW_FREE_FROM_ZERO_PRICE && (!Number.isFinite(fallback) || fallback <= 0)) {
+    return { tone: 'free', label: 'Gratuit' };
+  }
+  if (Number.isFinite(fallback) && fallback > 0) {
+    return { tone: 'paid', label: formatCurrency(fallback, currency) };
+  }
+  return { tone: 'unpriced', label: 'Prix bientôt disponible' };
 }
 
 export type TicketVisualState =

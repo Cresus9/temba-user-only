@@ -126,7 +126,7 @@ export default function TagPage() {
                     <p className="text-[14px] font-bold text-ink truncate group-hover:text-brand transition-colors" style={{fontFamily:display}}>{event.title}</p>
                     <div className="flex items-center gap-1.5 mt-1"><MapPin className="w-3 h-3 text-ink-mute" /><span className="text-[11px] text-ink-mute truncate">{shortPlace(event.location).label}</span></div>
                   </div>
-                  <span className="text-[12px] font-bold text-brand flex-shrink-0">{event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}</span>
+                  <span className="text-[12px] font-bold text-brand flex-shrink-0">{event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}</span>
                 </Link>
               );
             })

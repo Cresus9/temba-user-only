@@ -21,6 +21,10 @@ Le site affiche ce qui existe déjà et masque le reste. Les points ci-dessous d
 - **Options** : flag « inclus dans l’entrée » (ex. piscine chez Komi) pour ne plus dépendre du texte libre.
 - **Passes / abonnements** (visite illimitée, saison). Pas de prix inventé en attendant.
 
+## Prix et gratuit
+
+- **`events.is_free` (booléen explicite).** Un `price` à 0, un prix vide, ou des `ticket_types` sans `sales_enabled` ne veulent pas dire que l’entrée est gratuite : souvent les ventes ne sont pas ouvertes. Le site affiche alors « Prix bientôt disponible » et ne montre ni badge Gratuit, ni rangée Gratuit, ni filtre Gratuit. Ces trois éléments restent dans le code derrière `SHOW_FREE_FROM_ZERO_PRICE` (aujourd’hui `false`) et ne s’activeront qu’avec `is_free = true`.
+
 ## Organisateurs
 
 - **Grille tarifaire officielle** (commission, options badges / accréditations). Le bloc Tarifs de `/organizers` laisse un emplacement vide et n’affiche aucun taux.
