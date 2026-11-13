@@ -1,5 +1,6 @@
 import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { supabase } from '../lib/supabase-client';
+import { metaBrowserMatch } from '../lib/metaPixel';
 
 export interface FXQuote {
   usd_cents: number;
@@ -134,6 +135,7 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        ...metaBrowserMatch(),
       });
 
       if (!data?.clientSecret || !data?.paymentId) {
@@ -182,6 +184,7 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        ...metaBrowserMatch(),
       });
 
       if (!data?.clientSecret || !data?.paymentId) {

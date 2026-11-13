@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
+import { metaAttribution } from "../_shared/metaCapi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,8 @@ interface CreatePawaPayPaymentRequest {
   return_url?: string;
   cancel_url?: string;
   description: string;
+  fbp?: string;
+  fbc?: string;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -275,7 +278,13 @@ Deno.serve(async (req) => {
         status: "pending",
         payment_method: payload.method,
         provider: "pawapay",  // Set provider to pawapay
-        token: paymentToken
+        token: paymentToken,
+        metadata: metaAttribution(req, {
+          fbp: payload.fbp,
+          fbc: payload.fbc,
+          phone: payload.phone,
+          email: customerEmail,
+        }),
       })
       .select()
       .single();

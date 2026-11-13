@@ -2,6 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
+import { metaAttribution } from "../_shared/metaCapi.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +58,8 @@ type CreatePaymentBody = {
   payment_method?: string;
   guest_email?: string | null;
   guest_phone?: string | null;
+  fbp?: string | null;
+  fbc?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -383,6 +386,12 @@ Deno.serve(async (req) => {
           description, 
           intent_status: intent.status,
           fx_rate_display: `1 ${finalChargeCurrency} = ${(finalFxDen / finalFxNum).toFixed(2)} ${finalDisplayCurrency}`,
+          ...metaAttribution(req, {
+            fbp: body.fbp,
+            fbc: body.fbc,
+            phone: guest_phone,
+            email: guest_email,
+          }),
         },
       })
       .select("id, token, order_id")

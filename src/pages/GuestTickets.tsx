@@ -13,6 +13,7 @@ import {
   type GuestTicketRow,
 } from '../services/guestTicketService';
 import { generateTicketPNG } from '../utils/ticketService';
+import { trackPurchase } from '../lib/metaPixel';
 
 export default function GuestTickets() {
   const { token } = useParams<{ token: string }>();
@@ -48,6 +49,14 @@ export default function GuestTickets() {
       }
     })();
   }, [token]);
+
+  useEffect(() => {
+    if (!orderMeta.orderId || tickets.length === 0) return;
+    trackPurchase({
+      orderId: orderMeta.orderId,
+      numItems: tickets.length,
+    });
+  }, [orderMeta.orderId, tickets.length]);
 
   const handleDownload = async () => {
     if (!tickets.length) return;

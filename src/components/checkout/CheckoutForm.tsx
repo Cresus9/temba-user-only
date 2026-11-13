@@ -17,6 +17,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import CountryCodeSelector from '../CountryCodeSelector';
 import { isValidPhone, normalizePhone } from '../../utils/phoneValidation';
+import { rememberMetaOrder, trackInitiateCheckout } from '../../lib/metaPixel';
 
 const DEFAULT_DIAL_CODE = '+226';
 
@@ -109,13 +110,34 @@ export default function CheckoutForm({
     loadPrices();
   }, [tickets]);
 
-  const { fees } = useFeeCalculation(eventId, pricedSelections);
+  const { fees, loading: feesLoading } = useFeeCalculation(eventId, pricedSelections);
   const subtotal = pricedSelections.reduce((s, it) => s + it.price * it.quantity, 0);
   const buyerFees = fees.total_buyer_fees || 0;
   const grandTotal = subtotal + buyerFees + addonTotal;
 
   // Detect if this is a FREE order (all tickets are free)
   const isFreeOrder = grandTotal === 0 && subtotal === 0;
+
+  const noteMetaOrder = (orderId?: string | null) => {
+    if (!orderId) return;
+    const numItems = Object.values(tickets).reduce((sum, qty) => sum + Number(qty || 0), 0);
+    rememberMetaOrder({
+      orderId,
+      eventId,
+      value: grandTotal,
+      currency,
+      numItems,
+    });
+  };
+
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || feesLoading) return;
+    const numItems = Object.values(tickets).reduce((sum, qty) => sum + Number(qty || 0), 0);
+    if (!eventId || numItems <= 0 || pricedSelections.length === 0) return;
+    trackInitiateCheckout({ eventId, value: grandTotal, currency, numItems });
+    checkoutTracked.current = true;
+  }, [feesLoading, eventId, grandTotal, currency, tickets, pricedSelections.length]);
 
   // Format account display for better presentation
   const formatAccountDisplay = (method: SavedPaymentMethod) => {
@@ -222,6 +244,7 @@ export default function CheckoutForm({
     
     try {
       setIsProcessing(true);
+      noteMetaOrder(orderId);
 
       if (isGuestCheckout && guestToken && orderId) {
         persistGuestWallet({
@@ -297,6 +320,7 @@ export default function CheckoutForm({
       }
 
       console.log('✅ [FREE] Order created:', result.orderId);
+      noteMetaOrder(result.orderId);
 
       // Clear cart after successful reservation
       const cleared = clearCartForEvent(eventId, 'CheckoutForm-Free');
@@ -536,6 +560,8 @@ export default function CheckoutForm({
             paymentDetails
           });
 
+          if (result.orderId) noteMetaOrder(result.orderId);
+
           if (result.orderId && result.token) {
             persistGuestWallet({
               token: result.token,
@@ -572,6 +598,8 @@ export default function CheckoutForm({
           paymentMethod: actualPaymentMethod,
           paymentDetails
         });
+
+        if (result.orderId) noteMetaOrder(result.orderId);
 
         if (result.success && result.paymentUrl) {
           // Stripe may return paymentUrl for redirects (if needed)
@@ -649,6 +677,8 @@ export default function CheckoutForm({
       if (!orderResult.success || !orderResult.orderId) {
         throw new Error('Failed to create order');
       }
+
+      noteMetaOrder(orderResult.orderId);
 
       // Prepare ticket lines for pawaPay
       const ticketLines = pricedSelections.map(selection => ({

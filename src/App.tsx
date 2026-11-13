@@ -12,6 +12,7 @@ import PendingTransfersNotification from './components/tickets/PendingTransfersN
 import ReferralQueryCapture from './components/referral/ReferralQueryCapture';
 import { useEvents } from './context/EventContext';
 import { imageCacheWarmer } from './utils/imageCacheWarmer';
+import { trackPageView } from './lib/metaPixel';
 
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -28,6 +29,14 @@ function PageTransition({ children }: { children: React.ReactNode }) {
       </motion.div>
     </AnimatePresence>
   );
+}
+
+function MetaPixel() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    trackPageView(pathname);
+  }, [pathname]);
+  return null;
 }
 
 function App() {
@@ -52,7 +61,8 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-50 to-indigo-50">
+      <div className="min-h-screen flex flex-col bg-paper">
+        <MetaPixel />
         <ReferralQueryCapture />
         <AppBanner />
         <Navbar />

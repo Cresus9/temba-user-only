@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Calendar,
@@ -8,9 +8,6 @@ import {
   Heart,
   ArrowLeft,
   Navigation,
-  ShieldCheck,
-  Zap,
-  Banknote,
   Building2,
   CheckCircle,
   ChevronRight,
@@ -27,18 +24,36 @@ import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
 import { eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath';
+import { trackViewContent } from '../lib/metaPixel';
 import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import PermanentBookingPanel from '../components/venue/PermanentBookingPanel';
 import GalleryCarousel from '../components/venue/GalleryCarousel';
 import DayTypePricingTable from '../components/venue/DayTypePricingTable';
-import { ATTRACTION_TYPE_LABELS, ATTRACTION_TYPE_ICONS, getPricingOverrides } from '../services/permanentVenueService';
+import { ATTRACTION_TYPE_LABELS, getPricingOverrides } from '../services/permanentVenueService';
 import { getGalleryImages, type GalleryImage } from '../services/galleryService';
 import type { PricingOverride } from '../services/permanentVenueService';
 
 interface EventLocation {
   latitude: number;
   longitude: number;
+}
+
+const SMALL_WORDS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'à', 'au', 'aux', 'en', 'sur', 'chez', 'pour', 'un', 'une', 'détente', 'visite', 'journée']);
+
+function readableTitle(title: string): string {
+  const letters = [...title].filter((char) => /\p{L}/u.test(char));
+  const shouting = letters.length > 3 && letters.every((char) => char === char.toLocaleUpperCase('fr') && char !== char.toLocaleLowerCase('fr'));
+  if (!shouting) return title;
+  let wordIndex = 0;
+  return title.split(/(\s+)/).map((part) => {
+    if (!/\p{L}/u.test(part)) return part;
+    const word = part.toLocaleLowerCase('fr');
+    const keepSmall = wordIndex > 0 && SMALL_WORDS.has(word);
+    wordIndex += 1;
+    if (keepSmall) return word;
+    return word.charAt(0).toLocaleUpperCase('fr') + word.slice(1);
+  }).join('');
 }
 
 interface EventDate {
@@ -65,6 +80,19 @@ export default function EventDetails() {
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [pricingOverrides, setPricingOverrides] = useState<PricingOverride[]>([]);
   const [venue,         setVenue]         = useState<{ id: string; name: string; slug: string | null; city: string | null; verified: boolean; serviceCount: number } | null>(null);
+
+  const viewedContent = useRef<string | null>(null);
+  useEffect(() => {
+    if (!event?.id || !Array.isArray(event.ticket_types)) return;
+    const prices = event.ticket_types
+      .map((ticket) => Number(ticket.price))
+      .filter((price) => Number.isFinite(price) && price >= 0);
+    const value = prices.length ? Math.min(...prices) : 0;
+    const key = `${event.id}:${value}`;
+    if (viewedContent.current === key) return;
+    viewedContent.current = key;
+    trackViewContent({ eventId: event.id, value, currency: event.currency });
+  }, [event?.id, event?.currency, event?.ticket_types]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -491,7 +519,30 @@ export default function EventDetails() {
         />
       )}
 
-      {/* — — — Compact title band (cream) — — — */}
+      {event.is_permanent ? (
+        <section className="bg-white">
+          <div className="mx-auto max-w-[1080px] px-5 pb-2 pt-6 sm:px-8">
+            <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-[13px] text-ink/55">
+              <Link to="/attractions" className="hover:text-ink">Attractions</Link>
+              <span aria-hidden>/</span>
+              <span className="truncate text-ink/80">{readableTitle(event.title)}</span>
+            </nav>
+            <p className="mt-6 !text-[12px] font-medium uppercase tracking-[0.14em] text-ink/55">
+              {ATTRACTION_TYPE_LABELS[event.attraction_type ?? 'other'] ?? 'Attraction'}
+            </p>
+            <h1 className="mt-1.5 max-w-3xl !text-[clamp(32px,4vw,44px)] !font-semibold !leading-[1.08] !tracking-[-0.035em] text-ink">
+              {readableTitle(event.title)}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-ink/65">
+              <span>{event.city ?? event.location}</span>
+              <button type="button" onClick={handleShare} className="hover:text-ink">Partager</button>
+              <button type="button" onClick={toggleSave} className={isSaved ? 'text-brand' : 'hover:text-ink'}>
+                {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
       <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
         <div
           aria-hidden
@@ -605,22 +656,19 @@ export default function EventDetails() {
           </div>
         </div>
       </section>
+      )}
 
       {/* — — — Body: poster+desc on left, booking sticky on right — — — */}
-      <section className="bg-paper">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-10">
+      <section className={event.is_permanent ? 'bg-white' : 'bg-paper'}>
+        <div className={event.is_permanent
+          ? 'mx-auto max-w-[1080px] px-5 py-6 sm:px-8'
+          : 'max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-10'
+        }>
           <div className="grid lg:grid-cols-12 gap-6 lg:gap-10">
             {/* — Mobile: poster first, then booking, then content — */}
             <div className="lg:hidden space-y-5 w-full min-w-0">
-              {event.is_permanent && galleryImages.length > 0 ? (
-                <div className="rounded-2xl overflow-hidden border border-line shadow-card">
-                  <GalleryCarousel
-                    images={galleryImages}
-                    fallbackSrc={event.image_url}
-                    fallbackAlt={event.title}
-                    className="aspect-[16/9]"
-                  />
-                </div>
+              {event.is_permanent ? (
+                <PlacePhoto event={event} galleryImages={galleryImages} />
               ) : (
                 <PosterCard event={event} evtCode={evtCode} />
               )}
@@ -637,24 +685,23 @@ export default function EventDetails() {
             <div className="lg:col-span-7 space-y-9">
               {/* Desktop: gallery carousel for permanent events, poster otherwise */}
               <div className="hidden lg:block">
-                {event.is_permanent && galleryImages.length > 0 ? (
-                  <div className="rounded-2xl overflow-hidden border border-line shadow-card">
-                    <GalleryCarousel
-                      images={galleryImages}
-                      fallbackSrc={event.image_url}
-                      fallbackAlt={event.title}
-                      className="aspect-[16/9]"
-                    />
-                  </div>
+                {event.is_permanent ? (
+                  <PlacePhoto event={event} galleryImages={galleryImages} />
                 ) : (
                   <PosterCard event={event} evtCode={evtCode} />
                 )}
               </div>
 
-              <div>
-                <p className="eyebrow mb-2">À propos</p>
-                <h2 className="text-ink mb-3">L'événement</h2>
-                <p className="text-[15px] text-ink/80 whitespace-pre-line leading-relaxed">
+              <div className={event.is_permanent ? 'border-t border-ink/10 pt-8' : ''}>
+                {event.is_permanent ? (
+                  <h2 className="mb-3 !text-[18px] !font-semibold !leading-snug text-ink">Le lieu</h2>
+                ) : (
+                  <>
+                    <p className="eyebrow mb-2">À propos</p>
+                    <h2 className="text-ink mb-3">L'événement</h2>
+                  </>
+                )}
+                <p className="!text-[15px] !leading-relaxed text-ink/80 whitespace-pre-line">
                   {event.description}
                 </p>
               </div>
@@ -662,19 +709,16 @@ export default function EventDetails() {
               {/* Day-type pricing table — permanent attractions only */}
               {event.is_permanent && (event.ticket_types ?? []).length > 0 && (
                 <div>
-                  <p className="eyebrow mb-2">Tarifs</p>
-                  <h2 className="text-ink mb-3">Grille tarifaire</h2>
-                  <div className="bg-cream rounded-xl2 border border-line p-4">
+                  <h2 className="mb-3 !text-[18px] !font-semibold !leading-snug text-ink">Tarifs</h2>
+                  <div className="border border-ink/10 px-4 py-2">
                     <DayTypePricingTable
                       ticketTypes={event.ticket_types ?? []}
                       overrides={pricingOverrides}
                       currency={event.currency}
                     />
                     {pricingOverrides.length > 0 && (
-                      <p className="mt-3 text-[11px] text-ink-mute flex items-center gap-1.5">
-                        <span>☀️</span> Semaine (lun–ven) &nbsp;·&nbsp;
-                        <span>🌙</span> Week-end (sam–dim) &nbsp;·&nbsp;
-                        <span>📅</span> Jours fériés
+                      <p className="mt-3 !text-[12px] text-ink/55">
+                        Semaine, lun–ven · Week-end, sam–dim · Jours fériés
                       </p>
                     )}
                   </div>
@@ -815,25 +859,14 @@ export default function EventDetails() {
               )}
 
               {/* Trust strip — moved here, no longer in hero */}
-              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-4 border-t border-line text-[12px] text-ink-mute">
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-brand" />
-                  Paiement sécurisé en FCFA
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-accent" />
-                  E-billet instantané
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Banknote className="h-3.5 w-3.5 text-ink" />
-                  Mobile Money · Carte
-                </span>
-              </div>
+              <p className={`pt-4 text-[13px] text-ink/55 ${event.is_permanent ? 'border-t border-ink/10' : 'border-t border-line'}`}>
+                Paiement en FCFA · Orange Money, Moov Money, carte · Billet sur le téléphone
+              </p>
             </div>
 
             {/* — Right: sticky booking — */}
             <div className="hidden lg:block lg:col-span-5">
-              <div className="lg:sticky lg:top-20">
+              <div className={event.is_permanent ? 'lg:sticky lg:top-[88px]' : 'lg:sticky lg:top-20'}>
                 <BookingPanel
                   event={event}
                   isReviewModalOpen={isReviewModalOpen}
@@ -847,6 +880,28 @@ export default function EventDetails() {
         </div>
       </section>
     </>
+  );
+}
+
+function PlacePhoto({ event, galleryImages }: { event: Event; galleryImages: GalleryImage[] }) {
+  if (galleryImages.length > 0) {
+    return (
+      <div className="overflow-hidden border border-ink/15 bg-ink/[0.04]">
+        <GalleryCarousel
+          images={galleryImages}
+          fallbackSrc={event.image_url}
+          fallbackAlt={readableTitle(event.title)}
+          className="aspect-[4/3]"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="aspect-[4/3] overflow-hidden border border-ink/15 bg-ink/[0.04]">
+      {event.image_url ? (
+        <img src={event.image_url} alt="" className="h-full w-full object-cover" />
+      ) : null}
+    </div>
   );
 }
 
@@ -899,16 +954,20 @@ function BookingPanel({
   const headerLabel = event.is_permanent ? 'Choisir une date' : 'Réserver';
 
   return (
-    <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden w-full min-w-0">
-      {/* Ticket-style header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-cream border-b border-line">
-        <span className="eyebrow !text-ink">{headerLabel}</span>
-        <span
-          className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
-          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-        >
-          EVT · {evtCode}
-        </span>
+    <div className={event.is_permanent
+      ? 'w-full min-w-0 overflow-hidden border border-ink/15 bg-white'
+      : 'bg-paper rounded-xl2 border border-line shadow-card overflow-hidden w-full min-w-0'
+    }>
+      <div className={`flex items-center justify-between px-4 py-3 border-b ${event.is_permanent ? 'border-ink/10' : 'bg-cream border-line'}`}>
+        <span className={event.is_permanent ? 'text-[15px] font-semibold text-ink' : 'eyebrow !text-ink'}>{headerLabel}</span>
+        {!event.is_permanent && (
+          <span
+            className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+          >
+            EVT · {evtCode}
+          </span>
+        )}
       </div>
 
       <div className="p-3 sm:p-5">

@@ -11,6 +11,7 @@ import {
   PAYMENT_STATUS_TTL,
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -258,6 +259,8 @@ Deno.serve(async (req) => {
           }
         }
       } // end sync fallback
+
+      if (!queued) await sendMetaPurchase(supabase, payment.id);
 
       // Mark webhook as processed
       if (webhookLog?.id) {

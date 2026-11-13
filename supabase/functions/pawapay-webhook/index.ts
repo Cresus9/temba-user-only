@@ -9,6 +9,7 @@ import {
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -436,6 +437,7 @@ async function handleSuccessfulPayment(
     status: "completed",
   });
 
+  await sendMetaPurchase(supabase, payment.id);
   console.log("✅ Payment completed successfully:", payment.id);
 }
 

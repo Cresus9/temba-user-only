@@ -1,15 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, ArrowRight, Ticket } from 'lucide-react';
-import { listAttractions, ATTRACTION_TYPE_LABELS, ATTRACTION_TYPE_ICONS } from '../../services/permanentVenueService';
-import { formatCurrency } from '../../utils/formatters';
+import { ArrowRight } from 'lucide-react';
+import { listAttractions } from '../../services/permanentVenueService';
 import { FadeUp, Stagger, StaggerItem } from '../common/Motion';
-import { eventPublicPath } from '../../utils/eventPath';
 import { useEvents } from '../../context/EventContext';
 import { Event } from '../../types/event';
-
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
-const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+import AttractionCard from '../attractions/AttractionCard';
 
 export default function AttractionsHighlight() {
   const { events, loading: eventsLoading } = useEvents();
@@ -47,12 +43,6 @@ export default function AttractionsHighlight() {
   const loading = eventsLoading || (fromCatalog.length === 0 && fallback === null);
 
   if (!loading && items.length === 0) return null;
-
-  const lowestPrice = (a: typeof items[number]): number | null => {
-    const tts = (a.ticket_types ?? []).filter((t) => t.available > 0);
-    if (!tts.length) return null;
-    return Math.min(...tts.map((t) => t.price));
-  };
 
   return (
     <section className="section-normal bg-paper border-t border-line">
@@ -93,110 +83,12 @@ export default function AttractionsHighlight() {
                               -mx-4 px-4 md:mx-0 md:px-0
                               [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
                               md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:snap-none md:flex-none">
-            {items.map(a => {
-              const minPrice  = lowestPrice(a);
-              const typeIcon  = ATTRACTION_TYPE_ICONS[a.attraction_type ?? 'other'] ?? '📍';
-              const typeLabel = ATTRACTION_TYPE_LABELS[a.attraction_type ?? 'other'] ?? '';
-
-              return (
-                <StaggerItem key={a.id} className="flex-shrink-0 w-[78vw] sm:w-[44vw] md:w-auto snap-start">
-                  <Link
-                    to={eventPublicPath(a)}
-                    className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200 h-full"
-                  >
-                    <div className="relative aspect-[16/9] sm:aspect-[4/3] bg-cream-deep overflow-hidden flex-shrink-0">
-                      {a.image_url ? (
-                        <img
-                          src={a.image_url}
-                          alt={a.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full grid place-items-center bg-brand-50">
-                          <span className="text-[44px]">{typeIcon}</span>
-                        </div>
-                      )}
-
-                      <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2 py-0.5 bg-ink/65 backdrop-blur-sm rounded-md">
-                        <span className="text-[10px]">{typeIcon}</span>
-                        <span
-                          className="text-[9px] font-bold text-paper uppercase tracking-[0.1em]"
-                          style={{ fontFamily: mono }}
-                        >
-                          {typeLabel}
-                        </span>
-                      </span>
-
-                      <span className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                        {a.featured && (
-                          <span className="px-1.5 py-0.5 bg-amber-400 rounded-md">
-                            <span
-                              className="text-[9px] font-bold text-ink uppercase tracking-[0.1em]"
-                              style={{ fontFamily: mono }}
-                            >
-                              ★ Top
-                            </span>
-                          </span>
-                        )}
-                        <span className="px-1.5 py-0.5 bg-emerald-500 rounded-md">
-                          <span
-                            className="text-[9px] font-bold text-paper uppercase tracking-[0.1em]"
-                            style={{ fontFamily: mono }}
-                          >
-                            Ouvert
-                          </span>
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-1 p-3.5 flex-1">
-                      <h3
-                        className="text-[13px] font-bold text-ink leading-snug group-hover:text-brand transition-colors line-clamp-2"
-                        style={{ fontFamily: display }}
-                      >
-                        {a.title}
-                      </h3>
-
-                      {(a.city || a.location) && (
-                        <p className="flex items-center gap-1 text-[11px] text-ink-mute truncate">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{a.city ?? a.location}</span>
-                        </p>
-                      )}
-
-                      <div className="mt-auto pt-2.5 flex items-center justify-between gap-2">
-                        <p
-                          className="text-[12px] font-bold text-brand tabular-nums"
-                          style={{ fontFamily: display }}
-                        >
-                          {minPrice !== null
-                            ? `Dès ${formatCurrency(minPrice, a.currency ?? 'XOF')}`
-                            : 'Voir les tarifs'}
-                        </p>
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brand/8 text-brand rounded-lg text-[10px] font-bold transition-colors group-hover:bg-brand group-hover:text-paper">
-                          <Ticket className="w-3 h-3" />
-                          Réserver
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                </StaggerItem>
-              );
-            })}
+            {items.map((attraction) => (
+              <StaggerItem key={attraction.id} className="w-[78vw] flex-shrink-0 snap-start sm:w-[44vw] md:w-auto">
+                <AttractionCard attraction={attraction} />
+              </StaggerItem>
+            ))}
           </Stagger>
-        )}
-
-        {!loading && items.length > 0 && (
-          <FadeUp className="mt-6 flex justify-center">
-            <Link
-              to="/attractions"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-line bg-cream hover:bg-brand-50 hover:border-brand/30 text-[13px] font-semibold text-ink hover:text-brand transition-all"
-            >
-              Explorer toutes les attractions
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </FadeUp>
         )}
       </div>
     </section>

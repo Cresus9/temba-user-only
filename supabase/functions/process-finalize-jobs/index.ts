@@ -17,6 +17,7 @@ import {
   paymentStatusKey,
   PAYMENT_STATUS_TTL,
 } from "../_shared/upstash.ts";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE   = 20;
@@ -118,6 +119,7 @@ Deno.serve(async (req) => {
           await markJob(supabase, job.id, "done", null, job.attempts);
           // Update Redis so mobile polling resolves
           await redisSet(paymentStatusKey(job.payment_id), "finalized", PAYMENT_STATUS_TTL);
+          await sendMetaPurchase(supabase, job.payment_id);
           succeeded++;
           continue;
         }
@@ -138,6 +140,7 @@ Deno.serve(async (req) => {
         console.log(`[process-finalize-jobs] finalized: ${job.payment_id}`);
         await markJob(supabase, job.id, "done", null, job.attempts + 1);
         await redisSet(paymentStatusKey(job.payment_id), "finalized", PAYMENT_STATUS_TTL);
+        await sendMetaPurchase(supabase, job.payment_id);
         succeeded++;
       }
     }

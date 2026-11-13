@@ -17,6 +17,7 @@ import {
   PAYMENT_STATUS_TTL,
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -78,6 +79,7 @@ Deno.serve(async (req) => {
             status: "completed",
           });
         }
+        await sendMetaPurchase(supabase, payment_id);
         return json({ ok: true, note: "already finalized" });
       }
     }
@@ -104,6 +106,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    await sendMetaPurchase(supabase, payment_id);
     console.log("[finalize-order] finalized:", payment_id);
     return json({ ok: true, payment_id });
 

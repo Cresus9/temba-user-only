@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Ticket, ChevronRight, Loader, Check } from 'lucide-react';
+import { Calendar, Clock, Ticket, Loader, Check } from 'lucide-react';
 import VisitDateCalendar from './VisitDateCalendar';
 import { initiatePermanentPurchase, formatOpeningHours, dayTypeLabel } from '../../services/permanentVenueService';
 import { useAuth } from '../../context/AuthContext';
@@ -211,19 +211,19 @@ export default function PermanentBookingPanel({
   return (
     <div className="space-y-4 w-full min-w-0">
       {/* ── Step breadcrumb ── */}
-      <div className="flex items-center gap-1.5 text-[12px]" style={{ fontFamily: mono }}>
+      <div className="flex items-center gap-2 text-[13px]">
         {(['date', 'tickets', 'confirm'] as const).map((s, i) => (
           <React.Fragment key={s}>
-            {i > 0 && <ChevronRight className="w-3 h-3 text-ink-mute/50 flex-shrink-0" />}
+            {i > 0 && <span aria-hidden className="text-ink/25">/</span>}
             <button
               type="button"
               onClick={() => step !== 'date' && s === 'date' ? setStep('date') : undefined}
-              className={`font-semibold uppercase tracking-[0.08em] transition-colors ${
+              className={`transition-colors ${
                 step === s
-                  ? 'text-brand'
+                  ? 'font-medium text-brand'
                   : s === 'confirm' && step !== 'confirm'
-                    ? 'text-ink-mute/40 cursor-default'
-                    : 'text-ink-mute hover:text-ink cursor-pointer'
+                    ? 'text-ink/30 cursor-default'
+                    : 'text-ink/55 hover:text-ink cursor-pointer'
               }`}
             >
               {s === 'date'    ? 'Date'      : ''}

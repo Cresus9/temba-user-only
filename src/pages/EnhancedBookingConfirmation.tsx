@@ -21,6 +21,7 @@ import {
   guestTicketsPath,
   type GuestTicketRow,
 } from '../services/guestTicketService';
+import { trackPurchase } from '../lib/metaPixel';
 
 interface Ticket {
   id: string;
@@ -84,6 +85,18 @@ export default function EnhancedBookingConfirmation() {
   const [addedToCalendar, setAddedToCalendar] = useState(false);
 
   const firstTicket = tickets[0] || null;
+
+  useEffect(() => {
+    if (!bookingId || tickets.length === 0) return;
+    trackPurchase({
+      orderId: bookingId,
+      eventId: firstTicket?.event?.id,
+      value: orderSummary?.total_amount,
+      currency: orderSummary?.currency,
+      numItems: tickets.length,
+      createdAt: orderSummary?.booking_date,
+    });
+  }, [bookingId, tickets.length, firstTicket?.event?.id, orderSummary?.total_amount, orderSummary?.currency, orderSummary?.booking_date]);
 
   const pageTitle = firstTicket
     ? `Confirmation – ${firstTicket.event.title}`
@@ -813,7 +826,7 @@ export default function EnhancedBookingConfirmation() {
 
   if (loading || verifyingPayment || authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex justify-center items-center">
+      <div className="min-h-screen bg-paper flex justify-center items-center">
         <div className="text-center">
           <div className="relative">
             <Loader className="h-12 w-12 animate-spin text-indigo-600 mx-auto mb-6" />
@@ -832,7 +845,7 @@ export default function EnhancedBookingConfirmation() {
 
   if (!tickets.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex justify-center items-center">
+      <div className="min-h-screen bg-paper flex justify-center items-center">
         <div className="max-w-md mx-auto px-4 text-center">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Ticket className="h-12 w-12 text-gray-400" />
@@ -858,7 +871,7 @@ export default function EnhancedBookingConfirmation() {
   const mainTicket = tickets[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-paper">
       <PageSEO
         title={pageTitle}
         description={pageDescription}

@@ -1,328 +1,308 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { MapPin, Search, X, ChevronLeft, ChevronRight, Ticket } from 'lucide-react';
-import {
-  listAttractions,
-  ATTRACTION_TYPE_LABELS,
-  ATTRACTION_TYPE_ICONS,
-} from '../../services/permanentVenueService';
+import { listAttractions, ATTRACTION_TYPE_LABELS } from '../../services/permanentVenueService';
+import { SUPPORTED_COUNTRIES } from '../../utils/eventGeo';
 import { formatCurrency } from '../../utils/formatters';
-import { countryFlag, countryNameFr, SUPPORTED_COUNTRIES } from '../../utils/eventGeo';
-import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
+import PageSEO from '../../components/SEO/PageSEO';
+import { AttractionCardData } from '../../components/attractions/AttractionCard';
 
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
-const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 const PAGE_SIZE = 12;
 
 const ALL_TYPES = Object.entries(ATTRACTION_TYPE_LABELS).map(([value, label]) => ({
   value,
   label,
-  icon: ATTRACTION_TYPE_ICONS[value] ?? '📍',
 }));
+
+function lowestPrice(attraction: AttractionCardData): number | null {
+  const active = (attraction.ticket_types ?? []).filter(
+    (ticket) => ticket.sales_enabled !== false && (ticket.available ?? 1) > 0
+  );
+  if (!active.length) return null;
+  return Math.min(...active.map((ticket) => ticket.price));
+}
+
+function placeLabel(attraction: AttractionCardData): string {
+  return attraction.city || attraction.location || '';
+}
+
+const SMALL_WORDS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'à', 'au', 'aux', 'en', 'sur', 'chez', 'pour', 'un', 'une', 'détente', 'visite', 'journée']);
+
+function readableTitle(title: string): string {
+  const letters = [...title].filter((char) => /\p{L}/u.test(char));
+  const shouting = letters.length > 3 && letters.every((char) => char === char.toLocaleUpperCase('fr') && char !== char.toLocaleLowerCase('fr'));
+  if (!shouting) return title;
+  let wordIndex = 0;
+  return title.split(/(\s+)/).map((part) => {
+    if (!/\p{L}/u.test(part)) return part;
+    const word = part.toLocaleLowerCase('fr');
+    const keepSmall = wordIndex > 0 && SMALL_WORDS.has(word);
+    wordIndex += 1;
+    if (keepSmall) return word;
+    return word.charAt(0).toLocaleUpperCase('fr') + word.slice(1);
+  }).join('');
+}
 
 export default function AttractionsDirectory() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [search,      setSearch]      = useState(searchParams.get('q') ?? '');
-  const [typeFilter,  setTypeFilter]  = useState(searchParams.get('type') ?? '');
-  const [countryFlt,  setCountryFlt]  = useState(searchParams.get('country') ?? '');
-  const [items,       setItems]       = useState<any[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [page,        setPage]        = useState(1);
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
+  const [typeFilter, setTypeFilter] = useState(searchParams.get('type') ?? '');
+  const [countryFlt, setCountryFlt] = useState(searchParams.get('country') ?? '');
+  const [items, setItems] = useState<AttractionCardData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await listAttractions({
-      type:        typeFilter || undefined,
-      countryCode: countryFlt  || undefined,
-    });
-    setItems(data);
-    setPage(1);
+    const data = await listAttractions();
+    setItems(data as AttractionCardData[]);
     setLoading(false);
-  }, [typeFilter, countryFlt]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // Filter by search client-side
-  const filtered = items.filter(a =>
-    !search ||
-    a.title?.toLowerCase().includes(search.toLowerCase()) ||
-    a.location?.toLowerCase().includes(search.toLowerCase()) ||
-    a.city?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = items.filter((attraction) => {
+    if (typeFilter && (attraction.attraction_type ?? 'other') !== typeFilter) return false;
+    if (countryFlt && attraction.country_code !== countryFlt) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      attraction.title?.toLowerCase().includes(q) ||
+      attraction.location?.toLowerCase().includes(q) ||
+      attraction.city?.toLowerCase().includes(q)
+    );
+  });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const ordered = [...filtered].sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
+  const totalPages = Math.ceil(ordered.length / PAGE_SIZE);
+  const paginated = ordered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const filtering = Boolean(search || typeFilter || countryFlt);
+
+  const presentTypes = ALL_TYPES.filter((type) =>
+    items.some((item) => (item.attraction_type ?? 'other') === type.value)
+  );
+  const presentCountries = SUPPORTED_COUNTRIES.filter((country) =>
+    items.some((item) => item.country_code === country.code)
+  );
 
   const updateParam = (key: string, val: string) => {
     const next = new URLSearchParams(searchParams);
-    if (val) next.set(key, val); else next.delete(key);
+    if (val) next.set(key, val);
+    else next.delete(key);
     setSearchParams(next, { replace: true });
   };
 
-  const lowestPrice = (a: any): number | null => {
-    const tts = a.ticket_types ?? [];
-    const active = tts.filter((t: any) => t.sales_enabled !== false && t.available > 0);
-    if (!active.length) return null;
-    return Math.min(...active.map((t: any) => t.price));
+  const clearFilters = () => {
+    setSearch('');
+    setTypeFilter('');
+    setCountryFlt('');
+    setPage(1);
+    setSearchParams({}, { replace: true });
   };
+
+  const selectType = (value: string) => {
+    setTypeFilter(value);
+    updateParam('type', value);
+    setPage(1);
+  };
+
+  const countLabel = loading
+    ? '—'
+    : ordered.length === 1
+      ? '1 lieu'
+      : `${ordered.length} lieux`;
 
   return (
     <>
       <PageSEO
-        title="Attractions permanentes"
-        description="Découvrez les parcs, zoos, musées et sites culturels disponibles toute l'année."
+        title="Attractions"
+        description="Parcs, zoos, musées et sites culturels ouverts toute l'année. Réservez votre visite en FCFA."
       />
 
-      {/* ── Hero ── */}
-      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-50 blur-3xl opacity-60" />
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-10 pb-8 md:pt-14 md:pb-10">
-          <p className="eyebrow mb-2">Toujours ouvert</p>
-          <h1
-            className="text-[clamp(28px,4vw,48px)] font-extrabold text-ink leading-[1.05] mb-3 tracking-tight"
-            style={{ fontFamily: display }}
-          >
-            Attractions &amp; Lieux permanents
-          </h1>
-          <p className="text-[15px] text-ink/70 max-w-lg">
-            Zoos, parcs, musées et sites culturels — réservez votre visite à n'importe quel moment.
+      <section className="min-h-[calc(100vh-72px)] bg-white text-ink">
+        <div className="mx-auto max-w-[1080px] px-5 pb-16 pt-8 sm:px-8 sm:pt-10">
+          <div className="flex items-baseline justify-between gap-6">
+            <h1 className="!text-[clamp(32px,3.6vw,40px)] !font-semibold !leading-none !tracking-[-0.035em] text-ink">
+              Attractions
+            </h1>
+            <p className="shrink-0 !text-[14px] tabular-nums text-ink/55">{countLabel}</p>
+          </div>
+          <p className="mt-2 !text-[15px] !leading-normal text-ink/65">
+            Ouverts toute l'année. Choisissez un lieu, puis le jour.
           </p>
-        </div>
-      </section>
 
-      {/* ── Filters ── */}
-      <section className="bg-paper border-b border-line sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute pointer-events-none" />
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
               type="search"
-              placeholder="Rechercher…"
+              placeholder="Nom ou ville"
+              aria-label="Nom ou ville"
               value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="w-full h-9 pl-9 pr-3 rounded-lg border border-line bg-cream text-[13px] text-ink placeholder-ink-mute focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="h-11 w-full border border-ink/15 bg-white px-3 text-[15px] text-ink placeholder:text-ink/40 focus:border-ink focus:outline-none sm:max-w-xs"
             />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Type filter pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            <button
-              onClick={() => { setTypeFilter(''); updateParam('type', ''); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all border ${
-                !typeFilter
-                  ? 'bg-brand text-paper border-brand'
-                  : 'bg-cream border-line text-ink-mute hover:text-ink hover:border-brand/30'
-              }`}
-            >
-              Tous
-            </button>
-            {ALL_TYPES.map(t => (
-              <button
-                key={t.value}
-                onClick={() => {
-                  const v = typeFilter === t.value ? '' : t.value;
-                  setTypeFilter(v);
-                  updateParam('type', v);
+            <div className="relative sm:w-52">
+              <select
+                value={countryFlt}
+                aria-label="Pays"
+                onChange={(e) => {
+                  setCountryFlt(e.target.value);
+                  updateParam('country', e.target.value);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all border ${
-                  typeFilter === t.value
-                    ? 'bg-brand text-paper border-brand'
-                    : 'bg-cream border-line text-ink-mute hover:text-ink hover:border-brand/30'
-                }`}
+                className="h-11 w-full appearance-none border border-ink/15 bg-white pl-3 pr-9 text-[15px] text-ink focus:border-ink focus:outline-none"
               >
-                {t.icon} {t.label}
+                <option value="">Tous les pays</option>
+                {presentCountries.map((country) => (
+                  <option key={country.code} value={country.code}>{country.nameFr}</option>
+                ))}
+              </select>
+              <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink/50">
+                ▾
+              </span>
+            </div>
+            {filtering ? (
+              <button type="button" onClick={clearFilters} className="text-left text-[14px] font-medium text-brand">
+                Effacer
               </button>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex gap-x-5 overflow-x-auto border-b border-ink/10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TypeButton active={!typeFilter} onClick={() => selectType('')}>
+              Tous
+            </TypeButton>
+            {presentTypes.map((type) => (
+              <TypeButton
+                key={type.value}
+                active={typeFilter === type.value}
+                onClick={() => selectType(type.value)}
+              >
+                {type.label}
+              </TypeButton>
             ))}
           </div>
 
-          {/* Country */}
-          <select
-            value={countryFlt}
-            onChange={e => { setCountryFlt(e.target.value); updateParam('country', e.target.value); setPage(1); }}
-            className="h-9 px-2.5 rounded-lg border border-line bg-cream text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">Tous les pays</option>
-            {SUPPORTED_COUNTRIES.map(c => (
-              <option key={c.code} value={c.code}>{c.name}</option>
-            ))}
-          </select>
-
-          {filtered.length > 0 && (
-            <span className="ml-auto text-[12px] text-ink-mute whitespace-nowrap" style={{ fontFamily: mono }}>
-              {filtered.length} attraction{filtered.length > 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-      </section>
-
-      {/* ── Grid ── */}
-      <section className="bg-paper">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8">
           {loading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-xl2 border border-line bg-cream overflow-hidden animate-pulse">
-                  <div className="aspect-[4/3] bg-cream-deep" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 w-2/3 bg-cream-deep rounded" />
-                    <div className="h-3 w-1/2 bg-cream-deep rounded" />
+            <div>
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-1 gap-5 border-b border-ink/10 py-6 sm:grid-cols-[240px_1fr] sm:items-center">
+                  <div className="aspect-[4/3] animate-pulse bg-ink/[0.05]" />
+                  <div className="space-y-2">
+                    <div className="h-3 w-16 animate-pulse bg-ink/[0.06]" />
+                    <div className="h-7 w-2/3 animate-pulse bg-ink/[0.06]" />
+                    <div className="h-4 w-24 animate-pulse bg-ink/[0.05]" />
                   </div>
                 </div>
               ))}
             </div>
           ) : paginated.length === 0 ? (
-            <div className="text-center py-20 space-y-3">
-              <p className="text-[40px]">🔍</p>
-              <p className="text-[16px] font-semibold text-ink">Aucune attraction trouvée</p>
-              <p className="text-[14px] text-ink-mute">Essayez d'autres filtres.</p>
-              {(search || typeFilter || countryFlt) && (
-                <button
-                  onClick={() => { setSearch(''); setTypeFilter(''); setCountryFlt(''); }}
-                  className="mt-2 px-4 py-2 bg-brand text-paper rounded-lg text-[13px] font-semibold"
-                >
+            <div className="border-b border-ink/10 py-14">
+              <p className="!text-[18px] !font-semibold text-ink">Aucune attraction</p>
+              <p className="mt-1 !text-[15px] text-ink/65">Aucun lieu ne correspond à cette recherche.</p>
+              {filtering ? (
+                <button type="button" onClick={clearFilters} className="mt-4 text-[15px] font-medium text-brand">
                   Effacer les filtres
                 </button>
-              )}
+              ) : null}
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {paginated.map(a => {
-                const minPrice = lowestPrice(a);
-                const typeIcon  = ATTRACTION_TYPE_ICONS[a.attraction_type ?? 'other'] ?? '📍';
-                const typeLabel = ATTRACTION_TYPE_LABELS[a.attraction_type ?? 'other'] ?? '';
-                const flag      = a.country_code ? countryFlag(a.country_code) : null;
-
-                return (
-                  <Link
-                    key={a.id}
-                    to={eventPublicPath(a)}
-                    className="group flex flex-col rounded-xl2 border border-line bg-paper overflow-hidden shadow-card hover:shadow-brand-sm hover:-translate-y-0.5 transition-all duration-200"
-                  >
-                    {/* Image */}
-                    <div className="relative aspect-[4/3] bg-cream-deep overflow-hidden">
-                      {a.image_url ? (
-                        <img
-                          src={a.image_url}
-                          alt={a.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full grid place-items-center bg-cream-deep">
-                          <span className="text-[48px]">{typeIcon}</span>
-                        </div>
-                      )}
-                      {/* Type badge */}
-                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 bg-ink/70 backdrop-blur-sm rounded-md">
-                        <span className="text-[11px]">{typeIcon}</span>
-                        <span className="text-[10px] font-bold text-paper uppercase tracking-wide" style={{ fontFamily: mono }}>
-                          {typeLabel}
-                        </span>
-                      </div>
-                      {/* Always open badge */}
-                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                        {a.featured && (
-                          <div className="px-2 py-0.5 bg-amber-400 rounded-md">
-                            <span className="text-[10px] font-bold text-ink uppercase tracking-wide" style={{ fontFamily: mono }}>
-                              ★ Top
-                            </span>
-                          </div>
-                        )}
-                        <div className="px-2 py-0.5 bg-emerald-500 rounded-md">
-                          <span className="text-[10px] font-bold text-paper uppercase tracking-wide" style={{ fontFamily: mono }}>
-                            Ouvert
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="p-4 flex flex-col gap-1.5 flex-1">
-                      <h3 className="text-[14px] font-bold text-ink leading-snug group-hover:text-brand transition-colors line-clamp-2">
-                        {a.title}
-                      </h3>
-
-                      {(a.city || a.location) && (
-                        <div className="flex items-center gap-1.5 text-[12px] text-ink-mute">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">
-                            {a.city ?? a.location}
-                            {flag && <span className="ml-1">{flag}</span>}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Pricing */}
-                      <div className="mt-auto pt-2">
-                        {minPrice !== null ? (
-                          <p className="text-[13px] font-bold text-brand tabular-nums" style={{ fontFamily: display }}>
-                            À partir de {formatCurrency(minPrice, a.currency ?? 'XOF')}
-                          </p>
-                        ) : (
-                          <p className="text-[12px] text-ink-mute">Prix sur demande</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* CTA strip */}
-                    <div className="px-4 pb-4">
-                      <div className="flex items-center justify-center gap-1.5 h-9 bg-brand/5 hover:bg-brand/10 border border-brand/20 rounded-lg text-[12px] font-semibold text-brand transition-colors">
-                        <Ticket className="w-3.5 h-3.5" />
-                        Réserver une visite
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-10">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-ink hover:bg-cream disabled:opacity-30 grid place-items-center transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`w-9 h-9 rounded-lg text-[13px] font-bold transition-all border ${
-                    page === n
-                      ? 'bg-brand text-paper border-brand shadow-card'
-                      : 'bg-paper border-line text-ink-mute hover:text-ink hover:bg-cream'
-                  }`}
-                >
-                  {n}
-                </button>
+            <div>
+              {paginated.map((attraction) => (
+                <PlaceRow key={attraction.id} attraction={attraction} />
               ))}
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="w-9 h-9 rounded-lg border border-line bg-paper text-ink-mute hover:text-ink hover:bg-cream disabled:opacity-30 grid place-items-center transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-8 flex items-center justify-center gap-6 text-[14px]">
+              <button
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage((current) => current - 1)}
+                className="font-medium text-ink disabled:text-ink/30"
+              >
+                Précédent
+              </button>
+              <p className="!text-[14px] tabular-nums text-ink/55">{page} / {totalPages}</p>
+              <button
+                type="button"
+                disabled={page === totalPages}
+                onClick={() => setPage((current) => current + 1)}
+                className="font-medium text-ink disabled:text-ink/30"
+              >
+                Suivant
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
     </>
+  );
+}
+
+function TypeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'true' : undefined}
+      className={`relative shrink-0 py-2.5 text-[14px] ${
+        active ? 'font-medium text-brand' : 'text-ink/70 hover:text-ink'
+      }`}
+    >
+      {children}
+      {active ? <span aria-hidden className="absolute inset-x-0 -bottom-px h-0.5 bg-brand" /> : null}
+    </button>
+  );
+}
+
+function PlaceRow({ attraction }: { attraction: AttractionCardData }) {
+  const price = lowestPrice(attraction);
+  const typeLabel = ATTRACTION_TYPE_LABELS[attraction.attraction_type ?? 'other'] ?? '';
+  const place = placeLabel(attraction);
+  const amount = price !== null ? formatCurrency(price, attraction.currency ?? 'XOF') : null;
+
+  return (
+    <Link
+      to={eventPublicPath(attraction)}
+      className="group grid grid-cols-1 gap-4 border-b border-ink/10 py-6 sm:grid-cols-[240px_1fr] sm:items-center sm:gap-8"
+    >
+      <div className="aspect-[4/3] overflow-hidden bg-ink/[0.04]">
+        {attraction.image_url ? (
+          <img src={attraction.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="!text-[12px] font-medium uppercase tracking-[0.14em] text-ink/50">
+            {typeLabel}
+            {attraction.featured ? ' · À la une' : ''}
+          </p>
+          <h2 className="mt-1.5 !text-[clamp(22px,2.4vw,28px)] !font-semibold !leading-[1.15] !tracking-[-0.03em] text-ink group-hover:text-brand">
+            {readableTitle(attraction.title)}
+          </h2>
+          {place ? <p className="mt-1 !text-[15px] !leading-normal text-ink/65">{place}</p> : null}
+        </div>
+        <p className="shrink-0 sm:pb-0.5 sm:text-right">
+          {amount ? (
+            <>
+              <span className="block !text-[12px] !leading-none text-ink/50">Dès</span>
+              <span className="mt-1 block !text-[18px] !font-semibold !leading-none tabular-nums text-ink">{amount}</span>
+            </>
+          ) : (
+            <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
+          )}
+        </p>
+      </div>
+    </Link>
   );
 }

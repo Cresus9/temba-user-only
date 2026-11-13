@@ -68,3 +68,11 @@ verify_jwt = false
 # Guest card checkout (anon / publishable key). JWT would 401 phone-only guests.
 [functions.create-stripe-payment]
 verify_jwt = false
+
+# Guest mobile-money checkout (anon key). JWT would 401 phone-only guests.
+[functions.create-pawapay-payment]
+verify_jwt = false
+
+# Safety-net finalizer — called by QStash, auth via X-Finalize-Secret header
+[functions.process-finalize-jobs]
+verify_jwt = false
