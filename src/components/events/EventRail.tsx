@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
-const GUTTER = 'px-5 md:px-16 xl:px-20';
+/** Same left edge as the home hero (max 1200px, 20px / 40px padding). The track itself runs to the screen edge. */
+const ALIGN = 'pl-5 md:pl-[max(2.5rem,calc((100%-1200px)/2+2.5rem))]';
+const TITLE = 'mx-auto w-full max-w-[1200px] px-5 md:px-10';
 
 export default function EventRail({
   title,
@@ -22,15 +24,12 @@ export default function EventRail({
   empty?: ReactNode;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
-  const [overflow, setOverflow] = useState(true);
+  const [overflow, setOverflow] = useState(false);
 
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const measure = () => {
-      const wide = window.matchMedia('(min-width: 1024px)').matches;
-      setOverflow(!wide || el.scrollWidth > el.clientWidth + 8);
-    };
+    const measure = () => setOverflow(el.scrollWidth > el.clientWidth + 8);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
@@ -38,9 +37,9 @@ export default function EventRail({
   }, [count]);
 
   return (
-    <section className="pt-10 md:pt-12">
-      <div className={`mx-auto mb-4 flex max-w-[1440px] items-end justify-between gap-4 ${GUTTER}`}>
-        <div>
+    <section className="max-w-full overflow-x-clip pt-10 md:pt-12">
+      <div className={`mb-4 flex items-end justify-between gap-4 ${TITLE}`}>
+        <div className="min-w-0">
           <h2 className="font-display text-[20px] font-bold tracking-[-0.025em] md:text-[26px]">{title}</h2>
           {subtitle ? <p className="mt-1 text-[13px] text-ink-3 md:text-[14.5px]">{subtitle}</p> : null}
         </div>
@@ -50,12 +49,12 @@ export default function EventRail({
               {linkLabel} <ArrowRight size={15} weight="bold" />
             </Link>
           ) : null}
-          {overflow && (
+          {overflow && count > 0 && (
             <>
-              <button type="button" aria-label="Précédents" onClick={() => scroller.current?.scrollBy({ left: -320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white">
+              <button type="button" aria-label="Précédents" onClick={() => scroller.current?.scrollBy({ left: -320, behavior: 'smooth' })} className="hidden h-10 w-10 place-items-center rounded-full border border-line bg-white md:grid">
                 <CaretLeft size={18} weight="bold" />
               </button>
-              <button type="button" aria-label="Suivants" onClick={() => scroller.current?.scrollBy({ left: 320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white">
+              <button type="button" aria-label="Suivants" onClick={() => scroller.current?.scrollBy({ left: 320, behavior: 'smooth' })} className="hidden h-10 w-10 place-items-center rounded-full border border-line bg-white md:grid">
                 <CaretRight size={18} weight="bold" />
               </button>
             </>
@@ -63,25 +62,15 @@ export default function EventRail({
         </div>
       </div>
       {count === 0 ? (
-        <div className={`mx-auto max-w-[1440px] ${GUTTER}`}>{empty}</div>
+        <div className={TITLE}>{empty}</div>
       ) : (
         <div
           ref={scroller}
-          className={overflow
-            ? `flex gap-3 overflow-x-auto scroll-pl-5 scroll-pr-5 snap-x snap-mandatory md:gap-5 md:scroll-pl-16 xl:scroll-pl-20 ${GUTTER} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
-            : `mx-auto grid max-w-[1440px] grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 xl:gap-5 ${GUTTER}`}
+          className={`flex w-full max-w-full snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden scroll-pl-5 pr-5 md:scroll-pl-[max(2.5rem,calc((100%-1200px)/2+2.5rem))] ${ALIGN} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           {children}
         </div>
       )}
     </section>
-  );
-}
-
-export function PlainGrid({ children }: { children: ReactNode }) {
-  return (
-    <div className={`mx-auto grid max-w-[1440px] grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 xl:gap-5 ${GUTTER}`}>
-      {children}
-    </div>
   );
 }

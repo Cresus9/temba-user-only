@@ -40,7 +40,7 @@ const CATS = [
 export default function Home() {
   const navigate = useNavigate();
   const { filteredEvents, loading } = useEvents();
-  const { spans, kinds } = useEventSchedule(filteredEvents ?? []);
+  const { spans, kinds, permanent, ready } = useEventSchedule(filteredEvents ?? []);
   const [filters, setFilters] = useState<QuickFilterState>({
     city: 'Ouagadougou',
     tonight: false,
@@ -74,9 +74,10 @@ export default function Home() {
     return list.find((event) => event.featured && event.image_url) ?? list.find((event) => event.image_url);
   }, [filteredEvents]);
   const heroPrice = hero ? eventPricePresentation(hero) : null;
+  const [heroBroken, setHeroBroken] = useState(false);
 
   return (
-    <div className="bg-white">
+    <div className="overflow-x-clip bg-white">
       <PageSEO
         title="Temba — billetterie en FCFA"
         description="Concerts, festivals et spectacles à Ouagadougou, Bobo-Dioulasso et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée."
@@ -147,7 +148,11 @@ export default function Home() {
           {hero && (
             <Link to={eventPublicPath(hero)} className="hidden overflow-hidden rounded-xl bg-white text-ink md:block">
               <div className="relative">
-                {hero.image_url ? <img src={hero.image_url} alt="" className="h-[272px] w-full object-cover" /> : <div className="h-[272px] bg-surf" />}
+                {hero.image_url && !heroBroken ? (
+                  <img src={hero.image_url} alt="" referrerPolicy="no-referrer" onError={() => setHeroBroken(true)} className="h-[272px] w-full object-cover" />
+                ) : (
+                  <div className="grid h-[272px] place-items-center bg-brand text-white">Temba</div>
+                )}
                 <span className="absolute left-3 top-3 inline-flex h-[22px] items-center rounded-[5px] bg-ink px-2 text-[11px] font-bold uppercase tracking-wide text-white">À la une</span>
               </div>
               <div className="px-[18px] pb-[18px] pt-4">
@@ -177,8 +182,8 @@ export default function Home() {
         </div>
       </div>
 
-      <QuickFilters value={filters} onChange={setFilters} />
-      <HomeRails events={filteredEvents ?? []} loading={loading} spans={spans} kinds={kinds} filters={filters} />
+      <QuickFilters value={filters} onChange={setFilters} align="home" />
+      <HomeRails events={filteredEvents ?? []} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
 
       <section className="mx-auto max-w-[1200px] px-5 pt-16 md:px-10 md:pt-20">
         <div className="relative grid min-h-[280px] overflow-hidden rounded-2xl bg-brand text-white md:grid-cols-[1.1fr_1fr]">

@@ -8,12 +8,14 @@ export default function FlyerFrame({
   alt,
   ratio = '4/5',
   past = false,
+  eager = false,
   className = '',
 }: {
   src?: string | null;
   alt: string;
   ratio?: '4/5' | '16/9';
   past?: boolean;
+  eager?: boolean;
   className?: string;
 }) {
   const [broken, setBroken] = useState(false);
@@ -29,13 +31,15 @@ export default function FlyerFrame({
             src={src || ''}
             alt=""
             aria-hidden
+            referrerPolicy="no-referrer"
             className={`absolute -inset-[14%] h-[128%] w-[128%] object-cover blur-[18px] brightness-[.72] saturate-[1.15] ${past ? 'grayscale' : ''}`}
           />
           <img
             src={src || ''}
             alt={alt}
-            loading="lazy"
+            loading={eager ? 'eager' : 'lazy'}
             decoding="async"
+            referrerPolicy="no-referrer"
             onError={() => setBroken(true)}
             className={`absolute inset-0 h-full w-full object-contain ${past ? 'grayscale brightness-95' : ''}`}
           />

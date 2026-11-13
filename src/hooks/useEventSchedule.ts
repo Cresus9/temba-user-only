@@ -6,6 +6,8 @@ import { categoryKind, spanFor, type CategoryKind, type ScheduleSpan } from '../
 export function useEventSchedule(events: Event[]) {
   const [spans, setSpans] = useState<Map<string, ScheduleSpan>>(new Map());
   const [kinds, setKinds] = useState<Map<string, CategoryKind>>(new Map());
+  const [permanent, setPermanent] = useState<Event[]>([]);
+  const [ready, setReady] = useState(false);
 
   const ids = events.map((event) => event.id).join(',');
   const eventsRef = useRef(events);
@@ -44,9 +46,10 @@ export function useEventSchedule(events: Event[]) {
       });
 
       const kindMap = new Map<string, CategoryKind>();
-      const [{ data: relations, error: relError }, { data: categories, error: catError }] = await Promise.all([
+      const [{ data: relations, error: relError }, { data: categories, error: catError }, { data: alwaysOn }] = await Promise.all([
         supabase.from('event_category_relations').select('event_id, category_id'),
-        supabase.from('categories').select('id, name, slug'),
+        supabase.from('categories').select('id, name'),
+        supabase.from('events').select('id, title, slug, image_url, city, location, date, time, price, currency, is_permanent, attraction_type, featured, status').eq('status', 'PUBLISHED').eq('is_permanent', true),
       ]);
       if (!relError && !catError) {
         const names = new Map<string, string>();
@@ -62,6 +65,8 @@ export function useEventSchedule(events: Event[]) {
       if (!cancel) {
         setSpans(nextSpans);
         setKinds(kindMap);
+        setPermanent((alwaysOn ?? []) as Event[]);
+        setReady(true);
       }
     })();
 
@@ -70,5 +75,5 @@ export function useEventSchedule(events: Event[]) {
     };
   }, [ids]);
 
-  return { spans, kinds };
+  return { spans, kinds, permanent, ready };
 }

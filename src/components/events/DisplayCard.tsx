@@ -28,11 +28,13 @@ export default function DisplayCard({
   event,
   span,
   width,
+  eager = false,
   variant = 'rail',
 }: {
   event: Event;
   span?: ScheduleSpan;
   width?: number;
+  eager?: boolean;
   variant?: 'rail' | 'compact' | 'attraction';
 }) {
   const schedule = span ?? spanFor(event);
@@ -63,14 +65,18 @@ export default function DisplayCard({
   return (
     <Link
       to={eventPublicPath(event)}
-      className="block shrink-0 snap-start"
-      style={width ? { width } : undefined}
+      className={attraction
+        ? 'block w-full min-w-0'
+        : width === 236
+          ? 'block w-[168px] min-w-[168px] max-w-[168px] shrink-0 snap-start md:w-[236px] md:min-w-[236px] md:max-w-[236px]'
+          : 'block w-[200px] min-w-[200px] max-w-[200px] shrink-0 snap-start md:w-[290px] md:min-w-[290px] md:max-w-[290px]'}
     >
       <div className="relative">
         <FlyerFrame
           src={event.image_url}
           alt={event.title}
           ratio={attraction ? '16/9' : '4/5'}
+          eager={eager}
           past={badges.some((badge) => badge.kind === 'past')}
         />
         {badges.length > 0 && (

@@ -37,12 +37,16 @@ function matchesTime(event: Event, span: ScheduleSpan, filters: QuickFilterState
 
 export default function HomeRails({
   events,
+  permanent = [],
+  ready = true,
   loading,
   spans,
   kinds,
   filters,
 }: {
   events: Event[];
+  permanent?: Event[];
+  ready?: boolean;
   loading: boolean;
   spans: Map<string, ScheduleSpan>;
   kinds: Map<string, CategoryKind>;
@@ -66,7 +70,7 @@ export default function HomeRails({
   const weekendEvents = cityEvents.filter((event) => overlaps(spanOf(event), weekend.start, weekend.end));
   const used = new Set(weekendEvents.map((event) => event.id));
   const concerts = cityEvents.filter((event) => kinds.get(event.id) === 'concert' && !used.has(event.id));
-  const attractions = upcoming.filter((event) => event.is_permanent && matchesCity(event, filters.city));
+  const attractions = dedupeEvents(permanent).filter((event) => event.is_permanent || event.attraction_type);
 
   const elsewhere = (['bobo', 'abidjan', 'ouaga'] as const)
     .map((key) => ({
@@ -98,8 +102,8 @@ export default function HomeRails({
         count={weekendEvents.length}
         empty={<p className="text-[15px] text-ink-2">Rien {emptyTime} à {filters.city === 'Toutes les villes' ? 'l’affiche' : filters.city}.</p>}
       >
-        {weekendEvents.map((event) => (
-          <DisplayCard key={event.id} event={event} span={spanOf(event)} width={290} />
+        {weekendEvents.map((event, index) => (
+          <DisplayCard key={event.id} event={event} span={spanOf(event)} eager={index < 4} />
         ))}
       </EventRail>
 
@@ -107,11 +111,11 @@ export default function HomeRails({
         title="Concerts à venir"
         subtitle={concerts.length ? `${concerts.length} concert${concerts.length > 1 ? 's' : ''}` : 'Les prochains concerts'}
         href="/events?category=concerts"
-        count={concerts.length}
-        empty={<p className="text-[15px] text-ink-2">Aucun concert ne correspond à ces filtres.</p>}
+        count={ready ? concerts.length : 0}
+        empty={ready ? <p className="text-[15px] text-ink-2">Aucun concert à venir{filters.city === 'Toutes les villes' ? '' : ` à ${filters.city}`}.</p> : <p className="text-[15px] text-ink-2">Chargement des concerts…</p>}
       >
-        {concerts.map((event) => (
-          <DisplayCard key={event.id} event={event} span={spanOf(event)} width={236} />
+        {concerts.map((event, index) => (
+          <DisplayCard key={event.id} event={event} span={spanOf(event)} width={236} eager={index < 4} />
         ))}
       </EventRail>
 
@@ -122,7 +126,7 @@ export default function HomeRails({
       )}
 
       {elsewhere.length > 0 && (
-        <section className="mx-auto max-w-[1440px] px-5 pt-12 md:px-16 xl:px-20">
+        <section className="mx-auto max-w-[1200px] px-5 pt-12 md:px-10">
           <h2 className="font-display text-[26px] font-bold tracking-[-0.025em]">Ailleurs</h2>
           <p className="mt-1 text-[14.5px] text-ink-3">Changez de ville dans les filtres. Le moment choisi reste le même.</p>
           <div className="mt-4 grid gap-5 md:grid-cols-2">
@@ -145,7 +149,7 @@ export default function HomeRails({
       )}
 
       {attractions.length > 0 && (
-        <section className="mx-auto max-w-[1440px] px-5 pt-12 md:px-16 xl:px-20">
+        <section className="mx-auto max-w-[1200px] px-5 pt-12 md:px-10">
           <div className="mb-4 flex items-end justify-between">
             <div>
               <h2 className="font-display text-[26px] font-bold tracking-[-0.025em]">Ouvert toute l’année</h2>
@@ -161,7 +165,7 @@ export default function HomeRails({
         </section>
       )}
 
-      <section className="mx-auto max-w-[1440px] px-5 pb-4 pt-12 md:px-16 xl:px-20">
+      <section className="mx-auto max-w-[1200px] px-5 pb-4 pt-12 md:px-10">
         <div className="relative flex flex-col items-start justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-7 py-8 text-white md:flex-row md:items-center md:px-12 md:py-10">
           <DomePattern variant="dome" className="object-right-bottom opacity-90" />
           <div className="relative">

@@ -35,14 +35,19 @@ export default function QuickFilters({
   value,
   onChange,
   cities = HOME_CITIES,
+  align = 'wide',
 }: {
   value: QuickFilterState;
   onChange: (next: QuickFilterState) => void;
   cities?: string[];
+  align?: 'home' | 'wide';
 }) {
+  const row = align === 'home'
+    ? 'mx-auto w-full max-w-[1200px] px-5 md:px-10'
+    : 'mx-auto max-w-[1440px] px-5 md:px-16 xl:px-20';
   return (
     <div className="border-b border-line bg-white">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-2.5 overflow-x-auto px-5 py-3 md:px-16 xl:px-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className={`flex items-center gap-2.5 overflow-x-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${row}`}>
         <label className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-white px-3 text-[14.5px] font-semibold">
           <MapPin size={17} weight="fill" />
           <select
