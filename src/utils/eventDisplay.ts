@@ -146,6 +146,26 @@ export function dedupeEvents(events: Event[]): Event[] {
   return [...byKey.values()];
 }
 
+export function listedPrice(event: {
+  price?: number | null;
+  ticket_types?: { price?: number | null; sales_enabled?: boolean | null }[] | null;
+}): number | null {
+  const opened = (event.ticket_types ?? []).filter(
+    (ticket) => ticket.sales_enabled === true && Number(ticket.price) > 0,
+  );
+  if (opened.length) return Math.min(...opened.map((ticket) => Number(ticket.price)));
+  if (event.ticket_types && event.ticket_types.length > 0) return null;
+  const fallback = Number(event.price ?? NaN);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+export function thisWeekBounds(today = calendarDayInZone()): { start: string; end: string } {
+  const dow = weekdayIndex(today);
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const start = addDays(today, mondayOffset);
+  return { start, end: addDays(start, 6) };
+}
+
 export function prefersDataSaver(): boolean {
   if (typeof navigator === 'undefined') return false;
   const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;

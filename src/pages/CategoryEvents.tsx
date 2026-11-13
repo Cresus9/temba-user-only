@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Search, Filter, Loader } from 'lucide-react';
 import EventCard from '../components/EventCard';
+import { CardSkeleton } from '../components/events/FlyerFrame';
+import DomePattern from '../components/design/DomePattern';
+import { categoryLabelFr } from '../utils/labels';
+import { formatCalendarDate } from '../utils/formatters';
 import { CategoryService } from '../services/categoryService';
 import { Event, EventCategory } from '../types/event';
 import toast from 'react-hot-toast';
@@ -105,115 +109,81 @@ export default function CategoryEvents() {
     category?.description?.trim() ||
     `Billets ${name} sur Temba — concerts, festivals et sorties en FCFA. Paiement Orange Money, Moov ou carte, QR à l’entrée.`;
 
+  const title = categoryLabelFr(name);
+  const months = new Map<string, Event[]>();
+  sortedEvents.forEach((event) => {
+    const key = String(event.date || '').split('T')[0].slice(0, 7) || 'sans-date';
+    const list = months.get(key) ?? [];
+    list.push(event);
+    months.set(key, list);
+  });
+
   if (!category && !loading) {
     return (
-      <div className="min-h-screen bg-cream bg-grain">
-        <div className="max-w-6xl mx-auto px-4 py-16 text-center">
-          <h2 className="text-2xl font-extrabold text-ink" style={{ fontFamily: display }}>
-            Catégorie introuvable
-          </h2>
-          <Link to="/categories" className="mt-4 inline-block font-semibold text-brand">
-            Retour aux catégories
-          </Link>
-        </div>
+      <div className="bg-white px-5 py-20 text-center">
+        <h1 className="font-display text-[32px] font-bold">Catégorie introuvable</h1>
+        <p className="mt-2 text-[15px] text-ink-2">Cette catégorie n’est pas en ligne.</p>
+        <Link to="/categories" className="mt-5 inline-flex h-11 items-center rounded-[10px] bg-brand px-4 font-semibold text-white">Toutes les catégories</Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream bg-grain">
+    <div className="bg-white">
       {category && (
         <PageSEO
-          title={`${name} — billets Temba`}
+          title={`${title} — billets Temba`}
           description={intro.slice(0, 220)}
           canonicalUrl={`https://tembas.com/categories/${seoPath}`}
-          keywords={[name, 'billets', 'Temba', 'FCFA', 'Ouagadougou']}
+          keywords={[title, 'billets', 'Temba', 'FCFA', 'Ouagadougou']}
         />
       )}
-
-      <div className="max-w-6xl mx-auto px-4 lg:px-6 py-10 md:py-14">
-        <Link
-          to="/categories"
-          className="mb-6 inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Toutes les catégories
-        </Link>
-
-        <p className="eyebrow mb-2">Catégorie</p>
-        <h1 className="text-[28px] md:text-[36px] font-extrabold text-ink leading-tight mb-3" style={{ fontFamily: display }}>
-          {name}
-        </h1>
-        <p className="text-[15px] text-ink-mute leading-relaxed max-w-2xl mb-3">{intro}</p>
-        {category && (
-          <p className="text-[13px] text-ink-mute mb-8">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle"
-              style={{ backgroundColor: category.color }}
-            />
-            {events.length} événement{events.length !== 1 ? 's' : ''} · Orange Money, Moov, carte
-          </p>
-        )}
-
-        <div className="mb-8 flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
-            <input
-              type="text"
-              placeholder="Rechercher un événement…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-line rounded-xl2 bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-ink-mute" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2.5 border border-line rounded-xl2 bg-paper text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
-            >
-              <option value="date">Date : les plus proches</option>
-              <option value="price_asc">Prix : croissant</option>
-              <option value="price_desc">Prix : décroissant</option>
-              <option value="popularity">Les plus demandés</option>
-            </select>
-          </div>
+      <header className="relative overflow-hidden bg-brand text-white">
+        <DomePattern variant="band" className="opacity-80" />
+        <div className="relative mx-auto max-w-[1440px] px-5 py-8 md:px-16 md:py-12 xl:px-20">
+          <Link to="/categories" className="inline-flex items-center gap-1 text-[13px] text-white/80"><ArrowLeft className="h-3.5 w-3.5" /> Catégories</Link>
+          <h1 className="mt-3 font-display text-[34px] font-bold leading-none tracking-[-0.04em] md:text-[56px]">{title}</h1>
+          <p className="mt-3 max-w-2xl text-[15px] text-white/85 md:text-[17px]">{loading ? 'Chargement des dates…' : `${sortedEvents.length} événement${sortedEvents.length > 1 ? 's' : ''} à venir.`}</p>
         </div>
-
+      </header>
+      <div className="mx-auto flex max-w-[1440px] gap-2 overflow-x-auto px-5 py-4 md:px-16 xl:px-20">
+        <input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Rechercher dans cette catégorie"
+          className="h-10 min-w-[200px] flex-1 rounded-full border border-line px-4 text-[14px] focus:outline-none"
+        />
+      </div>
+      <div className="mx-auto max-w-[1440px] px-5 pb-16 md:px-16 xl:px-20">
         {loading ? (
-          <div className="flex justify-center items-center min-h-[280px]">
-            <Loader className="h-8 w-8 animate-spin text-brand" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 8 }).map((_, index) => <CardSkeleton key={index} />)}
           </div>
         ) : sortedEvents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedEvents.map((event) => (
-              <EventCard key={event.id} {...event} />
-            ))}
-          </div>
+          [...months.entries()].map(([key, list]) => (
+            <section key={key} className="pt-6">
+              <h2 className="font-display text-[26px] font-bold capitalize">
+                {key === 'sans-date' ? 'Date à confirmer' : formatCalendarDate(`${key}-01`, { month: 'long', year: 'numeric' })}
+              </h2>
+              <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+                {list.map((event) => <EventCard key={event.id} {...event} />)}
+              </div>
+            </section>
+          ))
         ) : (
-          <div className="text-center py-12 bg-paper border border-line rounded-2xl px-6">
-            <Calendar className="h-10 w-10 text-ink-mute mx-auto mb-4" />
-            <h3 className="text-lg font-extrabold text-ink mb-2" style={{ fontFamily: display }}>
-              Aucun événement ici pour l’instant
-            </h3>
-            <p className="text-[14px] text-ink-mute max-w-md mx-auto mb-5">
-              {searchQuery
-                ? 'Aucun titre ne correspond à votre recherche. Essayez un autre mot.'
-                : `Pas de date ${name} en ligne aujourd’hui. Voyez l’agenda complet ou une ville.`}
+          <div className="py-16">
+            <h2 className="font-display text-[28px] font-bold">{searchQuery ? 'Aucun résultat' : 'Aucun événement ici pour l’instant'}</h2>
+            <p className="mt-2 max-w-lg text-[15px] text-ink-2">
+              {searchQuery ? `Aucun titre ne contient « ${searchQuery} ». Effacez la recherche pour revoir ${title}.` : `Pas de date ${title} en ligne aujourd’hui.`}
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Link to="/events" className="px-3 py-1.5 rounded-full bg-brand text-paper text-[13px] font-semibold">
-                Tout l’agenda
-              </Link>
-              {CITY_LANDINGS.map((c) => (
-                <Link
-                  key={c.slug}
-                  to={`/${c.slug}`}
-                  className="px-3 py-1.5 rounded-full bg-cream border border-line text-[13px] font-semibold text-ink"
-                >
-                  {c.name}
-                </Link>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {searchQuery ? (
+                <button type="button" onClick={() => setSearchQuery('')} className="h-10 rounded-full bg-ink px-4 text-[14px] font-semibold text-white">Effacer la recherche</button>
+              ) : (
+                <Link to="/events" className="inline-flex h-10 items-center rounded-full bg-brand px-4 text-[14px] font-semibold text-white">Tout l’agenda</Link>
+              )}
+              {CITY_LANDINGS.map((city) => (
+                <Link key={city.slug} to={`/${city.slug}`} className="inline-flex h-10 items-center rounded-full border border-line px-4 text-[14px] font-semibold">{city.name}</Link>
               ))}
             </div>
           </div>

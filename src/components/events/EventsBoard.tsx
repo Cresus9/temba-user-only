@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarBlank, CalendarPlus, CaretLeft, CaretRight, Rows, SquaresFour, WhatsappLogo } from '@phosphor-icons/react';
 import type { Event } from '../../types/event';
@@ -12,12 +12,16 @@ import {
   dedupeEvents,
   groupAgenda,
   isPastSpan,
+  listedPrice,
+  overlaps,
   placeLabel,
   spanFor,
+  thisWeekBounds,
   weekdayIndex,
   weekendBounds,
   whenLabel,
   ymd,
+  type CategoryKind,
   type ScheduleSpan,
 } from '../../utils/eventDisplay';
 import DisplayCard from './DisplayCard';
@@ -115,22 +119,37 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
     weekend: params.get('date') === 'weekend',
     free: false,
   });
+  const [kind, setKind] = useState<'' | CategoryKind>(params.get('category') === 'concerts' ? 'concert' : '');
+  const [band, setBand] = useState<'' | 'lt5' | 'mid' | 'gt10'>('');
+  const [when, setWhen] = useState<'' | 'today' | 'weekend' | 'week' | 'month'>(params.get('date') === 'weekend' ? 'weekend' : '');
+  const [draft, setDraft] = useState({ city: filters.city, kind, band, when });
   const query = (params.get('query') || '').toLowerCase();
-  const category = params.get('category') || '';
+
+  const matches = (event: Event, criteria: { city: string; kind: '' | CategoryKind; band: '' | 'lt5' | 'mid' | 'gt10'; when: '' | 'today' | 'weekend' | 'week' | 'month'; tonight: boolean; weekend: boolean }) => {
+    const span = spans.get(event.id) ?? spanFor(event);
+    if (!event.is_permanent && isPastSpan(span, today)) return false;
+    if (query && !`${event.title} ${event.location} ${event.city}`.toLowerCase().includes(query)) return false;
+    if (criteria.city !== 'Toutes les villes' && cityName(cityKey(event)) !== criteria.city && (event.city || '') !== criteria.city) return false;
+    const weekend = weekendBounds(today);
+    const week = thisWeekBounds(today);
+    const wantTonight = criteria.tonight || criteria.when === 'today';
+    const wantWeekend = criteria.weekend || criteria.when === 'weekend';
+    if (wantTonight && ymd(event.date) !== today && !span.dates.includes(today)) return false;
+    if (wantWeekend && !overlaps(span, weekend.start, weekend.end)) return false;
+    if (criteria.when === 'week' && !overlaps(span, week.start, week.end)) return false;
+    if (criteria.when === 'month' && !ymd(event.date).startsWith(today.slice(0, 7))) return false;
+    if (criteria.kind === 'attraction' && !event.is_permanent && kinds.get(event.id) !== 'attraction') return false;
+    if (criteria.kind && criteria.kind !== 'attraction' && kinds.get(event.id) !== criteria.kind) return false;
+    const price = listedPrice(event);
+    if (criteria.band === 'lt5' && !(price != null && price < 5000)) return false;
+    if (criteria.band === 'mid' && !(price != null && price >= 5000 && price <= 10000)) return false;
+    if (criteria.band === 'gt10' && !(price != null && price > 10000)) return false;
+    return true;
+  };
 
   const visible = useMemo(() => {
-    const weekend = weekendBounds(today);
-    return dedupeEvents(events).filter((event) => {
-      const span = spans.get(event.id) ?? spanFor(event);
-      if (!event.is_permanent && isPastSpan(span, today)) return false;
-      if (query && !`${event.title} ${event.location} ${event.city}`.toLowerCase().includes(query)) return false;
-      if (filters.city !== 'Toutes les villes' && cityName(cityKey(event)) !== filters.city && (event.city || '') !== filters.city) return false;
-      if (filters.tonight && ymd(event.date) !== today && !span.dates.includes(today)) return false;
-      if (filters.weekend && !span.dates.some((day) => day >= weekend.start && day <= weekend.end)) return false;
-      if (category === 'concerts' && kinds.get(event.id) !== 'concert') return false;
-      return true;
-    });
-  }, [events, spans, filters, query, category, kinds, today]);
+    return dedupeEvents(events).filter((event) => matches(event, { ...filters, kind, band, when }));
+  }, [events, spans, filters, query, kinds, today, kind, band, when]);
 
   const groups = groupAgenda(visible, spans, today);
   const activeDays = new Set(visible.flatMap((event) => (spans.get(event.id) ?? spanFor(event)).dates));
@@ -154,7 +173,7 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
           <button type="button" onClick={() => setView('list')} className={`inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[13.5px] font-semibold ${view === 'list' ? 'bg-white text-ink shadow-sm' : 'text-ink-3'}`}><Rows size={16} /> Liste</button>
           <button type="button" onClick={() => setView('grid')} className={`inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[13.5px] font-semibold ${view === 'grid' ? 'bg-white text-ink shadow-sm' : 'text-ink-3'}`}><SquaresFour size={16} /> Grille</button>
         </div>
-        <button type="button" className="h-9 rounded-full border border-line px-3 text-[13.5px] font-semibold md:hidden" onClick={() => setSheet(true)}>Filtres</button>
+        <button type="button" className="h-9 rounded-full border border-line px-3 text-[13.5px] font-semibold md:hidden" onClick={() => { setDraft({ city: filters.city, kind, band, when: filters.tonight ? 'today' : filters.weekend ? 'weekend' : when }); setSheet(true); }}>Filtres</button>
       </div>
       <div className="mx-auto flex max-w-[1440px] items-start gap-10 px-5 pb-16 md:px-16 xl:px-20">
         <div className="min-w-0 flex-1">
@@ -205,17 +224,106 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
         </aside>
       </div>
       {sheet && (
-        <div className="fixed inset-0 z-[100] bg-[rgba(3,6,30,0.5)]" onClick={() => setSheet(false)}>
-          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-5" onClick={(event) => event.stopPropagation()}>
-            <p className="font-display text-[20px] font-bold">Filtres</p>
-            <QuickFilters value={filters} onChange={setFilters} />
-            <button type="button" className="mt-4 h-12 w-full rounded-[10px] bg-brand font-semibold text-white" onClick={() => setSheet(false)}>
-              Afficher {visible.length} événement{visible.length > 1 ? 's' : ''}
-            </button>
-          </div>
-        </div>
+        <FilterSheet
+          events={dedupeEvents(events)}
+          draft={draft}
+          onDraft={setDraft}
+          onClose={() => setSheet(false)}
+          onApply={() => {
+            setFilters({ ...filters, city: draft.city, tonight: draft.when === 'today', weekend: draft.when === 'weekend' });
+            setKind(draft.kind);
+            setBand(draft.band);
+            setWhen(draft.when);
+            setSheet(false);
+          }}
+          onClear={() => setDraft({ city: 'Toutes les villes', kind: '', band: '', when: '' })}
+          countOf={(next) => dedupeEvents(events).filter((event) => matches(event, { ...filters, ...next, tonight: next.when === 'today', weekend: next.when === 'weekend' })).length}
+        />
       )}
       <p className="sr-only"><CalendarBlank /> Agenda</p>
+    </div>
+  );
+}
+
+type Draft = { city: string; kind: '' | CategoryKind; band: '' | 'lt5' | 'mid' | 'gt10'; when: '' | 'today' | 'weekend' | 'week' | 'month' };
+
+function Chip({ on, children, onClick }: { on: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={`h-9 shrink-0 rounded-full border px-3 text-[14px] font-medium ${on ? 'border-ink bg-ink text-white' : 'border-line bg-white'}`}>
+      {children}
+    </button>
+  );
+}
+
+function FilterSheet({
+  draft,
+  onDraft,
+  onClose,
+  onApply,
+  onClear,
+  countOf,
+}: {
+  events: Event[];
+  draft: Draft;
+  onDraft: (next: Draft) => void;
+  onClose: () => void;
+  onApply: () => void;
+  onClear: () => void;
+  countOf: (next: Draft) => number;
+}) {
+  const count = countOf(draft);
+  const cities = ['Toutes les villes', ...HOME_CITIES.filter((city) => city !== 'Toutes les villes')];
+  const section = (title: string, body: ReactNode) => (
+    <div className="border-t border-line py-4">
+      <p className="mb-3 font-display text-[16px] font-bold">{title}</p>
+      <div className="flex flex-wrap gap-2">{body}</div>
+    </div>
+  );
+  return (
+    <div className="fixed inset-0 z-[100] bg-[rgba(3,6,30,0.5)]" onClick={onClose}>
+      <div className="absolute inset-x-0 bottom-0 top-16 flex flex-col rounded-t-2xl bg-white" onClick={(event) => event.stopPropagation()}>
+        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[#D5D6E0]" />
+        <div className="flex items-center justify-between px-5 py-3">
+          <p className="font-display text-[20px] font-bold">Filtres</p>
+          <button type="button" className="text-[14px] font-semibold text-brand" onClick={onClear}>Tout effacer</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5">
+          {section('Ville', cities.map((city) => (
+            <Chip key={city} on={draft.city === city} onClick={() => onDraft({ ...draft, city })}>{city}</Chip>
+          )))}
+          {section('Quand', [
+            ['', 'Toutes les dates'],
+            ['today', 'Aujourd’hui'],
+            ['weekend', 'Ce week-end'],
+            ['week', 'Cette semaine'],
+            ['month', 'Ce mois-ci'],
+          ].map(([id, label]) => (
+            <Chip key={label} on={draft.when === id} onClick={() => onDraft({ ...draft, when: id as Draft['when'] })}>{label}</Chip>
+          )))}
+          {section('Catégorie', [
+            ['', 'Toutes'],
+            ['concert', 'Concerts'],
+            ['festival', 'Festivals'],
+            ['cinema', 'Cinéma'],
+            ['attraction', 'Attractions'],
+          ].map(([id, label]) => (
+            <Chip key={label} on={draft.kind === id} onClick={() => onDraft({ ...draft, kind: id as Draft['kind'] })}>{label}</Chip>
+          )))}
+          {section('Prix', [
+            ['', 'Tous les prix'],
+            ['lt5', 'Moins de 5 000 FCFA'],
+            ['mid', '5 000 – 10 000 FCFA'],
+            ['gt10', 'Plus de 10 000 FCFA'],
+          ].map(([id, label]) => (
+            <Chip key={label} on={draft.band === id} onClick={() => onDraft({ ...draft, band: id as Draft['band'] })}>{label}</Chip>
+          )))}
+        </div>
+        <div className="border-t border-line px-5 py-4">
+          <button type="button" className="h-[52px] w-full rounded-[10px] bg-brand text-[16px] font-semibold text-white" onClick={onApply}>
+            Afficher {count} événement{count > 1 ? 's' : ''}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

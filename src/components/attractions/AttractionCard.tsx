@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ATTRACTION_TYPE_LABELS } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
 import { eventPublicPath } from '../../utils/eventPath';
+import FlyerFrame from '../events/FlyerFrame';
 
 export interface AttractionCardData {
   id: string;
@@ -40,16 +41,7 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
       to={eventPublicPath(attraction)}
       className="group flex h-full flex-col border border-ink/15 bg-paper"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-cream">
-        {attraction.image_url ? (
-          <img
-            src={attraction.image_url}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : null}
-      </div>
+      <FlyerFrame src={attraction.image_url} alt={attraction.title} ratio="16/9" />
       <div className="flex flex-1 flex-col border-t border-ink/10 px-4 py-3.5">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-mute">
           {typeLabel}

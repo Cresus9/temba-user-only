@@ -5,6 +5,7 @@ import { eventPublicPath } from '../utils/eventPath';
 import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import { eventPricePresentation } from '../utils/labels';
 import { shortPlace } from '../utils/eventGeo';
+import FlyerFrame from './events/FlyerFrame';
 
 interface EventCardProps extends Event {
   className?: string;
@@ -44,16 +45,7 @@ const EventCard = memo(({
       aria-label={`Voir ${title}`}
     >
       <article>
-        <div className="relative aspect-[4/5] overflow-hidden rounded-[10px] bg-surf">
-          {image_url ? (
-            <img
-              src={image_url}
-              alt=""
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              loading="lazy"
-            />
-          ) : null}
-        </div>
+        <FlyerFrame src={image_url} alt={title || ''} />
         <p className="mt-3 text-[13px] font-semibold text-brand">{dateLabel}</p>
         <h3 className="mt-0.5 line-clamp-2 font-display text-[17px] font-bold leading-snug tracking-[-0.015em] text-ink">
           {title}

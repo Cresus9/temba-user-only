@@ -18,6 +18,7 @@ import { useEvents } from '../context/EventContext';
 import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
 import Image from '../components/common/Image';
+import FlyerFrame from '../components/events/FlyerFrame';
 import { geocodeAddress } from '../utils/geocoding';
 import { formatEventDateTime, fullAddressDisplay, countryNameFr, shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate } from '../utils/formatters';
@@ -815,12 +816,8 @@ function PlacePhoto({ event, galleryImages }: { event: Event; galleryImages: Gal
 /** Poster card with blurred backdrop + EVT code chip. Reused mobile + desktop. */
 function PosterCard({ event, evtCode }: { event: Event; evtCode: string }) {
   return (
-    <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-surf">
-      <img
-        src={event.image_url || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800'}
-        alt={`Affiche ${event.title}`}
-        className="h-full w-full object-cover"
-      />
+    <div>
+      <FlyerFrame src={event.image_url} alt={`Affiche ${event.title}`} />
       <span className="sr-only">EVT {evtCode}</span>
     </div>
   );

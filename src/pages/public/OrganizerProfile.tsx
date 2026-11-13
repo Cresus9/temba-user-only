@@ -10,6 +10,7 @@ import { countryFlag, shortPlace } from '../../utils/eventGeo';
 import OptimizedImage from '../../components/common/Image';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
+import FlyerFrame from '../../components/events/FlyerFrame';
 
 interface OrganizerProfile {
   organizer_id: string;
@@ -74,11 +75,9 @@ function EventTile({ event }: { event: EventCard }) {
       </div>
 
       {/* Cover */}
-      {event.image_url && (
-        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-cream">
-          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        </div>
-      )}
+      <div className="w-16 shrink-0">
+        <FlyerFrame src={event.image_url} alt={event.title} />
+      </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">

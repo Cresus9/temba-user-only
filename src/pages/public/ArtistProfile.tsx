@@ -20,6 +20,7 @@ import {
   artistStructuredData,
 } from '../../utils/artistSeo';
 import { FadeUp, Stagger, StaggerItem } from '../../components/common/Motion';
+import FlyerFrame from '../../components/events/FlyerFrame';
 
 interface Artist {
   id: string;
@@ -463,11 +464,9 @@ export default function ArtistProfile() {
                                 </span>
                               </div>
                               <div className="min-w-0 flex items-center gap-4">
-                                {event.image_url ? (
-                                  <div className="hidden sm:block flex-shrink-0 w-14 h-14 overflow-hidden rounded-lg bg-paper">
-                                    <img src={event.image_url} alt="" className="w-full h-full object-cover" />
-                                  </div>
-                                ) : null}
+                                <div className="hidden w-14 shrink-0 sm:block">
+                                  <FlyerFrame src={event.image_url} alt="" />
+                                </div>
                                 <div className="min-w-0">
                                   <p
                                     className="text-[16px] font-semibold text-ink truncate tracking-tight"
@@ -518,16 +517,8 @@ export default function ArtistProfile() {
                 {nextShow && (
                   <Link to={eventPublicPath(nextShow)} className="block group">
                     <p className="eyebrow mb-3 tracking-[0.18em]">Prochain</p>
-                    <div className="relative overflow-hidden rounded-xl2 bg-ink aspect-[4/5] max-h-[320px]">
-                      {nextShow.image_url ? (
-                        <img
-                          src={nextShow.image_url}
-                          alt=""
-                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-ink" />
-                      )}
+                    <div className="relative max-h-[320px] overflow-hidden rounded-xl2">
+                      <FlyerFrame src={nextShow.image_url} alt="" />
                       <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 to-transparent">
                         <p className="text-[15px] font-semibold text-white leading-snug tracking-tight" style={{ fontFamily: display }}>
                           {nextShow.title}

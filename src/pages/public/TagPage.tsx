@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/formatters';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
 import { shortPlace } from '../../utils/eventGeo';
+import FlyerFrame from '../../components/events/FlyerFrame';
 
 interface TagRow {
   id: string;
@@ -121,7 +122,7 @@ export default function TagPage() {
                     <span className="text-[10px] font-bold text-brand uppercase">{dt.toLocaleDateString('fr-FR',{month:'short'}).replace('.','')}</span>
                     <span className="text-[22px] font-extrabold text-ink leading-tight" style={{fontFamily:display}}>{String(d).padStart(2,'0')}</span>
                   </div>
-                  {event.image_url && <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden"><img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>}
+                  <div className="w-16 shrink-0"><FlyerFrame src={event.image_url} alt={event.title} /></div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-bold text-ink truncate group-hover:text-brand transition-colors" style={{fontFamily:display}}>{event.title}</p>
                     <div className="flex items-center gap-1.5 mt-1"><MapPin className="w-3 h-3 text-ink-mute" /><span className="text-[11px] text-ink-mute truncate">{shortPlace(event.location).label}</span></div>

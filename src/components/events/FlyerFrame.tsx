@@ -63,9 +63,9 @@ export default function FlyerFrame({
   );
 }
 
-export function CardSkeleton({ width = 236 }: { width?: number }) {
+export function CardSkeleton({ width }: { width?: number }) {
   return (
-    <div style={{ width }} className="shrink-0">
+    <div style={width ? { width } : undefined} className={width ? 'shrink-0' : 'w-full'}>
       <div className="aspect-[4/5] animate-pulse rounded-[10px] bg-[#ECEDF3]" />
       <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-[#ECEDF3]" />
       <div className="mt-2 h-4 w-full animate-pulse rounded bg-[#ECEDF3]" />

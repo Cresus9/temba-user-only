@@ -13,6 +13,7 @@ import { eventPublicPath } from '../utils/eventPath';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
 import { shortPlace } from '../utils/eventGeo';
+import FlyerFrame from '../components/events/FlyerFrame';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -197,7 +198,7 @@ export default function Checkout() {
           <aside className="h-fit rounded-xl border border-line p-5 lg:sticky lg:top-6">
             <div className="flex gap-3">
               {events.find((item) => item.id === state.eventId)?.image_url ? (
-                <img src={events.find((item) => item.id === state.eventId)?.image_url} alt="" className="h-20 w-16 rounded-lg object-cover" />
+                <div className="w-16 shrink-0"><FlyerFrame src={events.find((item) => item.id === state.eventId)?.image_url} alt="" /></div>
               ) : null}
               <div>
                 <p className="font-display text-[16px] font-bold leading-snug">{events.find((item) => item.id === state.eventId)?.title || 'Votre commande'}</p>
