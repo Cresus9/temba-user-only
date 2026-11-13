@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { userService, Profile } from '../../services/userService';
 import { useTranslation } from '../../context/TranslationContext';
 import toast from 'react-hot-toast';
+import { isPlaceholderEmail } from '../../utils/formatters';
 
 export default function ProfileInfo() {
   const { user } = useAuth();
@@ -140,6 +141,9 @@ export default function ProfileInfo() {
                 Verrouillé
               </span>
             </label>
+            {isPlaceholderEmail(formData.email) ? (
+              <p className="text-[14px] font-semibold text-brand">Ajouter un e-mail</p>
+            ) : (
             <input
               type="email"
               value={formData.email}
@@ -148,6 +152,7 @@ export default function ProfileInfo() {
               className={inputClass(true)}
               required
             />
+            )}
           </div>
 
           {/* Phone */}

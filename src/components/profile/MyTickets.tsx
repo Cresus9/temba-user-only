@@ -7,7 +7,7 @@ import { ticketStateFromRecord } from '../../utils/labels';
 import { shortPlace } from '../../utils/eventGeo';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { generateTicketPNG } from '../../utils/ticketService';
-import { formatCurrency } from '../../utils/formatters';
+import { calendarDayInZone, formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
 import Image from '../common/Image';
 
@@ -46,6 +46,7 @@ export default function MyTickets() {
   const [transferTicket, setTransferTicket] = useState<{ticketId: string, ticketTitle: string, eventDate: string, eventTime: string, eventLocation: string} | null>(null);
   const [ticketOwnership, setTicketOwnership] = useState<Map<string, boolean>>(new Map());
   const [currentPage, setCurrentPage] = useState(0); // Current page index (0-based)
+  const [ticketWhen, setTicketWhen] = useState<'upcoming' | 'past'>('upcoming');
   const ticketsPerPage = 5;
   const { user, profile } = useAuth();
 
@@ -290,8 +291,13 @@ export default function MyTickets() {
     );
   }
 
-  const visibleTickets = tickets.slice(currentPage * ticketsPerPage, (currentPage + 1) * ticketsPerPage);
-  const totalPages = Math.ceil(tickets.length / ticketsPerPage);
+  const today = calendarDayInZone();
+  const isUpcomingTicket = (ticket: MyTicket) => (ticket.event.date || '').split('T')[0] >= today;
+  const upcomingTickets = tickets.filter(isUpcomingTicket);
+  const pastTickets = tickets.filter((ticket) => !isUpcomingTicket(ticket));
+  const listed = ticketWhen === 'upcoming' ? upcomingTickets : pastTickets;
+  const visibleTickets = listed.slice(currentPage * ticketsPerPage, (currentPage + 1) * ticketsPerPage);
+  const totalPages = Math.ceil(listed.length / ticketsPerPage);
 
   return (
     <div className="space-y-5">
@@ -306,12 +312,12 @@ export default function MyTickets() {
             className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
             style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
           >
-            {tickets.length} {tickets.length === 1 ? 'billet prêt' : 'billets prêts'} à scanner
+            {upcomingTickets.length} à venir · {pastTickets.length} passés
           </h2>
         </div>
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 text-green-700 ring-1 ring-green-200 flex-shrink-0">
-          <CheckCircle className="h-3.5 w-3.5" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.08em]">Tous valides</span>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setTicketWhen('upcoming'); setCurrentPage(0); }} className={`h-9 rounded-lg px-3 text-[13px] font-semibold ${ticketWhen === 'upcoming' ? 'bg-ink text-white' : 'border border-line'}`}>À venir</button>
+          <button type="button" onClick={() => { setTicketWhen('past'); setCurrentPage(0); }} className={`h-9 rounded-lg px-3 text-[13px] font-semibold ${ticketWhen === 'past' ? 'bg-ink text-white' : 'border border-line'}`}>Passés</button>
         </div>
       </div>
 
@@ -342,7 +348,7 @@ export default function MyTickets() {
                       src={ticket.event.image_url}
                       alt={ticket.event.title}
                       className="w-full h-full object-cover"
-                      fallbackSrc="https://images.unsplash.com/photo-1459749411175-04bf5292ceea"
+                      fallbackSrc=""
                       width={96}
                       height={96}
                     />
@@ -403,15 +409,11 @@ export default function MyTickets() {
                           className="text-[15px] font-bold text-ink tabular-nums tracking-tight"
                           style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
                         >
-                          {formatCurrency(ticket.ticket_type.price, ticket.event.currency)}
+                          {ticket.ticket_type.price <= 0 ? 'Gratuit' : formatCurrency(ticket.ticket_type.price, ticket.event.currency)}
                         </p>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute">
-                          {ticket.event.currency}
-                        </span>
                       </div>
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-[0.08em] bg-green-50 text-green-700 ring-1 ring-green-200">
-                        <CheckCircle className="h-3 w-3" />
-                        Valide
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-[0.08em] ${isUpcomingTicket(ticket) ? 'bg-green-50 text-green-700 ring-1 ring-green-200' : 'bg-surf text-ink-3'}`}>
+                        {isUpcomingTicket(ticket) ? 'Valide' : 'Événement terminé'}
                       </span>
                     </div>
                   </div>
@@ -510,7 +512,7 @@ export default function MyTickets() {
 
         return (
           <div
-            className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
             onClick={() => setSelectedTicket(null)}
           >
             <div

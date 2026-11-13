@@ -18,7 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/userService';
 import { transferredTicketsService, type TransferredTicket } from '../services/transferredTicketsService';
-import { formatCalendarDate, formatCurrency } from '../utils/formatters';
+import { formatCalendarDate, formatCurrency, isPlaceholderEmail } from '../utils/formatters';
 import { shortPlace } from '../utils/eventGeo';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
@@ -98,179 +98,69 @@ export default function Dashboard() {
   const displayName =
     profile?.name ||
     (profile?.phone ? formatPhoneForDisplay(profile.phone) : null) ||
-    profile?.email?.split('@')[0] ||
+    (!isPlaceholderEmail(profile?.email) ? profile?.email?.split('@')[0] : null) ||
     'Invité';
 
   return (
     <div>
-      {/* — — — Hero (cream-grain title band) — — — */}
-      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 -right-24 w-[360px] h-[360px] rounded-full bg-brand-50 blur-3xl opacity-70"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-28 -left-24 w-[280px] h-[280px] rounded-full bg-accent-50 blur-3xl opacity-50"
-        />
-
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-6 pb-7 md:pt-8 md:pb-9">
-          <p className="eyebrow mb-2">
-            Tableau de bord
-            <span aria-hidden className="mx-2 text-ink/40">·</span>
-            <span
-              className="tabular-nums text-ink-mute"
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-            >
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </span>
-          </p>
-          <h1 className="!text-[clamp(24px,3.4vw,38px)] !leading-[1.06] text-ink !mb-1.5 tracking-tight">
-            Bienvenue, {displayName}.
-          </h1>
-          <p className="text-[14px] text-ink-mute max-w-xl">
-            Vos événements, billets et réservations — tout en un seul endroit.
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2.5">
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-1.5 h-10 px-4 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[13px] font-bold transition-colors shadow-card"
-            >
-              Parcourir les événements
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/profile/my-tickets"
-              className="inline-flex items-center gap-1.5 h-10 px-4 bg-paper hover:bg-cream text-ink border border-line hover:border-brand/40 rounded-lg text-[13px] font-medium transition-colors"
-            >
-              <Ticket className="h-3.5 w-3.5" />
-              Mes billets
-              {dashboardData?.stats.totalTickets > 0 && (
-                <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-brand text-paper text-[10px] font-bold tabular-nums">
-                  {dashboardData.stats.totalTickets}
-                </span>
-              )}
-            </Link>
-            <Link
-              to="/support"
-              className="inline-flex items-center gap-1.5 h-10 px-4 bg-paper hover:bg-cream text-ink border border-line hover:border-brand/40 rounded-lg text-[13px] font-medium transition-colors"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Obtenir de l'aide
-            </Link>
+      <section className="bg-paper">
+        <div className="mx-auto max-w-[1200px] px-4 py-8 lg:px-6">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="font-display text-[32px] font-bold tracking-tight text-ink md:text-[40px]">Bonjour, {displayName}.</h1>
+              <p className="mt-2 text-[15px] text-ink-2">
+                {dashboardData.stats.upcomingEvents > 0
+                  ? `${dashboardData.stats.upcomingEvents} billet${dashboardData.stats.upcomingEvents > 1 ? 's' : ''} à venir · `
+                  : 'Aucun billet à venir · '}
+                {dashboardData.stats.pastTickets} billets passés
+              </p>
+            </div>
+            <Link to="/find-tickets" className="btn btn-secondary h-10 px-3 text-[14px]">Retrouver un billet</Link>
           </div>
+
+          {dashboardData.stats.nextEvent ? (
+            <div className="overflow-hidden rounded-2xl border border-line bg-white md:grid md:grid-cols-[220px_minmax(0,1fr)]">
+              {dashboardData.stats.nextEvent.image_url ? (
+                <img src={dashboardData.stats.nextEvent.image_url} alt="" className="h-52 w-full object-cover md:h-full" />
+              ) : (
+                <div className="grid h-52 place-items-center bg-brand text-white md:h-full">Temba</div>
+              )}
+              <div className="flex flex-col p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[14px] text-ink-2">Votre prochaine sortie</p>
+                </div>
+                <p className="mt-3 font-display text-[28px] font-bold leading-tight">{dashboardData.stats.nextEvent.title}</p>
+                <p className="mt-2 text-[15px] text-ink-2">
+                  {formatCalendarDate(dashboardData.stats.nextEvent.date, { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {dashboardData.stats.nextEvent.time ? ` · ${dashboardData.stats.nextEvent.time.slice(0, 5)}` : ''}
+                  {' · '}
+                  {shortPlace(dashboardData.stats.nextEvent.location, dashboardData.stats.nextEvent.city).label}
+                </p>
+                <div className="mt-auto flex flex-wrap gap-2 pt-6">
+                  <Link to="/profile/my-tickets" className="btn btn-primary h-11 px-4">Afficher mes billets</Link>
+                  <a className="btn btn-secondary h-11 px-4" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shortPlace(dashboardData.stats.nextEvent.location, dashboardData.stats.nextEvent.city).label)}`} target="_blank" rel="noopener noreferrer">Itinéraire</a>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-line bg-white p-6 md:p-8">
+              <p className="font-display text-[26px] font-bold">Aucune sortie prévue.</p>
+              <p className="mt-2 max-w-xl text-[15px] text-ink-2">Vos billets concernent des événements passés. Voici ce qui est à l’affiche.</p>
+              <Link to="/events" className="btn btn-secondary mt-4 h-11">Tous les événements</Link>
+            </div>
+          )}
+
+          {dashboardData.stats.credits != null && (
+            <Link to="/profile/referral" className="mt-4 flex items-center gap-3 rounded-xl border border-line bg-ink px-4 py-3 text-white">
+              <span className="font-display text-[22px] font-bold text-[#F6B84A]">{formatCurrency(dashboardData.stats.credits.balance, dashboardData.stats.credits.currency)}</span>
+              <span className="text-[14px] text-white/80">de crédits Temba · Parrainage</span>
+            </Link>
+          )}
         </div>
       </section>
 
-      {/* — — — Body — — — */}
       <section className="bg-paper">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-9 space-y-7">
-
-          {/* Statistics Grid */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-            {/* Upcoming events */}
-            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="grid place-items-center w-9 h-9 rounded-lg bg-brand-50 text-brand flex-shrink-0">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
-                  À venir
-                </p>
-              </div>
-              <p
-                className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
-                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-              >
-                {dashboardData.stats.upcomingEvents}
-              </p>
-              <p className="text-[11px] text-ink-mute mt-1">à venir</p>
-            </article>
-
-            {/* Total tickets */}
-            <Link
-              to="/profile/my-tickets"
-              className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all group block"
-            >
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="grid place-items-center w-9 h-9 rounded-lg bg-green-50 text-green-700 flex-shrink-0 group-hover:bg-brand group-hover:text-paper transition-colors">
-                  <Ticket className="h-4 w-4" />
-                </div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute group-hover:text-brand transition-colors">
-                  Billets
-                </p>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <p
-                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight group-hover:text-brand transition-colors"
-                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-                >
-                  {dashboardData.stats.totalTickets}
-                </p>
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-green-600">
-                  Actifs
-                </span>
-              </div>
-              <p className="text-[11px] text-ink-mute mt-1 flex items-center gap-1">
-                au total
-                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </p>
-            </Link>
-
-            {/* Total spent */}
-            <article className="bg-paper rounded-xl2 border border-line p-4 hover:border-brand/40 hover:shadow-card transition-all">
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="grid place-items-center w-9 h-9 rounded-lg bg-cream text-ink flex-shrink-0">
-                  <CreditCard className="h-4 w-4" />
-                </div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-mute">
-                  Dépensé
-                </p>
-              </div>
-              <p
-                className="text-[22px] font-bold text-ink tabular-nums leading-none tracking-tight"
-                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-              >
-                {formatCurrency(dashboardData.stats.totalSpent, 'XOF')}
-              </p>
-              <p className="text-[11px] text-ink-mute mt-1">FCFA cumulés</p>
-            </article>
-
-            {/* TEMBA credits */}
-            <article className="bg-ink rounded-xl2 p-4 hover:shadow-pop transition-all relative overflow-hidden">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-accent/30 blur-2xl"
-              />
-              <div className="relative flex items-center gap-3 mb-2.5">
-                <div className="grid place-items-center w-9 h-9 rounded-lg bg-accent text-ink flex-shrink-0">
-                  <Gift className="h-4 w-4" />
-                </div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-paper/70">
-                  Crédits TEMBA
-                </p>
-              </div>
-              <p
-                className="relative text-[22px] font-bold text-paper tabular-nums leading-none tracking-tight"
-                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-              >
-                {dashboardData.stats.credits != null
-                  ? formatCurrency(
-                      dashboardData.stats.credits.balance,
-                      dashboardData.stats.credits.currency || 'XOF'
-                    )
-                  : '—'}
-              </p>
-              <Link
-                to="/profile/referral"
-                className="relative inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:text-paper transition-colors mt-1.5 uppercase tracking-[0.08em]"
-              >
-                Parrainage
-                <ChevronRight className="h-3 w-3" />
-              </Link>
-            </article>
-          </div>
+        <div className="mx-auto max-w-[1200px] px-4 pb-10 lg:px-6 space-y-7">
 
           {/* Recent Orders */}
           <div className="bg-paper rounded-xl2 border border-line shadow-card overflow-hidden">

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { fetchUserCreditBalanceFromSupabase } from './creditService';
+import { calendarDayInZone } from '../utils/formatters';
 
 export interface Profile {
   id: string;
@@ -47,21 +48,29 @@ class UserService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Non authentifié');
 
-    const now = new Date().toISOString();
+    const today = calendarDayInZone();
 
-    // Get all user tickets first
     const { data: allTickets, error: ticketsError } = await supabase
       .from('tickets')
       .select(`
         id,
+        status,
+        scanned_at,
         event:events!inner(
+          id,
+          title,
           date,
-          status
+          time,
+          location,
+          city,
+          image_url,
+          status,
+          slug
         )
       `)
       .eq('user_id', user.id)
       .eq('status', 'VALID')
-      .eq('event.status', 'PUBLISHED');
+      .is('scanned_at', null);
 
     if (ticketsError) throw ticketsError;
 
@@ -80,15 +89,17 @@ class UserService {
     }
 
     // Filter out transferred tickets
-    const userTickets = allTickets?.filter(ticket => !transferredTicketIds.includes(ticket.id)) || [];
-
-    // Get upcoming events count
-    const upcomingTickets = userTickets.filter(ticket => 
-      new Date(ticket.event.date) >= new Date(now)
-    );
-
-    // Get total tickets count
+    const userTickets = (allTickets || []).filter((ticket) => !transferredTicketIds.includes(ticket.id));
+    const eventOf = (ticket: { event: unknown }) => {
+      const event = ticket.event as { date?: string; title?: string; time?: string; location?: string; city?: string; image_url?: string; id?: string; slug?: string } | { date?: string }[] | null;
+      return Array.isArray(event) ? event[0] : event;
+    };
+    const dayOf = (ticket: { event: unknown }) => String(eventOf(ticket)?.date || '').split('T')[0];
+    const upcomingTickets = userTickets.filter((ticket) => dayOf(ticket) >= today);
+    const pastTickets = userTickets.filter((ticket) => dayOf(ticket) && dayOf(ticket) < today);
     const totalTickets = userTickets.length;
+    const soonest = [...upcomingTickets].sort((a, b) => dayOf(a).localeCompare(dayOf(b)))[0];
+    const soonestEvent = soonest ? eventOf(soonest) : null;
 
     // Spent = completed orders only. Cancelled and refunded orders are excluded.
     const { data: userOrders, error: ordersError } = await supabase
@@ -141,9 +152,22 @@ class UserService {
     return {
       stats: {
         upcomingEvents: upcomingTickets.length,
-        totalTickets: totalTickets,
+        pastTickets: pastTickets.length,
+        totalTickets,
         totalSpent,
         credits,
+        nextEvent: soonestEvent?.title
+          ? {
+              id: soonestEvent.id || '',
+              title: soonestEvent.title || '',
+              date: soonestEvent.date || '',
+              time: soonestEvent.time || '',
+              location: soonestEvent.location || '',
+              city: soonestEvent.city || '',
+              image_url: soonestEvent.image_url || '',
+              slug: soonestEvent.slug || '',
+            }
+          : null,
       },
       recentOrders: visibleRecentOrders.map(order => ({
         id: order.id,
@@ -162,8 +186,19 @@ class UserService {
 export interface DashboardStats {
   stats: {
     upcomingEvents: number;
+    pastTickets: number;
     totalTickets: number;
     totalSpent: number;
+    nextEvent: {
+      id: string;
+      title: string;
+      date: string;
+      time: string;
+      location: string;
+      city: string;
+      image_url: string;
+      slug: string;
+    } | null;
     /** From `user_credits` via Supabase; null if table/RLS unavailable */
     credits: { balance: number; currency: string } | null;
   };

@@ -183,9 +183,15 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
           cls: 'bg-cream text-ink-mute ring-line',
           Icon: CircleSlash,
         };
+      case 'USED':
+        return {
+          label: 'Utilisé',
+          cls: 'bg-surf text-ink-2 ring-line',
+          Icon: CheckCircle2,
+        };
       default:
         return {
-          label: status,
+          label: status === 'USED' ? 'Utilisé' : status,
           cls: 'bg-cream text-ink-mute ring-line',
           Icon: Clock,
         };

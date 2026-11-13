@@ -49,7 +49,7 @@ const steps = [
           className="inline-block px-2 py-0.5 rounded-md text-[12px] font-mono bg-cream-deep border border-line text-ink mx-0.5"
           style={{ fontFamily: monoFamily }}
         >
-          delete my account
+          SUPPRIMER
         </code>{' '}
         et confirmez.
       </>

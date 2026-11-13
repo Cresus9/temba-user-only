@@ -910,7 +910,7 @@ export default function EnhancedBookingConfirmation() {
         phoneHint={profile?.phone}
         emailHint={profile?.email || user?.email}
         total={orderSummary?.total_amount}
-        onDownload={handleDownload}
+        onDownload={handleDownloadTickets}
         onCalendar={handleAddToCalendar}
         onTransfer={user ? (ticket) => setTransferTicket({ id: ticket.id, title: ticket.eventTitle }) : undefined}
         onShare={() => setShowShareModal(true)}

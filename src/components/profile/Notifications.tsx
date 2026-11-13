@@ -5,11 +5,11 @@ import { useTranslation } from '../../context/TranslationContext';
 import toast from 'react-hot-toast';
 
 const NOTIFICATION_TYPES = [
-  { id: 'EVENT_REMINDER', label: 'Event Reminders', description: 'Get notified before your events start' },
-  { id: 'TICKET_PURCHASED', label: 'Ticket Purchases', description: 'Receive confirmations for ticket purchases' },
-  { id: 'PRICE_CHANGE', label: 'Price Changes', description: 'Get notified when event prices change' },
-  { id: 'EVENT_CANCELLED', label: 'Event Cancellations', description: 'Be informed if an event is cancelled' },
-  { id: 'EVENT_UPDATED', label: 'Event Updates', description: 'Receive updates about events you are attending' }
+  { id: 'EVENT_REMINDER', label: 'Rappels d’événement', description: 'Un rappel avant le début de vos sorties.' },
+  { id: 'TICKET_PURCHASED', label: 'Achats de billets', description: 'La confirmation quand un billet est payé.' },
+  { id: 'PRICE_CHANGE', label: 'Changements de prix', description: 'Quand le prix d’un événement que vous suivez change.' },
+  { id: 'EVENT_CANCELLED', label: 'Annulations', description: 'Si un événement est annulé.' },
+  { id: 'EVENT_UPDATED', label: 'Mises à jour', description: 'Les nouvelles d’un événement où vous avez un billet.' },
 ];
 
 export default function Notifications() {
@@ -368,7 +368,7 @@ export default function Notifications() {
             Types d'alertes
           </h3>
           <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-mute tabular-nums">
-            {preferences.types.length} / {NOTIFICATION_TYPES.length} actifs
+            {NOTIFICATION_TYPES.filter((type) => preferences.types.includes(type.id)).length} / {NOTIFICATION_TYPES.length} actives
           </span>
         </div>
 

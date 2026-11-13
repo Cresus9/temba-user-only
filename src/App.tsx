@@ -41,6 +41,8 @@ function MetaPixel() {
 
 function App() {
   const { featuredEvents } = useEvents();
+  const { pathname } = useLocation();
+  const bareAuth = pathname === '/login';
 
   // Warm image cache when app loads
   useEffect(() => {
@@ -64,14 +66,14 @@ function App() {
       <div className="min-h-screen flex flex-col bg-paper">
         <MetaPixel />
         <ReferralQueryCapture />
-        <AppBanner />
-        <Navbar />
+        {!bareAuth && <AppBanner />}
+        {!bareAuth && <Navbar />}
         <main className="flex-grow">
           <PageTransition>
             <AppRoutes />
           </PageTransition>
         </main>
-        <Footer />
+        {!bareAuth && <Footer />}
         <Toaster position="top-right" />
         <OfflineWarning />
         <PendingTransfersNotification />

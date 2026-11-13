@@ -74,10 +74,15 @@ export function formatEventTime(time?: string | null): string {
   return match ? `${match[1]}:${match[2]}` : '';
 }
 
+export function isPlaceholderEmail(email?: string | null): boolean {
+  if (!email) return true;
+  return /@temba\.temp$/i.test(email.trim());
+}
+
 export const formatCurrency = (amount: number, currency: string = 'XOF'): string => {
   const normalizedCurrency = currency?.toUpperCase?.() ?? 'XOF';
 
-  if (normalizedCurrency === 'XOF') {
+  if (normalizedCurrency === 'XOF' || normalizedCurrency === 'FCFA' || normalizedCurrency === 'XOF FCFA') {
     const numeric = new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
