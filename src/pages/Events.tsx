@@ -9,9 +9,7 @@ import { formatCalendarDate } from '../utils/formatters';
 import { categoryLabelFr } from '../utils/labels';
 import { useEvents } from '../context/EventContext';
 import PageSEO from '../components/SEO/PageSEO';
-import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
-import FeaturedEvents from '../components/events/FeaturedEvents';
-import UpcomingEvents from '../components/events/UpcomingEvents';
+import EventsCatalog from '../components/events/EventsCatalog';
 
 const initialFilters = {
   search: '',
@@ -24,7 +22,7 @@ const initialFilters = {
 
 export default function Events() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { activeCountry: globalCountry, setActiveCountry } = useEvents();
+  const { activeCountry: globalCountry, setActiveCountry, events, loading } = useEvents();
 
   // URL param takes precedence; fall back to the global nav selection
   const [filters, setFilters] = useState(() => ({
@@ -202,182 +200,33 @@ export default function Events() {
         structuredData={[breadcrumbSchema]}
       />
 
-      {/* — — — Hero — — — */}
-      <section className="relative overflow-hidden border-b border-line bg-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-brand-50 blur-3xl opacity-70"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-32 -left-32 w-[340px] h-[340px] rounded-full bg-accent-50 blur-3xl opacity-60"
-        />
-
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-6 pb-8 md:pt-8 md:pb-10">
-          {/* Back link */}
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-mute hover:text-ink transition-colors mb-5"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour
-          </button>
-
-          <div className="grid lg:grid-cols-12 gap-6 lg:gap-10 lg:items-end">
-            <div className="lg:col-span-7 max-w-2xl">
-              <p className="eyebrow mb-2">
-                Agenda
-                {totalEvents !== null && (
-                  <span className="ml-2 text-ink/70">
-                    · <span className="tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>{totalEvents}</span> événements
-                  </span>
-                )}
-              </p>
-              <h1 className="!text-[clamp(28px,4.4vw,44px)] !leading-[1.06] text-ink mb-3">
-                Découvrez ce qui se passe{' '}
-                <span className="relative inline-block">
-                  <span className="relative z-10">cette semaine</span>
-                  <span aria-hidden className="absolute left-0 right-0 bottom-1 h-2 md:h-2.5 bg-accent/40 rounded-sm -z-0" />
-                </span>
-                .
-              </h1>
-              <p className="text-[14px] text-ink-mute max-w-xl leading-relaxed">
-                Concerts, festivals, sport, culture — partout en Afrique de l'Ouest.
-                Filtrez par ville, par date, ou laissez-vous surprendre.
-              </p>
-            </div>
-          </div>
-
-          {/* — — — Filter bar — — — */}
-          <div className="mt-7">
-            <div className="bg-paper rounded-xl2 border border-line shadow-card p-2 flex flex-col lg:flex-row gap-2 overflow-visible">
-              {/* Search */}
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={handleSearchChange}
-                  placeholder="Recherchez un artiste, un événement, un lieu…"
-                  className="w-full h-11 pl-10 pr-3 bg-transparent text-[14px] text-ink placeholder:text-ink-mute focus:outline-none rounded-lg"
-                />
-              </div>
-
-              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
-
-              {/* Date */}
-              <FilterPill icon={<Calendar className="h-4 w-4" />} active={!!filters.date}>
-                <input
-                  type="date"
-                  value={filters.date}
-                  onChange={e => setFilters(prev => ({ ...prev, date: e.target.value }))}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="bg-transparent text-[13px] text-ink focus:outline-none w-full"
-                  aria-label="Filtrer par date"
-                />
-              </FilterPill>
-
-              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
-
-              {/* Country — only when events exist in multiple countries */}
-              {showCountryFilter && (
-                <>
-                  <FilterSelect
-                    icon={<Globe className="h-4 w-4" />}
-                    value={filters.country}
-                    onChange={code => {
-                      setFilters(prev => ({ ...prev, country: code, location: '' }));
-                      setActiveCountry(code || null);
-                    }}
-                    placeholder="Tous les pays"
-                    options={countriesWithEvents.map(c => ({
-                      value: c.code,
-                      label: c.nameFr,
-                    }))}
-                  />
-                  <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
-                </>
-              )}
-
-              {/* Location */}
-              <FilterSelect
-                icon={<MapPin className="h-4 w-4" />}
-                value={filters.location}
-                onChange={loc => setFilters(prev => ({ ...prev, location: loc }))}
-                placeholder="Tous les lieux"
-                options={locations.map(l => ({ value: l, label: l }))}
-              />
-
-              <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
-
-              {/* Category */}
-              <FilterSelect
-                icon={<Tag className="h-4 w-4" />}
-                value={filters.category}
-                onChange={cat => setFilters(prev => ({ ...prev, category: cat }))}
-                placeholder="Toutes catégories"
-                options={categories}
-              />
-            </div>
-
-            {/* Active filter chips */}
-            {hasFilters && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="eyebrow !text-ink-mute">Filtres actifs</span>
-                {filters.country && activeCountryMeta && (
-                  <FilterChip
-                    label={activeCountryMeta.nameFr}
-                    onRemove={() => removeFilter('country')}
-                  />
-                )}
-                {filters.search && (
-                  <FilterChip label={`"${filters.search}"`} onRemove={() => removeFilter('search')} />
-                )}
-                {filters.date && (
-                  <FilterChip label={formatDateChip(filters.date)} onRemove={() => removeFilter('date')} />
-                )}
-                {filters.location && (
-                  <FilterChip label={filters.location} onRemove={() => removeFilter('location')} />
-                )}
-                {filters.category && (
-                  <FilterChip label={categoryLabelFr(filters.category)} onRemove={() => removeFilter('category')} />
-                )}
-                <button
-                  onClick={clearFilters}
-                  className="text-[12px] font-semibold text-ink-mute hover:text-brand transition-colors"
-                >
-                  Tout effacer
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* — — — Sections — — — */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-12 space-y-12">
-        {/* Featured carousel */}
-        <FeaturedEvents countryFilter={filters.country || globalCountry || ''} />
-
-        {/* Category-grouped sections */}
-        <CategoryEventsDisplay
-          searchQuery={debouncedSearch}
-          locationFilter={filters.location}
-          dateFilter={filters.date}
-          countryFilter={filters.country || globalCountry || ''}
-        />
-
-        {/* Upcoming list — only when no active filter */}
-        {!debouncedSearch && !filters.location && !filters.date && !filters.category && (
-          <UpcomingEvents limit={6} countryFilter={filters.country || globalCountry || ''} />
-        )}
-      </div>
+      <EventsCatalog
+        events={events}
+        loading={loading}
+        filters={filters}
+        categories={categories}
+        locations={locations}
+        countries={countriesWithEvents.map(c => ({ code: c.code, name: c.nameFr }))}
+        totalEvents={totalEvents}
+        onChange={(patch) => {
+          setFilters(prev => ({ ...prev, ...patch }));
+          const next = new URLSearchParams(searchParams);
+          const map: Record<string, string> = { search: 'query', location: 'location', category: 'category', date: 'date', country: 'country' };
+          (Object.keys(patch) as (keyof typeof patch)[]).forEach((key) => {
+            const param = map[key] || key;
+            const value = patch[key] ?? '';
+            if (value) next.set(param, value);
+            else next.delete(param);
+          });
+          if ('country' in patch) setActiveCountry(patch.country || null);
+          setSearchParams(next, { replace: true });
+        }}
+        onClear={clearFilters}
+      />
     </div>
   );
 }
 
-/** Compact filter pill with icon. Becomes branded when active. */
-/** Custom dropdown — replaces native <select> so it always uses the design tokens. */
 function FilterSelect({
   icon,
   value,

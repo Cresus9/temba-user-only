@@ -21,7 +21,7 @@ import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
 import { formatEventDateTime, fullAddressDisplay, countryNameFr } from '../utils/eventGeo';
 import { formatCalendarDate } from '../utils/formatters';
-import { isTicketSellable } from '../utils/labels';
+import { eventPricePresentation, isTicketSellable } from '../utils/labels';
 import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
@@ -543,147 +543,51 @@ export default function EventDetails() {
             </div>
           </div>
         </section>
-      ) : (
-      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 -right-24 w-[320px] h-[320px] rounded-full bg-brand-50 blur-3xl opacity-60"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-20 -left-24 w-[260px] h-[260px] rounded-full bg-accent-50 blur-3xl opacity-50"
-        />
+      ) : null}
 
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-4 pb-5 md:pt-5 md:pb-6">
-          {/* Breadcrumb */}
-          <nav
-            aria-label="Fil d'Ariane"
-            className="flex items-center gap-1.5 text-[12px] text-ink-mute mb-3 truncate"
-          >
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-1 hover:text-ink transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Retour
-            </button>
-            <span aria-hidden className="text-line">/</span>
-            <Link to="/events" className="hover:text-ink transition-colors">Événements</Link>
-            <span aria-hidden className="text-line">/</span>
-            <span className="text-ink/85 truncate">{event.title}</span>
-          </nav>
-
-          <p className="eyebrow mb-1.5">
-            <span
-              className="tabular-nums"
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-            >
-              EVT · {evtCode}
-            </span>
-            <span className="mx-2 text-ink/40">·</span>
-            {event.is_permanent ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span>{ATTRACTION_TYPE_LABELS[event.attraction_type ?? 'other'] ?? 'Attraction'}</span>
-                <span className="ml-1 rounded bg-[#E6F4EE] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0B7A52]">
-                  Ouvert en continu
-                </span>
-              </span>
-            ) : formatLong(displayDate)}
-          </p>
-
-          <h1 className="!text-[clamp(22px,3.4vw,36px)] !leading-[1.06] text-ink mb-3 tracking-tight max-w-3xl">
-            {event.title}
-          </h1>
-
-          {/* Meta + actions inline */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink">
-            {eventDates.length > 1 ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-accent" />
-                <span className="font-semibold">{eventDates.length} dates</span>
-              </span>
-            ) : event.is_permanent ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="font-semibold text-emerald-700">Ouvert toute l'année</span>
-              </span>
-            ) : (
-              <>
-                {displayTime && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-accent" />
-                    <span>{geoFormatted.time}</span>
-                    {isAbroad && (
-                      <span className="text-[11px] text-ink-mute">({geoFormatted.tzLabel})</span>
-                    )}
-                  </span>
-                )}
-              </>
-            )}
-            <span className="inline-flex items-center gap-1.5 min-w-0">
-              <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-              <span className="truncate">{event.city ?? event.location}</span>
-              {countryLabel && (
-                <span className="text-[12px] text-ink-3">{countryLabel}</span>
-              )}
-            </span>
-
-            <span aria-hidden className="hidden sm:block w-px h-4 bg-line" />
-
-            <button
-              onClick={handleShare}
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-brand transition-colors"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              Partager
-            </button>
-            <button
-              onClick={toggleSave}
-              className={`inline-flex items-center gap-1.5 text-[12px] font-medium transition-colors ${
-                isSaved ? 'text-brand' : 'text-ink-mute hover:text-brand'
-              }`}
-            >
-              <Heart className={`h-3.5 w-3.5 ${isSaved ? 'fill-current' : ''}`} />
-              {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
-            </button>
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* — — — Body: poster+desc on left, booking sticky on right — — — */}
-      <section className={event.is_permanent ? 'bg-white' : 'bg-paper'}>
-        <div className={event.is_permanent
-          ? 'mx-auto max-w-[1080px] px-5 py-6 sm:px-8'
-          : 'max-w-7xl mx-auto px-4 lg:px-6 py-7 md:py-10'
-        }>
-          <div className="grid lg:grid-cols-12 gap-6 lg:gap-10">
-            {/* — Mobile: poster first, then booking, then content — */}
-            <div className="lg:hidden space-y-5 w-full min-w-0">
-              {event.is_permanent ? (
-                <PlacePhoto event={event} galleryImages={galleryImages} />
-              ) : (
-                <PosterCard event={event} evtCode={evtCode} />
-              )}
-              <BookingPanel
-                event={event}
-                isReviewModalOpen={isReviewModalOpen}
-                setIsReviewModalOpen={setIsReviewModalOpen}
-                evtCode={evtCode}
-                pricingOverrides={pricingOverrides}
-              />
-            </div>
-
-            {/* — Left: description + map — */}
-            <div className="lg:col-span-7 space-y-9">
-              {/* Desktop: gallery carousel for permanent events, poster otherwise */}
-              <div className="hidden lg:block">
-                {event.is_permanent ? (
-                  <PlacePhoto event={event} galleryImages={galleryImages} />
-                ) : (
+      <section className={`bg-white ${event.is_permanent ? '' : 'pb-24 lg:pb-16'}`}>
+        <div className="mx-auto max-w-[1200px] px-5 py-6 sm:px-8 lg:px-10">
+          {!event.is_permanent && (
+            <nav aria-label="Fil d'Ariane" className="mb-6 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-3">
+              <Link to="/" className="hover:text-ink">Accueil</Link>
+              <span aria-hidden>›</span>
+              <Link to="/events" className="hover:text-ink">Événements</Link>
+              {event.city ? (<><span aria-hidden>›</span><span>{event.city}</span></>) : null}
+              <span aria-hidden>›</span>
+              <span className="truncate text-ink">{event.title}</span>
+            </nav>
+          )}
+          <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
+            <div className="min-w-0 space-y-9">
+              {!event.is_permanent && (
+                <div className="grid items-end gap-6 sm:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-8">
                   <PosterCard event={event} evtCode={evtCode} />
-                )}
-              </div>
+                  <div>
+                    <h1 className="font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] text-ink md:text-[48px]">{event.title}</h1>
+                    <div className="mt-5 flex flex-col gap-3 text-[16px]">
+                      <p className="flex items-center gap-3">
+                        <Calendar className="h-[22px] w-[22px] text-ink-3" />
+                        <span><b className="font-semibold">{formatLong(displayDate)}</b>{geoFormatted.time ? ` · ${geoFormatted.time}` : ''}</span>
+                      </p>
+                      <p className="flex items-center gap-3">
+                        <MapPin className="h-[22px] w-[22px] text-ink-3" />
+                        <span><b className="font-semibold">{event.location}</b>{event.city && !event.location.toLowerCase().includes(event.city.toLowerCase()) ? ` · ${event.city}` : ''}{countryLabel ? ` · ${countryLabel}` : ''}</span>
+                      </p>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      <button type="button" onClick={handleShare} className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-3.5 text-[14px] font-semibold">
+                        <Share2 className="h-4 w-4" /> Partager
+                      </button>
+                      <button type="button" onClick={toggleSave} className={`inline-flex h-10 items-center gap-2 rounded-lg border border-line px-3.5 text-[14px] font-semibold ${isSaved ? 'text-brand' : ''}`}>
+                        <Heart className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} /> {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {event.is_permanent && (
+                <PlacePhoto event={event} galleryImages={galleryImages} />
+              )}
 
               <div className={event.is_permanent ? 'border-t border-ink/10 pt-8' : ''}>
                 {event.is_permanent ? (
@@ -857,9 +761,8 @@ export default function EventDetails() {
               </p>
             </div>
 
-            {/* — Right: sticky booking — */}
-            <div className="hidden lg:block lg:col-span-5">
-              <div className={event.is_permanent ? 'lg:sticky lg:top-[88px]' : 'lg:sticky lg:top-20'}>
+            <div id="billets" className="min-w-0">
+              <div className="lg:sticky lg:top-6">
                 <BookingPanel
                   event={event}
                   isReviewModalOpen={isReviewModalOpen}
@@ -871,6 +774,17 @@ export default function EventDetails() {
             </div>
           </div>
         </div>
+        {!event.is_permanent && (
+          <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-white px-5 py-3 pb-6 shadow-[0_-8px_24px_rgba(3,6,30,0.06)] lg:hidden">
+            <div className="min-w-0 flex-1">
+              <p className="text-[12.5px] text-ink-3">{geoFormatted.time ? `${formatLong(displayDate)}` : 'Billets'}</p>
+              <p className="font-display text-[18px] font-bold">{eventPricePresentation(event).label}</p>
+            </div>
+            <a href="#billets" className="inline-flex h-12 shrink-0 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">
+              {eventPricePresentation(event).tone === 'soon' || eventPricePresentation(event).tone === 'soldout' ? 'Voir' : 'Acheter'}
+            </a>
+          </div>
+        )}
       </section>
     </>
   );
@@ -901,31 +815,13 @@ function PlacePhoto({ event, galleryImages }: { event: Event; galleryImages: Gal
 /** Poster card with blurred backdrop + EVT code chip. Reused mobile + desktop. */
 function PosterCard({ event, evtCode }: { event: Event; evtCode: string }) {
   return (
-    <div className="relative aspect-[16/9] sm:aspect-[2/1] lg:aspect-[5/4] rounded-2xl overflow-hidden border border-line shadow-card bg-ink">
-      {event.image_url && (
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-cover bg-center scale-[1.2] blur-3xl saturate-150 opacity-95"
-          style={{ backgroundImage: `url(${event.image_url})` }}
-        />
-      )}
-      <Image
-        src={event.image_url || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1200'}
-        alt={event.title}
-        className="absolute inset-0 w-full h-full object-contain"
-        width={1200}
-        height={900}
-        quality={88}
-        priority
+    <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-surf">
+      <img
+        src={event.image_url || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800'}
+        alt={`Affiche ${event.title}`}
+        className="h-full w-full object-cover"
       />
-      <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-ink/65 backdrop-blur-sm border border-paper/15">
-        <span
-          className="text-[10px] font-bold text-paper/90 uppercase tracking-[0.16em]"
-          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-        >
-          EVT · {evtCode}
-        </span>
-      </div>
+      <span className="sr-only">EVT {evtCode}</span>
     </div>
   );
 }
@@ -953,12 +849,9 @@ function BookingPanel({
       : 'Billets';
 
   return (
-    <div className={event.is_permanent
-      ? 'w-full min-w-0 overflow-hidden border border-ink/15 bg-white'
-      : 'bg-paper rounded-xl2 border border-line shadow-card overflow-hidden w-full min-w-0'
-    }>
-      <div className={`flex items-center justify-between px-4 py-3 border-b ${event.is_permanent ? 'border-ink/10' : 'bg-cream border-line'}`}>
-        <span className={event.is_permanent ? 'text-[15px] font-semibold text-ink' : 'eyebrow !text-ink'}>{headerLabel}</span>
+    <div className="w-full min-w-0 overflow-hidden rounded-[14px] border border-line bg-white shadow-[0_8px_24px_rgba(3,6,30,0.06)]">
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <span className="font-display text-[20px] font-bold text-ink">{headerLabel}</span>
         {!event.is_permanent && (
           <span
             className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"

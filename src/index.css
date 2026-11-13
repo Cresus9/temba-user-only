@@ -173,6 +173,17 @@ p {
   animation: ticket-live 2.4s linear infinite;
 }
 
+@media print {
+  header, footer, nav, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .ticket-pass {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #111;
+  }
+  .ticket-pass * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* Ink = grounded near-black — for inverted surfaces or quiet alternatives. */
 .btn-ink {
   @apply bg-ink text-paper hover:bg-ink-800;

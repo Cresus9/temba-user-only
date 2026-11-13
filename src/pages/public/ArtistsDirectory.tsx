@@ -104,7 +104,7 @@ export default function ArtistsDirectory() {
   );
 
   return (
-    <div className="min-h-screen bg-cream bg-grain">
+    <div className="min-h-screen bg-white">
       <PageSEO
         title="Artistes — concerts et billets Burkina Faso"
         description="Fiches officielles des artistes programmés sur Temba : concerts à Ouagadougou et en Afrique de l’Ouest, dates publiées et billets en FCFA."
@@ -122,22 +122,11 @@ export default function ArtistsDirectory() {
         structuredData={directorySchema}
       />
 
-      <header className="bg-black text-white">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 md:py-10">
-          <p className="eyebrow !text-white/40 mb-2 tracking-[0.22em]">Temba</p>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h1
-              className="text-[clamp(32px,5vw,48px)] font-semibold tracking-[-0.045em] leading-none text-white"
-              style={{ fontFamily: display, color: '#fff' }}
-            >
-              Artistes
-            </h1>
-            <p className="text-[13px] text-white/45 tabular-nums">
-              {loading ? '…' : `${filtered.length} artiste${filtered.length !== 1 ? 's' : ''}`}
-            </p>
-          </div>
-          <p className="mt-4 max-w-xl text-[14px] text-white/50 leading-relaxed">
-            Chaque fiche est la référence Temba : uniquement les concerts réellement mis en vente sur la plateforme.
+      <header className="bg-white">
+        <div className="mx-auto max-w-[1200px] px-5 pb-2 pt-8 md:px-10">
+          <h1 className="font-display text-[36px] font-bold tracking-[-0.03em] md:text-[44px]">Artistes</h1>
+          <p className="mt-2 max-w-xl text-[16px] text-ink-3">
+            {loading ? '…' : `${filtered.length} artistes.`} Seuls les concerts réellement mis en vente sur Temba apparaissent sur leur fiche.
           </p>
         </div>
       </header>

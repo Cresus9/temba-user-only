@@ -10,6 +10,8 @@ import { computeAddonsTotal, type AddonSelection } from '../services/addonServic
 import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../services/foodMenuService';
 import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
+import { useEvents } from '../context/EventContext';
+import { formatCurrency } from '../utils/formatters';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -55,6 +57,7 @@ export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { events } = useEvents();
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
 
@@ -104,55 +107,36 @@ export default function Checkout() {
     <div>
       <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
 
-      {/* ── Title band ── */}
-      <section className="bg-cream bg-grain border-b border-line">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
-          <Link
-            to={
-              state?.eventId
-                ? eventPublicPath({ id: state.eventId, slug: state.eventSlug })
-                : '/events'
-            }
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors mb-3"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {state?.eventId ? "Retour à l'événement" : 'Retour aux événements'}
-          </Link>
-
-          <div className="flex items-center gap-3 mb-1.5">
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute tabular-nums"
-              style={{ fontFamily: mono }}
-            >
-              Étape 2 / 3
-            </span>
-            <span aria-hidden className="w-px h-3 bg-line" />
-            <span className="eyebrow !mb-0">Paiement</span>
-          </div>
-
-          <h1 className="!text-[clamp(22px,3vw,32px)] !leading-[1.06] text-ink mb-1.5 tracking-tight">
-            Finaliser votre achat
-          </h1>
-          <p className="text-[13px] text-ink-mute">
-            Choisissez votre méthode de paiement pour sécuriser vos billets.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-mute">
-            <span className="inline-flex items-center gap-1.5">
-              <Lock className="h-3 w-3 text-brand" />
-              Connexion chiffrée
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3 w-3 text-accent" />
-              Paiement sécurisé en FCFA
-            </span>
-          </div>
+      <section className="border-b border-line bg-white">
+        <div className="mx-auto flex h-[72px] max-w-[1200px] items-center gap-4 px-5 md:px-10">
+          <Link to="/" aria-label="Temba" className="mr-auto text-[15px] font-semibold">Paiement</Link>
+          <ol className="hidden items-center gap-3 text-[14px] md:flex">
+            {['Billets', 'Coordonnées', 'Paiement', 'Billets reçus'].map((label, index) => (
+              <li key={label} className="flex items-center gap-3">
+                <span className={`grid h-6 w-6 place-items-center rounded-full text-[12px] font-bold ${index <= 2 ? 'bg-brand text-white' : 'border border-line text-ink-3'}`}>{index < 2 ? '✓' : index + 1}</span>
+                <span className={index === 2 ? 'font-semibold' : 'text-ink-3'}>{label}</span>
+                {index < 3 && <span className="h-px w-8 bg-line" />}
+              </li>
+            ))}
+          </ol>
+          <span className="ml-auto hidden items-center gap-1.5 text-[14px] text-[#0B7A52] md:inline-flex">
+            <Lock className="h-4 w-4" /> Paiement sécurisé
+          </span>
         </div>
       </section>
 
-      {/* ── Main area ── */}
-      <section className="bg-paper">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10 space-y-8">
+      <section className="bg-white">
+        <div className="mx-auto grid max-w-[1200px] gap-10 px-5 py-8 md:px-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:py-10">
+          <div className="space-y-6">
+          <Link
+            to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'}
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-ink-3 hover:text-ink"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux billets
+          </Link>
+          <h1 className="font-display text-[32px] font-bold tracking-tight">Paiement</h1>
+          <p className="text-[14px] text-ink-3">Orange Money, Moov Money ou carte. Le code USSD Orange s'affiche ici dès que l'opérateur le demande — aucun débit sans votre validation.</p>
 
           {/* ── Extras section ──
                For permanent attractions: selectors were already shown in the
@@ -208,6 +192,26 @@ export default function Checkout() {
             }}
             onSuccess={isAuthenticated ? handleAuthenticatedSuccess : handleGuestSuccess}
           />
+          </div>
+          <aside className="h-fit rounded-xl border border-line p-5 lg:sticky lg:top-6">
+            <div className="flex gap-3">
+              {events.find((item) => item.id === state.eventId)?.image_url ? (
+                <img src={events.find((item) => item.id === state.eventId)?.image_url} alt="" className="h-20 w-16 rounded-lg object-cover" />
+              ) : null}
+              <div>
+                <p className="font-display text-[16px] font-bold leading-snug">{events.find((item) => item.id === state.eventId)?.title || 'Votre commande'}</p>
+                <p className="mt-1 text-[13.5px] text-ink-3">{events.find((item) => item.id === state.eventId)?.location}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-line pt-4 font-display text-[20px] font-bold">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCurrency((state.totals?.total || 0) + extrasTotal, state.currency)}</span>
+            </div>
+            <p className="mt-3 flex items-start gap-2 text-[13px] text-ink-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+              Un souci au paiement ? WhatsApp +226 74 75 08 15, 7j/7.
+            </p>
+          </aside>
         </div>
       </section>
     </div>

@@ -20,7 +20,6 @@ import {
   artistStructuredData,
 } from '../../utils/artistSeo';
 import { FadeUp, Stagger, StaggerItem } from '../../components/common/Motion';
-import { ArtistStage } from '../../components/ui/artist-stage';
 
 interface Artist {
   id: string;
@@ -286,111 +285,54 @@ export default function ArtistProfile() {
         structuredData={structuredData}
       />
 
-      <div className="min-h-screen bg-cream bg-grain">
-        <ArtistStage className="min-h-[240px] md:min-h-[300px]" watermark={artist.name}>
-          <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-3 pb-5 md:pt-4 md:pb-7">
-            <Link
-              to="/artists"
-              className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 bg-paper/12 backdrop-blur-sm text-paper rounded-lg text-[12px] font-medium hover:bg-paper/20 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Artistes
-            </Link>
-            <p className="mt-3 text-[11px] text-white/40">
-              <Link to="/" className="hover:text-white/70">Accueil</Link>
-              {' · '}
-              <Link to="/artists" className="hover:text-white/70">Artistes</Link>
-              {' · '}
-              <span className="text-white/70">{artist.name}</span>
+      <div className="min-h-screen bg-white">
+        <div className="border-b border-line">
+          <div className="mx-auto max-w-[1200px] px-5 py-8 md:px-10 md:pb-11 md:pt-7">
+            <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-3">
+              <Link to="/" className="hover:text-ink">Accueil</Link>
+              <span>›</span>
+              <Link to="/artists" className="hover:text-ink">Artistes</Link>
+              <span>›</span>
+              <span className="text-ink">{artist.name}</span>
             </p>
-
-            <div className="mt-4 md:mt-6 relative z-10 max-w-3xl">
-              <div className="min-w-0 flex flex-row items-stretch gap-4 sm:gap-6">
-                <div className="relative w-fit flex-shrink-0">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute left-1 top-1 h-full w-full rounded-xl2 border border-accent/45"
-                  />
-                  <div className="relative size-40 sm:size-44 md:size-48 rounded-xl2 overflow-hidden border border-paper/15 bg-ink">
-                  {artist.photo_url ? (
-                    <img src={artist.photo_url} alt={`${artist.name}, artiste`} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full grid place-items-center bg-accent/20">
-                      <span className="text-[44px] sm:text-[52px] font-extrabold text-paper" style={{ fontFamily: display }}>
-                        {artist.name.charAt(0)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                </div>
-                <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
-                <div>
-                <p className="eyebrow !text-white/45 mb-1.5 tracking-[0.18em] !text-[10px] sm:!text-[11px]">
-                  {artist.genre || 'Artiste'}
-                  {artist.verified ? ' · Vérifié' : ''}
+            <div className="mt-7 flex flex-col gap-6 md:flex-row md:items-end">
+              {artist.photo_url ? (
+                <img src={artist.photo_url} alt="" className="h-[180px] w-[180px] rounded-xl object-cover md:h-[220px] md:w-[220px]" />
+              ) : (
+                <div className="grid h-[180px] w-[180px] place-items-center rounded-xl bg-brand font-display text-5xl font-bold text-white md:h-[220px] md:w-[220px]">{artist.name.charAt(0)}</div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-brand">
+                  {artist.verified ? <CheckCircle className="h-4 w-4" /> : null}
+                  Fiche officielle Temba
                 </p>
-                <div className="flex items-start gap-1.5 mb-1.5">
-                  <h1
-                    className="text-[clamp(22px,4vw,40px)] font-semibold text-white leading-[1.05] tracking-[-0.045em] antialiased"
-                    style={{ fontFamily: display, fontWeight: 600 }}
-                  >
-                    {artist.name}
-                  </h1>
-                  {artist.verified && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 flex-shrink-0 mt-1.5" />}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] sm:text-[13px] text-white/50">
-                  {place && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-accent" />
-                      {place}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1">
-                    <Ticket className="w-3.5 h-3.5 text-accent" />
-                    {upcoming.length > 0
-                      ? `${upcoming.length} date${upcoming.length > 1 ? 's' : ''} à venir`
-                      : 'Pas encore de date Temba'}
-                  </span>
-                </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3">
+                <h1 className="mt-2 font-display text-[40px] font-bold tracking-[-0.035em] text-ink md:text-[64px]">{artist.name}</h1>
+                <p className="mt-2 text-[17px] text-ink-3">{[artist.genre, place].filter(Boolean).join(' · ') || 'Artiste'}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
                   {nextShow ? (
-                    <a
-                      href="#dates"
-                      className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-accent text-ink text-[12px] sm:text-[13px] font-bold hover:bg-accent/90 transition-colors"
-                    >
-                      Prochain concert
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </a>
+                    <a href="#dates" className="inline-flex h-12 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Voir les billets</a>
                   ) : (
-                    <Link
-                      to="/events"
-                      className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-accent text-ink text-[12px] sm:text-[13px] font-bold hover:bg-accent/90 transition-colors"
-                    >
-                      Voir l’agenda
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </Link>
+                    <Link to="/events" className="inline-flex h-12 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Voir l'agenda</Link>
                   )}
-                  <button
-                    type="button"
-                    onClick={share}
-                    className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-paper/12 text-paper text-[12px] sm:text-[13px] font-semibold hover:bg-paper/20 transition-colors"
-                  >
-                    <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    Partager
+                  <button type="button" onClick={share} className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-line px-4 text-[15px] font-semibold">
+                    <Share2 className="h-4 w-4" /> Partager
                   </button>
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-paper/20 text-paper text-[13px] font-semibold hover:bg-paper/10 transition-colors"
-                  >
-                    Copier le lien
-                  </button>
-                </div>
                 </div>
               </div>
+              {nextShow && (
+                <div className="w-full rounded-xl border border-line p-5 md:w-[340px]">
+                  <p className="eyebrow">Prochain concert</p>
+                  <p className="mt-1 font-display text-[18px] font-bold">{nextShow.title}</p>
+                  <p className="mt-1 text-[14px] text-ink-3">{nextShow.location}</p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <b className="tabular-nums">{nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}</b>
+                    <Link to={eventPublicPath(nextShow)} className="inline-flex h-10 items-center rounded-lg bg-brand px-3 text-[14px] font-semibold text-white">Billets</Link>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </ArtistStage>
+        </div>
 
         <div className="bg-cream bg-grain">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-14">

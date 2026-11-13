@@ -992,7 +992,14 @@ export default function EnhancedBookingConfirmation() {
               ) : (
                 <Download className="h-5 w-5 text-indigo-600" />
               )}
-              <span className="font-medium">Télécharger PDF</span>
+              <span className="font-medium">Télécharger</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center justify-center gap-3 rounded-xl border border-line bg-white p-4 font-medium"
+            >
+              <span>Imprimer / PDF</span>
             </button>
 
             <button
