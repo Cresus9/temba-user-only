@@ -90,16 +90,30 @@ class UserService {
     // Get total tickets count
     const totalTickets = userTickets.length;
 
-    // Get money committed by the user (all non-cancelled orders)
+    // Spent = completed orders only. Cancelled and refunded orders are excluded.
     const { data: userOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('total, status')
+      .select('id, total, status')
       .eq('user_id', user.id)
       .eq('status', 'COMPLETED');
 
     if (ordersError) throw ordersError;
 
-    const totalSpent = userOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+    const completedIds = (userOrders || []).map((order) => order.id).filter(Boolean);
+    let refundedIds = new Set<string>();
+    if (completedIds.length > 0) {
+      const { data: refunds, error: refundError } = await supabase
+        .from('refunds')
+        .select('order_id')
+        .in('order_id', completedIds);
+      if (!refundError) {
+        refundedIds = new Set((refunds || []).map((row) => String(row.order_id)));
+      }
+    }
+
+    const totalSpent = (userOrders || [])
+      .filter((order) => String(order.status || '').toUpperCase() === 'COMPLETED' && !refundedIds.has(String(order.id)))
+      .reduce((sum, order) => sum + (order.total || 0), 0);
 
     // Get recent orders with event details
     const { data: recentOrders, error: recentError } = await supabase

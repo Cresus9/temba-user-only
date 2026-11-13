@@ -18,6 +18,7 @@ import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
+import { shortPlace } from '../../utils/eventGeo';
 import Image from '../common/Image';
 
 interface SentTicket {
@@ -320,7 +321,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 truncate min-w-0">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{ticket.ticket.event.location}</span>
+                        <span className="truncate">{shortPlace(ticket.ticket.event.location).label}</span>
                       </span>
                     </div>
                   )}
@@ -531,7 +532,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                       </li>
                       <li className="flex items-start gap-2">
                         <MapPin className="h-3.5 w-3.5 text-brand flex-shrink-0 mt-0.5" />
-                        <span>{selectedTicket.ticket.event.location}</span>
+                        <span>{shortPlace(selectedTicket.ticket.event.location).label}</span>
                       </li>
                     </ul>
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">

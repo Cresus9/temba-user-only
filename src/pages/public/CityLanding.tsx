@@ -5,7 +5,7 @@ import { useEvents } from '../../context/EventContext';
 import EventCard from '../../components/EventCard';
 import PageSEO from '../../components/SEO/PageSEO';
 import Image from '../../components/common/Image';
-import { pickSpotlightEvents } from '../../utils/eventGeo';
+import { pickSpotlightEvents, shortPlace } from '../../utils/eventGeo';
 import { formatCurrency, localTodayYmd } from '../../utils/formatters';
 import { CITY_LANDINGS, cityBySlug, eventMatchesCity } from '../../data/cityLandings';
 import { CATEGORIES } from '../../constants/categories';
@@ -413,7 +413,7 @@ function AttractionCard({ attraction: a }: { attraction: any }) {
         {(a.city || a.location) && (
           <p className="flex items-center gap-1 text-[11px] text-ink-mute truncate">
             <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{a.city ?? a.location}</span>
+            <span className="truncate">{shortPlace(a.location, a.city).label}</span>
           </p>
         )}
         <div className="mt-auto pt-2.5 flex items-center justify-between gap-2">

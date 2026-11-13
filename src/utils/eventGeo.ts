@@ -232,15 +232,14 @@ export function eventLocationLabel(event: {
   city?: string;
   country_code?: string;
 }): { primary: string; badge: string | null } {
+  const place = shortPlace(event.location, event.city).label;
   const abroad = isAbroadEvent(event.country_code);
   if (!abroad) {
-    return { primary: event.location, badge: null };
+    return { primary: place, badge: null };
   }
-  const flag = countryFlag(event.country_code);
-  const city = event.city ?? event.location;
   return {
-    primary: city,
-    badge: flag,
+    primary: place,
+    badge: countryFlag(event.country_code),
   };
 }
 

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency, parseLocalDate } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
+import { countryFlag, shortPlace } from '../../utils/eventGeo';
 import OptimizedImage from '../../components/common/Image';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
@@ -88,7 +88,7 @@ function EventTile({ event }: { event: EventCard }) {
         <p className="text-[12px] text-ink-mute mt-0.5 truncate capitalize">{weekday}</p>
         <div className="flex items-center gap-1.5 mt-1">
           <MapPin className="w-3 h-3 text-ink-mute flex-shrink-0" />
-          <span className="text-[11px] text-ink-mute truncate">{event.location}</span>
+          <span className="text-[11px] text-ink-mute truncate">{shortPlace(event.location).label}</span>
         </div>
       </div>
 

@@ -416,7 +416,7 @@ export default function EventDetails() {
     if (!event) return undefined;
     return (
       event.description?.replace(/\s+/g, ' ').trim().slice(0, 160) ||
-      `Achetez vos billets pour ${event.title} à ${event.location}.`
+      `Achetez vos billets pour ${event.title} à ${shortPlace(event.location, event.city).label}.`
     );
   }, [event?.description, event?.title, event?.location]);
 
@@ -434,7 +434,7 @@ export default function EventDetails() {
     if (!event) return;
     const shareData = {
       title: event.title,
-      text: `${event.title} — ${event.location}`,
+      text: `${event.title} — ${shortPlace(event.location, event.city).label}`,
       url: eventUrl ?? window.location.href,
     };
     try {
@@ -535,7 +535,7 @@ export default function EventDetails() {
               {readableTitle(event.title)}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-ink/65">
-              <span>{event.city ?? event.location}</span>
+              <span>{shortPlace(event.location, event.city).label}</span>
               <button type="button" onClick={handleShare} className="hover:text-ink">Partager</button>
               <button type="button" onClick={toggleSave} className={isSaved ? 'text-brand' : 'hover:text-ink'}>
                 {isSaved ? 'Sauvegardé' : 'Sauvegarder'}

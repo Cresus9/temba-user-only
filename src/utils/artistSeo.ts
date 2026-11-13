@@ -1,4 +1,5 @@
 import { eventPublicUrl } from './eventPath';
+import { shortPlace } from './eventGeo';
 
 export type ArtistSocial = {
   instagram?: string;
@@ -104,7 +105,7 @@ export function artistMetaDescription(opts: {
   const { name, bio, genre, city, nextShow } = opts;
   if (nextShow?.title && nextShow.date) {
     const when = formatFrDay(nextShow.date);
-    const place = nextShow.location ? ` à ${nextShow.location}` : '';
+    const place = nextShow.location ? ` à ${shortPlace(nextShow.location).label}` : '';
     return clampMeta(
       `${name}${genre ? ` (${genre})` : ''} : « ${nextShow.title} »${when ? ` le ${when}` : ''}${place}. Billets officiels sur Temba.`
     );
@@ -187,7 +188,7 @@ export function artistFaqItems(opts: {
   const next = opts.nextShow;
   const dateLine =
     next?.title && next.date
-      ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${next.location}` : ''}. Les billets s’achètent sur Temba (Orange Money, Moov, carte).`
+      ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${shortPlace(next.location).label}` : ''}. Les billets s’achètent sur Temba (Orange Money, Moov, carte).`
       : `${name} n’a pas encore de date publiée sur Temba. Dès qu’un organisateur met des billets en vente, ils apparaissent sur cette fiche.`;
   return [
     {

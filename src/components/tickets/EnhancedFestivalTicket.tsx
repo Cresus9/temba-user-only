@@ -17,6 +17,7 @@ import {
 import ResponsiveQRCode from './ResponsiveQRCode';
 import TransferTicketModal from './TransferTicketModal';
 import { formatCurrency } from '../../utils/formatters';
+import { shortPlace } from '../../utils/eventGeo';
 
 interface EnhancedFestivalTicketProps {
   ticketHolder: string;
@@ -235,8 +236,9 @@ export default function EnhancedFestivalTicket({
   const isVip = isVipTier(ticketType);
   const isUsed = ticketStatus === 'USED';
 
+  const placeLabel = shortPlace(eventLocation).label;
   const mapsHref = eventLocation
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventLocation)}`
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeLabel)}`
     : undefined;
 
   return (
@@ -451,7 +453,7 @@ export default function EnhancedFestivalTicket({
                     className="text-[13px] sm:text-[14px] font-bold text-ink leading-snug"
                     style={{ fontFamily: displayFamily }}
                   >
-                    {eventLocation || 'Lieu non précisé'}
+                    {placeLabel || 'Lieu non précisé'}
                   </p>
                   {mapsHref && (
                     <a

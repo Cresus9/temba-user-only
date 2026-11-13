@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   CalendarX,
@@ -130,13 +130,35 @@ export default function TicketPass({
       </p>
     );
 
-  const wide = layout === 'web' || (layout === 'auto' && wideScreen);
+  const wide = wideScreen || layout === 'web';
+  const frameRef = useRef<HTMLDivElement>(null);
+  const passRef = useRef<HTMLElement>(null);
+  const [fit, setFit] = useState({ scale: 1, height: 320 });
+
+  useEffect(() => {
+    if (!wide) return;
+    const frame = frameRef.current;
+    const pass = passRef.current;
+    if (!frame || !pass) return;
+    const measure = () => {
+      const avail = frame.clientWidth || 880;
+      const scale = Math.min(1, avail / 880);
+      setFit({ scale, height: Math.ceil(pass.offsetHeight * scale) });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [wide, eventTitle, state, holder, categoryName, price]);
 
   if (wide) {
     return (
+      <div ref={frameRef} className={`w-full max-w-[880px] ${className}`} style={{ height: fit.height }}>
+      <div style={{ width: 880, transform: `scale(${fit.scale})`, transformOrigin: 'top left' }}>
       <article
+        ref={passRef}
         data-ticket
-        className={`ticket-pass relative flex w-full max-w-[880px] min-h-[288px] overflow-hidden rounded-2xl bg-white text-ink shadow-[0_1px_0_rgba(3,6,30,0.04),0_18px_40px_-18px_rgba(3,6,30,0.28)] ${className}`}
+        className="ticket-pass relative flex w-[880px] min-h-[288px] overflow-hidden rounded-2xl bg-white text-ink shadow-[0_1px_0_rgba(3,6,30,0.04),0_18px_40px_-18px_rgba(3,6,30,0.28)]"
       >
         <div className="relative flex w-[268px] shrink-0 flex-col justify-between overflow-hidden px-5 py-[18px] text-white" style={{ background: head.bg }}>
           <DomePattern variant={head.variant} className="opacity-90" />
@@ -273,6 +295,8 @@ export default function TicketPass({
           )}
         </div>
       </article>
+      </div>
+      </div>
     );
   }
 

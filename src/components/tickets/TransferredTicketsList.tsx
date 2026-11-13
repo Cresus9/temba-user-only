@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import EnhancedFestivalTicket from './EnhancedFestivalTicket';
 import { formatCurrency } from '../../utils/formatters';
+import { shortPlace } from '../../utils/eventGeo';
 import Image from '../common/Image';
 
 interface TransferredTicketsListProps {
@@ -167,7 +168,7 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
                     <span aria-hidden className="text-line">·</span>
                     <span className="inline-flex items-center gap-1.5 truncate min-w-0">
                       <MapPin className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{ticket.ticket.event.location}</span>
+                      <span className="truncate">{shortPlace(ticket.ticket.event.location).label}</span>
                     </span>
                   </div>
 

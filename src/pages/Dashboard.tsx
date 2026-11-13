@@ -6,7 +6,6 @@ import {
   CreditCard,
   ChevronRight,
   Loader,
-  TrendingUp,
   Clock,
   MapPin,
   AlertCircle,
@@ -19,7 +18,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/userService';
 import { transferredTicketsService, type TransferredTicket } from '../services/transferredTicketsService';
-import { formatCurrency } from '../utils/formatters';
+import { formatCalendarDate, formatCurrency } from '../utils/formatters';
+import { shortPlace } from '../utils/eventGeo';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import toast from 'react-hot-toast';
 import type { DashboardStats } from '../services/userService';
@@ -179,16 +179,13 @@ export default function Dashboard() {
                   À venir
                 </p>
               </div>
-              <div className="flex items-baseline gap-2">
-                <p
-                  className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
-                  style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-                >
-                  {dashboardData.stats.upcomingEvents}
-                </p>
-                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-              </div>
-              <p className="text-[11px] text-ink-mute mt-1">événements</p>
+              <p
+                className="text-[28px] font-bold text-ink tabular-nums leading-none tracking-tight"
+                style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
+              >
+                {dashboardData.stats.upcomingEvents}
+              </p>
+              <p className="text-[11px] text-ink-mute mt-1">à venir</p>
             </article>
 
             {/* Total tickets */}
@@ -290,69 +287,46 @@ export default function Dashboard() {
 
             {dashboardData.recentOrders.length > 0 ? (
               <div className="divide-y divide-line">
-                {dashboardData.recentOrders.map((order) => (
+                {dashboardData.recentOrders.map((order) => {
+                  const place = shortPlace(order.location).label;
+                  const when = order.date
+                    ? formatCalendarDate(order.date, { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '';
+                  const ref = String(order.id).slice(0, 8).toUpperCase();
+                  const statusLabel = order.status === 'COMPLETED'
+                    ? 'Payée'
+                    : order.status === 'AWAITING_PAYMENT'
+                    ? 'En attente'
+                    : order.status === 'CANCELLED'
+                    ? 'Annulée'
+                    : order.status;
+                  const statusClass = order.status === 'COMPLETED'
+                    ? 'bg-[#E6F4EE] text-[#0B7A52]'
+                    : order.status === 'AWAITING_PAYMENT'
+                    ? 'bg-[#FFF5E0] text-[#8A5A00]'
+                    : order.status === 'CANCELLED'
+                    ? 'bg-[#FCEBEA] text-[#C42B25]'
+                    : 'bg-surf text-ink-2';
+                  return (
                   <div
                     key={order.id}
                     onClick={() => navigate(`/profile/bookings`)}
-                    className="flex flex-col md:flex-row md:items-center justify-between p-4 hover:bg-cream transition-colors cursor-pointer group"
+                    className="grid cursor-pointer grid-cols-1 items-center gap-3 px-5 py-4 hover:bg-surf md:grid-cols-[minmax(0,1.6fr)_150px_minmax(160px,1fr)_110px_120px_100px] md:gap-4"
                   >
-                    <div className="mb-3 md:mb-0 min-w-0 flex-1">
-                      <h3 className="text-[14px] font-bold text-ink group-hover:text-brand transition-colors truncate">
-                        {order.eventName}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-mute mt-1">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {new Date(order.date).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
-                        <span aria-hidden className="text-line">·</span>
-                        <span className="inline-flex items-center gap-1.5 truncate">
-                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                          <span className="truncate">{order.location}</span>
-                        </span>
-                        <span aria-hidden className="text-line">·</span>
-                        <span
-                          className="text-ink-mute/85 tabular-nums"
-                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-                        >
-                          ORD · {String(order.id).slice(0, 8).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p
-                          className="text-[14px] font-bold text-ink tabular-nums tracking-tight"
-                          style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
-                        >
-                          {formatCurrency(order.total, order.currency)}
-                        </p>
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] mt-0.5 ${
-                            order.status === 'COMPLETED'
-                              ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                              : order.status === 'AWAITING_PAYMENT'
-                              ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-200'
-                              : order.status === 'CANCELLED'
-                              ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
-                              : 'bg-cream text-ink-mute ring-1 ring-line'
-                          }`}
-                        >
-                          {order.status === 'COMPLETED'
-                            ? 'Terminée'
-                            : order.status === 'AWAITING_PAYMENT'
-                            ? 'En attente'
-                            : 'Annulée'}
-                        </span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-ink-mute group-hover:text-brand transition-colors flex-shrink-0" />
-                    </div>
+                    <p className="truncate font-display text-[16px] font-bold text-ink">{order.eventName}</p>
+                    <p className="text-[14px] text-ink-2">{when}</p>
+                    <p className="flex min-w-0 items-center gap-1.5 text-[14px] text-ink-2">
+                      <MapPin className="h-4 w-4 shrink-0 text-ink-3" />
+                      <span className="truncate">{place}</span>
+                    </p>
+                    <p className="font-mono text-[13px] text-ink-3">EX-{ref}</p>
+                    <p className="font-display text-[15px] font-bold tabular-nums">{formatCurrency(order.total, order.currency)}</p>
+                    <span className={`inline-flex h-7 w-fit items-center rounded-md px-2 text-[12px] font-semibold ${statusClass}`}>
+                      {statusLabel}
+                    </span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12 px-4">
@@ -414,7 +388,7 @@ export default function Dashboard() {
                         <span aria-hidden className="text-line">·</span>
                         <span className="inline-flex items-center gap-1.5 truncate">
                           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                          <span className="truncate">{transfer.ticket.event.location}</span>
+                          <span className="truncate">{shortPlace(transfer.ticket.event.location).label}</span>
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-1.5">

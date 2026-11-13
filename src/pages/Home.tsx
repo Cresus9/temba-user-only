@@ -176,7 +176,7 @@ export default function Home() {
                 </p>
                 <p className="mt-1 font-display text-[19px] font-bold leading-tight tracking-[-0.02em]">{hero.title}</p>
                 <div className="mt-3 flex items-center justify-between text-[14px]">
-                  <span className="truncate text-ink-3">{hero.location}</span>
+                  <span className="truncate text-ink-3">{shortPlace(hero.location, hero.city).label}</span>
                   <b className="tabular-nums">{heroPrice?.label}</b>
                 </div>
               </div>

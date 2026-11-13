@@ -323,7 +323,7 @@ export default function ArtistProfile() {
                 <div className="w-full rounded-xl border border-line p-5 md:w-[340px]">
                   <p className="eyebrow">Prochain concert</p>
                   <p className="mt-1 font-display text-[18px] font-bold">{nextShow.title}</p>
-                  <p className="mt-1 text-[14px] text-ink-3">{nextShow.location}</p>
+                  <p className="mt-1 text-[14px] text-ink-3">{shortPlace(nextShow.location).label}</p>
                   <div className="mt-4 flex items-center justify-between">
                     <b className="tabular-nums">{nextShow.price === 0 ? 'Gratuit' : formatCurrency(nextShow.price, nextShow.currency)}</b>
                     <Link to={eventPublicPath(nextShow)} className="inline-flex h-10 items-center rounded-lg bg-brand px-3 text-[14px] font-semibold text-white">Billets</Link>

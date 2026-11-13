@@ -12,6 +12,7 @@ import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
+import { shortPlace } from '../utils/eventGeo';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -200,7 +201,7 @@ export default function Checkout() {
               ) : null}
               <div>
                 <p className="font-display text-[16px] font-bold leading-snug">{events.find((item) => item.id === state.eventId)?.title || 'Votre commande'}</p>
-                <p className="mt-1 text-[13.5px] text-ink-3">{events.find((item) => item.id === state.eventId)?.location}</p>
+                <p className="mt-1 text-[13.5px] text-ink-3">{shortPlace(events.find((item) => item.id === state.eventId)?.location, events.find((item) => item.id === state.eventId)?.city).label}</p>
               </div>
             </div>
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 font-display text-[20px] font-bold">

@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase-client';
 import { formatCurrency } from '../../utils/formatters';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
+import { shortPlace } from '../../utils/eventGeo';
 
 interface TagRow {
   id: string;
@@ -123,7 +124,7 @@ export default function TagPage() {
                   {event.image_url && <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden"><img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>}
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-bold text-ink truncate group-hover:text-brand transition-colors" style={{fontFamily:display}}>{event.title}</p>
-                    <div className="flex items-center gap-1.5 mt-1"><MapPin className="w-3 h-3 text-ink-mute" /><span className="text-[11px] text-ink-mute truncate">{event.location}</span></div>
+                    <div className="flex items-center gap-1.5 mt-1"><MapPin className="w-3 h-3 text-ink-mute" /><span className="text-[11px] text-ink-mute truncate">{shortPlace(event.location).label}</span></div>
                   </div>
                   <span className="text-[12px] font-bold text-brand flex-shrink-0">{event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}</span>
                 </Link>
