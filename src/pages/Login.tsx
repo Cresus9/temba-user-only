@@ -366,6 +366,13 @@ export default function Login() {
             Créer un compte
           </Link>
         </p>
+        <Link
+          to="/find-tickets"
+          className="mt-4 flex items-center justify-between rounded-xl bg-surf px-4 py-3 text-[14px] text-ink-2 hover:text-ink"
+        >
+          <span>Acheté sans compte ? <b className="text-ink">Retrouver mes billets</b></span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
 
       {/* Tiny security strip */}

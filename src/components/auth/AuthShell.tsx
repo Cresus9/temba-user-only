@@ -94,7 +94,7 @@ export default function AuthShell({
                 ticketCode="EXEMPLE"
                 indexLabel="1/1"
                 orderCode="EXEMPLE"
-                width={300}
+                layout="phone"
               />
             </div>
             <div className="max-w-[320px] px-6 text-center">

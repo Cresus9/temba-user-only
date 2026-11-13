@@ -189,7 +189,10 @@ export default function VenuesDirectory() {
           <div className="py-16 border-y border-line">
             <Building2 className="w-6 h-6 text-ink-mute mb-3" />
             <p className="text-[18px] font-semibold text-ink" style={{ fontFamily: display }}>
-              Aucun lieu trouvé
+              Aucun lieu pour cette recherche
+            </p>
+            <p className="mt-2 max-w-md text-[14px] text-ink-mute">
+              Essayez une autre ville ou effacez la recherche.
             </p>
             <button
               type="button"

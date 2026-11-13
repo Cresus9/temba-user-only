@@ -35,3 +35,16 @@ Relevé par l’audit du 13 nov. 2026, laissé en place :
 - Auteur de blog « Afrtix ».
 
 Le libellé public « Sans code pour les tests » sur `/find-tickets` a été retiré de l’interface. Les enregistrements de test n’ont pas été touchés.
+
+## Compte (non affiché tant que la donnée n’existe pas)
+
+- **Favoris / suivre** un artiste, un lieu ou un organisateur. Aucune table publique n’est lue par le site aujourd’hui. Le bouton « Suivre » du design n’est pas affiché.
+- **Moyens de paiement enregistrés** au-delà de l’écran déjà branché sur les données existantes de `/profile/payments`. Pas de carte inventée.
+- **Sessions / appareils connectés** et « me déconnecter des autres appareils » à la réinitialisation. L’écran `/reset-password` change le mot de passe via le lien Supabase, sans liste d’appareils.
+- **Préférence de langue** du compte. L’interface reste en français.
+- **Connexion par code SMS** (`signInWithOtp`). Le site garde e-mail ou téléphone **plus mot de passe**. L’onglet SMS du design n’est pas ajouté.
+- **Vérification par code à 6 chiffres** saisi dans la page. L’oubli de mot de passe envoie le lien Supabase existant (`resetPasswordForEmail`), pas un écran OTP.
+- **Apple Wallet / Google Wallet**. Aucun fichier `.pkpass` ni API Wallet. Le bouton Wallet n’est pas affiché.
+- **Type de lieu** (salle, musée, stade…). Le catalogue `/venues` montre le nom, la ville et le nombre de dates, pas une catégorie inventée.
+- **Adresse courte officielle** distincte de la chaîne OpenStreetMap (rue, quartier, GPS). L’affichage public dérive « nom · ville » et ne montre jamais les coordonnées. L’itinéraire ouvre la carte sans imprimer la latitude ni la longitude.
+

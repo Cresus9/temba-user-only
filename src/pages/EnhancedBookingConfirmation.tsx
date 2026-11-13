@@ -9,6 +9,10 @@ import {
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import TicketPass from '../components/design/TicketPass';
+import TicketsDesk from '../components/design/TicketsDesk';
+import TransferTicketModal from '../components/tickets/TransferTicketModal';
+import { shortPlace } from '../utils/eventGeo';
+import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import { generateTicketPNG } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
@@ -80,6 +84,7 @@ export default function EnhancedBookingConfirmation() {
   const [downloadingTicket, setDownloadingTicket] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [transferTicket, setTransferTicket] = useState<{ id: string; title: string } | null>(null);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [addedToCalendar, setAddedToCalendar] = useState(false);
 
@@ -102,7 +107,7 @@ export default function EnhancedBookingConfirmation() {
     : 'Confirmation de réservation';
 
   const pageDescription = firstTicket && orderSummary
-    ? `Vos billets pour ${firstTicket.event.title} le ${(() => { const [y,m,d] = firstTicket.event.date.split('T')[0].split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('fr-FR'); })()} à ${firstTicket.event.location}. Montant total : ${orderSummary.total_amount} ${orderSummary.currency}.`
+    ? `Vos billets pour ${firstTicket.event.title} le ${(() => { const [y,m,d] = firstTicket.event.date.split('T')[0].split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('fr-FR'); })()} à ${shortPlace(firstTicket.event.location).label}. Montant total : ${orderSummary.total_amount} ${orderSummary.currency}.`
     : 'Consultez la confirmation de votre réservation et téléchargez vos billets sur Temba.';
 
   const breadcrumbSchema = useMemo(() => ({
@@ -783,7 +788,7 @@ export default function EnhancedBookingConfirmation() {
     const startTime = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const endTime = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ticket.event.title)}&dates=${startTime}/${endTime}&location=${encodeURIComponent(ticket.event.location)}&details=${encodeURIComponent(`Votre billet pour ${ticket.event.title}. ID: ${ticket.id}`)}`;
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ticket.event.title)}&dates=${startTime}/${endTime}&location=${encodeURIComponent(shortPlace(ticket.event.location).label)}&details=${encodeURIComponent(`Votre billet pour ${ticket.event.title}. ID: ${ticket.id}`)}`;
     
     window.open(calendarUrl, '_blank');
     setAddedToCalendar(true);
@@ -867,272 +872,71 @@ export default function EnhancedBookingConfirmation() {
     );
   }
 
-  const mainTicket = tickets[0];
+  const paidDay = orderSummary?.booking_date
+    ? formatCalendarDate(orderSummary.booking_date, { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
+  const paidTime = orderSummary?.booking_date?.includes('T') ? formatEventTime(orderSummary.booking_date) : '';
+  const paidAt = [paidDay, paidTime].filter(Boolean).join(' à ') || null;
 
   return (
-    <div className="min-h-screen bg-paper">
+    <>
       <PageSEO
         title={pageTitle}
         description={pageDescription}
         canonicalUrl={`https://tembas.com/profile/bookings/${bookingId ?? ''}`}
         ogImage={firstTicket?.event?.image_url}
-        keywords={[
-          'confirmation billet temba',
-          'réservation événement',
-          firstTicket?.event?.title || 'billet Temba',
-        ]}
+        keywords={['confirmation billet temba', firstTicket?.event?.title || 'billet Temba']}
         structuredData={structuredData}
+        robots="noindex, nofollow"
       />
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            Retour au tableau de bord
-          </button>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors"
-            >
-              <Share2 className="h-4 w-4" />
-              Partager
-            </button>
-          </div>
-        </div>
-
-        {/* Success Header */}
-        <div className="text-center mb-12">
-          <div className="relative inline-block">
-            <div className="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-75"></div>
-            <div className="relative inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
-              <Check className="h-10 w-10 text-green-600" />
-            </div>
-          </div>
-          
-          <h1 className="font-display text-[32px] font-bold tracking-tight text-ink md:text-[40px]">
-            Paiement reçu. Vos billets sont prêts.
-          </h1>
-          <p className="mt-2 text-[16px] text-ink-3">
-            Présentez le QR à l'entrée, même sans réseau.
-          </p>
-        </div>
-
-
-
-        {/* Order Summary */}
-        {orderSummary && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Résumé de commande</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-xl">
-                <div className="text-2xl font-bold text-indigo-600">
-                  {formatCurrency(orderSummary.total_amount, orderSummary.currency)}
-                </div>
-                <div className="text-sm text-gray-600">Total payé</div>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-xl">
-                <div className="text-2xl font-bold text-gray-900">{tickets.length}</div>
-                <div className="text-sm text-gray-600">Billet{tickets.length > 1 ? 's' : ''}</div>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-xl">
-                <div className="text-lg font-bold text-gray-900 capitalize">
-                  {orderSummary.payment_method || 'Mobile Money'}
-                </div>
-                <div className="text-sm text-gray-600">Mode de paiement</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tickets Display */}
-        <div className="space-y-8 mb-8">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <Ticket className="h-6 w-6 text-indigo-600" />
-              Vos billets ({tickets.length})
-            </h3>
-            <div className="text-sm text-gray-500">
-              Cliquez sur un billet pour l'agrandir
-            </div>
-          </div>
-          
-          {tickets.map((ticket, index) => (
-            <div key={ticket.id} data-ticket className="flex justify-center">
-              <TicketPass
-                eventTitle={ticket.event.title}
-                eventDate={ticket.event.date}
-                eventTime={ticket.event.time}
-                venue={ticket.event.location}
-                holder={profile?.name || user?.email?.split('@')[0] || 'Détenteur'}
-                categoryName={ticket.ticket_type.name}
-                price={ticket.ticket_type.price}
-                qrValue={ticket.qr_code}
-                ticketCode={ticket.id.slice(0, 8).toUpperCase()}
-                indexLabel={`${index + 1}/${tickets.length}`}
-                orderCode={bookingId ? String(bookingId).slice(0, 8).toUpperCase() : undefined}
-                state="valid"
-              />
-            </div>
-          ))}
-          
-          {/* Ticket Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            <button
-              onClick={handleDownloadTickets}
-              disabled={downloadingTicket}
-              className="flex items-center justify-center gap-3 p-4 bg-white rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 border border-gray-100"
-            >
-              {downloadingTicket ? (
-                <Loader className="h-5 w-5 animate-spin text-indigo-600" />
-              ) : (
-                <Download className="h-5 w-5 text-indigo-600" />
-              )}
-              <span className="font-medium">Télécharger</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center justify-center gap-3 rounded-xl border border-line bg-white p-4 font-medium"
-            >
-              <span>Imprimer / PDF</span>
-            </button>
-
-            <button
-              onClick={handleAddToCalendar}
-              className={`flex items-center justify-center gap-3 p-4 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100 ${
-                addedToCalendar 
-                  ? 'bg-green-50 text-green-700' 
-                  : 'bg-white hover:bg-gray-50'
-              }`}
-            >
-              {addedToCalendar ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <Calendar className="h-5 w-5 text-gray-600" />
-              )}
-              <span className="font-medium">
-                {addedToCalendar ? 'Ajouté au calendrier' : 'Ajouter au calendrier'}
-              </span>
-            </button>
-
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mainTicket.event.location)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 p-4 bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100"
-            >
-              <MapPin className="h-5 w-5 text-red-500" />
-              <span className="font-medium">Voir sur Maps</span>
-              <ExternalLink className="h-4 w-4 text-gray-400" />
-            </a>
-          </div>
-        </div>
-
-        {/* Event Description - Only if available and unique info */}
-        {mainTicket.event.description && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Music className="h-5 w-5 text-indigo-600" />
-              À propos de l'événement
-            </h3>
-            <p className="text-gray-600 leading-relaxed">{mainTicket.event.description}</p>
-          </div>
-        )}
-
-        {/* Important Information */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-6 mb-8 border border-amber-200">
-          <h3 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-600" />
-            Informations importantes
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ul className="space-y-3 text-amber-800">
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 mt-1 text-amber-600 flex-shrink-0" />
-                <span className="text-sm">Arrivez 30 minutes avant le début</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 mt-1 text-amber-600 flex-shrink-0" />
-                <span className="text-sm">Code QR requis pour l'entrée</span>
-              </li>
-            </ul>
-            <ul className="space-y-3 text-amber-800">
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 mt-1 text-amber-600 flex-shrink-0" />
-                <span className="text-sm">Respectez le code vestimentaire</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 mt-1 text-amber-600 flex-shrink-0" />
-                <span className="text-sm">Support disponible 24/7</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="text-center">
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
-          >
-            <Users className="h-5 w-5" />
-            Voir toutes vos réservations
-          </Link>
-        </div>
-      </div>
-
-      {/* Share Modal */}
+      <TicketsDesk
+        tickets={tickets.map((ticket) => ({
+          id: ticket.id,
+          eventTitle: ticket.event.title,
+          eventDate: ticket.event.date,
+          eventTime: ticket.event.time,
+          venue: ticket.event.location,
+          holder: profile?.name || user?.email?.split('@')[0] || 'Détenteur',
+          categoryName: ticket.ticket_type.name,
+          price: ticket.ticket_type.price,
+          qrValue: ticket.qr_code,
+          ticketCode: ticket.id.slice(0, 8).toUpperCase(),
+          orderCode: bookingId ? String(bookingId).slice(0, 8).toUpperCase() : undefined,
+          state: 'valid' as const,
+          image: ticket.event.image_url,
+        }))}
+        paymentLabel={orderSummary?.payment_method || null}
+        paidAtLabel={paidAt}
+        phoneHint={profile?.phone}
+        emailHint={profile?.email || user?.email}
+        total={orderSummary?.total_amount}
+        onDownload={handleDownload}
+        onCalendar={handleAddToCalendar}
+        onTransfer={user ? (ticket) => setTransferTicket({ id: ticket.id, title: ticket.eventTitle }) : undefined}
+        onShare={() => setShowShareModal(true)}
+      />
       {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998] p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Partager vos billets</h3>
-            
-            <div className="space-y-3">
-              <button
-                onClick={handleCopyLink}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                  copiedToClipboard 
-                    ? 'bg-green-50 text-green-700' 
-                    : 'bg-gray-50 hover:bg-gray-100'
-                }`}
-              >
-                {copiedToClipboard ? (
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                ) : (
-                  <Copy className="h-5 w-5 text-gray-600" />
-                )}
-                <span className="font-medium">
-                  {copiedToClipboard ? 'Lien copié !' : 'Copier le lien'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const text = `Je vais à ${mainTicket.event.title} ! 🎉`;
-                  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
-                  window.open(url, '_blank');
-                }}
-                className="w-full flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
-              >
-                <MessageCircle className="h-5 w-5 text-blue-600" />
-                <span className="font-medium text-blue-700">Partager sur Twitter</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowShareModal(false)}
-              className="w-full mt-4 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#03061E]/50 px-4" onClick={() => setShowShareModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5" onClick={(event) => event.stopPropagation()}>
+            <p className="font-display text-[18px] font-bold">Partager</p>
+            <button type="button" onClick={handleCopyLink} className="btn btn-secondary mt-4 h-11 w-full">
+              {copiedToClipboard ? 'Lien copié' : 'Copier le lien'}
+            </button>
+            <button type="button" onClick={() => setShowShareModal(false)} className="mt-2 h-11 w-full text-[14px] text-ink-3">
               Fermer
             </button>
           </div>
         </div>
       )}
-    </div>
+      {transferTicket && (
+        <TransferTicketModal
+          isOpen
+          onClose={() => setTransferTicket(null)}
+          ticketId={transferTicket.id}
+          ticketTitle={transferTicket.title}
+          onTransferComplete={() => setTransferTicket(null)}
+        />
+      )}
+    </>
   );
 }

@@ -10,6 +10,7 @@ import {
 import DomePattern from './DomePattern';
 import Logo from '../brand/Logo';
 import { formatCalendarDate, formatEventTime } from '../../utils/formatters';
+import { shortPlace, mapsSearchUrl } from '../../utils/eventGeo';
 import { inferTicketTier, ticketNameFr, tierLabel, type TicketTier, type TicketVisualState } from '../../utils/labels';
 
 export interface TicketPassProps {
@@ -27,6 +28,7 @@ export interface TicketPassProps {
   orderCode?: string | null;
   state?: TicketVisualState;
   tier?: TicketTier;
+  onEnlarge?: () => void;
   /** Multi-day chips. Hidden when absent — needs a future DB field. */
   days?: { label: string; detail: string; state?: 'done' | 'today' | 'upcoming' }[];
   /** Scan place. Hidden when absent. */
@@ -35,6 +37,8 @@ export interface TicketPassProps {
   transferDetail?: string | null;
   width?: number;
   className?: string;
+  /** `phone` keeps the vertical pass even on a wide screen (auth preview). */
+  layout?: 'auto' | 'web' | 'phone';
 }
 
 function mapHead(tier: TicketTier, state: TicketVisualState) {
@@ -59,12 +63,14 @@ export default function TicketPass({
   orderCode,
   state = 'valid',
   tier,
+  onEnlarge,
   days,
   gate,
   scannedDetail,
   transferDetail,
   width = 342,
   className = '',
+  layout = 'auto',
 }: TicketPassProps) {
   const resolvedTier = tier ?? inferTicketTier(categoryName, price);
   const head = mapHead(resolvedTier, state);
@@ -75,9 +81,20 @@ export default function TicketPass({
     ? formatCalendarDate(eventDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
   const timeLabel = formatEventTime(eventTime);
-  const place = [venue, city].filter(Boolean).join(' · ');
+  const placeInfo = shortPlace(venue, city);
+  const place = placeInfo.label;
+  const directions = mapsSearchUrl(place);
   const muted = state === 'scanned' || state === 'transferred' || state === 'cancelled';
   const [clock, setClock] = useState('');
+  const [wideScreen, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   useEffect(() => {
     const tick = () => {
@@ -96,8 +113,172 @@ export default function TicketPass({
     return () => window.clearInterval(id);
   }, []);
 
+  const live =
+    state === 'valid' || state === 'postponed' || state === 'offline' ? (
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[#0B7A52] shadow-[0_0_0_3px_rgba(11,122,82,0.18)]" />
+        <span className="ticket-live-track relative h-2 w-[72px] overflow-hidden rounded-sm bg-[#ECECFD]">
+          <span className="ticket-live-dot absolute inset-y-0 w-2 rounded-sm bg-brand" />
+        </span>
+        <b className="font-mono text-[12px] font-semibold tabular-nums">{clock}</b>
+      </div>
+    ) : (
+      <p className={`text-[12px] font-semibold ${state === 'cancelled' ? 'text-[#C42B25]' : 'text-ink-3'}`}>
+        {state === 'scanned' && 'Utilisé'}
+        {state === 'transferred' && 'Transféré'}
+        {state === 'cancelled' && 'Annulé'}
+      </p>
+    );
+
+  const wide = layout === 'web' || (layout === 'auto' && wideScreen);
+
+  if (wide) {
+    return (
+      <article
+        data-ticket
+        className={`ticket-pass relative flex w-full max-w-[880px] min-h-[288px] overflow-hidden rounded-2xl bg-white text-ink shadow-[0_1px_0_rgba(3,6,30,0.04),0_18px_40px_-18px_rgba(3,6,30,0.28)] ${className}`}
+      >
+        <div className="relative flex w-[268px] shrink-0 flex-col justify-between overflow-hidden px-5 py-[18px] text-white" style={{ background: head.bg }}>
+          <DomePattern variant={head.variant} className="opacity-90" />
+          <div className="relative flex items-start justify-between gap-2">
+            <Logo variant="onBlue" size={18} />
+            {tagIsVip ? (
+              <span className="font-display text-[32px] font-extrabold leading-none tracking-tight text-[#F6B84A]">VIP</span>
+            ) : (
+              <span
+                className={`rounded-md border-[1.5px] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${
+                  tagIsGuest ? 'border-[#F6B84A] text-[#F6B84A]' : 'border-white/75 text-white'
+                }`}
+              >
+                {category}
+              </span>
+            )}
+          </div>
+          <div className="relative mt-4">
+            <h3 className="font-display text-[20px] font-bold leading-[1.08] tracking-[-0.02em]">{eventTitle}</h3>
+            <div className="mt-4 flex gap-5">
+              {dateLabel ? (
+                <div>
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-white/75">Date</span>
+                  <b className={`mt-0.5 block text-[14px] font-semibold ${state === 'postponed' ? 'line-through opacity-70' : ''}`}>{dateLabel}</b>
+                </div>
+              ) : null}
+              {timeLabel ? (
+                <div>
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-white/75">Ouverture</span>
+                  <b className="mt-0.5 block text-[14px] font-semibold">{timeLabel}</b>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="relative flex min-w-0 flex-1 flex-col px-5 py-4">
+          {(resolvedTier === 'vip' || resolvedTier === 'guest') && (
+            <div className="absolute inset-y-0 left-0 w-[3px] bg-[#F6B84A]" />
+          )}
+          {state === 'postponed' && (
+            <p className="mb-3 rounded-lg bg-[#FFF5E0] px-3 py-2 text-[13px] text-[#8A5A00]">
+              <b className="font-semibold">Événement reporté.</b> Billet valable pour la nouvelle date.
+            </p>
+          )}
+          {state === 'offline' && (
+            <p className="mb-3 rounded-lg bg-[#E6F4EE] px-3 py-2 text-[13px] text-[#0B7A52]">
+              <b className="font-semibold">Hors ligne.</b> Scannable sans réseau.
+            </p>
+          )}
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            {holder ? (
+              <div className="min-w-0">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Détenteur</dt>
+                <dd className="mt-0.5 truncate text-[15px] font-semibold">{holder}</dd>
+              </div>
+            ) : null}
+            <div className="min-w-0">
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Catégorie</dt>
+              <dd className="mt-0.5 text-[15px] font-semibold leading-snug">
+                {ticketNameFr(categoryName) || category}
+                {typeof price === 'number' && price > 0 ? (
+                  <span className="ml-1 font-medium text-ink-2">{price.toLocaleString('fr-FR')} FCFA</span>
+                ) : null}
+              </dd>
+            </div>
+            {place ? (
+              <div className="col-span-2 min-w-0">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Lieu</dt>
+                <dd className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[15px] font-semibold">
+                  <span>{place}</span>
+                  <a href={directions} target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-brand">
+                    Itinéraire
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+            <div className="min-w-0">
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Billet</dt>
+              <dd className="mt-0.5 truncate font-mono text-[13px] font-semibold">{ticketCode || '—'}{indexLabel ? ` · ${indexLabel}` : ''}</dd>
+            </div>
+            {orderCode ? (
+              <div className="min-w-0">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Commande</dt>
+                <dd className="mt-0.5 truncate font-mono text-[13px] font-semibold">{orderCode}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <footer className="mt-auto flex items-center justify-between pt-3 text-[12px] font-medium text-ink-3">
+            <span>Billet nominatif · 1 QR = 1 entrée</span>
+            <Logo variant="mark" size={16} className={muted ? 'opacity-50 grayscale' : ''} />
+          </footer>
+        </div>
+
+        <div className="relative w-0 shrink-0">
+          <span className="absolute inset-y-3 left-0 border-l-2 border-dashed border-line" />
+          <span className="absolute -left-[11px] -top-[11px] h-[22px] w-[22px] rounded-full bg-white shadow-[inset_0_-1px_0_#E6E7EE]" />
+          <span className="absolute -bottom-[11px] -left-[11px] h-[22px] w-[22px] rounded-full bg-white shadow-[inset_0_1px_0_#E6E7EE]" />
+        </div>
+
+        <div className="relative flex w-[216px] shrink-0 flex-col items-center justify-between px-3 py-4">
+          <div className={`rounded-lg bg-white p-2 ${muted ? 'opacity-[0.18] blur-[1px]' : ''}`}>
+            {qrValue ? (
+              <QRCodeSVG value={qrValue} size={156} level="M" includeMargin={false} />
+            ) : (
+              <div className="grid h-[156px] w-[156px] place-items-center text-[12px] text-ink-3">QR indisponible</div>
+            )}
+          </div>
+          {live}
+          <div className="text-center font-mono text-[11px] text-ink-3">
+            {ticketCode || '—'}
+          </div>
+          <button
+            type="button"
+            onClick={onEnlarge}
+            className="text-[13px] font-semibold text-brand"
+          >
+            Agrandir
+          </button>
+          {state === 'scanned' && (
+            <div className="absolute inset-x-2 top-16 text-center">
+              <b className="font-display text-[16px]">Déjà scanné</b>
+            </div>
+          )}
+          {state === 'transferred' && (
+            <div className="absolute inset-x-2 top-16 text-center">
+              <b className="font-display text-[16px]">Transféré</b>
+            </div>
+          )}
+          {state === 'cancelled' && (
+            <div className="absolute inset-x-2 top-16 text-center text-[#C42B25]">
+              <b className="font-display text-[16px]">Annulé</b>
+            </div>
+          )}
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article
+      data-ticket
       className={`ticket-pass relative overflow-hidden rounded-2xl bg-white text-ink shadow-[0_1px_0_rgba(3,6,30,0.04),0_12px_32px_-12px_rgba(3,6,30,0.22)] ${className}`}
       style={{ width, maxWidth: '100%' }}
     >
@@ -170,7 +351,12 @@ export default function TicketPass({
           {place ? (
             <div className="col-span-2 min-w-0">
               <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-3">Lieu</dt>
-              <dd className="mt-1 text-[16px] font-semibold leading-snug">{place}</dd>
+              <dd className="mt-1 text-[16px] font-semibold leading-snug">
+                {place}
+                <a href={directions} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[13px] font-semibold text-brand">
+                  Itinéraire
+                </a>
+              </dd>
             </div>
           ) : null}
           {gate ? (

@@ -7,7 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency, parseLocalDate, localTodayYmd } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
+import { countryFlag, shortPlace } from '../../utils/eventGeo';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
 import {
@@ -477,7 +477,7 @@ export default function ArtistProfile() {
                                   </p>
                                   <p className="mt-1 text-[12px] text-ink-mute truncate">
                                     {event.role ? `${ARTIST_ROLE_FR[event.role] || event.role} · ` : ''}
-                                    {event.location}
+                                    {shortPlace(event.location).label}
                                   </p>
                                 </div>
                               </div>

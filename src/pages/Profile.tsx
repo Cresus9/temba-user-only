@@ -162,7 +162,13 @@ export default function Profile() {
                     </div>
                   </div>
                 ))}
-                <div className="pt-2 mt-2 border-t border-line">
+                <div className="pt-2 mt-2 border-t border-line space-y-0.5">
+                  <Link
+                    to="/account-deletion"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-ink-2 hover:bg-cream hover:text-ink"
+                  >
+                    Supprimer mon compte
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-red-600 hover:bg-red-50 transition-colors"

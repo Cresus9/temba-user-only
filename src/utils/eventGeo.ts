@@ -356,3 +356,22 @@ export function fullAddressDisplay(event: {
   if (country && event.country_code !== 'BF') parts.push(country.nameFr);
   return parts.join(', ');
 }
+
+/** Venue name and city only. Drops street lines, regions, and GPS pairs. */
+export function shortPlace(raw?: string | null, cityHint?: string | null): { venue: string; city: string; label: string } {
+  let text = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  text = text.replace(/,?\s*-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\s*$/g, '').trim();
+  text = text.replace(/\s+-?\d{1,3}\.\d{3,}\s+-?\d{1,3}\.\d{3,}\s*$/g, '').trim();
+  text = text.replace(/,?\s*burkina faso\s*$/i, '').trim();
+  const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
+  const cityFromParts = parts.find((part) => /^(ouagadougou|bobo-dioulasso|bobo dioulasso|abidjan|dakar)$/i.test(part)) ?? '';
+  const city = (cityHint || cityFromParts).trim();
+  const venue = (parts[0] || text).trim();
+  const includesCity = Boolean(city) && venue.toLowerCase().includes(city.toLowerCase());
+  const label = [venue, includesCity ? '' : city].filter(Boolean).join(' · ');
+  return { venue: venue || 'Lieu', city, label: label || venue || 'Lieu' };
+}
+
+export function mapsSearchUrl(label: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
+}

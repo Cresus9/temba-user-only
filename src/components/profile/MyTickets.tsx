@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase-client';
 import { useAuth } from '../../context/AuthContext';
 import TicketPass from '../design/TicketPass';
 import { ticketStateFromRecord } from '../../utils/labels';
+import { shortPlace } from '../../utils/eventGeo';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { generateTicketPNG } from '../../utils/ticketService';
 import { formatCurrency } from '../../utils/formatters';
@@ -391,7 +392,7 @@ export default function MyTickets() {
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 truncate min-w-0">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{ticket.event.location}</span>
+                        <span className="truncate">{shortPlace(ticket.event.location).label}</span>
                       </span>
                     </div>
 

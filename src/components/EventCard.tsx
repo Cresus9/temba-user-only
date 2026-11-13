@@ -4,6 +4,7 @@ import { Event } from '../types/event';
 import { eventPublicPath } from '../utils/eventPath';
 import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import { eventPricePresentation } from '../utils/labels';
+import { shortPlace } from '../utils/eventGeo';
 
 interface EventCardProps extends Event {
   className?: string;
@@ -33,7 +34,7 @@ const EventCard = memo(({
     : date
       ? `${formatCalendarDate(date, { weekday: 'short', day: 'numeric', month: 'short' }, tz)}${formatEventTime(time) ? ` · ${formatEventTime(time)}` : ''}`
       : 'Date à confirmer';
-  const place = [location, city].filter(Boolean).join(' · ');
+  const place = shortPlace(location, city).label;
   const priceInfo = eventPricePresentation({ price, currency, ticket_types });
 
   return (

@@ -19,7 +19,7 @@ import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
 import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
-import { formatEventDateTime, fullAddressDisplay, countryNameFr } from '../utils/eventGeo';
+import { formatEventDateTime, fullAddressDisplay, countryNameFr, shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate } from '../utils/formatters';
 import { eventPricePresentation, isTicketSellable } from '../utils/labels';
 import { queryCache, TTL } from '../utils/queryCache';
@@ -571,7 +571,7 @@ export default function EventDetails() {
                       </p>
                       <p className="flex items-center gap-3">
                         <MapPin className="h-[22px] w-[22px] text-ink-3" />
-                        <span><b className="font-semibold">{event.location}</b>{event.city && !event.location.toLowerCase().includes(event.city.toLowerCase()) ? ` · ${event.city}` : ''}{countryLabel ? ` · ${countryLabel}` : ''}</span>
+                        <span><b className="font-semibold">{shortPlace(event.location, event.city).label}</b>{countryLabel ? ` · ${countryLabel}` : ''}</span>
                       </p>
                     </div>
                     <div className="mt-6 flex flex-wrap gap-2">
@@ -724,7 +724,7 @@ export default function EventDetails() {
                       latitude={location.latitude}
                       longitude={location.longitude}
                       title={event.title}
-                      address={fullAddressDisplay(event)}
+                      address={shortPlace(event.location, event.city).label}
                       className="h-[280px]"
                       isDisabled={isReviewModalOpen}
                       isModalOpen={isReviewModalOpen}
@@ -734,7 +734,7 @@ export default function EventDetails() {
                     <div className="flex items-start gap-2.5 min-w-0">
                       <MapPin className="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-ink truncate">{fullAddressDisplay(event)}</p>
+                        <p className="text-[13px] font-semibold text-ink truncate">{shortPlace(event.location, event.city).label}</p>
                         <p className="text-[11px] text-ink-mute">Lieu de l'événement</p>
                       </div>
                     </div>

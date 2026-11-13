@@ -8,7 +8,7 @@ import {
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency, parseLocalDate, localTodayYmd } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
+import { countryFlag, shortPlace } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
 import PageSEO from '../../components/SEO/PageSEO';
 import { FadeUp, Stagger, StaggerItem } from '../../components/common/Motion';
@@ -390,13 +390,16 @@ export default function VenueProfile() {
                         Fiche officielle de {venue.name} sur Temba. Les dates publiées par les organisateurs et les billets en FCFA apparaissent ici.
                       </p>
                     )}
-                    {venue.address && (
-                      <p className="mt-4 text-[13px] text-ink-mute max-w-lg leading-relaxed inline-flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 text-accent flex-shrink-0" />
-                        {venue.address}
-                        {venue.city ? ` · ${venue.city}` : ''}
-                      </p>
-                    )}
+                    {(() => {
+                      const place = shortPlace(venue.address || venue.name, venue.city);
+                      if (!venue.address && !venue.city) return null;
+                      return (
+                        <p className="mt-4 text-[13px] text-ink-mute max-w-lg leading-relaxed inline-flex items-start gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 text-accent flex-shrink-0" />
+                          {place.label}
+                        </p>
+                      );
+                    })()}
                     {(venue.website || venue.phone) && (
                       <div className="flex flex-wrap gap-2 mt-6">
                         {venue.website && (

@@ -21,7 +21,7 @@ import PageSEO from '../components/SEO/PageSEO';
 import DomePattern from '../components/design/DomePattern';
 import StoreBadges from '../components/design/StoreBadges';
 import EventCard from '../components/EventCard';
-import { pickSpotlightEvents } from '../utils/eventGeo';
+import { pickSpotlightEvents, shortPlace } from '../utils/eventGeo';
 import { calendarDayInZone, formatCalendarDate, formatEventTime } from '../utils/formatters';
 import { eventPricePresentation } from '../utils/labels';
 import { eventPublicPath } from '../utils/eventPath';
@@ -254,7 +254,7 @@ export default function Home() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-display text-[16px] font-bold tracking-tight">{event.title}</span>
-                    <span className="mt-0.5 block truncate text-[14px] text-ink-3">{event.location}{event.city ? ` · ${event.city}` : ''}</span>
+                    <span className="mt-0.5 block truncate text-[14px] text-ink-3">{shortPlace(event.location, event.city).label}</span>
                   </span>
                   <span className={`shrink-0 text-[15px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : ''}`}>{price.label}</span>
                 </Link>
