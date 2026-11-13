@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     // Verify signature
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(rawBody, sig, webhookSecret);
     } catch (err: any) {
       console.error("❌ Signature verification failed:", err.message);
       return new Response(
@@ -117,6 +117,9 @@ Deno.serve(async (req) => {
       // Idempotent: skip if already terminal
       if (["completed", "succeeded", "failed", "cancelled"].includes(payment.status)) {
         console.log("ℹ️ Payment already finalized:", payment.id, payment.status);
+        if (payment.status === "completed" || payment.status === "succeeded") {
+          await sendMetaPurchase(supabase, payment.id);
+        }
         if (webhookLog?.id) {
           await supabase
             .from("payment_webhooks")

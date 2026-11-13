@@ -180,7 +180,10 @@ export function trackPurchase(args: {
   }
   const joinedId = args.eventId && args.eventId !== args.orderId ? args.eventId : null;
   const eventId = joinedId || remembered?.eventId;
-  const rawValue = args.value != null ? args.value : remembered?.value;
+  const passed = args.value != null && Number.isFinite(Number(args.value)) ? Number(args.value) : null;
+  const rawValue = passed != null && passed > 0
+    ? passed
+    : (remembered && remembered.value > 0 ? remembered.value : passed);
   if (!eventId || rawValue == null || !Number.isFinite(Number(rawValue))) return;
 
   const currency = currencyCode(args.currency || remembered?.currency);

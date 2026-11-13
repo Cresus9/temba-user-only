@@ -672,7 +672,7 @@ export default function EnhancedBookingConfirmation() {
       // Fetch order summary
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('total_amount, currency, payment_method, created_at')
+        .select('total, display_currency, payment_method, created_at')
         .eq('id', bookingId)
         .maybeSingle();
 
@@ -681,8 +681,8 @@ export default function EnhancedBookingConfirmation() {
       setTickets(ticketsData);
       if (orderData) {
         setOrderSummary({
-          total_amount: orderData.total_amount,
-          currency: orderData.currency,
+          total_amount: Number(orderData.total ?? 0),
+          currency: orderData.display_currency || 'XOF',
           payment_method: orderData.payment_method,
           booking_date: orderData.created_at
         });
