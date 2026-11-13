@@ -4,43 +4,49 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['"Inter Tight"', 'Inter', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
-        // Temba brand tokens (mapped to Figma styles)
         ink: {
-          DEFAULT: '#14172A', // Temba Black — primary text + default CTA bg
-          900: '#0E1020',
-          800: '#1A1F36',
-          700: '#2A3147',
-          mute: '#7E8B9F',    // Gray 1 — secondary text
+          DEFAULT: '#03061E',
+          900: '#03061E',
+          800: '#12152A',
+          700: '#2E3147',
+          2: '#2E3147',
+          3: '#5E6178',
+          4: '#9497AB',
+          mute: '#5E6178',
         },
         line: {
-          DEFAULT: '#DEE3EB', // Gray 2 — default borders
-          soft: '#ECEFF4',
-          strong: '#C9D0DA',
+          DEFAULT: '#E6E7EE',
+          soft: '#F4F5FA',
+          strong: '#D5D6E0',
         },
         brand: {
-          DEFAULT: '#3D3FE2', // Temba Blue
-          50: '#ECEBFB',      // Light purple
+          DEFAULT: '#3D3FE2',
+          50: '#ECECFD',
           100: '#DAD8F7',
           500: '#4D4FE6',
           600: '#3D3FE2',
-          700: '#2F31C9',
-          800: '#2629A5',
+          700: '#2F3095',
+          800: '#2F3095',
+          dark: '#2F3095',
         },
         accent: {
-          DEFAULT: '#C68A1F', // Orange — conversion CTAs
-          50: '#FBF1DD',
-          100: '#F6E1B5',
-          500: '#D49526',
-          600: '#C68A1F',
-          700: '#A87114',
+          DEFAULT: '#F6B84A',
+          50: '#FFF5E0',
+          100: '#FFE8B8',
+          500: '#F6B84A',
+          600: '#F6B84A',
+          700: '#8A5A00',
         },
+        surf: '#F4F5FA',
+        ok: '#0B7A52',
         cream: {
-          DEFAULT: '#FAF7F2', // warm off-white surface
-          deep: '#F4EFE6',
+          DEFAULT: '#F4F5FA',
+          deep: '#ECECFD',
         },
         paper: '#FFFFFF',
       },

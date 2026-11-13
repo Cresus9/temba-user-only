@@ -17,6 +17,7 @@
     "deploy:functions:paris": "bash scripts/deploy-edge-functions-paris.sh"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@stripe/react-stripe-js": "^5.2.0",
@@ -72,6 +73,7 @@
     "resize-observer-polyfill": "^1.5.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
+    "typescript-eslint": "^8.72.2",
     "url-search-params-polyfill": "^8.2.3",
     "vite": "^5.1.4",
     "vitest": "^1.6.1",

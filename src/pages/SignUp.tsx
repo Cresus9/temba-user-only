@@ -347,7 +347,7 @@ export default function SignUp() {
       <PageSEO title="Créer un compte" description="Rejoignez Temba, la billetterie N°1 au Burkina Faso." robots="noindex, nofollow" />
     <AuthShell
       eyebrow="Inscription"
-      title="Rejoignez la file."
+        title="Créer un compte"
       subtitle="Créez votre compte Temba en moins d'une minute. Vos billets vous attendent."
       illustration="party-2"
       posterEyebrow="Communauté · Burkina Faso"

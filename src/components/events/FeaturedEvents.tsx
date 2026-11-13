@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Event } from '../../types/event';
 import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
+import { formatCalendarDate, calendarDayInZone } from '../../utils/formatters';
+import { eventPricePresentation } from '../../utils/labels';
 import { eventPublicPath } from '../../utils/eventPath';
 import { useEvents } from '../../context/EventContext';
 import Image from '../common/Image';
@@ -15,7 +17,7 @@ export default function FeaturedEvents({ countryFilter = '' }: FeaturedEventsPro
   const { featuredEvents: allFeatured, activeCountry, loading } = useEvents();
   const effectiveCountry = countryFilter || activeCountry || '';
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = calendarDayInZone();
 
   // Derive from EventContext — zero extra Supabase calls
   const featuredEvents = useMemo(() => {
@@ -159,12 +161,11 @@ interface FeaturedEventCardProps {
 function FeaturedEventCard({ event }: FeaturedEventCardProps) {
   const tz = event.timezone ?? 'Africa/Ouagadougou';
 
-  const longDate = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', {
-    timeZone: tz,
+  const longDate = formatCalendarDate(event.date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  });
+  }, tz);
 
   const { primary: locationLabel, badge: flagBadge } = eventLocationLabel({
     location: event.location,
@@ -200,15 +201,15 @@ function FeaturedEventCard({ event }: FeaturedEventCardProps) {
 
         {/* Country badge */}
         {flagBadge && (
-          <div className="absolute top-4 right-4 md:top-5 md:right-6 text-[20px] leading-none" aria-label={event.country_code ?? ''}>
-            {flagBadge}
+          <div className="absolute top-4 right-4 md:top-5 md:right-6 rounded bg-white/90 px-2 py-1 text-[12px] font-semibold text-ink" aria-label={event.country_code ?? ''}>
+            {event.country_code}
           </div>
         )}
 
         {/* Content */}
         <div className="absolute inset-x-0 bottom-0 p-5 md:p-8 lg:p-10 max-w-3xl">
           <p
-            className="text-accent text-[12px] md:text-[13px] font-semibold uppercase tracking-[0.14em] mb-2.5"
+            className="text-white/80 text-[12px] md:text-[13px] font-semibold mb-2.5"
             style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
           >
             {longDate}
@@ -232,8 +233,8 @@ function FeaturedEventCard({ event }: FeaturedEventCardProps) {
             <span className="line-clamp-1">{locationLabel}</span>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-brand text-paper rounded-lg text-[13px] font-bold hover:bg-brand-700 transition-colors group-hover:gap-2.5 duration-200">
-            Réserver
+          <span className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white text-ink rounded-lg text-[13px] font-bold">
+            {eventPricePresentation(event).tone === 'soon' ? 'Bientôt en vente' : 'Voir les billets'}
             <ArrowRight className="h-3.5 w-3.5" />
           </span>
         </div>

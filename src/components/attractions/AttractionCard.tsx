@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ATTRACTION_TYPE_LABELS } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
 
 export interface AttractionCardData {
@@ -30,7 +29,11 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
   const price = lowestPrice(attraction);
   const typeLabel = ATTRACTION_TYPE_LABELS[attraction.attraction_type ?? 'other'] ?? '';
   const place = attraction.city || attraction.location;
-  const flag = attraction.country_code ? countryFlag(attraction.country_code) : '';
+  const amount = price === null
+    ? null
+    : price <= 0
+      ? 'Gratuit'
+      : `Dès ${formatCurrency(price, attraction.currency ?? 'XOF')}`;
 
   return (
     <Link
@@ -56,15 +59,10 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
           {attraction.title}
         </h3>
         {place ? (
-          <p className="mt-1 truncate text-[13px] text-ink-mute">
-            {place}
-            {flag ? <span className="ml-1.5">{flag}</span> : null}
-          </p>
+          <p className="mt-1 truncate text-[13px] text-ink-mute">{place}</p>
         ) : null}
-        <p className="mt-auto pt-3 text-[13px] font-semibold tabular-nums text-ink">
-          {price !== null
-            ? `À partir de ${formatCurrency(price, attraction.currency ?? 'XOF')}`
-            : 'Tarifs sur la fiche'}
+        <p className={`mt-auto pt-3 text-[13px] font-semibold tabular-nums ${amount === 'Gratuit' ? 'text-[#0B7A52]' : 'text-ink'}`}>
+          {amount ?? 'Tarifs sur la fiche'}
         </p>
       </div>
     </Link>

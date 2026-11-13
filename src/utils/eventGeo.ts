@@ -156,21 +156,9 @@ export function formatEventDateTime(
 } {
   const timePart = (time || '').slice(0, 5) || '';
   const datePart = String(isoDate ?? '').split('T')[0];
-  const [year, month, day] = datePart.split('-').map(Number);
-  const calendar =
-    Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
-      ? new Date(year, month - 1, day)
-      : null;
 
   const tzLabel = formatTzLabel(timezone, locale);
-  const dateLabel = calendar
-    ? calendar.toLocaleDateString(locale, {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
+  const dateLabel = formatCalendarDateFromParts(datePart, locale, timezone);
 
   return {
     date: dateLabel,
@@ -189,12 +177,31 @@ export function shortDateLabel(
   locale: string = 'fr-FR'
 ): string {
   const datePart = String(isoDate ?? '').split('T')[0];
-  const [y, m, d] = datePart.split('-').map(Number);
-  if (!y || !m || !d) return '';
-  return new Date(y, m - 1, d).toLocaleDateString(locale, {
+  return formatCalendarDateFromParts(datePart, locale, _timezone || 'Africa/Ouagadougou', {
     day: 'numeric',
     month: 'short',
   });
+}
+
+function formatCalendarDateFromParts(
+  datePart: string,
+  locale: string,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  },
+): string {
+  const [year, month, day] = datePart.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  try {
+    return new Intl.DateTimeFormat(locale, { timeZone, ...options }).format(anchor);
+  } catch {
+    return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(anchor);
+  }
 }
 
 /**

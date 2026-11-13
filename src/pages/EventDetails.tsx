@@ -19,7 +19,9 @@ import BookingForm from '../components/booking/BookingForm';
 import EventMap from '../components/events/EventMap';
 import Image from '../components/common/Image';
 import { geocodeAddress } from '../utils/geocoding';
-import { formatEventDateTime, fullAddressDisplay, countryFlag, countryNameFr } from '../utils/eventGeo';
+import { formatEventDateTime, fullAddressDisplay, countryNameFr } from '../utils/eventGeo';
+import { formatCalendarDate } from '../utils/formatters';
+import { isTicketSellable } from '../utils/labels';
 import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
@@ -420,12 +422,12 @@ export default function EventDetails() {
 
   const formatLong = (iso?: string) =>
     iso
-      ? new Date(iso).toLocaleDateString('fr-FR', {
+      ? formatCalendarDate(iso, {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
           year: 'numeric',
-        })
+        }, event?.timezone ?? 'Africa/Ouagadougou')
       : '';
 
   const handleShare = async () => {
@@ -496,7 +498,6 @@ export default function EventDetails() {
     : { date: '', time: '', tzLabel: '' };
   const countryCode = event.country_code ?? 'BF';
   const isAbroad = countryCode !== 'BF';
-  const flag = isAbroad ? countryFlag(countryCode) : null;
   const countryLabel = isAbroad ? countryNameFr(countryCode) : null;
 
   return (
@@ -582,9 +583,8 @@ export default function EventDetails() {
             <span className="mx-2 text-ink/40">·</span>
             {event.is_permanent ? (
               <span className="inline-flex items-center gap-1.5">
-                <span>{ATTRACTION_TYPE_ICONS[event.attraction_type ?? 'other'] ?? '📍'}</span>
                 <span>{ATTRACTION_TYPE_LABELS[event.attraction_type ?? 'other'] ?? 'Attraction'}</span>
-                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded uppercase tracking-wide">
+                <span className="ml-1 rounded bg-[#E6F4EE] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0B7A52]">
                   Ouvert en continu
                 </span>
               </span>
@@ -623,17 +623,10 @@ export default function EventDetails() {
             <span className="inline-flex items-center gap-1.5 min-w-0">
               <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
               <span className="truncate">{event.city ?? event.location}</span>
-              {flag && (
-                <span className="flex-shrink-0" aria-label={countryLabel ?? countryCode}>
-                  {flag}
-                </span>
+              {countryLabel && (
+                <span className="text-[12px] text-ink-3">{countryLabel}</span>
               )}
             </span>
-            {isAbroad && countryLabel && (
-              <span className="text-[12px] text-ink-mute hidden sm:inline">
-                {countryLabel}
-              </span>
-            )}
 
             <span aria-hidden className="hidden sm:block w-px h-4 bg-line" />
 
@@ -951,7 +944,13 @@ function BookingPanel({
   evtCode: string;
   pricingOverrides?: PricingOverride[];
 }) {
-  const headerLabel = event.is_permanent ? 'Choisir une date' : 'Réserver';
+  const sellable = (event.ticket_types ?? []).filter(isTicketSellable);
+  const nothingOnSale = !event.is_permanent && (event.ticket_types ?? []).length > 0 && sellable.length === 0;
+  const headerLabel = event.is_permanent
+    ? 'Choisir une date'
+    : nothingOnSale
+      ? 'Bientôt en vente'
+      : 'Billets';
 
   return (
     <div className={event.is_permanent

@@ -65,6 +65,7 @@ import FindGuestTickets from '../pages/FindGuestTickets';
 import WhatsAppShare from '../pages/WhatsAppShare';
 import ReferralLanding from '../pages/ReferralLanding';
 import ReferralProgram from '../pages/profile/ReferralProgram';
+import NotFound from '../pages/NotFound';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -177,8 +178,7 @@ export default function AppRoutes() {
           </RequireAuth>
         } />
 
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Download, Calendar, MapPin, Clock, Loader, Ticket, CheckCircle, Eye, Sparkles, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { useAuth } from '../../context/AuthContext';
-import EnhancedFestivalTicket from '../tickets/EnhancedFestivalTicket';
+import TicketPass from '../design/TicketPass';
+import { ticketStateFromRecord } from '../../utils/labels';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { generateTicketPNG } from '../../utils/ticketService';
 import { formatCurrency } from '../../utils/formatters';
@@ -546,27 +547,19 @@ export default function MyTickets() {
               <div className="p-5 md:p-6">
                 {/* Ticket Display */}
                 <div className="bg-cream rounded-xl2 border border-line p-4 md:p-5">
-                  <div id={`ticket-${selectedTicket.id}`} data-ticket>
-                    <EnhancedFestivalTicket
-                      ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Utilisateur'}
-                      ticketType={selectedTicket.ticket_type.name}
-                      ticketId={selectedTicket.id}
+                  <div id={`ticket-${selectedTicket.id}`} data-ticket className="flex justify-center">
+                    <TicketPass
                       eventTitle={selectedTicket.event.title}
                       eventDate={selectedTicket.event.date}
                       eventTime={selectedTicket.event.time}
-                      eventLocation={selectedTicket.event.location}
-                      qrCode={selectedTicket.qr_code}
-                      eventImage={selectedTicket.event.image_url}
+                      venue={selectedTicket.event.location}
+                      holder={profile?.name || user?.email?.split('@')[0] || 'Détenteur'}
+                      categoryName={selectedTicket.ticket_type.name}
                       price={selectedTicket.ticket_type.price}
-                      currency={selectedTicket.event.currency}
-                      orderNumber={selectedTicket.order?.id}
-                      purchaseDate={selectedTicket.order?.created_at}
-                      ticketStatus={selectedTicket.status}
-                      scannedAt={selectedTicket.scanned_at}
-                      onTransferComplete={() => {
-                        fetchMyTickets();
-                        setSelectedTicket(null);
-                      }}
+                      qrValue={selectedTicket.qr_code}
+                      ticketCode={selectedTicket.id.slice(0, 8).toUpperCase()}
+                      orderCode={selectedTicket.order?.id?.slice(0, 8).toUpperCase()}
+                      state={ticketStateFromRecord(selectedTicket)}
                     />
                   </div>
                 </div>

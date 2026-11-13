@@ -5,6 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase-client';
 import { CategoryService } from '../services/categoryService';
 import { SUPPORTED_COUNTRIES } from '../utils/eventGeo';
+import { formatCalendarDate } from '../utils/formatters';
+import { categoryLabelFr } from '../utils/labels';
 import { useEvents } from '../context/EventContext';
 import PageSEO from '../components/SEO/PageSEO';
 import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
@@ -122,7 +124,7 @@ export default function Events() {
         });
 
         const opts = categoryRecords
-          .map(c => ({ value: c.name, label: c.name, count: countMap[c.id] || 0 }))
+          .map(c => ({ value: c.name, label: categoryLabelFr(c.name), count: countMap[c.id] || 0 }))
           .filter(c => c.count > 0)
           .sort((a, b) => b.count - a.count)
           .map(c => ({ value: c.value, label: `${c.label} (${c.count})` }));
@@ -166,16 +168,8 @@ export default function Events() {
     : null;
 
   const formatDateChip = (iso: string) => {
-    if (!iso) return '';
-    try {
-      return new Date(iso).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return iso;
-    }
+    if (!iso || iso === 'weekend') return iso === 'weekend' ? 'Ce week-end' : '';
+    return formatCalendarDate(iso, { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const breadcrumbSchema = useMemo(
@@ -209,7 +203,7 @@ export default function Events() {
       />
 
       {/* — — — Hero — — — */}
-      <section className="relative bg-cream bg-grain overflow-hidden border-b border-line">
+      <section className="relative overflow-hidden border-b border-line bg-white">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-brand-50 blur-3xl opacity-70"
@@ -298,7 +292,7 @@ export default function Events() {
                     placeholder="Tous les pays"
                     options={countriesWithEvents.map(c => ({
                       value: c.code,
-                      label: `${c.flag} ${c.nameFr}`,
+                      label: c.nameFr,
                     }))}
                   />
                   <div aria-hidden className="hidden lg:block w-px bg-line my-1.5" />
@@ -332,7 +326,7 @@ export default function Events() {
                 <span className="eyebrow !text-ink-mute">Filtres actifs</span>
                 {filters.country && activeCountryMeta && (
                   <FilterChip
-                    label={`${activeCountryMeta.flag} ${activeCountryMeta.nameFr}`}
+                    label={activeCountryMeta.nameFr}
                     onRemove={() => removeFilter('country')}
                   />
                 )}
@@ -346,7 +340,7 @@ export default function Events() {
                   <FilterChip label={filters.location} onRemove={() => removeFilter('location')} />
                 )}
                 {filters.category && (
-                  <FilterChip label={filters.category} onRemove={() => removeFilter('category')} />
+                  <FilterChip label={categoryLabelFr(filters.category)} onRemove={() => removeFilter('category')} />
                 )}
                 <button
                   onClick={clearFilters}

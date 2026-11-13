@@ -293,13 +293,15 @@ function PlaceRow({ attraction }: { attraction: AttractionCardData }) {
           {place ? <p className="mt-1 !text-[15px] !leading-normal text-ink/65">{place}</p> : null}
         </div>
         <p className="shrink-0 sm:pb-0.5 sm:text-right">
-          {amount ? (
+          {price === null ? (
+            <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
+          ) : price <= 0 ? (
+            <span className="!text-[16px] !font-semibold text-[#0B7A52]">Gratuit</span>
+          ) : (
             <>
               <span className="block !text-[12px] !leading-none text-ink/50">Dès</span>
               <span className="mt-1 block !text-[18px] !font-semibold !leading-none tabular-nums text-ink">{amount}</span>
             </>
-          ) : (
-            <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
           )}
         </p>
       </div>

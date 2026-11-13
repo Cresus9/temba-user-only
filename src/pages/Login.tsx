@@ -147,7 +147,7 @@ export default function Login() {
       <PageSEO title="Se connecter" description="Connexion à votre compte Temba." robots="noindex, nofollow" />
     <AuthShell
       eyebrow="Espace client"
-      title="Bon retour."
+      title="Connexion"
       subtitle="Connectez-vous pour retrouver vos billets, vos commandes et vos transferts."
       illustration="party"
       posterEyebrow="Tickets · 226"

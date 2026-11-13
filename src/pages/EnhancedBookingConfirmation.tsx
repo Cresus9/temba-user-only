@@ -8,8 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
-import FestivalTicket from '../components/tickets/FestivalTicket';
-import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
+import TicketPass from '../components/design/TicketPass';
 import toast from 'react-hot-toast';
 import { generateTicketPNG } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
@@ -915,11 +914,11 @@ export default function EnhancedBookingConfirmation() {
             </div>
           </div>
           
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            🎉 Félicitations !
+          <h1 className="font-display text-[32px] font-bold tracking-tight text-ink md:text-[40px]">
+            Paiement reçu. Vos billets sont prêts.
           </h1>
-          <p className="text-xl text-gray-600">
-            Vos billets sont confirmés et prêts
+          <p className="mt-2 text-[16px] text-ink-3">
+            Présentez le QR à l'entrée, même sans réseau.
           </p>
         </div>
 
@@ -963,23 +962,20 @@ export default function EnhancedBookingConfirmation() {
           </div>
           
           {tickets.map((ticket, index) => (
-            <div key={ticket.id} data-ticket className="transform hover:scale-[1.01] transition-all duration-300 hover:shadow-2xl">
-              <EnhancedFestivalTicket
-                ticketHolder={profile?.name || user?.email?.split('@')[0] || 'Non assigné'}
-                ticketType={ticket.ticket_type.name}
-                ticketId={ticket.id}
+            <div key={ticket.id} data-ticket className="flex justify-center">
+              <TicketPass
                 eventTitle={ticket.event.title}
                 eventDate={ticket.event.date}
                 eventTime={ticket.event.time}
-                eventLocation={ticket.event.location}
-                qrCode={ticket.qr_code}
-                eventImage={ticket.event.image_url}
+                venue={ticket.event.location}
+                holder={profile?.name || user?.email?.split('@')[0] || 'Détenteur'}
+                categoryName={ticket.ticket_type.name}
                 price={ticket.ticket_type.price}
-                currency={orderSummary?.currency || 'XOF'}
-                orderNumber={bookingId}
-                purchaseDate={orderSummary?.booking_date}
-                eventCategory="Concert" // Could be dynamically set based on event data
-                specialInstructions="Arrivez 30 minutes avant le début. Présentez ce billet à l'entrée."
+                qrValue={ticket.qr_code}
+                ticketCode={ticket.id.slice(0, 8).toUpperCase()}
+                indexLabel={`${index + 1}/${tickets.length}`}
+                orderCode={bookingId ? String(bookingId).slice(0, 8).toUpperCase() : undefined}
+                state="valid"
               />
             </div>
           ))}
