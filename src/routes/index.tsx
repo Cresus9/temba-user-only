@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ScrollToTop from '../components/ScrollToTop';
@@ -31,6 +31,10 @@ import Cookies from '../pages/Cookies';
 import About from '../pages/About';
 import AccountDeletion from '../pages/AccountDeletion';
 import MobileAppPreview from '../pages/MobileAppPreview';
+
+const DevAccountPreview = import.meta.env.DEV
+  ? lazy(() => import('../pages/dev/AccountPreview'))
+  : null;
 
 // Blog Pages
 import BlogHome from '../pages/blog/BlogHome';
@@ -154,6 +158,16 @@ export default function AppRoutes() {
         <Route path="/payment/:paymentId" element={<PaymentStatus />} />
 
         {/* Protected User Routes */}
+        {DevAccountPreview ? (
+          <Route
+            path="/dev/compte"
+            element={
+              <Suspense fallback={null}>
+                <DevAccountPreview />
+              </Suspense>
+            }
+          />
+        ) : null}
         <Route path="/dashboard" element={
           <RequireAuth>
             <Dashboard />

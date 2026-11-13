@@ -56,6 +56,8 @@ class UserService {
         id,
         status,
         scanned_at,
+        qr_code,
+        ticket_type:ticket_types(name, price),
         event:events!inner(
           id,
           title,
@@ -90,16 +92,40 @@ class UserService {
 
     // Filter out transferred tickets
     const userTickets = (allTickets || []).filter((ticket) => !transferredTicketIds.includes(ticket.id));
-    const eventOf = (ticket: { event: unknown }) => {
-      const event = ticket.event as { date?: string; title?: string; time?: string; location?: string; city?: string; image_url?: string; id?: string; slug?: string } | { date?: string }[] | null;
-      return Array.isArray(event) ? event[0] : event;
+    type EventRow = { date?: string; title?: string; time?: string; location?: string; city?: string; image_url?: string; id?: string; slug?: string };
+    const eventOf = (ticket: { event: unknown }): EventRow | null => {
+      const event = ticket.event as EventRow | EventRow[] | null;
+      if (!event) return null;
+      return Array.isArray(event) ? event[0] ?? null : event;
+    };
+    const typeOf = (ticket: { ticket_type?: unknown }) => {
+      const type = ticket.ticket_type as { name?: string } | { name?: string }[] | null | undefined;
+      return Array.isArray(type) ? type[0] : type;
     };
     const dayOf = (ticket: { event: unknown }) => String(eventOf(ticket)?.date || '').split('T')[0];
     const upcomingTickets = userTickets.filter((ticket) => dayOf(ticket) >= today);
     const pastTickets = userTickets.filter((ticket) => dayOf(ticket) && dayOf(ticket) < today);
     const totalTickets = userTickets.length;
-    const soonest = [...upcomingTickets].sort((a, b) => dayOf(a).localeCompare(dayOf(b)))[0];
+    const sortedUpcoming = [...upcomingTickets].sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
+    const soonest = sortedUpcoming[0];
     const soonestEvent = soonest ? eventOf(soonest) : null;
+    const sameEvent = soonestEvent?.id
+      ? sortedUpcoming.filter((ticket) => eventOf(ticket)?.id === soonestEvent.id)
+      : [];
+    const passes = sortedUpcoming.slice(0, 4).map((ticket) => {
+      const event = eventOf(ticket);
+      return {
+        id: ticket.id,
+        title: event?.title || '',
+        date: event?.date || '',
+        time: event?.time || '',
+        location: event?.location || '',
+        city: event?.city || '',
+        image: event?.image_url || '',
+        category: typeOf(ticket)?.name || 'Billet',
+        qr: (ticket as { qr_code?: string }).qr_code || ticket.id,
+      };
+    });
 
     // Spent = completed orders only. Cancelled and refunded orders are excluded.
     const { data: userOrders, error: ordersError } = await supabase
@@ -147,6 +173,14 @@ class UserService {
 
     const visibleRecentOrders = (recentOrders || []).filter(order => ['COMPLETED', 'CANCELLED'].includes(order.status || ''));
 
+    const { count: orderCount, error: orderCountError } = await supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (orderCountError) {
+      console.warn('Impossible de compter les commandes', orderCountError.message);
+    }
+
     const credits = await fetchUserCreditBalanceFromSupabase();
 
     return {
@@ -155,6 +189,7 @@ class UserService {
         pastTickets: pastTickets.length,
         totalTickets,
         totalSpent,
+        orderCount: orderCountError ? 0 : (orderCount || 0),
         credits,
         nextEvent: soonestEvent?.title
           ? {
@@ -166,8 +201,11 @@ class UserService {
               city: soonestEvent.city || '',
               image_url: soonestEvent.image_url || '',
               slug: soonestEvent.slug || '',
+              ticketCount: sameEvent.length,
+              categories: [...new Set(sameEvent.map((ticket) => typeOf(ticket)?.name).filter(Boolean))] as string[],
             }
           : null,
+        passes,
       },
       recentOrders: visibleRecentOrders.map(order => ({
         id: order.id,
@@ -189,6 +227,7 @@ export interface DashboardStats {
     pastTickets: number;
     totalTickets: number;
     totalSpent: number;
+    orderCount: number;
     nextEvent: {
       id: string;
       title: string;
@@ -198,7 +237,20 @@ export interface DashboardStats {
       city: string;
       image_url: string;
       slug: string;
+      ticketCount: number;
+      categories: string[];
     } | null;
+    passes: Array<{
+      id: string;
+      title: string;
+      date: string;
+      time: string;
+      location: string;
+      city: string;
+      image: string;
+      category: string;
+      qr: string;
+    }>;
     /** From `user_credits` via Supabase; null if table/RLS unavailable */
     credits: { balance: number; currency: string } | null;
   };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, MapPin, Clock, Loader, Ticket, CheckCircle, Eye, Sparkles, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Calendar, MapPin, Clock, Loader, Ticket, CheckCircle, Eye, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { useAuth } from '../../context/AuthContext';
 import TicketPass from '../design/TicketPass';
@@ -9,7 +9,8 @@ import TransferTicketModal from '../tickets/TransferTicketModal';
 import { generateTicketPNG } from '../../utils/ticketService';
 import { calendarDayInZone, formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
-import Image from '../common/Image';
+import PosterTile from '../account/PosterTile';
+import FullscreenBackdrop from '../account/FullscreenBackdrop';
 
 interface MyTicket {
   id: string;
@@ -304,10 +305,7 @@ export default function MyTickets() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 pb-4 border-b border-line">
         <div className="min-w-0">
-          <p className="eyebrow !mb-1 inline-flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3 text-accent" />
-            Mes billets
-          </p>
+          <p className="eyebrow !mb-1">Mes billets</p>
           <h2
             className="!text-[20px] md:!text-[22px] !leading-[1.15] text-ink font-bold tracking-tight !mb-0"
             style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
@@ -343,15 +341,8 @@ export default function MyTickets() {
               >
                 <div className="flex items-start gap-3.5">
                   {/* Poster */}
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden flex-shrink-0 bg-ink">
-                    <Image
-                      src={ticket.event.image_url}
-                      alt={ticket.event.title}
-                      className="w-full h-full object-cover"
-                      fallbackSrc=""
-                      width={96}
-                      height={96}
-                    />
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg sm:h-24 sm:w-24">
+                    <PosterTile src={ticket.event.image_url} alt={ticket.event.title} className="h-full w-full" />
                     {/* Tier corner badge */}
                     <span
                       className={`absolute top-1.5 left-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-[0.08em] ${getTicketTypeStyle(
@@ -511,10 +502,7 @@ export default function MyTickets() {
         const tktCode = selectedTicket.id.slice(0, 8).toUpperCase();
 
         return (
-          <div
-            className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-[80] p-4"
-            onClick={() => setSelectedTicket(null)}
-          >
+          <FullscreenBackdrop onClose={() => setSelectedTicket(null)}>
             <div
               className="bg-paper rounded-xl2 border border-line shadow-pop max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
@@ -623,7 +611,7 @@ export default function MyTickets() {
                 </div>
               </div>
             </div>
-          </div>
+          </FullscreenBackdrop>
         );
       })()}
 

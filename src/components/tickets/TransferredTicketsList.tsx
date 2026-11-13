@@ -7,7 +7,8 @@ import toast from 'react-hot-toast';
 import EnhancedFestivalTicket from './EnhancedFestivalTicket';
 import { formatCurrency } from '../../utils/formatters';
 import { shortPlace } from '../../utils/eventGeo';
-import Image from '../common/Image';
+import PosterTile from '../account/PosterTile';
+import FullscreenBackdrop from '../account/FullscreenBackdrop';
 
 interface TransferredTicketsListProps {
   onTicketClick?: (ticket: TransferredTicket) => void;
@@ -122,12 +123,11 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
             >
               <div className="flex flex-col sm:flex-row gap-4 p-4">
                 {/* Poster */}
-                {ticket.ticket.event.image_url && (
-                  <div className="relative w-full sm:w-28 h-28 sm:h-28 rounded-xl overflow-hidden flex-shrink-0 bg-cream-deep ring-1 ring-line">
-                    <Image
+                  <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-xl sm:w-28">
+                    <PosterTile
                       src={ticket.ticket.event.image_url}
                       alt={ticket.ticket.event.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="h-full w-full"
                     />
                     {/* "GIFT" stamp */}
                     <div className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.08em] bg-accent text-ink shadow-card">
@@ -135,7 +135,6 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
                       Cadeau
                     </div>
                   </div>
-                )}
 
                 {/* Body */}
                 <div className="flex-1 min-w-0">
@@ -247,10 +246,7 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
 
       {/* Modal */}
       {selectedTicket && (
-        <div
-          className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
-          onClick={() => setSelectedTicket(null)}
-        >
+        <FullscreenBackdrop onClose={() => setSelectedTicket(null)}>
           <div
             className="bg-paper rounded-xl2 max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-card-hover my-auto"
             onClick={(e) => e.stopPropagation()}
@@ -366,7 +362,7 @@ export default function TransferredTicketsList({ onTicketClick }: TransferredTic
               </button>
             </footer>
           </div>
-        </div>
+        </FullscreenBackdrop>
       )}
     </div>
   );
