@@ -35,7 +35,7 @@ export default function DisplayCard({
   span?: ScheduleSpan;
   width?: number;
   eager?: boolean;
-  variant?: 'rail' | 'compact' | 'attraction';
+  variant?: 'rail' | 'compact' | 'attraction' | 'grid';
 }) {
   const schedule = span ?? spanFor(event);
   const badges = eventBadges(event, schedule);
@@ -65,17 +65,17 @@ export default function DisplayCard({
   return (
     <Link
       to={eventPublicPath(event)}
-      className={attraction
+      className={attraction || variant === 'grid'
         ? 'block w-full min-w-0'
         : width === 236
-          ? 'block w-[168px] min-w-[168px] max-w-[168px] shrink-0 snap-start md:w-[236px] md:min-w-[236px] md:max-w-[236px]'
-          : 'block w-[200px] min-w-[200px] max-w-[200px] shrink-0 snap-start md:w-[290px] md:min-w-[290px] md:max-w-[290px]'}
+          ? 'block w-[150px] min-w-[150px] max-w-[150px] shrink-0 snap-start min-[1280px]:w-[214px] min-[1280px]:min-w-[214px] min-[1280px]:max-w-[214px] min-[1440px]:w-[236px] min-[1440px]:min-w-[236px] min-[1440px]:max-w-[236px]'
+          : 'block w-[200px] min-w-[200px] max-w-[200px] shrink-0 snap-start min-[1280px]:w-[262px] min-[1280px]:min-w-[262px] min-[1280px]:max-w-[262px] min-[1440px]:w-[290px] min-[1440px]:min-w-[290px] min-[1440px]:max-w-[290px]'}
     >
       <div className="relative">
         <FlyerFrame
           src={event.image_url}
           alt={event.title}
-          ratio={attraction ? '16/9' : '4/5'}
+          ratio={attraction ? '2/1' : '4/5'}
           eager={eager}
           past={badges.some((badge) => badge.kind === 'past')}
         />
@@ -87,7 +87,7 @@ export default function DisplayCard({
         )}
       </div>
       <p className={`mt-3 truncate text-[13px] font-semibold ${badges.some((b) => b.kind === 'live') ? 'text-[#0B7A52]' : 'text-brand'}`}>
-        {attraction ? 'Ouvert tous les jours · réservez votre date' : when}
+        {attraction ? `${typeLabel || 'Lieu'} · ouvert tous les jours` : when}
       </p>
       <p className="mt-1 line-clamp-2 font-display text-[16.5px] font-bold leading-snug tracking-[-0.015em]">{event.title}</p>
       <p className="mt-1 truncate text-[13.5px] text-ink-3">{place}</p>

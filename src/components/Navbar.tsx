@@ -72,7 +72,7 @@ export default function Navbar() {
   const immersive = location.pathname === '/' || location.pathname === '/organizers';
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > (location.pathname === '/' ? 460 : 12));
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -82,7 +82,7 @@ export default function Navbar() {
 
   return (
     <header className={`sticky top-0 z-50 border-b ${onDark ? 'border-transparent bg-transparent text-white' : 'border-line bg-white text-ink'}`}>
-      <div className="mx-auto hidden h-[72px] max-w-[1200px] items-center gap-8 px-6 lg:flex xl:px-10">
+      <div className={`mx-auto hidden h-[72px] items-center gap-8 lg:flex ${location.pathname === '/' ? 'w-full px-5 min-[1280px]:px-16 min-[1440px]:px-20' : 'max-w-[1200px] px-6 xl:px-10'} ${onDark ? 'border-b border-white/15' : ''}`}>
         <Link to="/" aria-label="Temba — accueil" className="shrink-0">
           <Logo variant={logoVariant} size={26} />
         </Link>
@@ -147,10 +147,16 @@ export default function Navbar() {
         <Link to="/" aria-label="Temba — accueil">
           <Logo variant={logoVariant} size={22} />
         </Link>
-        <div className="flex">
-          <Link to="/events" className="grid h-11 w-11 place-items-center rounded-lg" aria-label="Rechercher">
-            <MagnifyingGlass size={24} />
-          </Link>
+        <div className="flex items-center">
+          {location.pathname === '/' ? (
+            <Link to={ticketsTo} className="inline-flex items-center gap-1.5 px-2 text-[14px] font-medium">
+              <Ticket size={18} /> Billets
+            </Link>
+          ) : (
+            <Link to="/events" className="grid h-11 w-11 place-items-center rounded-lg" aria-label="Rechercher">
+              <MagnifyingGlass size={24} />
+            </Link>
+          )}
           <button
             type="button"
             className="grid h-11 w-11 place-items-center rounded-lg"

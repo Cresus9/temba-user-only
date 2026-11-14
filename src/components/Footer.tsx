@@ -79,7 +79,7 @@ function MobileGroup({ title, links }: { title: string; links: { label: string; 
 export default function Footer() {
   return (
     <footer className="bg-ink text-white">
-      <div className="mx-auto hidden max-w-[1200px] px-10 pb-8 pt-16 lg:block">
+      <div className="mx-auto hidden w-full px-5 pb-8 pt-16 min-[1280px]:px-16 min-[1440px]:px-20 lg:block">
         <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_1.3fr] gap-10">
           <div>
             <Logo variant="light" size={26} />

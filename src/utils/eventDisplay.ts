@@ -109,10 +109,15 @@ export function eventBadges(event: Event, span: ScheduleSpan, today = calendarDa
   return out.slice(0, 2);
 }
 
-export function whenLabel(event: Event, span: ScheduleSpan): string {
+export function whenLabel(event: Event, span: ScheduleSpan, today = calendarDayInZone()): string {
   if (event.is_permanent) return 'Ouvert tous les jours';
   if (!span.min) return 'Date à confirmer';
   const tz = event.timezone || TZ;
+  if (isLiveSpan(span, today)) {
+    if (span.max === today) return 'En cours · dernier jour';
+    const end = formatCalendarDate(span.max, { weekday: 'short', day: 'numeric', month: 'short' }, tz);
+    return `En cours · jusqu’au ${end}`;
+  }
   if (span.min !== span.max) {
     const a = formatCalendarDate(span.min, { weekday: 'short', day: 'numeric', month: 'short' }, tz);
     const b = formatCalendarDate(span.max, { weekday: 'short', day: 'numeric', month: 'short' }, tz);

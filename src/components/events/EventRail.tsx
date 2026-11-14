@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 /** Same left edge as the home hero (max 1200px, 20px / 40px padding). The track itself runs to the screen edge. */
-const ALIGN = 'pl-5 md:pl-[max(2.5rem,calc((100%-1200px)/2+2.5rem))]';
-const TITLE = 'mx-auto w-full max-w-[1200px] px-5 md:px-10';
+const ALIGN = 'pl-5 min-[1280px]:pl-16 min-[1440px]:pl-20';
+const TITLE = 'w-full px-5 min-[1280px]:px-16 min-[1440px]:px-20';
 
 export default function EventRail({
   title,
@@ -66,7 +66,7 @@ export default function EventRail({
       ) : (
         <div
           ref={scroller}
-          className={`flex w-full max-w-full snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden scroll-pl-5 pr-5 md:scroll-pl-[max(2.5rem,calc((100%-1200px)/2+2.5rem))] ${ALIGN} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          className={`flex w-full max-w-full snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden pr-5 scroll-pl-5 min-[1280px]:scroll-pl-16 min-[1440px]:scroll-pl-20 ${ALIGN} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           {children}
         </div>

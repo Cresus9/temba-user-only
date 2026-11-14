@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom';
-import { CalendarDots } from '@phosphor-icons/react';
 import type { Event } from '../../types/event';
-import DomePattern from '../design/DomePattern';
 import DisplayCard from './DisplayCard';
 import EventRail from './EventRail';
 import { CardSkeleton } from './FlyerFrame';
 import type { QuickFilterState } from './QuickFilters';
 import { SHOW_FREE_FROM_ZERO_PRICE } from '../../utils/labels';
-import { calendarDayInZone } from '../../utils/formatters';
+import { calendarDayInZone, formatCalendarDate } from '../../utils/formatters';
 import {
   cityKey,
   cityName,
@@ -70,6 +68,8 @@ export default function HomeRails({
   const weekendEvents = cityEvents.filter((event) => overlaps(spanOf(event), weekend.start, weekend.end));
   const used = new Set(weekendEvents.map((event) => event.id));
   const concerts = cityEvents.filter((event) => kinds.get(event.id) === 'concert' && !used.has(event.id));
+  concerts.forEach((event) => used.add(event.id));
+  const festivals = cityEvents.filter((event) => kinds.get(event.id) === 'festival' && !used.has(event.id)).slice(0, 3);
   const attractions = dedupeEvents(permanent).filter((event) => event.is_permanent || event.attraction_type);
 
   const elsewhere = (['bobo', 'abidjan', 'ouaga'] as const)
@@ -96,7 +96,7 @@ export default function HomeRails({
     <>
       <EventRail
         title={weekendLabel}
-        subtitle={`${weekendEvents.length} événement${weekendEvents.length > 1 ? 's' : ''}`}
+        subtitle={`${formatCalendarDate(weekend.start, { weekday: 'short', day: 'numeric', month: 'short' })} et ${formatCalendarDate(weekend.end, { weekday: 'short', day: 'numeric', month: 'short' })} · ${weekendEvents.length} événement${weekendEvents.length > 1 ? 's' : ''}`}
         href="/events?date=weekend"
         linkLabel="Tout le week-end"
         count={weekendEvents.length}
@@ -125,35 +125,51 @@ export default function HomeRails({
         </EventRail>
       )}
 
-      {elsewhere.length > 0 && (
-        <section className="mx-auto max-w-[1200px] px-5 pt-12 md:px-10">
-          <h2 className="font-display text-[26px] font-bold tracking-[-0.025em]">Ailleurs</h2>
-          <p className="mt-1 text-[14.5px] text-ink-3">Changez de ville dans les filtres. Le moment choisi reste le même.</p>
-          <div className="mt-4 grid gap-5 md:grid-cols-2">
+      <section className="grid items-start gap-8 px-5 pt-12 min-[1100px]:grid-cols-[1.9fr_1fr] min-[1100px]:gap-12 min-[1280px]:px-16 min-[1440px]:px-20">
+        <div>
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Festivals et soirées</h2>
+              <p className="mt-1 text-[14.5px] text-ink-3">Aussi à {filters.city === 'Toutes les villes' ? 'l’affiche' : filters.city}</p>
+            </div>
+            <Link to="/events?category=festivals" className="text-[14.5px] font-semibold text-brand">Tout voir</Link>
+          </div>
+          {festivals.length === 0 ? (
+            <p className="text-[15px] text-ink-2">Aucun festival à montrer pour ces filtres.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 min-[1100px]:grid-cols-3">
+              {festivals.map((event) => <DisplayCard key={event.id} event={event} span={spanOf(event)} variant="grid" />)}
+            </div>
+          )}
+        </div>
+        <div>
+          <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Ailleurs</h2>
+          <p className="mt-1 text-[14.5px] text-ink-3">Le même agenda, dans les autres villes.</p>
+          <div className="mt-4 grid gap-4">
             {elsewhere.map((panel) => (
-              <div key={panel.key} className="rounded-2xl border border-line px-5 pb-2 pt-5">
+              <div key={panel.key} className="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
                 <div className="mb-2 flex items-end justify-between">
                   <div>
-                    <p className="font-display text-[24px] font-bold">{panel.name}</p>
-                    <p className="text-[14px] text-ink-3">{panel.events.length} événement{panel.events.length > 1 ? 's' : ''} à venir</p>
+                    <p className="font-display text-[22px] font-bold">{panel.name}</p>
+                    <p className="text-[13.5px] text-ink-3">{panel.events.length} événement{panel.events.length > 1 ? 's' : ''} à venir</p>
                   </div>
-                  <Link to={`/events?location=${encodeURIComponent(panel.name)}`} className="text-[14.5px] font-semibold text-brand">Voir l’agenda</Link>
+                  <Link to={`/events?location=${encodeURIComponent(panel.name)}`} className="text-[14.5px] font-semibold text-brand">Voir</Link>
                 </div>
-                {panel.events.slice(0, 3).map((event) => (
+                {panel.events.slice(0, 2).map((event) => (
                   <DisplayCard key={event.id} event={event} span={spanOf(event)} variant="compact" />
                 ))}
               </div>
             ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {attractions.length > 0 && (
-        <section className="mx-auto max-w-[1200px] px-5 pt-12 md:px-10">
+        <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
           <div className="mb-4 flex items-end justify-between">
             <div>
-              <h2 className="font-display text-[26px] font-bold tracking-[-0.025em]">Ouvert toute l’année</h2>
-              <p className="mt-1 text-[14.5px] text-ink-3">Parcs, zoos et lieux à visiter quand vous voulez.</p>
+              <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Ouvert toute l’année</h2>
+              <p className="mt-1 text-[14.5px] text-ink-3">Parcs et zoos à visiter le jour de votre choix.</p>
             </div>
             <Link to="/attractions" className="text-[14.5px] font-semibold text-brand">Toutes les attractions</Link>
           </div>
@@ -164,19 +180,6 @@ export default function HomeRails({
           </div>
         </section>
       )}
-
-      <section className="mx-auto max-w-[1200px] px-5 pb-4 pt-12 md:px-10">
-        <div className="relative flex flex-col items-start justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-7 py-8 text-white md:flex-row md:items-center md:px-12 md:py-10">
-          <DomePattern variant="dome" className="object-right-bottom opacity-90" />
-          <div className="relative">
-            <p className="font-display text-[28px] font-bold leading-tight tracking-[-0.03em] md:text-[32px]">Tout l’agenda, jour par jour.</p>
-            <p className="mt-2 max-w-[460px] text-[16px] text-white/80">{upcoming.filter((event) => !event.is_permanent).length} événements à venir. Filtrez par date, ville ou catégorie.</p>
-          </div>
-          <Link to="/events" className="relative inline-flex h-[52px] items-center gap-2 rounded-[10px] bg-white px-5 text-[16px] font-semibold text-ink">
-            <CalendarDots size={20} /> Ouvrir l’agenda
-          </Link>
-        </div>
-      </section>
     </>
   );
 }

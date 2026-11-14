@@ -3,17 +3,23 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  CalendarBlank,
+  CalendarDots,
   CaretDown,
+  CaretLeft,
+  CaretRight,
+  ChartLineUp,
+  Coins,
   Confetti,
   DeviceMobile,
   FilmSlate,
   MagnifyingGlass,
-  MaskHappy,
+  Moon,
   MusicNotes,
+  QrCode,
+  Scan,
   SealCheck,
-  SoccerBall,
   TreePalm,
-  UsersThree,
   WhatsappLogo,
 } from '@phosphor-icons/react';
 import { useEvents } from '../context/EventContext';
@@ -21,20 +27,21 @@ import PageSEO from '../components/SEO/PageSEO';
 import DomePattern from '../components/design/DomePattern';
 import StoreBadges from '../components/design/StoreBadges';
 import HomeRails from '../components/events/HomeRails';
-import QuickFilters, { type QuickFilterState } from '../components/events/QuickFilters';
+import { type QuickFilterState } from '../components/events/QuickFilters';
 import { useEventSchedule } from '../hooks/useEventSchedule';
 import { shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import { eventPricePresentation } from '../utils/labels';
 import { eventPublicPath } from '../utils/eventPath';
+import { dedupeEvents, isPastSpan, spanFor } from '../utils/eventDisplay';
+import FlyerFrame from '../components/events/FlyerFrame';
+import Logo from '../components/brand/Logo';
 
-const CATS = [
-  { icon: MusicNotes, label: 'Concerts', to: '/categories/concerts-de-musique' },
-  { icon: Confetti, label: 'Festivals', to: '/categories/festivals' },
-  { icon: FilmSlate, label: 'Cinéma', to: '/categories/cinema' },
-  { icon: SoccerBall, label: 'Sport', to: '/categories/sport' },
-  { icon: MaskHappy, label: 'Spectacles', to: '/events' },
-  { icon: TreePalm, label: 'Attractions', to: '/attractions' },
+const CHIP = [
+  { kind: 'concert' as const, label: 'Concerts', icon: MusicNotes, to: '/events?category=concerts' },
+  { kind: 'festival' as const, label: 'Festivals', icon: Confetti, to: '/events?category=festivals' },
+  { kind: 'cinema' as const, label: 'Cinéma', icon: FilmSlate, to: '/events?category=cinema' },
+  { kind: 'attraction' as const, label: 'Attractions', icon: TreePalm, to: '/attractions' },
 ];
 
 export default function Home() {
@@ -49,8 +56,9 @@ export default function Home() {
   });
 
   const [query, setQuery] = useState('');
-  const [where, setWhere] = useState('');
+  const [where, setWhere] = useState('Ouagadougou');
   const [when, setWhen] = useState('');
+  const [slide, setSlide] = useState(0);
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -65,16 +73,25 @@ export default function Home() {
     const params = new URLSearchParams();
     if (query.trim()) params.set('query', query.trim());
     if (where) params.set('location', where);
-    if (when === 'weekend') params.set('date', 'weekend');
+    if (when) params.set('date', when);
     navigate(`/events${params.toString() ? `?${params}` : ''}`);
   };
 
-  const hero = useMemo(() => {
-    const list = filteredEvents ?? [];
-    return list.find((event) => event.featured && event.image_url) ?? list.find((event) => event.image_url);
-  }, [filteredEvents]);
-  const heroPrice = hero ? eventPricePresentation(hero) : null;
-  const [heroBroken, setHeroBroken] = useState(false);
+  const featured = useMemo(() => {
+    const pool = dedupeEvents([...(filteredEvents ?? []), ...permanent]);
+    const flagged = pool.filter((event) => event.featured && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))));
+    const list = (flagged.length ? flagged : pool.filter((event) => event.image_url && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))))).slice(0, 2);
+    return list.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  }, [filteredEvents, permanent, spans]);
+  const current = featured[Math.min(slide, Math.max(featured.length - 1, 0))];
+  const categoryCounts = useMemo(() => {
+    const counts = { concert: 0, festival: 0, cinema: 0, attraction: permanent.length };
+    (filteredEvents ?? []).forEach((event) => {
+      const kind = kinds.get(event.id);
+      if (kind === 'concert' || kind === 'festival' || kind === 'cinema') counts[kind] += 1;
+    });
+    return counts;
+  }, [filteredEvents, kinds, permanent.length]);
 
   return (
     <div className="overflow-x-clip bg-white">
@@ -85,20 +102,21 @@ export default function Home() {
         ogImage="https://tembas.com/temba-wordmark-dark.jpg"
       />
 
-      <section className="relative -mt-14 overflow-hidden bg-brand pt-14 text-white lg:-mt-[72px] lg:pt-[72px]">
-        <DomePattern variant="hero" className="hidden md:block" />
-        <DomePattern variant="hero-mobile" className="md:hidden" />
-        <div className="relative mx-auto grid max-w-[1200px] items-end gap-8 px-5 pb-10 pt-7 md:grid-cols-[minmax(0,1fr)_320px] md:gap-10 md:px-10 md:pb-14 md:pt-14">
+      <section className="relative -mt-14 overflow-hidden bg-brand text-white lg:-mt-[72px]">
+        <DomePattern variant="hero" className="hidden object-right-bottom md:block" />
+        <DomePattern variant="hero-mobile" className="object-right-bottom md:hidden" />
+        <div className="relative grid items-center gap-8 px-5 pb-8 pt-20 min-[1100px]:grid-cols-[minmax(0,680px)_440px] min-[1100px]:justify-between min-[1100px]:px-16 min-[1100px]:pb-14 min-[1100px]:pt-[104px] min-[1440px]:px-20">
           <div>
-            <p className="text-[14px] font-semibold text-white/80">Billetterie officielle · Burkina Faso · Côte d'Ivoire</p>
-            <h1 className="mt-4 max-w-[680px] font-display text-[36px] font-bold leading-[1.02] tracking-[-0.035em] text-white md:text-[64px]">
+            <p className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-white/80 md:text-[13.5px]"><i className="h-1.5 w-1.5 rounded-full bg-[#F6B84A]" /> Billetterie officielle · Burkina Faso · Côte d’Ivoire</p>
+            <h1 className="mt-3 max-w-[680px] font-display text-[36px] font-bold leading-none tracking-[-0.04em] text-white md:mt-4 md:text-[60px]">
               Les meilleures sorties, réservées en FCFA.
             </h1>
-            <p className="mb-6 mt-4 max-w-[560px] text-[17px] leading-relaxed text-white/85 md:text-[19px]">
-              Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée.
+            <p className="mb-5 mt-3 max-w-[560px] text-[15px] leading-relaxed text-white/85 md:mb-0 md:mt-4 md:text-[18px] md:leading-[1.5]">
+              <span className="md:hidden">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan.</span>
+              <span className="hidden md:inline">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l’entrée.</span>
             </p>
-            <form onSubmit={onSearch} className="flex max-w-[760px] flex-col gap-2 rounded-xl bg-white p-1.5 text-ink shadow-[0_12px_32px_rgba(3,6,30,0.18)] md:flex-row md:items-stretch md:gap-0">
-              <label className="flex-1 px-4 py-2 md:border-r md:border-line">
+            <form onSubmit={onSearch} className="mt-5 grid max-w-[680px] grid-cols-1 gap-2 rounded-[14px] bg-white p-2 text-ink shadow-[0_18px_40px_-22px_rgba(3,6,30,0.55)] md:grid-cols-[minmax(0,1.4fr)_1px_minmax(0,1.1fr)_1px_minmax(0,1.1fr)_auto] md:items-center md:gap-0">
+              <label className="px-3 py-1.5">
                 <span className="block text-[12px] font-semibold text-ink-3">Quoi</span>
                 <input
                   value={query}
@@ -107,7 +125,8 @@ export default function Home() {
                   className="mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-ink-4 focus:outline-none"
                 />
               </label>
-              <label className="relative flex-1 px-4 py-2 md:border-r md:border-line">
+              <span className="hidden h-9 bg-line md:block" />
+              <label className="relative border-t border-line px-3 py-1.5 md:border-t-0">
                 <span className="block text-[12px] font-semibold text-ink-3">Où</span>
                 <select
                   value={where}
@@ -121,7 +140,8 @@ export default function Home() {
                 </select>
                 <CaretDown size={16} className="pointer-events-none absolute bottom-3 right-3 text-ink-3" />
               </label>
-              <label className="relative flex-1 px-4 py-2">
+              <span className="hidden h-9 bg-line md:block" />
+              <label className="relative border-t border-line px-3 py-1.5 md:border-t-0">
                 <span className="block text-[12px] font-semibold text-ink-3">Quand</span>
                 <select
                   value={when}
@@ -129,103 +149,127 @@ export default function Home() {
                   className="mt-0.5 w-full appearance-none bg-transparent pr-6 text-[15px] font-medium focus:outline-none"
                 >
                   <option value="">Toutes les dates</option>
+                  <option value="today">Ce soir</option>
                   <option value="weekend">Ce week-end</option>
+                  <option value="week">Cette semaine</option>
                 </select>
                 <CaretDown size={16} className="pointer-events-none absolute bottom-3 right-3 text-ink-3" />
               </label>
-              <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-brand px-6 text-[15px] font-semibold text-white md:h-14">
+              <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white md:h-[52px]">
                 <MagnifyingGlass size={18} />
                 Rechercher
               </button>
             </form>
-            <div className="mt-5 flex flex-wrap gap-x-7 gap-y-2 text-[14px] font-medium text-white/90">
-              <span className="inline-flex items-center gap-2"><UsersThree size={20} /><b className="font-bold">15 000+</b> utilisateurs</span>
-              <span className="inline-flex items-center gap-2"><DeviceMobile size={20} />Mobile Money et carte</span>
-              <span className="inline-flex items-center gap-2"><SealCheck size={20} />Prix officiels, sans revente</span>
+            <div className="mt-4 flex flex-nowrap gap-4 overflow-hidden text-[12.5px] font-medium text-white/80 md:mt-5 md:gap-6 md:text-[14px]">
+              <span className="inline-flex items-center gap-2"><DeviceMobile size={18} /> Mobile Money ou carte</span>
+              <span className="inline-flex items-center gap-2"><SealCheck size={18} /> Prix officiels, sans revente</span>
+              <span className="hidden items-center gap-2 md:inline-flex"><QrCode size={18} /> Billet QR, même hors ligne</span>
             </div>
           </div>
 
-          {hero && (
-            <Link to={eventPublicPath(hero)} className="hidden overflow-hidden rounded-xl bg-white text-ink md:block">
-              <div className="relative">
-                {hero.image_url && !heroBroken ? (
-                  <img src={hero.image_url} alt="" referrerPolicy="no-referrer" onError={() => setHeroBroken(true)} className="h-[272px] w-full object-cover" />
-                ) : (
-                  <div className="grid h-[272px] place-items-center bg-brand text-white">Temba</div>
-                )}
-                <span className="absolute left-3 top-3 inline-flex h-[22px] items-center rounded-[5px] bg-ink px-2 text-[11px] font-bold uppercase tracking-wide text-white">À la une</span>
-              </div>
-              <div className="px-[18px] pb-[18px] pt-4">
-                <p className="text-[13px] font-semibold text-brand">
-                  {hero.is_permanent ? 'Ouvert toute l’année' : formatCalendarDate(hero.date, { weekday: 'short', day: 'numeric', month: 'short' }, hero.timezone)}
-                  {formatEventTime(hero.time) ? ` · ${formatEventTime(hero.time)}` : ''}
-                </p>
-                <p className="mt-1 font-display text-[19px] font-bold leading-tight tracking-[-0.02em]">{hero.title}</p>
-                <div className="mt-3 flex items-center justify-between text-[14px]">
-                  <span className="truncate text-ink-3">{shortPlace(hero.location, hero.city).label}</span>
-                  <b className="tabular-nums">{heroPrice?.label}</b>
+          {current && (
+            <div>
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-2xl bg-white text-ink min-[1100px]:grid-cols-[200px_minmax(0,1fr)]">
+                <div className="relative min-h-[140px] min-[1100px]:min-h-[250px]">
+                  <FlyerFrame src={current.image_url} alt={current.title} eager className="h-full rounded-none" />
+                  <span className="absolute left-2 top-2 rounded-md bg-[#F6B84A] px-2 py-1 text-[12px] font-semibold text-ink">À la une</span>
+                </div>
+                <div className="flex min-w-0 flex-col p-3.5 min-[1100px]:p-5">
+                  <p className="text-[12px] font-semibold text-ink-3">{current.is_permanent ? 'Attraction' : kinds.get(current.id) === 'concert' ? 'Concert · Musique' : kinds.get(current.id) === 'festival' ? 'Festival' : kinds.get(current.id) === 'cinema' ? 'Cinéma' : 'Événement'}</p>
+                  <p className="mt-2 text-[13px] font-semibold text-brand">{current.is_permanent ? 'Ouvert tous les jours' : `${formatCalendarDate(current.date, { weekday: 'short', day: 'numeric', month: 'short' }, current.timezone)}${formatEventTime(current.time) ? ` · ${formatEventTime(current.time)}` : ''}`}</p>
+                  <p className="mt-1 font-display text-[17px] font-bold leading-tight min-[1100px]:text-[22px]">{current.title}</p>
+                  <p className="mt-1 text-[12.5px] text-ink-3 min-[1100px]:text-[13.5px]">{shortPlace(current.location, current.city).label}</p>
+                  <p className="mt-auto pt-2 text-[14px] font-semibold">{eventPricePresentation(current).label}</p>
+                  <Link to={eventPublicPath(current)} className="mt-3 hidden h-[42px] items-center justify-center rounded-[10px] bg-brand text-[14.5px] font-semibold text-white min-[1100px]:inline-flex">Voir l’événement <ArrowRight size={16} /></Link>
                 </div>
               </div>
-            </Link>
+              {featured.length > 1 && (
+                <div className="mt-3 flex items-center gap-3 text-[13.5px] text-white/80">
+                  <span className="flex gap-1.5">{featured.map((event, index) => <i key={event.id} className={`h-1 rounded-full ${index === slide ? 'w-8 bg-white' : 'w-4 bg-white/40'}`} />)}</span>
+                  <span>{slide + 1} / {featured.length}</span>
+                  <span className="hidden min-w-0 flex-1 truncate min-[1100px]:inline">· Suivant : {featured[(slide + 1) % featured.length].title}</span>
+                  <button type="button" aria-label="Précédent" onClick={() => setSlide((n) => (n - 1 + featured.length) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretLeft size={15} weight="bold" /></button>
+                  <button type="button" aria-label="Suivant" onClick={() => setSlide((n) => (n + 1) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretRight size={15} weight="bold" /></button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </section>
 
-      <div className="border-b border-line">
-        <div className="mx-auto flex max-w-[1200px] overflow-x-auto px-2 md:px-6">
-          {CATS.map(({ icon: Icon, label, to }) => (
-            <Link key={label} to={to} className="flex min-w-[140px] flex-1 items-center gap-3 border-l border-line px-4 py-4 text-[15px] font-semibold first:border-l-0">
-              <Icon size={24} className="shrink-0 text-brand" />
-              {label}
+      <div className="sticky top-14 z-40 border-b border-line bg-white lg:top-[72px]">
+        <div className="flex h-[72px] items-center gap-2.5 overflow-x-auto px-5 min-[1280px]:px-16 min-[1440px]:px-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <label className="hidden h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border border-line px-3 text-[14.5px] font-semibold md:inline-flex">
+            <select aria-label="Ville" value={filters.city} onChange={(event) => setFilters({ ...filters, city: event.target.value })} className="appearance-none bg-transparent pr-4 focus:outline-none">
+              {['Ouagadougou', 'Bobo-Dioulasso', 'Abidjan', 'Toutes les villes'].map((city) => <option key={city}>{city}</option>)}
+            </select>
+            <CaretDown size={13} weight="bold" />
+          </label>
+          <span className="hidden h-7 w-px bg-line md:block" />
+          <button type="button" onClick={() => setFilters({ ...filters, tonight: !filters.tonight, weekend: false })} className={`inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${filters.tonight ? 'border-ink bg-ink text-white' : 'border-line'}`}><Moon size={17} /> Ce soir</button>
+          <button type="button" onClick={() => setFilters({ ...filters, weekend: !filters.weekend, tonight: false })} className={`inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${filters.weekend ? 'border-ink bg-ink text-white' : 'border-line'}`}><CalendarBlank size={17} /> Ce week-end</button>
+          <span className="hidden h-7 w-px bg-line md:block" />
+          {CHIP.filter((chip) => (categoryCounts[chip.kind] || 0) > 0).map((chip) => (
+            <Link key={chip.label} to={chip.to} className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-line px-3.5 text-[14px] font-medium">
+              <chip.icon size={17} /> {chip.label}
             </Link>
           ))}
+          <Link to="/events" className="ml-auto inline-flex shrink-0 items-center gap-1 text-[14.5px] font-semibold text-brand"><CalendarDots size={16} /> Agenda complet</Link>
         </div>
       </div>
-
-      <QuickFilters value={filters} onChange={setFilters} align="home" />
       <HomeRails events={filteredEvents ?? []} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
 
-      <section className="mx-auto max-w-[1200px] px-5 pt-16 md:px-10 md:pt-20">
-        <div className="relative grid min-h-[280px] overflow-hidden rounded-2xl bg-brand text-white md:grid-cols-[1.1fr_1fr]">
-          <DomePattern variant="dome" className="object-right-bottom" />
-          <div className="relative px-7 py-10 md:px-14 md:py-14">
-            <p className="text-[14px] font-semibold text-white/80">Application Temba</p>
-            <h2 className="mt-2.5 font-display text-[32px] font-bold leading-tight tracking-[-0.03em] md:text-[40px]">
-              Vos billets,<br />même sans réseau.
-            </h2>
-            <p className="mb-7 mt-4 max-w-[420px] text-[17px] leading-relaxed text-white/85">
-              QR hors ligne, transfert gratuit en deux taps, rappels avant l'événement.
-            </p>
-            <StoreBadges />
+      <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
+        <div className="relative grid items-center gap-8 overflow-hidden rounded-[20px] bg-brand px-6 py-8 text-white md:grid-cols-[minmax(0,1fr)_auto] md:px-14 md:py-12">
+          <DomePattern variant="dome" className="object-right-bottom opacity-90" />
+          <div className="relative">
+            <p className="text-[13.5px] font-semibold text-white/75">L’application Temba</p>
+            <h2 className="mt-3 font-display text-[28px] font-bold leading-[1.04] tracking-[-0.035em] md:text-[44px]">Vos billets,<br />même sans réseau.</h2>
+            <ol className="mt-5 space-y-3 text-[15px]">
+              {['Choisissez votre sortie sur tembas.com ou dans l’appli.', 'Payez en FCFA, par Mobile Money ou carte.', 'Présentez le QR à l’entrée, même sans réseau.'].map((step, index) => (
+                <li key={step} className="flex items-center gap-3"><b className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-white font-display text-[14px] text-brand">{index + 1}</b>{step}</li>
+              ))}
+            </ol>
+            <div className="mt-6"><StoreBadges /></div>
           </div>
-          <div className="relative hidden items-center justify-end pr-14 md:flex">
-            <div className="w-[200px] rounded-xl bg-white px-4 py-4 text-center text-ink">
-              <QRCodeSVG
-                value="https://temba.onelink.me/Xbe8"
-                size={168}
-                className="mx-auto"
-                aria-label="QR de téléchargement de l'application Temba"
-              />
-              <p className="mt-2.5 text-[13px] font-semibold">Scannez pour télécharger</p>
-              <p className="text-[12px] text-ink-3">temba.onelink.me</p>
+          <div className="relative flex flex-col items-center gap-4 md:flex-row md:items-end">
+            <div className="w-[230px] overflow-hidden rounded-[14px] bg-white text-ink">
+              <div className="relative bg-[#2F3095] p-3.5 text-white">
+                <DomePattern variant="tile" />
+                <div className="relative flex items-center justify-between"><Logo variant="light" size={14} /><span className="rounded border border-white/75 px-1.5 py-1 text-[10.5px] font-bold">STANDARD</span></div>
+                <p className="relative mt-3 font-display text-[17px] font-bold">{current?.title || 'Alif Naaba'}</p>
+                <p className="relative mt-1 text-[12.5px] font-semibold text-white/85">Sam. 26 déc. · 20:00</p>
+              </div>
+              <div className="flex items-center gap-3 border-t-2 border-dashed border-line p-3">
+                <QRCodeSVG value="exemple" size={64} />
+                <div><p className="text-[13px] font-semibold">Votre nom</p><p className="font-mono text-[11px] text-ink-3">EX-AN-0001</p><p className="text-[11px] text-ink-4">(exemple)</p></div>
+              </div>
+            </div>
+            <div className="hidden w-[168px] rounded-[14px] bg-white p-3.5 text-center text-ink md:block">
+              <QRCodeSVG value="https://temba.onelink.me/Xbe8" size={140} className="mx-auto" aria-label="QR de téléchargement" />
+              <p className="mt-2 text-[12.5px] font-semibold">Scannez pour télécharger</p>
+              <p className="text-[11.5px] text-ink-3">iPhone et Android</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1200px] px-5 pb-16 pt-6 md:px-10 md:pb-24">
-        <div className="flex flex-col items-start gap-6 rounded-2xl border border-line px-6 py-8 md:flex-row md:items-center md:gap-10 md:px-12 md:py-10">
-          <div className="flex-1">
-            <p className="eyebrow">Organisateurs</p>
-            <h2 className="mt-1.5 font-display text-[28px] font-bold tracking-[-0.03em]">Vous organisez un événement ?</h2>
-            <p className="mt-2 text-[16px] text-ink-3">Vendez vos billets en FCFA, suivez vos ventes et contrôlez l'entrée avec Temba.</p>
+      <section className="px-5 pb-20 pt-8 min-[1280px]:px-16 min-[1440px]:px-20">
+        <div className="grid items-center gap-8 rounded-[20px] bg-[#F7F4EE] px-6 py-8 md:grid-cols-[1.1fr_1fr] md:px-14 md:py-12">
+          <div>
+            <p className="text-[13.5px] font-semibold text-brand">Organisateurs</p>
+            <h2 className="mt-3 font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] md:text-[40px]">Vous organisez<br />un événement ?</h2>
+            <p className="mt-3 max-w-[460px] text-[16.5px] leading-relaxed text-ink-3">Vendez vos billets en FCFA, suivez vos ventes et contrôlez l’entrée avec Temba.</p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <Link to="/organizers" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Devenir organisateur <ArrowRight size={16} /></Link>
+              <a href="https://wa.me/22674750815" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-line bg-white px-5 text-[15px] font-semibold"><WhatsappLogo size={18} /> Parler à l’équipe</a>
+            </div>
           </div>
-          <Link to="/organizers" className="inline-flex h-12 items-center gap-2 rounded-[10px] bg-ink px-5 text-[15px] font-semibold text-white">
-            Devenir organisateur <ArrowRight size={18} />
-          </Link>
-          <a href="https://wa.me/22674750815" className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-line bg-white px-5 text-[15px] font-semibold">
-            <WhatsappLogo size={18} /> Parler à l'équipe
-          </a>
+          <div className="space-y-3.5 text-[15px] text-ink-2">
+            <p className="flex gap-3"><Coins size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Vente en FCFA</b>Mobile Money et carte, au prix que vous fixez.</span></p>
+            <p className="flex gap-3"><ChartLineUp size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Suivi des ventes</b>Billets vendus et recettes, événement par événement.</span></p>
+            <p className="flex gap-3"><Scan size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Contrôle à l’entrée</b>Les billets QR sont vérifiés à la porte.</span></p>
+          </div>
         </div>
       </section>
     </div>

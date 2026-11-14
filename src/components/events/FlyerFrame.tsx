@@ -13,14 +13,14 @@ export default function FlyerFrame({
 }: {
   src?: string | null;
   alt: string;
-  ratio?: '4/5' | '16/9';
+  ratio?: '4/5' | '16/9' | '2/1';
   past?: boolean;
   eager?: boolean;
   className?: string;
 }) {
   const [broken, setBroken] = useState(false);
   const [reveal, setReveal] = useState(!prefersDataSaver());
-  const ratioClass = ratio === '16/9' ? 'aspect-video' : 'aspect-[4/5]';
+  const ratioClass = ratio === '2/1' ? 'aspect-[2/1]' : ratio === '16/9' ? 'aspect-video' : 'aspect-[4/5]';
   const show = Boolean(src) && !broken && reveal;
 
   return (
