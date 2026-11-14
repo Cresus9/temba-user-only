@@ -27,9 +27,7 @@ import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
 import DisplayCard from '../components/events/DisplayCard';
-import StoreBadges from '../components/design/StoreBadges';
-import DomePattern from '../components/design/DomePattern';
-import { QRCodeSVG } from 'qrcode.react';
+import AppBand from '../components/design/AppBand';
 import { useEventSchedule } from '../hooks/useEventSchedule';
 import { calendarDayInZone, formatEventTime } from '../utils/formatters';
 import { cityKey, cityName, dedupeEvents, eventBadges, isPastSpan, spanFor } from '../utils/eventDisplay';
@@ -505,29 +503,29 @@ export default function EventDetails() {
           </nav>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end">
             <img src={event.image_url || ''} alt={`Affiche ${event.title}`} className="max-h-[340px] w-auto max-w-full rounded-[10px] object-contain sm:max-h-[425px] sm:max-w-[340px]" />
-            <div className="min-w-0 pb-1">
+            <div className="min-w-0 pb-1 text-white [&_h1]:!text-white [&_p]:!text-white">
               <div className="flex flex-wrap items-center gap-2">
                 {badges.map((badge) => (
                   <span key={badge.label} className={`rounded-md px-2 py-1 text-[12px] font-semibold ${badge.kind === 'featured' ? 'bg-[#F6B84A] text-ink' : 'bg-white/15 text-white'}`}>{badge.label}</span>
                 ))}
                 {kindLabel && <span className="text-[13px] font-semibold text-white/75">{categoryLabelFr(kindLabel)}</span>}
               </div>
-              <h1 className="mt-3 font-display text-[28px] font-bold leading-[1.05] tracking-[-0.03em] min-[1280px]:text-[38px] min-[1440px]:text-[44px]">{event.title}</h1>
-              <p className="mt-4 flex items-center gap-2 text-[16px]"><CalendarBlank size={18} /> {when}</p>
+              <h1 className="mt-3 font-display text-[28px] font-bold leading-[1.05] tracking-[-0.03em] !text-white min-[1280px]:text-[38px] min-[1440px]:text-[44px]">{event.title}</h1>
+              <p className="mt-4 flex items-center gap-2 text-[16px] !text-white"><CalendarBlank size={18} /> {when}</p>
               {clock && !event.is_permanent && (
-                <p className="mt-2 flex items-start gap-2 text-[16px]">
+                <p className="mt-2 flex items-start gap-2 text-[16px] !text-white">
                   <Clock size={18} className="mt-0.5" />
                   <span>{clock}<small className="mt-0.5 block text-[12.5px] text-white/65">Heure de Ouagadougou</small></span>
                 </p>
               )}
-              <p className="mt-2 flex items-center gap-2 text-[16px]"><MapPin size={18} /> {place.label}</p>
-              <p className="mt-4 text-[18px] font-semibold">{heroPriceLine(event, mode)}</p>
+              <p className="mt-2 flex items-center gap-2 text-[16px] !text-white"><MapPin size={18} /> {place.label}</p>
+              <p className="mt-4 text-[18px] font-semibold !text-white">{heroPriceLine(event, mode)}</p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <button type="button" onClick={shareWhatsApp} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><WhatsappLogo size={16} /> Partager</button>
+                <button type="button" onClick={shareWhatsApp} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold text-white"><WhatsappLogo size={16} /> Partager</button>
                 {!event.is_permanent && (
-                  <button type="button" onClick={addToCalendar} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><CalendarBlank size={16} /> Ajouter au calendrier</button>
+                  <button type="button" onClick={addToCalendar} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold text-white"><CalendarBlank size={16} /> Ajouter au calendrier</button>
                 )}
-                <button type="button" onClick={copyLink} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><Copy size={16} /> Copier le lien</button>
+                <button type="button" onClick={copyLink} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold text-white"><Copy size={16} /> Copier le lien</button>
               </div>
             </div>
           </div>
@@ -630,24 +628,16 @@ export default function EventDetails() {
             </section>
           )}
 
-          <section className="relative overflow-hidden rounded-[20px] bg-brand px-6 py-8 text-white">
-            <DomePattern variant="dome" className="object-right-bottom opacity-80" />
-            <div className="relative">
-              <p className="text-[13px] font-semibold text-white/75">L’application Temba</p>
-              <h2 className="mt-2 font-display text-[32px] font-bold leading-tight">Vos billets, même sans réseau.</h2>
-              <div className="mt-5"><StoreBadges /></div>
-              <div className="mt-6 hidden w-[168px] rounded-[14px] bg-white p-3 text-center text-ink sm:block">
-                <QRCodeSVG value="https://temba.onelink.me/Xbe8" size={120} className="mx-auto" />
-                <p className="mt-2 text-[12px] font-semibold">Scannez pour télécharger</p>
-              </div>
-            </div>
-          </section>
         </div>
 
         <aside className="order-1 min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:order-2 min-[1280px]:-mt-64">
           <EventTicketPanel event={event} dates={eventDates} />
         </aside>
       </div>
+
+      <section className="px-5 pb-16 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
+        <AppBand />
+      </section>
     </div>
   );
 }
