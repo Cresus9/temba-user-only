@@ -15,11 +15,10 @@ import {
   X,
 } from '@phosphor-icons/react';
 import TicketPass from './TicketPass';
-import DomePattern from './DomePattern';
-import StoreBadges from './StoreBadges';
 import { formatCalendarDate, formatEventTime } from '../../utils/formatters';
 import { mapsSearchUrl, shortPlace } from '../../utils/eventGeo';
-import { inferTicketTier, tierLabel, type TicketVisualState } from '../../utils/labels';
+import { inferTicketTier, paymentMethodLabel, tierLabel, type TicketVisualState } from '../../utils/labels';
+import AppBand from './AppBand';
 
 export interface DeskTicket {
   id: string;
@@ -53,7 +52,7 @@ interface TicketsDeskProps {
 
 function money(amount?: number | null) {
   if (amount == null || Number.isNaN(amount)) return null;
-  if (amount <= 0) return 'Gratuit';
+  if (amount <= 0) return 'Prix bientôt disponible';
   return `${Math.round(amount).toLocaleString('fr-FR')} FCFA`;
 }
 
@@ -133,7 +132,7 @@ export default function TicketsDesk({
           <p className="flex items-center gap-2 text-[14px] font-semibold text-[#0B7A52]">
             <CheckCircle size={20} weight="fill" />
             Paiement confirmé
-            {paymentLabel ? ` · ${paymentLabel}` : ''}
+            {paymentLabel ? ` · ${paymentMethodLabel(paymentLabel)}` : ''}
             {paidAtLabel ? ` · ${paidAtLabel}` : ''}
           </p>
           <h1 className="mt-2 font-display text-[32px] font-bold tracking-tight text-ink md:text-[40px]">
@@ -293,23 +292,8 @@ export default function TicketsDesk({
         </aside>
       </div>
 
-      <section className="no-print relative overflow-hidden bg-brand text-white md:hidden">
-        <DomePattern variant="band" className="opacity-50" />
-        <div className="relative px-5 py-6">
-          <p className="font-display text-[20px] font-bold">Vos billets, même sans réseau.</p>
-          <p className="mb-3.5 mt-1.5 text-[14px] text-white/85">Installez l’app Temba : billets hors ligne et transfert en deux taps.</p>
-          <StoreBadges />
-        </div>
-      </section>
-      <section className="no-print relative hidden overflow-hidden bg-brand text-white md:block">
-        <DomePattern variant="band" className="opacity-55" />
-        <div className="relative mx-auto flex max-w-[1200px] items-center gap-10 px-6 py-10">
-          <div className="flex-1">
-            <p className="font-display text-[28px] font-bold leading-tight">Vos billets, même sans réseau.</p>
-            <p className="mt-2 text-[16px] text-white/85">Dans l’app Temba : billets hors ligne, transfert en deux taps, rappels la veille.</p>
-          </div>
-          <StoreBadges />
-        </div>
+      <section className="no-print px-5 py-8 md:px-10">
+        <AppBand />
       </section>
 
       <div className="mx-4 mb-8 mt-4 rounded-2xl border border-line bg-white p-4 md:hidden">

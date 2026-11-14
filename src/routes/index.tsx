@@ -35,6 +35,9 @@ import MobileAppPreview from '../pages/MobileAppPreview';
 const DevAccountPreview = import.meta.env.DEV
   ? lazy(() => import('../pages/dev/AccountPreview'))
   : null;
+const DevTicketsPreview = import.meta.env.DEV
+  ? lazy(() => import('../pages/dev/TicketsReceivedPreview'))
+  : null;
 
 // Blog Pages
 import BlogHome from '../pages/blog/BlogHome';
@@ -180,6 +183,16 @@ export default function AppRoutes() {
           </RequireAuth>
         } />
         <Route path="/checkout" element={<Checkout />} />
+        {DevTicketsPreview ? (
+          <Route
+            path="/dev/billets-recus"
+            element={
+              <Suspense fallback={null}>
+                <DevTicketsPreview />
+              </Suspense>
+            }
+          />
+        ) : null}
         <Route path="/booking/confirmation/:bookingId" element={<EnhancedBookingConfirmation />} />
         <Route path="/support" element={<Support />} />
         <Route path="/support/:id" element={

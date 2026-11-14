@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import CheckoutChrome from '../components/checkout/CheckoutChrome';
+import { displayVenue } from '../utils/eventGeo';
+import { formatCalendarDate, formatEventTime } from '../utils/formatters';
+import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import CheckoutForm from '../components/checkout/CheckoutForm';
 import AddonSelector from '../components/tickets/AddonSelector';
@@ -12,8 +16,6 @@ import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
-import { shortPlace } from '../utils/eventGeo';
-import FlyerFrame from '../components/events/FlyerFrame';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -62,6 +64,7 @@ export default function Checkout() {
   const { events } = useEvents();
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
+  const [lines, setLines] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
 
   const locationState = location.state as CheckoutState | null;
   const state =
@@ -105,31 +108,71 @@ export default function Checkout() {
     ? addonsAmount               // seeded from state.addonTotal on mount
     : addonsAmount + foodAmount; // live selections on checkout page
 
-  return (
-    <div>
-      <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
+  const event = events.find((item) => item.id === state.eventId);
+  const place = displayVenue(event?.location, event?.city);
+  const asideTotal = (state.totals?.total || 0) + extrasTotal;
+  React.useEffect(() => {
+    const ids = Object.keys(state.tickets || {});
+    if (!ids.length) return;
+    supabase.from('ticket_types').select('id, name, price').in('id', ids).then(({ data }) => {
+      const rows = (data || []).map((row: { id: string; name: string; price: number }) => ({
+        id: row.id,
+        name: row.name,
+        price: Number(row.price) || 0,
+        qty: Number(state.tickets[row.id] || 0),
+      })).filter((row) => row.qty > 0);
+      setLines(rows);
+    });
+  }, [state.eventId]);
 
-      <section className="border-b border-line bg-white">
-        <div className="mx-auto flex h-[72px] max-w-[1200px] items-center gap-4 px-5 md:px-10">
-          <Link to="/" aria-label="Temba" className="mr-auto text-[15px] font-semibold">Paiement</Link>
-          <ol className="hidden items-center gap-3 text-[14px] md:flex">
-            {['Billets', 'Coordonnées', 'Paiement', 'Billets reçus'].map((label, index) => (
-              <li key={label} className="flex items-center gap-3">
-                <span className={`grid h-6 w-6 place-items-center rounded-full text-[12px] font-bold ${index <= 2 ? 'bg-brand text-white' : 'border border-line text-ink-3'}`}>{index < 2 ? '✓' : index + 1}</span>
-                <span className={index === 2 ? 'font-semibold' : 'text-ink-3'}>{label}</span>
-                {index < 3 && <span className="h-px w-8 bg-line" />}
-              </li>
-            ))}
-          </ol>
-          <span className="ml-auto hidden items-center gap-1.5 text-[14px] text-[#0B7A52] md:inline-flex">
-            <Lock className="h-4 w-4" /> Paiement sécurisé
-          </span>
+  const summary = (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <div className="flex gap-3">
+        {event?.image_url ? <img src={event.image_url} alt="" className="h-[90px] w-[72px] rounded-[8px] object-contain bg-[#1B1D33]" /> : null}
+        <div className="min-w-0">
+          <p className="font-display text-[16px] font-bold leading-snug">{event?.title || 'Votre commande'}</p>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {event?.date ? formatCalendarDate(event.date, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : ''}
+            {formatEventTime(event?.time) ? ` · ${formatEventTime(event?.time)}` : ''}
+          </p>
+          {formatEventTime(event?.time) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
+          <p className="mt-1 text-[13px] text-ink-3">{place.label}</p>
         </div>
-      </section>
+      </div>
+      <div className="mt-3 space-y-1 border-t border-line pt-3 text-[14px]">
+        {lines.map((line) => (
+          <p key={line.id} className="flex justify-between gap-3">
+            <span>{line.qty} × {line.name}</span>
+            <span className="tabular-nums">{formatCurrency(line.price * line.qty, state.currency)}</span>
+          </p>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-line pt-3 font-display text-[20px] font-bold">
+        <span>Total</span>
+        <span className="tabular-nums">{formatCurrency(asideTotal, state.currency)}</span>
+      </div>
+      <Link to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} className="mt-3 inline-flex text-[14px] font-semibold text-brand">
+        Modifier mes billets
+      </Link>
+      <p className="mt-3 flex items-start gap-2 text-[13px] text-ink-3">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        Un souci au paiement ? WhatsApp +226 74 75 08 15, 7j/7.
+      </p>
+    </div>
+  );
 
-      <section className="bg-white">
+  return (
+    <div className="min-h-screen bg-[#F4F5FA]">
+      <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
+      <CheckoutChrome current={2} backTo={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} />
+
+      <section className="bg-[#F4F5FA]">
         <div className="mx-auto grid max-w-[1200px] gap-10 px-5 py-8 md:px-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:py-10">
           <div className="space-y-6">
+          <details className="rounded-2xl border border-line bg-white p-4 lg:hidden">
+            <summary className="cursor-pointer font-semibold">Votre commande · {formatCurrency(asideTotal, state.currency)}</summary>
+            <div className="mt-3">{summary}</div>
+          </details>
           <Link
             to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'}
             className="inline-flex items-center gap-1.5 text-[14px] font-medium text-ink-3 hover:text-ink"
@@ -195,25 +238,7 @@ export default function Checkout() {
             onSuccess={isAuthenticated ? handleAuthenticatedSuccess : handleGuestSuccess}
           />
           </div>
-          <aside className="h-fit rounded-xl border border-line p-5 lg:sticky lg:top-6">
-            <div className="flex gap-3">
-              {events.find((item) => item.id === state.eventId)?.image_url ? (
-                <div className="w-16 shrink-0"><FlyerFrame src={events.find((item) => item.id === state.eventId)?.image_url} alt="" /></div>
-              ) : null}
-              <div>
-                <p className="font-display text-[16px] font-bold leading-snug">{events.find((item) => item.id === state.eventId)?.title || 'Votre commande'}</p>
-                <p className="mt-1 text-[13.5px] text-ink-3">{shortPlace(events.find((item) => item.id === state.eventId)?.location, events.find((item) => item.id === state.eventId)?.city).label}</p>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center justify-between border-t border-line pt-4 font-display text-[20px] font-bold">
-              <span>Total</span>
-              <span className="tabular-nums">{formatCurrency((state.totals?.total || 0) + extrasTotal, state.currency)}</span>
-            </div>
-            <p className="mt-3 flex items-start gap-2 text-[13px] text-ink-3">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-              Un souci au paiement ? WhatsApp +226 74 75 08 15, 7j/7.
-            </p>
-          </aside>
+          <aside className="hidden h-fit lg:sticky lg:top-6 lg:block">{summary}</aside>
         </div>
       </section>
     </div>

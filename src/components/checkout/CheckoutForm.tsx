@@ -329,7 +329,7 @@ export default function CheckoutForm({
       }
 
       // Show success message
-      toast.success('Réservation confirmée ! Vos billets gratuits sont prêts.');
+      toast.success('Réservation confirmée. Vos billets sont prêts.');
 
       // Redirect to confirmation page
       onSuccess(result.orderId);
@@ -878,7 +878,7 @@ export default function CheckoutForm({
             ) : (
               <>
                 <Gift className="h-4 w-4" />
-                <span>Confirmer la réservation gratuite</span>
+                <span>Confirmer la réservation</span>
               </>
             )}
           </button>
@@ -1240,18 +1240,17 @@ export default function CheckoutForm({
                   onClick={() => { setPaymentMethod('mobile_money'); setFormData({ ...formData, provider: 'orange', preAuthorisationCode: '' }); }}
                   className={`relative flex flex-col items-center gap-2 p-3 pt-4 pb-3 border-2 rounded-2xl transition-all ${
                     paymentMethod === 'mobile_money' && formData.provider === 'orange'
-                      ? 'border-[#FF6600] bg-orange-50/60'
-                      : 'border-line bg-paper hover:border-[#FF6600]/40 hover:bg-orange-50/30'
+                      ? 'border-brand bg-brand/5'
+                      : 'border-line bg-paper hover:border-brand/40'
                   }`}
                 >
                   <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm bg-[#1a1a2e] flex-shrink-0">
                     <img src="/orange-money-seeklogo.png" alt="Orange Money" className="w-full h-full object-cover" />
                   </div>
-                  <span className={`text-[11px] font-bold leading-tight text-center ${
-                    paymentMethod === 'mobile_money' && formData.provider === 'orange' ? 'text-[#FF6600]' : 'text-ink'
-                  }`}>Orange Money</span>
+                  <span className="text-[11px] font-bold leading-tight text-center text-ink">Orange Money</span>
+                  <span className="text-[11px] text-ink-3">Code USSD</span>
                   {paymentMethod === 'mobile_money' && formData.provider === 'orange' && (
-                    <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#FF6600] text-white">
+                    <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-brand text-white">
                       <Check className="h-3 w-3" strokeWidth={3} />
                     </span>
                   )}
@@ -1263,8 +1262,8 @@ export default function CheckoutForm({
                   onClick={() => { setPaymentMethod('mobile_money'); setFormData({ ...formData, provider: 'moov', preAuthorisationCode: '' }); }}
                   className={`relative flex flex-col items-center gap-2 p-3 pt-4 pb-3 border-2 rounded-2xl transition-all ${
                     paymentMethod === 'mobile_money' && formData.provider === 'moov'
-                      ? 'border-[#0057A8] bg-sky-50/60'
-                      : 'border-line bg-paper hover:border-[#0057A8]/40 hover:bg-sky-50/30'
+                      ? 'border-brand bg-brand/5'
+                      : 'border-line bg-paper hover:border-brand/40'
                   }`}
                 >
                   <div className="w-14 h-14 rounded-2xl shadow-sm flex-shrink-0 relative overflow-hidden flex flex-col items-center justify-center pb-1" style={{ backgroundColor: '#1060B0' }}>
@@ -1279,11 +1278,10 @@ export default function CheckoutForm({
                       <div className="text-white/75 font-semibold" style={{ fontSize: '6px', letterSpacing: '0.5px' }}>Africa</div>
                     </div>
                   </div>
-                  <span className={`text-[11px] font-bold leading-tight text-center ${
-                    paymentMethod === 'mobile_money' && formData.provider === 'moov' ? 'text-[#0057A8]' : 'text-ink'
-                  }`}>Moov Money</span>
+                  <span className="text-[11px] font-bold leading-tight text-center text-ink">Moov Money</span>
+                  <span className="text-[11px] text-ink-3">Sur le téléphone</span>
                   {paymentMethod === 'mobile_money' && formData.provider === 'moov' && (
-                    <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-[#0057A8] text-white">
+                    <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-brand text-white">
                       <Check className="h-3 w-3" strokeWidth={3} />
                     </span>
                   )}
@@ -1303,9 +1301,8 @@ export default function CheckoutForm({
                     <img src="/visa.svg" alt="Visa" className="w-full object-contain" style={{ height: '22px' }} />
                     <img src="/mastercard.svg" alt="Mastercard" className="object-contain" style={{ height: '22px', width: '40px' }} />
                   </div>
-                  <span className={`text-[11px] font-bold leading-tight text-center ${
-                    paymentMethod === 'card' ? 'text-brand' : 'text-ink'
-                  }`}>Carte</span>
+                  <span className="text-[11px] font-bold leading-tight text-center text-ink">Carte</span>
+                  <span className="text-[11px] text-ink-3">Visa, Mastercard</span>
                   {paymentMethod === 'card' && (
                     <span className="absolute top-2 right-2 grid place-items-center w-5 h-5 rounded-full bg-brand text-white">
                       <Check className="h-3 w-3" strokeWidth={3} />
@@ -1354,6 +1351,19 @@ export default function CheckoutForm({
                         ? 'Ce numéro paie et sert ensuite à retrouver vos billets. Burkina (+226) par défaut — autre pays possible.'
                         : 'Burkina (+226) par défaut. Choisissez un autre pays si votre Orange ou Moov n’est pas burkinabè.'}
                     </p>
+                    {formData.provider === 'orange' ? (
+                      <div className="mt-3 rounded-xl border border-line bg-surf p-3 text-[13px] leading-relaxed text-ink-2">
+                        <p className="font-semibold text-ink">Comment ça se passe</p>
+                        <p className="mt-1">1. Appuyez sur Payer.</p>
+                        <p>2. Si Orange vous le demande, composez <b className="font-mono">*144*4*6*{Math.round(grandTotal)}#</b>. Un code arrive par SMS.</p>
+                        <p>3. Entrez ce code ici. Vos billets s’affichent dès qu’il est confirmé.</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-xl border border-line bg-surf p-3 text-[13px] leading-relaxed text-ink-2">
+                        <p className="font-semibold text-ink">Comment ça se passe</p>
+                        <p className="mt-1">Gardez le téléphone près de vous et validez avec le code secret si Moov affiche une demande. Sinon, une page sécurisée s’ouvre.</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Pre-authorization code — Orange Money only */}
@@ -1612,10 +1622,12 @@ export default function CheckoutForm({
                 <span>Sous-total</span>
                 <span className="tabular-nums text-ink">{formatCurrency(subtotal, currency)}</span>
               </div>
+              {buyerFees > 0 && (
               <div className="flex justify-between text-[13px] text-ink-mute">
                 <span>Frais de service</span>
                 <span className="tabular-nums text-ink">{formatCurrency(buyerFees, currency)}</span>
               </div>
+              )}
               {addonTotal > 0 && (
                 <div className="flex justify-between text-[13px] text-ink-mute">
                   <span>Options &amp; services</span>
@@ -1636,8 +1648,10 @@ export default function CheckoutForm({
 
           {/* Submit button only for mobile money payments */}
           {paymentMethod === 'mobile_money' && (
+            <>
             <button
               type="button"
+              id="checkout-pay"
               disabled={isProcessing}
               onClick={(e) => {
                 console.log('🔴 [BUTTON] Clicked!', { 
@@ -1669,7 +1683,7 @@ export default function CheckoutForm({
                   console.error('❌ [BUTTON] Form not found!');
                 }
               }}
-              className="w-full inline-flex items-center justify-center gap-2 h-12 px-4 bg-brand text-paper rounded-lg text-[14px] font-bold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.985] shadow-card"
+              className="hidden h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[15px] font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
             >
               {isProcessing ? (
                 <>
@@ -1684,6 +1698,21 @@ export default function CheckoutForm({
                 </>
               )}
             </button>
+            <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-white px-4 py-3 md:hidden">
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] text-ink-3">Total</p>
+                <p className="text-[16px] font-bold tabular-nums">{formatCurrency(grandTotal, currency)}</p>
+              </div>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => document.getElementById('checkout-pay')?.click()}
+                className="inline-flex h-12 items-center rounded-xl bg-brand px-4 text-[15px] font-semibold text-white disabled:opacity-50"
+              >
+                {isProcessing ? 'Traitement…' : 'Payer →'}
+              </button>
+            </div>
+            </>
           )}
           </>
           )}

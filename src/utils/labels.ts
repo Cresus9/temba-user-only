@@ -41,6 +41,17 @@ const TICKET_NAME_FR: Record<string, string> = {
   'free entry': 'Entrée gratuite',
 };
 
+/** Display label only. Does not change the value stored on the order. */
+export function paymentMethodLabel(raw?: string | null): string {
+  const value = (raw || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+  if (!value) return '';
+  if (value.includes('orange')) return 'Orange Money';
+  if (value.includes('moov')) return 'Moov Money';
+  if (value.includes('card') || value.includes('carte') || value.includes('stripe') || value.includes('visa') || value.includes('master')) return 'Carte';
+  if (value.includes('mobile')) return 'Mobile Money';
+  return raw!.trim();
+}
+
 export function ticketNameFr(name?: string | null): string {
   if (!name) return '';
   const mapped = TICKET_NAME_FR[name.trim().toLowerCase()];
