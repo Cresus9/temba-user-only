@@ -102,6 +102,13 @@ export function eventPricePresentation(event: {
 
   // Tariffs are loaded and none are on sale: a zero or a stale price is not "Gratuit".
   if (types && types.length > 0) {
+    const announced = types.map((ticket) => Number(ticket.price)).filter((price) => price > 0);
+    if (announced.length > 0) {
+      return {
+        tone: 'soon',
+        label: `Dès ${formatCurrency(Math.min(...announced), currency)} · vente pas encore ouverte`,
+      };
+    }
     return { tone: 'unpriced', label: 'Prix bientôt disponible' };
   }
 

@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   CaretDown,
   List,
   MagnifyingGlass,
+  ShareNetwork,
   Ticket,
   X,
 } from '@phosphor-icons/react';
@@ -143,7 +145,20 @@ export default function Navbar() {
         )}
       </div>
 
-      <div className="flex h-14 items-center justify-between px-5 lg:hidden">
+      <div className="relative flex h-14 items-center justify-between px-3 lg:hidden">
+        {/^\/(e|events)\/.+/.test(location.pathname) ? (
+          <>
+            <button type="button" aria-label="Retour" onClick={() => navigate(-1)} className="grid h-11 w-11 place-items-center"><ArrowLeft size={22} /></button>
+            <Link to="/" aria-label="Temba — accueil" className="absolute left-1/2 -translate-x-1/2"><Logo variant="auto" size={22} /></Link>
+            <div className="flex items-center">
+              <button type="button" aria-label="Partager" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener,noreferrer')} className="grid h-11 w-11 place-items-center"><ShareNetwork size={22} /></button>
+              <button type="button" className="grid h-11 w-11 place-items-center" aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'} onClick={() => setIsOpen((v) => !v)}>
+                {isOpen ? <X size={24} /> : <List size={24} />}
+              </button>
+            </div>
+          </>
+        ) : (
+        <>
         <Link to="/" aria-label="Temba — accueil">
           <Logo variant={logoVariant} size={22} />
         </Link>
@@ -166,6 +181,8 @@ export default function Navbar() {
             {isOpen ? <X size={24} /> : <List size={24} />}
           </button>
         </div>
+        </>
+        )}
       </div>
 
       {isOpen && (

@@ -1,26 +1,21 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
-  Calendar,
-  MapPin,
+  CalendarBlank,
+  CaretRight,
+  ChatCircle,
   Clock,
-  Share2,
-  Heart,
-  ArrowLeft,
-  Navigation,
-  Building2,
-  CheckCircle,
-  ChevronRight,
-} from 'lucide-react';
+  Copy,
+  DeviceMobile,
+  CreditCard,
+  MapPin,
+  SealCheck,
+  WhatsappLogo,
+} from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import { useEvents } from '../context/EventContext';
-import BookingForm from '../components/booking/BookingForm';
-import EventMap from '../components/events/EventMap';
-import Image from '../components/common/Image';
-import FlyerFrame from '../components/events/FlyerFrame';
-import { geocodeAddress } from '../utils/geocoding';
-import { formatEventDateTime, fullAddressDisplay, countryNameFr, shortPlace } from '../utils/eventGeo';
+import { displayVenue, fullAddressDisplay, mapsSearchUrl, shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate } from '../utils/formatters';
 import { eventPricePresentation, isTicketSellable } from '../utils/labels';
 import { queryCache, TTL } from '../utils/queryCache';
@@ -30,12 +25,15 @@ import { eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath
 import { trackViewContent } from '../lib/metaPixel';
 import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
-import PermanentBookingPanel from '../components/venue/PermanentBookingPanel';
-import GalleryCarousel from '../components/venue/GalleryCarousel';
-import DayTypePricingTable from '../components/venue/DayTypePricingTable';
-import { ATTRACTION_TYPE_LABELS, getPricingOverrides } from '../services/permanentVenueService';
-import { getGalleryImages, type GalleryImage } from '../services/galleryService';
-import type { PricingOverride } from '../services/permanentVenueService';
+import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
+import DisplayCard from '../components/events/DisplayCard';
+import StoreBadges from '../components/design/StoreBadges';
+import DomePattern from '../components/design/DomePattern';
+import { QRCodeSVG } from 'qrcode.react';
+import { useEventSchedule } from '../hooks/useEventSchedule';
+import { calendarDayInZone, formatEventTime } from '../utils/formatters';
+import { cityKey, cityName, dedupeEvents, eventBadges, isPastSpan, spanFor } from '../utils/eventDisplay';
+import { categoryLabelFr } from '../utils/labels';
 
 interface EventLocation {
   latitude: number;
@@ -73,15 +71,12 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const route = useLocation();
   const { user } = useAuth();
-  const { getEvent } = useEvents();
+  const { getEvent, filteredEvents } = useEvents();
+  const { kinds } = useEventSchedule(filteredEvents ?? []);
   const [event,         setEvent]         = useState<Event | null>(null);
   const [loading,       setLoading]       = useState(true);
-  const [location,      setLocation]      = useState<EventLocation | null>(null);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [eventDates,    setEventDates]    = useState<EventDate[]>([]);
-  const [isSaved,       setIsSaved]       = useState(false);
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
-  const [pricingOverrides, setPricingOverrides] = useState<PricingOverride[]>([]);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [venue,         setVenue]         = useState<{ id: string; name: string; slug: string | null; city: string | null; verified: boolean; serviceCount: number } | null>(null);
 
   const viewedContent = useRef<string | null>(null);
@@ -250,29 +245,6 @@ export default function EventDetails() {
           setEventDates(datesData);
         }
 
-        // For permanent attractions, load gallery + pricing overrides early
-        // (independent of geocoding so a geocode failure can't block them)
-        if (data.is_permanent) {
-          const ticketTypeIds = (data.ticket_types ?? []).map((t: any) => t.id);
-          try {
-            const [gallery, overrides] = await Promise.all([
-              getGalleryImages(data.id),
-              ticketTypeIds.length ? getPricingOverrides(ticketTypeIds) : Promise.resolve([]),
-            ]);
-            console.log(`[EventDetails] gallery images: ${gallery.length}, pricing overrides: ${overrides.length}`);
-            setGalleryImages(gallery);
-            setPricingOverrides(overrides);
-          } catch (galleryErr) {
-            console.warn('[EventDetails] gallery/pricing fetch failed:', galleryErr);
-          }
-        }
-
-        try {
-          const coordinates = await geocodeAddress(data.location);
-          setLocation(coordinates);
-        } catch {
-          // Non-fatal — map just won't show
-        }
       } catch (err) {
         console.error("Erreur lors du chargement de l'événement:", err);
         toast.error("Échec du chargement des détails de l'événement");
@@ -431,78 +403,75 @@ export default function EventDetails() {
         }, event?.timezone ?? 'Africa/Ouagadougou')
       : '';
 
-  const handleShare = async () => {
+  const shareWhatsApp = () => {
     if (!event) return;
-    const shareData = {
-      title: event.title,
-      text: `${event.title} — ${shortPlace(event.location, event.city).label}`,
-      url: eventUrl ?? window.location.href,
-    };
+    const url = eventUrl ?? window.location.href;
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${event.title} ${url}`)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyLink = async () => {
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        toast.success('Lien copié');
-      }
+      await navigator.clipboard.writeText(eventUrl ?? window.location.href);
+      toast.success('Lien copié');
     } catch {
-      // user cancelled
+      toast.error('Le lien n’a pas pu être copié');
     }
   };
 
-  const toggleSave = () => {
-    setIsSaved(prev => !prev);
-    toast.success(isSaved ? 'Retiré des favoris' : 'Ajouté aux favoris');
+  const addToCalendar = () => {
+    if (!event) return;
+    const start = `${(event.date || '').replace(/-/g, '')}T${(formatEventTime(event.time) || '20:00').replace(':', '')}00`;
+    const place = displayVenue(event.location, event.city).label;
+    const href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${start}/${start}&location=${encodeURIComponent(place)}&details=${encodeURIComponent(eventUrl || '')}`;
+    window.open(href, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-14">
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
-          <div className="lg:col-span-7 space-y-4">
-            <div className="h-3 w-32 bg-cream-deep rounded animate-pulse" />
-            <div className="h-12 w-full bg-cream-deep rounded animate-pulse" />
-            <div className="h-12 w-3/4 bg-cream-deep rounded animate-pulse" />
-            <div className="h-4 w-2/3 bg-cream-deep rounded animate-pulse mt-4" />
-            <div className="h-4 w-1/2 bg-cream-deep rounded animate-pulse" />
-          </div>
-          <div className="lg:col-span-5 aspect-[3/4] bg-cream-deep rounded-2xl animate-pulse" />
-        </div>
+      <div className="mx-auto max-w-[1200px] px-5 py-16">
+        <div className="h-8 w-48 animate-pulse rounded bg-surf" />
+        <div className="mt-6 h-64 animate-pulse rounded-2xl bg-surf" />
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="text-center py-20 px-4">
-        <p className="eyebrow !text-ink-mute mb-2">404</p>
-        <h2 className="text-ink mb-3">Événement introuvable</h2>
-        <p className="text-[14px] text-ink-mute mb-6">
-          Cet événement n'existe plus, ou le lien est cassé.
-        </p>
-        <Link to="/events" className="btn btn-primary">Voir tous les événements</Link>
+      <div className="px-4 py-20 text-center">
+        <h2 className="font-display text-[28px] font-bold text-ink">Événement introuvable</h2>
+        <Link to="/events" className="mt-4 inline-flex h-11 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Voir les événements</Link>
       </div>
     );
   }
 
-  const displayDate = eventDates.length > 0 && eventDates[0]?.date
-    ? eventDates[0].date
-    : event.date;
-  const displayTime = eventDates.length > 0 && eventDates[0]?.start_time
-    ? eventDates[0].start_time
-    : event.time;
-  const evtCode = event.id ? event.id.slice(0, 8).toUpperCase() : '—';
-
-  const tz = event.timezone ?? 'Africa/Ouagadougou';
-  const geoFormatted = displayDate
-    ? formatEventDateTime(displayDate, displayTime, tz)
-    : { date: '', time: '', tzLabel: '' };
-  const countryCode = event.country_code ?? 'BF';
-  const isAbroad = countryCode !== 'BF';
-  const countryLabel = isAbroad ? countryNameFr(countryCode) : null;
+  const tz = 'Africa/Ouagadougou';
+  const place = displayVenue(event.location, event.city || venue?.city);
+  const mode = ticketMode(event, eventDates);
+  const span = spanFor(event, eventDates.length ? { dates: eventDates.map((row) => row.date), min: '', max: '' } : null);
+  const badges = eventBadges(event, span);
+  const kind = kinds.get(event.id);
+  const kindLabel = kind === 'concert' ? 'Concert' : kind === 'festival' ? 'Festival' : kind === 'cinema' ? 'Cinéma' : event.is_permanent ? 'Attraction' : '';
+  const when = event.is_permanent
+    ? 'Ouvert tous les jours'
+    : formatCalendarDate(eventDates[0]?.date || event.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }, tz);
+  const clock = formatEventTime(eventDates[0]?.start_time || event.time);
+  const artists = ([...((event as any).event_artists || [])] as any[])
+    .sort((a, b) => (a.display_order ?? 99) - (b.display_order ?? 99))
+    .map((row) => ({ ...row.artists, role: row.role }))
+    .filter((artist) => artist?.id);
+  const org = (event as any).organizer_profiles;
+  const city = cityName(cityKey(event)) || place.city || 'Ouagadougou';
+  const titleKey = event.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  const related = dedupeEvents(filteredEvents ?? [])
+    .filter((item) => item.id !== event.id && item.title.toLowerCase().replace(/\s+/g, ' ').trim() !== titleKey)
+    .filter((item) => cityKey(item) === cityKey(event))
+    .filter((item) => !kind || kinds.get(item.id) === kind || kind === 'other')
+    .filter((item) => item.is_permanent || !isPastSpan(spanFor(item), calendarDayInZone(tz)))
+    .slice(0, 8);
+  const maps = mapsSearchUrl([place.venue, place.city].filter(Boolean).join(' '));
 
   return (
-    <>
+    <div className="overflow-x-clip bg-white pb-24 lg:pb-0">
       {eventUrl && (
         <PageSEO
           title={event.title}
@@ -510,381 +479,168 @@ export default function EventDetails() {
           canonicalUrl={eventUrl}
           ogType="event"
           ogImage={ogImage}
-          keywords={[
-            event.title,
-            event.location,
-            'billets',
-            'événement Burkina Faso',
-            'sortir à Ouagadougou',
-          ]}
           structuredData={structuredData}
         />
       )}
 
-      {event.is_permanent ? (
-        <section className="bg-white">
-          <div className="mx-auto max-w-[1080px] px-5 pb-2 pt-6 sm:px-8">
-            <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-[13px] text-ink/55">
-              <Link to="/attractions" className="hover:text-ink">Attractions</Link>
-              <span aria-hidden>/</span>
-              <span className="truncate text-ink/80">{readableTitle(event.title)}</span>
-            </nav>
-            <p className="mt-6 !text-[12px] font-medium uppercase tracking-[0.14em] text-ink/55">
-              {ATTRACTION_TYPE_LABELS[event.attraction_type ?? 'other'] ?? 'Attraction'}
-            </p>
-            <h1 className="mt-1.5 max-w-3xl !text-[clamp(32px,4vw,44px)] !font-semibold !leading-[1.08] !tracking-[-0.035em] text-ink">
-              {readableTitle(event.title)}
-            </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-ink/65">
-              <span>{shortPlace(event.location, event.city).label}</span>
-              <button type="button" onClick={handleShare} className="hover:text-ink">Partager</button>
-              <button type="button" onClick={toggleSave} className={isSaved ? 'text-brand' : 'hover:text-ink'}>
-                {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section className={`bg-white ${event.is_permanent ? '' : 'pb-24 lg:pb-16'}`}>
-        <div className="mx-auto max-w-[1200px] px-5 py-6 sm:px-8 lg:px-10">
-          {!event.is_permanent && (
-            <nav aria-label="Fil d'Ariane" className="mb-6 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-3">
-              <Link to="/" className="hover:text-ink">Accueil</Link>
-              <span aria-hidden>›</span>
-              <Link to="/events" className="hover:text-ink">Événements</Link>
-              {event.city ? (<><span aria-hidden>›</span><span>{event.city}</span></>) : null}
-              <span aria-hidden>›</span>
-              <span className="truncate text-ink">{event.title}</span>
-            </nav>
-          )}
-          <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
-            <div className="min-w-0 space-y-9">
-              {!event.is_permanent && (
-                <div className="grid items-end gap-6 sm:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-8">
-                  <PosterCard event={event} evtCode={evtCode} />
-                  <div>
-                    <h1 className="font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] text-ink md:text-[48px]">{event.title}</h1>
-                    <div className="mt-5 flex flex-col gap-3 text-[16px]">
-                      <p className="flex items-center gap-3">
-                        <Calendar className="h-[22px] w-[22px] text-ink-3" />
-                        <span><b className="font-semibold">{formatLong(displayDate)}</b>{geoFormatted.time ? ` · ${geoFormatted.time}` : ''}</span>
-                      </p>
-                      <p className="flex items-center gap-3">
-                        <MapPin className="h-[22px] w-[22px] text-ink-3" />
-                        <span><b className="font-semibold">{shortPlace(event.location, event.city).label}</b>{countryLabel ? ` · ${countryLabel}` : ''}</span>
-                      </p>
-                    </div>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      <button type="button" onClick={handleShare} className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-3.5 text-[14px] font-semibold">
-                        <Share2 className="h-4 w-4" /> Partager
-                      </button>
-                      <button type="button" onClick={toggleSave} className={`inline-flex h-10 items-center gap-2 rounded-lg border border-line px-3.5 text-[14px] font-semibold ${isSaved ? 'text-brand' : ''}`}>
-                        <Heart className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} /> {isSaved ? 'Sauvegardé' : 'Sauvegarder'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {event.is_permanent && (
-                <PlacePhoto event={event} galleryImages={galleryImages} />
-              )}
-
-              <div className={event.is_permanent ? 'border-t border-ink/10 pt-8' : ''}>
-                {event.is_permanent ? (
-                  <h2 className="mb-3 !text-[18px] !font-semibold !leading-snug text-ink">Le lieu</h2>
-                ) : (
-                  <>
-                    <p className="eyebrow mb-2">À propos</p>
-                    <h2 className="text-ink mb-3">L'événement</h2>
-                  </>
-                )}
-                <p className="!text-[15px] !leading-relaxed text-ink/80 whitespace-pre-line">
-                  {event.description}
-                </p>
+      <section className="relative overflow-hidden bg-[#14162B] text-white">
+        {event.image_url && (
+          <img src={event.image_url} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-[40px]" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#14162B] via-[#14162B]/75 to-[#14162B]/40" />
+        <div className="relative px-5 py-6 min-[1280px]:px-16 min-[1280px]:py-8 min-[1440px]:px-20 lg:pr-[460px]">
+          <nav aria-label="Fil d'Ariane" className="flex flex-wrap items-center gap-1.5 text-[13px] text-white/70">
+            <Link to="/" className="hover:text-white">Accueil</Link>
+            <CaretRight size={12} />
+            <Link to="/events" className="hover:text-white">Événements</Link>
+            {place.city && (<><CaretRight size={12} /><span>{place.city}</span></>)}
+            <CaretRight size={12} />
+            <span className="truncate text-white">{event.title}</span>
+          </nav>
+          <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end">
+            <img src={event.image_url || ''} alt={`Affiche ${event.title}`} className="max-h-[340px] w-auto max-w-full rounded-[10px] object-contain sm:max-h-[425px] sm:max-w-[340px]" />
+            <div className="min-w-0 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {badges.map((badge) => (
+                  <span key={badge.label} className={`rounded-md px-2 py-1 text-[12px] font-semibold ${badge.kind === 'featured' ? 'bg-[#F6B84A] text-ink' : 'bg-white/15 text-white'}`}>{badge.label}</span>
+                ))}
+                {kindLabel && <span className="text-[13px] font-semibold text-white/75">{categoryLabelFr(kindLabel)}</span>}
               </div>
-
-              {/* Day-type pricing table — permanent attractions only */}
-              {event.is_permanent && (event.ticket_types ?? []).length > 0 && (
-                <div>
-                  <h2 className="mb-3 !text-[18px] !font-semibold !leading-snug text-ink">Tarifs</h2>
-                  <div className="border border-ink/10 px-4 py-2">
-                    <DayTypePricingTable
-                      ticketTypes={event.ticket_types ?? []}
-                      overrides={pricingOverrides}
-                      currency={event.currency}
-                    />
-                    {pricingOverrides.length > 0 && (
-                      <p className="mt-3 !text-[12px] text-ink/55">
-                        Semaine, lun–ven · Week-end, sam–dim · Jours fériés
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <h1 className="mt-3 font-display text-[28px] font-bold leading-[1.05] tracking-[-0.03em] min-[1280px]:text-[38px] min-[1440px]:text-[44px]">{event.title}</h1>
+              <p className="mt-4 flex items-center gap-2 text-[16px]"><CalendarBlank size={18} /> {when}</p>
+              {clock && !event.is_permanent && (
+                <p className="mt-2 flex items-start gap-2 text-[16px]">
+                  <Clock size={18} className="mt-0.5" />
+                  <span>{clock}<small className="mt-0.5 block text-[12.5px] text-white/65">Heure de Ouagadougou</small></span>
+                </p>
               )}
-
-              {/* Organized by */}
-              {(event as any).organizer_profiles && (
-                <div>
-                  <p className="eyebrow mb-2">Organisateur</p>
-                  {(() => {
-                    const org = (event as any).organizer_profiles;
-                    const inner = (
-                      <div className="flex items-center gap-3 py-3">
-                        <div className="w-11 h-11 rounded-full overflow-hidden bg-cream border border-line flex-shrink-0 shadow-sm">
-                          {org.logo_url ? (
-                            <img src={org.logo_url} alt={org.business_name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full grid place-items-center bg-brand/10">
-                              <span className="text-[16px] font-extrabold text-brand">{org.business_name?.charAt(0)}</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-[16px] font-bold text-brand">{org.business_name}</span>
-                      </div>
-                    );
-                    return org.slug
-                      ? <Link to={`/organizers/${org.slug}`} className="hover:opacity-80 transition-opacity">{inner}</Link>
-                      : inner;
-                  })()}
-                </div>
-              )}
-
-              {/* Venue */}
-              {venue && (
-                <div>
-                  <p className="eyebrow mb-2">Lieu</p>
-                  {venue.slug ? (
-                    <Link
-                      to={`/venues/${venue.slug}`}
-                      className="group flex items-center justify-between gap-3 px-4 py-3 bg-paper border border-line rounded-xl hover:border-brand/40 hover:shadow-sm transition-all"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-brand/10 grid place-items-center flex-shrink-0 group-hover:bg-brand/15 transition-colors">
-                          <Building2 className="w-4 h-4 text-brand" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[14px] font-bold text-ink group-hover:text-brand transition-colors truncate flex items-center gap-1.5">
-                            {venue.name}
-                            {venue.verified && <CheckCircle className="w-3.5 h-3.5 text-brand flex-shrink-0" />}
-                          </p>
-                          <p className="text-[11px] text-ink-mute">
-                            {[venue.city, venue.serviceCount > 0 ? `${venue.serviceCount} service${venue.serviceCount > 1 ? 's' : ''}` : null].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-ink-mute flex-shrink-0" />
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-paper border border-line rounded-xl">
-                      <Building2 className="w-4 h-4 text-ink-mute" />
-                      <span className="text-[14px] font-semibold text-ink">{venue.name}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Artists */}
-              {(() => {
-                const ea = (event as any).event_artists;
-                if (!ea || ea.length === 0) return null;
-                const artists = [...ea]
-                  .sort((a: any, b: any) => (a.display_order ?? 99) - (b.display_order ?? 99))
-                  .map((row: any) => ({ ...row.artists, role: row.role }))
-                  .filter((a: any) => a?.id);
-                if (artists.length === 0) return null;
-                return (
-                  <div>
-                    <p className="eyebrow mb-2">À l&apos;affiche</p>
-                    <div className="flex flex-wrap gap-3">
-                      {artists.map((artist: any) => (
-                        <Link key={artist.id} to={`/artists/${artist.slug}`}
-                          className="flex items-center gap-2.5 px-3 py-2 bg-paper border border-line rounded-xl hover:border-brand/40 hover:shadow-sm transition-all">
-                          <div className="w-8 h-8 rounded-full overflow-hidden bg-cream border border-line flex-shrink-0">
-                            {artist.photo_url
-                              ? <img src={artist.photo_url} alt={artist.name} className="w-full h-full object-cover" />
-                              : <div className="w-full h-full grid place-items-center bg-accent/10"><span className="text-[13px] font-bold text-accent">{artist.name?.charAt(0)}</span></div>}
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-ink leading-tight">{artist.name}</p>
-                            {artist.role && <p className="text-[10px] text-ink-mute">{ARTIST_ROLE_FR[artist.role] || artist.role}</p>}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {location && (
-                <div>
-                  <p className="eyebrow mb-2">Lieu</p>
-                  <h2 className="text-ink mb-3">Comment y aller</h2>
-                  <div className="rounded-xl2 overflow-hidden border border-line bg-cream-deep">
-                    <EventMap
-                      latitude={location.latitude}
-                      longitude={location.longitude}
-                      title={event.title}
-                      address={shortPlace(event.location, event.city).label}
-                      className="h-[280px]"
-                      isDisabled={isReviewModalOpen}
-                      isModalOpen={isReviewModalOpen}
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-cream rounded-xl2 border border-line">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <MapPin className="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-ink truncate">{shortPlace(event.location, event.city).label}</p>
-                        <p className="text-[11px] text-ink-mute">Lieu de l'événement</p>
-                      </div>
-                    </div>
-                    <a
-                      href={
-                        location
-                          ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
-                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-ink text-paper rounded-lg text-[12px] font-bold hover:bg-brand transition-colors flex-shrink-0"
-                    >
-                      <Navigation className="h-3.5 w-3.5" />
-                      Itinéraire
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Trust strip — moved here, no longer in hero */}
-              <p className={`pt-4 text-[13px] text-ink/55 ${event.is_permanent ? 'border-t border-ink/10' : 'border-t border-line'}`}>
-                Paiement en FCFA · Orange Money, Moov Money, carte · Billet sur le téléphone
-              </p>
-            </div>
-
-            <div id="billets" className="min-w-0">
-              <div className="lg:sticky lg:top-6">
-                <BookingPanel
-                  event={event}
-                  isReviewModalOpen={isReviewModalOpen}
-                  setIsReviewModalOpen={setIsReviewModalOpen}
-                  evtCode={evtCode}
-                  pricingOverrides={pricingOverrides}
-                />
+              <p className="mt-2 flex items-center gap-2 text-[16px]"><MapPin size={18} /> {place.label}</p>
+              <p className="mt-4 text-[18px] font-semibold">{heroPriceLine(event, mode)}</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button type="button" onClick={shareWhatsApp} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><WhatsappLogo size={16} /> Partager</button>
+                {!event.is_permanent && (
+                  <button type="button" onClick={addToCalendar} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><CalendarBlank size={16} /> Ajouter au calendrier</button>
+                )}
+                <button type="button" onClick={copyLink} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold"><Copy size={16} /> Copier le lien</button>
               </div>
             </div>
           </div>
         </div>
-        {!event.is_permanent && (
-          <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-white px-5 py-3 pb-6 shadow-[0_-8px_24px_rgba(3,6,30,0.06)] lg:hidden">
-            <div className="min-w-0 flex-1">
-              <p className="text-[12.5px] text-ink-3">{geoFormatted.time ? `${formatLong(displayDate)}` : 'Billets'}</p>
-              <p className="font-display text-[18px] font-bold">{eventPricePresentation(event).label}</p>
-            </div>
-            <a href="#billets" className="inline-flex h-12 shrink-0 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">
-              {eventPricePresentation(event).tone === 'soon' || eventPricePresentation(event).tone === 'soldout' ? 'Voir' : 'Acheter'}
-            </a>
-          </div>
-        )}
       </section>
-    </>
-  );
-}
 
-function PlacePhoto({ event, galleryImages }: { event: Event; galleryImages: GalleryImage[] }) {
-  if (galleryImages.length > 0) {
-    return (
-      <div className="overflow-hidden border border-ink/15 bg-ink/[0.04]">
-        <GalleryCarousel
-          images={galleryImages}
-          fallbackSrc={event.image_url}
-          fallbackAlt={readableTitle(event.title)}
-          className="aspect-[4/3]"
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="aspect-[4/3] overflow-hidden border border-ink/15 bg-ink/[0.04]">
-      {event.image_url ? (
-        <img src={event.image_url} alt="" className="h-full w-full object-cover" />
-      ) : null}
-    </div>
-  );
-}
+      <div className="grid items-start gap-8 px-5 pt-6 min-[1280px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:px-16 min-[1440px]:grid-cols-[minmax(0,1fr)_400px] min-[1440px]:px-20">
+        <div className="order-2 min-w-0 space-y-10 min-[1280px]:order-1">
+          {event.description && (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">À propos</h2>
+              <p className={`mt-3 whitespace-pre-line text-[15.5px] leading-relaxed text-ink-2 ${aboutOpen ? '' : 'overflow-hidden'}`} style={aboutOpen ? undefined : { display: '-webkit-box', WebkitLineClamp: 9, WebkitBoxOrient: 'vertical' }}>{event.description}</p>
+              <button type="button" onClick={() => setAboutOpen((open) => !open)} className="mt-2 text-[14px] font-semibold text-brand">{aboutOpen ? 'Réduire' : 'Lire la suite'}</button>
+            </section>
+          )}
 
-/** Poster card with blurred backdrop + EVT code chip. Reused mobile + desktop. */
-function PosterCard({ event, evtCode }: { event: Event; evtCode: string }) {
-  return (
-    <div>
-      <FlyerFrame src={event.image_url} alt={`Affiche ${event.title}`} />
-      <span className="sr-only">EVT {evtCode}</span>
-    </div>
-  );
-}
+          {artists.length > 0 && (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">À l’affiche</h2>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {artists.map((artist) => (
+                  <Link key={artist.id} to={`/artists/${artist.slug || artist.id}`} className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2">
+                    {artist.photo_url ? <img src={artist.photo_url} alt="" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-surf font-semibold">{artist.name?.charAt(0)}</span>}
+                    <span>
+                      <b className="block text-[15px]">{artist.name}</b>
+                      <small className="text-[13px] text-ink-3">{[ARTIST_ROLE_FR[artist.role] || artist.role, artist.genre].filter(Boolean).join(' · ')}</small>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
-/** Branded container around the booking form — branches on is_permanent. */
-function BookingPanel({
-  event,
-  isReviewModalOpen,
-  setIsReviewModalOpen,
-  evtCode,
-  pricingOverrides = [],
-}: {
-  event: Event;
-  isReviewModalOpen: boolean;
-  setIsReviewModalOpen: (v: boolean) => void;
-  evtCode: string;
-  pricingOverrides?: PricingOverride[];
-}) {
-  const sellable = (event.ticket_types ?? []).filter(isTicketSellable);
-  const nothingOnSale = !event.is_permanent && (event.ticket_types ?? []).length > 0 && sellable.length === 0;
-  const headerLabel = event.is_permanent
-    ? 'Choisir une date'
-    : nothingOnSale
-      ? 'Bientôt en vente'
-      : 'Billets';
+          {event.is_permanent ? (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Horaires</h2>
+              <p className="mt-2 text-[15px] text-ink-2">{hoursLine(eventDates)}</p>
+              <p className="text-[13px] text-ink-3">Heures de Ouagadougou.</p>
+            </section>
+          ) : eventDates.length > 1 && (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{eventDates.length} dates</h2>
+              <p className="mt-1 text-[13px] text-ink-3">Heures de Ouagadougou.</p>
+              <div className="mt-3 divide-y divide-line border-y border-line">
+                {eventDates.map((row) => (
+                  <div key={row.id} className="flex items-center justify-between py-3 text-[15px]">
+                    <span>{formatCalendarDate(row.date, { weekday: 'long', day: 'numeric', month: 'long' }, tz)}</span>
+                    <span className="text-ink-3">{formatEventTime(row.start_time)}{row.end_time ? ` → ${formatEventTime(row.end_time)}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-  return (
-    <div className="w-full min-w-0 overflow-hidden rounded-[14px] border border-line bg-white shadow-[0_8px_24px_rgba(3,6,30,0.06)]">
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <span className="font-display text-[20px] font-bold text-ink">{headerLabel}</span>
-        {!event.is_permanent && (
-          <span
-            className="text-[10px] font-bold tabular-nums uppercase tracking-[0.16em] text-ink-mute"
-            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-          >
-            EVT · {evtCode}
-          </span>
-        )}
-      </div>
+          <section>
+            <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Lieu</h2>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line px-4 py-4">
+              <p className="flex items-start gap-2"><MapPin size={18} className="mt-0.5 text-brand" /><span><b className="block">{place.venue}</b><span className="text-[14px] text-ink-3">{place.city}</span></span></p>
+              <div className="flex gap-2">
+                <a href={maps} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center rounded-[10px] border border-line px-3 text-[14px] font-semibold">Ouvrir dans Maps</a>
+                {venue?.slug && <Link to={`/venues/${venue.slug}`} className="inline-flex h-10 items-center rounded-[10px] border border-line px-3 text-[14px] font-semibold">Voir le lieu</Link>}
+              </div>
+            </div>
+          </section>
 
-      <div className="p-3 sm:p-5">
-        {event.status === 'PUBLISHED' || event.status === ('PERMANENT' as any) ? (
-          event.is_permanent ? (
-            <PermanentBookingPanel
-              eventId={event.id}
-              currency={event.currency}
-              eventTitle={event.title}
-              ticketTypes={event.ticket_types ?? []}
-              pricingOverrides={pricingOverrides}
-            />
-          ) : (
-            <BookingForm
-              eventId={event.id}
-              ticketTypes={event.ticket_types || []}
-              currency={event.currency}
-              onReviewOpen={() => setIsReviewModalOpen(true)}
-              onReviewClose={() => setIsReviewModalOpen(false)}
-            />
-          )
-        ) : (
-          <div className="text-center py-6">
-            <p className="text-[14px] text-ink-mute">
-              Cet événement n'est actuellement pas disponible pour la réservation.
-            </p>
-          </div>
-        )}
+          {org?.business_name && (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Organisateur</h2>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-surf font-display text-[18px] font-bold">{org.business_name.charAt(0)}</span>
+                  <span><b className="block">{org.business_name}</b><span className="text-[14px] text-ink-3">Organisé par</span></span>
+                </p>
+                {org.slug && <Link to={`/organizers/${org.slug}`} className="text-[14px] font-semibold text-brand">Voir ses événements</Link>}
+              </div>
+            </section>
+          )}
+
+          <section>
+            <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Infos pratiques</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <p className="flex gap-3 text-[14.5px]"><DeviceMobile size={20} className="shrink-0 text-brand" /><span><b className="block">Billet sur votre téléphone</b>Un QR par billet, à présenter à l’entrée, même sans réseau.</span></p>
+              <p className="flex gap-3 text-[14.5px]"><CreditCard size={20} className="shrink-0 text-brand" /><span><b className="block">Paiement en FCFA</b>Orange Money, Moov Money ou carte.</span></p>
+              <p className="flex gap-3 text-[14.5px]"><SealCheck size={20} className="shrink-0 text-brand" /><span><b className="block">Prix officiel</b>Billets vendus par l’organisateur, au prix officiel.</span></p>
+              <p className="flex gap-3 text-[14.5px]"><ChatCircle size={20} className="shrink-0 text-brand" /><span><b className="block">Une question ?</b>WhatsApp Temba 7j/7 · +226 74 75 08 15.</span></p>
+            </div>
+          </section>
+
+          {related.length > 0 && (
+            <section className="max-w-full overflow-x-clip">
+              <div className="mb-3 flex items-end justify-between">
+                <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{kind === 'concert' ? `Autres concerts à ${city}` : `Aussi à ${city}`}</h2>
+                <Link to="/events" className="text-[14px] font-semibold text-brand">Tout voir</Link>
+              </div>
+              <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none]">
+                {related.map((item, index) => (
+                  <DisplayCard key={item.id} event={item} span={spanFor(item)} width={236} eager={index < 3} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="relative overflow-hidden rounded-[20px] bg-brand px-6 py-8 text-white">
+            <DomePattern variant="dome" className="object-right-bottom opacity-80" />
+            <div className="relative">
+              <p className="text-[13px] font-semibold text-white/75">L’application Temba</p>
+              <h2 className="mt-2 font-display text-[32px] font-bold leading-tight">Vos billets, même sans réseau.</h2>
+              <div className="mt-5"><StoreBadges /></div>
+              <div className="mt-6 hidden w-[168px] rounded-[14px] bg-white p-3 text-center text-ink sm:block">
+                <QRCodeSVG value="https://temba.onelink.me/Xbe8" size={120} className="mx-auto" />
+                <p className="mt-2 text-[12px] font-semibold">Scannez pour télécharger</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside className="order-1 min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:order-2 min-[1280px]:-mt-64">
+          <EventTicketPanel event={event} dates={eventDates} />
+        </aside>
       </div>
     </div>
   );

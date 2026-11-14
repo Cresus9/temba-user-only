@@ -371,6 +371,15 @@ export function shortPlace(raw?: string | null, cityHint?: string | null): { ven
   return { venue: venue || 'Lieu', city, label: label || venue || 'Lieu' };
 }
 
+/** Drop a parenthetical city already shown beside the place, without changing stored data. */
+export function displayVenue(raw?: string | null, cityHint?: string | null): { venue: string; city: string; label: string } {
+  const stripped = String(raw ?? '')
+    .replace(/\s*\(([^)]*(ouaga|bobo|abidjan|dakar)[^)]*)\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return shortPlace(stripped, cityHint);
+}
+
 export function mapsSearchUrl(label: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
 }
