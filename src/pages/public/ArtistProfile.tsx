@@ -1,612 +1,243 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import {
-  MapPin, Calendar, Instagram, Facebook, Youtube, Twitter, Globe,
-  CheckCircle, ArrowLeft, ArrowRight, Users, Share2, Ticket,
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { supabase } from '../../lib/supabase-client';
-import { formatCurrency, parseLocalDate, localTodayYmd } from '../../utils/formatters';
-import { countryFlag, shortPlace } from '../../utils/eventGeo';
+import { ArrowLeft, ArrowRight, Globe, MapPin, MusicNotes, ShareNetwork } from '@phosphor-icons/react';
 import PageSEO from '../../components/SEO/PageSEO';
+import BrandMark from '../../components/directory/BrandMark';
+import { Crumbs, DirectoryPage, EmptyBlock, FaqList } from '../../components/directory/DirectoryUi';
+import { getCatalog, type Catalog, type CatalogArtist, type CatalogShow } from '../../services/laCatalog';
+import { formatCalendarDate } from '../../utils/formatters';
+import { whenLabel } from '../../utils/eventDisplay';
 import { eventPublicPath } from '../../utils/eventPath';
+import { eventPricePresentation } from '../../utils/labels';
+import { genreTokens, roleBadge } from '../../utils/artistDisplay';
+import { artistSocialHref } from '../../utils/artistSeo';
 import {
-  ARTIST_ROLE_FR,
   artistCanonicalUrl,
   artistFaqItems,
   artistMetaDescription,
   artistSeoTitle,
-  artistSocialHref,
   artistStructuredData,
 } from '../../utils/artistSeo';
-import { FadeUp, Stagger, StaggerItem } from '../../components/common/Motion';
-import FlyerFrame from '../../components/events/FlyerFrame';
 
-interface Artist {
-  id: string;
-  name: string;
-  slug: string;
-  bio: string | null;
-  genre: string | null;
-  photo_url: string | null;
-  cover_image_url: string | null;
-  country_code: string | null;
-  city: string | null;
-  social_links: {
-    instagram?: string;
-    facebook?: string;
-    youtube?: string;
-    twitter?: string;
-    website?: string;
-  } | null;
-  verified: boolean;
-}
-
-interface PeerArtist {
-  id: string;
-  name: string;
-  slug: string;
-  genre: string | null;
-  photo_url: string | null;
-  city: string | null;
-  verified: boolean;
-}
-
-interface ShowCard {
-  id: string;
-  title: string;
-  date: string;
-  location: string;
-  image_url: string | null;
-  price: number;
-  currency: string;
-  role?: string;
-  slug?: string | null;
-}
-
-type Tab = 'upcoming' | 'past';
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
-
-
-
-function todayLocal() {
-  const [y, m, d] = localTodayYmd().split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-const STOCK_COVER_HOSTS = [
-  'images.pexels.com',
-  'pexels.com',
-  'images.unsplash.com',
-  'unsplash.com',
-  'cdn-images.dzcdn.net',
-  'e-cdns-images.dzcdn.net',
-  'lastfm.freetls.fastly.net',
-  'i.scdn.co',
-];
-
-function hostOf(url: string) {
+async function sharePage(title: string, url: string) {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return;
+    }
   } catch {
-    return '';
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success('Lien copié');
+  } catch {
+    toast.error('Partage indisponible');
   }
 }
 
-function isStockCover(url: string) {
-  const host = hostOf(url);
-  return STOCK_COVER_HOSTS.some((b) => host === b || host.endsWith(`.${b}`));
+function priceBits(show: CatalogShow) {
+  const price = eventPricePresentation(show.event);
+  return {
+    main: price.label.replace(/\s·\svente pas encore ouverte$/i, ''),
+    soon: /vente pas encore ouverte/i.test(price.label),
+  };
 }
 
-function isBannerUrl(url?: string | null) {
-  return Boolean(url && !isStockCover(url));
+function Socials({ artist }: { artist: CatalogArtist }) {
+  const items = [
+    artist.social.instagram ? { href: artistSocialHref('instagram', artist.social.instagram), label: 'Instagram', icon: <BrandMark brand="instagram" /> } : null,
+    artist.social.facebook ? { href: artistSocialHref('facebook', artist.social.facebook), label: 'Facebook', icon: <BrandMark brand="facebook" /> } : null,
+    artist.social.youtube ? { href: artistSocialHref('youtube', artist.social.youtube), label: 'YouTube', icon: <BrandMark brand="youtube" /> } : null,
+    artist.social.website
+      ? {
+          href: artistSocialHref('website', artist.social.website),
+          label: /soundcloud/i.test(artist.social.website) ? 'SoundCloud' : 'Site officiel',
+          icon: /soundcloud/i.test(artist.social.website) ? <BrandMark brand="soundcloud" /> : <Globe size={18} />,
+        }
+      : null,
+  ].filter(Boolean) as { href: string; label: string; icon: JSX.Element }[];
+  return (
+    <>
+      {items.map((item) => (
+        <a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-[15px] font-medium">
+          {item.icon} {item.label}
+        </a>
+      ))}
+    </>
+  );
 }
 
-function pickPoster(artist: Artist, shows: ShowCard[]) {
-  const fromShow = shows.find((s) => isBannerUrl(s.image_url))?.image_url || '';
-  if (fromShow) return fromShow;
-  const cover = artist.cover_image_url?.trim() || '';
-  const photo = artist.photo_url?.trim() || '';
-  if (isBannerUrl(cover) && cover !== photo) return cover;
-  return '';
+function PastRow({ show }: { show: CatalogShow }) {
+  const day = show.span.min || show.event.date;
+  const role = roleBadge(show.role);
+  return (
+    <Link to={eventPublicPath(show.event)} className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-4 border-b border-line py-4 md:grid-cols-[48px_minmax(0,1fr)_auto_auto]">
+      <span className="block h-[60px] w-12 overflow-hidden rounded-md bg-[#1B1D33]">
+        {show.event.image_url ? <img src={show.event.image_url} alt="" className="h-full w-full object-cover grayscale" /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[14px] text-ink-3">{day ? `${formatCalendarDate(day, { weekday: 'short', day: 'numeric', month: 'short' })} ${day.slice(0, 4)}` : ''}</span>
+        <span className="block truncate text-[16px] font-medium">{show.event.title}</span>
+        <span className="block truncate text-[14px] text-ink-3">{show.venueName}{show.city ? ` · ${show.city}` : ''}</span>
+      </span>
+      {role ? <span className="hidden h-6 items-center rounded-md bg-surf px-2 text-[12px] font-semibold text-ink-2 md:inline-flex">{role}</span> : <span className="hidden md:block" />}
+      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-3">Terminé</span>
+    </Link>
+  );
 }
 
 export default function ArtistProfile() {
-  const { slug } = useParams<{ slug: string }>();
-  const [artist, setArtist] = useState<Artist | null>(null);
-  const [events, setEvents] = useState<ShowCard[]>([]);
-  const [peers, setPeers] = useState<PeerArtist[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [tab, setTab] = useState<Tab>('upcoming');
+  const { slug = '' } = useParams();
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!slug) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setNotFound(false);
-      const { data: a } = await supabase.from('artists').select('*').eq('slug', slug).single();
-      if (cancelled) return;
-      if (!a) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      setArtist(a);
-
-      const [{ data: ea }, { data: similar }] = await Promise.all([
-        supabase
-          .from('event_artists')
-          .select('role, events(id, slug, title, date, location, image_url, price, currency, status, deleted_at)')
-          .eq('artist_id', a.id),
-        supabase
-          .from('artists')
-          .select('id, name, slug, genre, photo_url, city, verified')
-          .neq('id', a.id)
-          .order('name')
-          .limit(24),
-      ]);
-
-      if (cancelled) return;
-
-      const evts: ShowCard[] = (ea || [])
-        .filter(
-          (row: { events?: ShowCard & { status?: string; deleted_at?: string | null } }) =>
-            row.events?.status === 'PUBLISHED' && !row.events.deleted_at
-        )
-        .map((row: { role?: string; events: ShowCard }) => ({ ...row.events, role: row.role }));
-      setEvents(evts);
-
-      const pool = (similar || []) as PeerArtist[];
-      const sameGenre = a.genre ? pool.filter((p) => p.genre === a.genre) : [];
-      const rest = pool.filter((p) => !sameGenre.includes(p));
-      setPeers([...sameGenre, ...rest].slice(0, 8));
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    getCatalog().then(setCatalog).catch(() => setFailed(true));
   }, [slug]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cream bg-grain flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const artist = catalog?.artists.find((item) => item.slug === slug) || null;
+  const peers = useMemo(() => {
+    if (!catalog || !artist) return [];
+    const tokens = new Set(genreTokens(artist.genre));
+    return catalog.artists
+      .filter((item) => item.id !== artist.id && item.photo)
+      .map((item) => ({ item, score: genreTokens(item.genre).filter((token) => tokens.has(token)).length }))
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name, 'fr'))
+      .slice(0, 6)
+      .map((row) => row.item);
+  }, [catalog, artist]);
 
-  if (notFound || !artist) {
+  if (!catalog && !failed) {
+    return <div className="flex min-h-[50vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border border-ink/20 border-t-ink" /></div>;
+  }
+  if (!artist) {
     return (
-      <div className="min-h-screen bg-cream bg-grain flex flex-col items-center justify-center gap-4 px-4">
-        <PageSEO
-          title="Artiste introuvable"
-          description="Cette fiche artiste n’existe pas sur Temba."
-          canonicalUrl={slug ? artistCanonicalUrl(slug) : 'https://tembas.com/artists'}
-          robots="noindex, follow"
-        />
-        <div className="w-16 h-16 rounded-2xl bg-paper border border-line grid place-items-center">
-          <Users className="w-7 h-7 text-ink-mute" />
+      <DirectoryPage>
+        <PageSEO title="Artiste introuvable" description="Cette fiche artiste n’existe pas sur Temba." canonicalUrl="https://tembas.com/artists" robots="noindex, follow" />
+        <div className="py-24 text-center">
+          <h1 className="!text-[28px]">Artiste introuvable</h1>
+          <Link to="/artists" className="mt-6 inline-flex h-11 items-center rounded-lg bg-brand px-4 text-[15px] font-semibold text-white">Voir tous les artistes</Link>
         </div>
-        <h1 className="text-[20px] font-bold text-ink" style={{ fontFamily: display }}>Artiste introuvable</h1>
-        <p className="text-[14px] text-ink-mute text-center max-w-sm">Cette fiche n’existe pas, ou le lien a changé.</p>
-        <Link to="/artists" className="px-5 py-2.5 bg-brand text-paper rounded-xl text-[13px] font-bold">
-          Voir tous les artistes
-        </Link>
-      </div>
+      </DirectoryPage>
     );
   }
 
-  const social = artist.social_links ?? {};
-  const socials = (
-    [
-      social.instagram && { kind: 'instagram' as const, label: 'Instagram', href: artistSocialHref('instagram', social.instagram), Icon: Instagram },
-      social.facebook && { kind: 'facebook' as const, label: 'Facebook', href: artistSocialHref('facebook', social.facebook), Icon: Facebook },
-      social.youtube && { kind: 'youtube' as const, label: 'YouTube', href: artistSocialHref('youtube', social.youtube), Icon: Youtube },
-      social.twitter && { kind: 'twitter' as const, label: 'X', href: artistSocialHref('twitter', social.twitter), Icon: Twitter },
-      social.website && { kind: 'website' as const, label: 'Site', href: artistSocialHref('website', social.website), Icon: Globe },
-    ] as const
-  ).filter(Boolean) as { kind: string; label: string; href: string; Icon: typeof Instagram }[];
-
-  const startOfToday = todayLocal();
-  const upcoming = events
-    .filter((e) => parseLocalDate(e.date) >= startOfToday)
-    .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
-  const past = events
-    .filter((e) => parseLocalDate(e.date) < startOfToday)
-    .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
-  const shown = tab === 'upcoming' ? upcoming : past;
-  const nextShow = upcoming[0];
-  const datedShows = [...upcoming, ...past];
-  const posterSrc = pickPoster(artist, datedShows);
-  const ogImage = posterSrc || artist.photo_url || undefined;
-  const pageUrl = `https://tembas.com/artists/${artist.slug}`;
-  const place = [artist.city, artist.country_code ? countryFlag(artist.country_code) : null].filter(Boolean).join(' ');
-  const seoDescription = artistMetaDescription({
+  const next = artist.upcoming[0];
+  const pageUrl = artistCanonicalUrl(artist.slug);
+  const price = next ? priceBits(next) : null;
+  const role = roleBadge(next?.role);
+  const place = artist.city || 'Ouagadougou';
+  const faq = artistFaqItems({
     name: artist.name,
-    bio: artist.bio,
-    genre: artist.genre,
     city: artist.city,
-    nextShow,
+    nextShow: next ? { id: next.event.id, title: next.event.title, date: next.span.min || next.event.date, location: `${next.venueName}${next.city ? `, ${next.city}` : ''}`, slug: next.event.slug } : null,
   });
-  const structuredData = artistStructuredData({
-    name: artist.name,
-    slug: artist.slug,
-    bio: artist.bio,
-    genre: artist.genre,
-    city: artist.city,
-    countryCode: artist.country_code,
-    image: artist.photo_url || ogImage,
-    social: artist.social_links,
-    shows: upcoming,
-  });
-
-  const share = async () => {
-    const text = `${artist.name} — dates et billets sur Temba`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: artist.name, text, url: pageUrl });
-        return;
-      }
-    } catch {
-      /* cancelled */
-    }
-    const wa = `https://wa.me/?text=${encodeURIComponent(`${text}\n${pageUrl}`)}`;
-    window.open(wa, '_blank', 'noopener,noreferrer');
-  };
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(pageUrl);
-      toast.success('Lien copié');
-    } catch {
-      toast.error('Impossible de copier le lien');
-    }
-  };
+  const styleLabel = artist.genre.split('/')[0]?.trim() || 'Sur Temba';
 
   return (
-    <>
+    <DirectoryPage>
       <PageSEO
-        title={artistSeoTitle(artist.name, { city: artist.city, nextLocation: nextShow?.location })}
-        description={seoDescription}
+        title={artistSeoTitle(artist.name, { city: artist.city, nextLocation: next?.venueName })}
+        description={artistMetaDescription({ name: artist.name, bio: artist.bio, genre: artist.genre, city: artist.city, nextShow: next ? { id: next.event.id, title: next.event.title, date: next.span.min || next.event.date, location: next.venueName, slug: next.event.slug } : null })}
         canonicalUrl={pageUrl}
-        ogType="profile"
-        ogImage={artist.photo_url || ogImage}
-        keywords={[
-          artist.name,
-          `concert ${artist.name}`,
-          `billets ${artist.name}`,
-          artist.genre,
-          artist.city,
-          'concert Ouagadougou',
-          'billets Temba',
-          'Burkina Faso',
-        ].filter(Boolean) as string[]}
-        structuredData={structuredData}
+        ogImage={artist.photo || undefined}
+        keywords={[artist.name, artist.genre, artist.city, 'billets Temba'].filter(Boolean) as string[]}
+        structuredData={artistStructuredData({
+          name: artist.name,
+          slug: artist.slug,
+          bio: artist.bio,
+          genre: artist.genre,
+          city: artist.city,
+          countryCode: artist.countryCode,
+          image: artist.photo,
+          social: artist.social,
+          shows: artist.upcoming.map((show) => ({ id: show.event.id, title: show.event.title, date: show.span.min || show.event.date, location: show.venueName, slug: show.event.slug })),
+        })}
       />
-
-      <div className="min-h-screen bg-white">
-        <div className="border-b border-line">
-          <div className="mx-auto max-w-[1200px] px-5 py-8 md:px-10 md:pb-11 md:pt-7">
-            <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-3">
-              <Link to="/" className="hover:text-ink">Accueil</Link>
-              <span>›</span>
-              <Link to="/artists" className="hover:text-ink">Artistes</Link>
-              <span>›</span>
-              <span className="text-ink">{artist.name}</span>
-            </p>
-            <div className="mt-7 flex flex-col gap-6 md:flex-row md:items-end">
-              {artist.photo_url ? (
-                <img src={artist.photo_url} alt="" className="h-[180px] w-[180px] rounded-xl object-cover md:h-[220px] md:w-[220px]" />
-              ) : (
-                <div className="grid h-[180px] w-[180px] place-items-center rounded-xl bg-brand font-display text-5xl font-bold text-white md:h-[220px] md:w-[220px]">{artist.name.charAt(0)}</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-brand">
-                  {artist.verified ? <CheckCircle className="h-4 w-4" /> : null}
-                  Fiche officielle Temba
-                </p>
-                <h1 className="mt-2 font-display text-[40px] font-bold tracking-[-0.035em] text-ink md:text-[64px]">{artist.name}</h1>
-                <p className="mt-2 text-[17px] text-ink-3">{[artist.genre, place].filter(Boolean).join(' · ') || 'Artiste'}</p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {nextShow ? (
-                    <a href="#dates" className="inline-flex h-12 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Voir les billets</a>
-                  ) : (
-                    <Link to="/events" className="inline-flex h-12 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Voir l'agenda</Link>
-                  )}
-                  <button type="button" onClick={share} className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-line px-4 text-[15px] font-semibold">
-                    <Share2 className="h-4 w-4" /> Partager
-                  </button>
-                </div>
-              </div>
-              {nextShow && (
-                <div className="w-full rounded-xl border border-line p-5 md:w-[340px]">
-                  <p className="eyebrow">Prochain concert</p>
-                  <p className="mt-1 font-display text-[18px] font-bold">{nextShow.title}</p>
-                  <p className="mt-1 text-[14px] text-ink-3">{shortPlace(nextShow.location).label}</p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <b className="tabular-nums">{nextShow.price > 0 ? formatCurrency(nextShow.price, nextShow.currency) : 'Prix bientôt disponible'}</b>
-                    <Link to={eventPublicPath(nextShow)} className="inline-flex h-10 items-center rounded-lg bg-brand px-3 text-[14px] font-semibold text-white">Billets</Link>
-                  </div>
-                </div>
-              )}
-            </div>
+      <Link to="/artists" className="mt-4 inline-flex items-center gap-1 text-[16px] font-semibold md:hidden"><ArrowLeft size={20} /> Artistes</Link>
+      <Crumbs items={[{ label: 'Accueil', to: '/' }, { label: 'Artistes', to: '/artists' }, { label: artist.name }]} />
+      <section className={`grid items-center gap-8 border-b border-line py-6 md:gap-16 md:py-8 md:pb-16 ${artist.photo ? 'md:grid-cols-[400px_minmax(0,1fr)]' : 'md:grid-cols-1'}`}>
+        {artist.photo ? (
+          <span className="block aspect-square overflow-hidden rounded-lg bg-surf">
+            <img src={artist.photo} alt={artist.name} className="h-full w-full object-cover object-[50%_25%]" />
+          </span>
+        ) : null}
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-3">Artiste</p>
+          <h1 className="!mt-2 !text-[40px] !font-semibold !leading-[48px] md:!text-[56px] md:!leading-[64px]">{artist.name}</h1>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[16px] font-medium text-ink-2">
+            {artist.genre ? <span className="inline-flex items-center gap-2"><MusicNotes size={20} className="text-ink-3" />{artist.genre}</span> : null}
+            {artist.city ? <span className="inline-flex items-center gap-2"><MapPin size={20} className="text-ink-3" />{artist.city}, {artist.countryCode === 'CI' ? 'Côte d’Ivoire' : artist.countryCode === 'SN' ? 'Sénégal' : 'Burkina Faso'}</span> : null}
+          </div>
+          {artist.bio ? <p className="mt-6 max-w-xl text-[16px] leading-6 text-ink-2 md:text-[18px] md:leading-7">{artist.bio}</p> : null}
+          <div className="mt-6 flex flex-wrap gap-2 md:mt-8">
+            <Socials artist={artist} />
+            <button type="button" onClick={() => sharePage(artist.name, pageUrl)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-line px-4 text-[15px] font-medium">
+              <ShareNetwork size={18} /> Partager
+            </button>
           </div>
         </div>
+      </section>
 
-        <div className="bg-cream bg-grain">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-10 md:py-14">
-            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16">
-              <div className="lg:col-span-8 space-y-14">
-                <FadeUp>
-                  <section>
-                    <p className="eyebrow mb-4 tracking-[0.18em]">À propos</p>
-                    {artist.bio ? (
-                      <p
-                        className="text-[18px] sm:text-[20px] text-ink leading-[1.5] tracking-[-0.02em] max-w-[38rem]"
-                        style={{ fontFamily: display }}
-                      >
-                        {artist.bio}
-                      </p>
-                    ) : (
-                      <p className="text-[15px] text-ink-mute max-w-lg leading-relaxed">
-                        Fiche officielle de {artist.name} sur Temba. Les dates publiées par les organisateurs et les billets en FCFA apparaissent ici.
-                      </p>
-                    )}
-                    <p className="mt-4 text-[13px] text-ink-mute max-w-lg leading-relaxed">
-                      Temba est la billetterie de référence : seuls les concerts réellement programmés sur la plateforme sont listés ci-dessous.
-                    </p>
-                    {socials.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-6">
-                        {socials.map(({ kind, label, href, Icon }) => (
-                          <a
-                            key={kind}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer me"
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-ink/80 transition-colors"
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                            {label}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                </FadeUp>
-
-                <FadeUp delay={0.06}>
-                  <section id="dates">
-                    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-                      <div>
-                        <p className="eyebrow mb-2 tracking-[0.18em]">Sur Temba</p>
-                        <h2
-                          className="text-[28px] sm:text-[32px] font-semibold text-ink tracking-[-0.04em] leading-none"
-                          style={{ fontFamily: display }}
-                        >
-                          Concerts et billets {artist.name}
-                        </h2>
-                      </div>
-                      {events.length > 0 && (
-                        <div className="flex gap-5">
-                          {(['upcoming', 'past'] as Tab[]).map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setTab(t)}
-                              className={`pb-1 text-[12px] font-semibold uppercase tracking-[0.14em] border-b transition-colors ${
-                                tab === t
-                                  ? 'text-ink border-accent'
-                                  : 'text-ink-mute border-transparent hover:text-ink'
-                              }`}
-                            >
-                              {t === 'upcoming' ? `À venir ${upcoming.length}` : `Passés ${past.length}`}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {events.length === 0 ? (
-                      <div className="py-7 border-y border-line">
-                        <p
-                          className="text-[20px] font-semibold text-ink tracking-tight mb-2"
-                          style={{ fontFamily: display }}
-                        >
-                          Pas encore de date sur Temba
-                        </p>
-                        <p className="text-[14px] text-ink-mute leading-relaxed max-w-lg mb-6">
-                          Dès qu’un organisateur programme {artist.name}, les billets s’achètent ici — Orange Money, Moov, carte.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Link
-                            to="/events"
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-ink text-[13px] font-bold hover:bg-accent/90"
-                          >
-                            Explorer l’agenda
-                          </Link>
-                          <Link
-                            to="/artists"
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-ink/15 text-[13px] font-semibold text-ink hover:border-ink/40"
-                          >
-                            Autres artistes
-                          </Link>
-                        </div>
-                      </div>
-                    ) : shown.length === 0 ? (
-                      <div className="py-10 border-y border-line text-center">
-                        <Calendar className="w-6 h-6 text-ink-mute mx-auto mb-3" />
-                        <p className="text-[14px] font-medium text-ink-mute">
-                          {tab === 'upcoming' ? 'Aucune date à venir' : 'Aucun concert passé'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="border-t border-line">
-                        {shown.map((event) => {
-                          const dt = parseLocalDate(event.date);
-                          const d = dt.getDate();
-                          return (
-                            <Link
-                              key={event.id}
-                              to={eventPublicPath(event)}
-                              className="group grid grid-cols-[auto_1fr_auto] sm:grid-cols-[4.5rem_1fr_auto] gap-4 sm:gap-6 items-center py-5 border-b border-line hover:bg-paper/70 transition-colors -mx-2 px-2 sm:mx-0 sm:px-1"
-                            >
-                              <div className="flex flex-col items-start sm:items-center min-w-[3.25rem]">
-                                <span className="text-[10px] font-semibold text-ink-mute uppercase tracking-[0.16em]">
-                                  {dt.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
-                                </span>
-                                <span
-                                  className="text-[28px] font-semibold text-ink tabular-nums leading-none tracking-tight"
-                                  style={{ fontFamily: display }}
-                                >
-                                  {String(d).padStart(2, '0')}
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex items-center gap-4">
-                                <div className="hidden w-14 shrink-0 sm:block">
-                                  <FlyerFrame src={event.image_url} alt="" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p
-                                    className="text-[16px] font-semibold text-ink truncate tracking-tight"
-                                    style={{ fontFamily: display }}
-                                  >
-                                    {event.title}
-                                  </p>
-                                  <p className="mt-1 text-[12px] text-ink-mute truncate">
-                                    {event.role ? `${ARTIST_ROLE_FR[event.role] || event.role} · ` : ''}
-                                    {shortPlace(event.location).label}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="text-[13px] font-semibold text-accent tabular-nums flex-shrink-0">
-                                {event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}
-                              </span>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-                </FadeUp>
-              </div>
-
-              <aside className="lg:col-span-4 space-y-10 lg:sticky lg:top-24 self-start lg:border-l lg:border-line lg:pl-10">
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <p
-                      className="text-[40px] font-semibold text-ink tabular-nums leading-none tracking-tight"
-                      style={{ fontFamily: display }}
-                    >
-                      {upcoming.length}
-                    </p>
-                    <p className="text-[11px] text-ink-mute mt-2 uppercase tracking-[0.16em]">À venir</p>
-                  </div>
-                  <div>
-                    <p
-                      className="text-[40px] font-semibold text-ink tabular-nums leading-none tracking-tight"
-                      style={{ fontFamily: display }}
-                    >
-                      {past.length}
-                    </p>
-                    <p className="text-[11px] text-ink-mute mt-2 uppercase tracking-[0.16em]">Passés</p>
-                  </div>
-                </div>
-
-                {nextShow && (
-                  <Link to={eventPublicPath(nextShow)} className="block group">
-                    <p className="eyebrow mb-3 tracking-[0.18em]">Prochain</p>
-                    <div className="relative max-h-[320px] overflow-hidden rounded-xl2">
-                      <FlyerFrame src={nextShow.image_url} alt="" />
-                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 to-transparent">
-                        <p className="text-[15px] font-semibold text-white leading-snug tracking-tight" style={{ fontFamily: display }}>
-                          {nextShow.title}
-                        </p>
-                        <p className="text-[12px] text-white/60 mt-1 capitalize">
-                          {parseLocalDate(nextShow.date).toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                          })}
-                        </p>
-                        <p className="text-[13px] font-semibold text-accent mt-2 tabular-nums">
-                          {nextShow.price > 0 ? formatCurrency(nextShow.price, nextShow.currency) : 'Prix bientôt disponible'}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                )}
-
-                {peers.length > 0 && (
-                  <div>
-                    <p className="eyebrow mb-4 tracking-[0.18em]">À découvrir</p>
-                    <Stagger className="divide-y divide-line border-t border-line">
-                      {peers.map((p) => (
-                        <StaggerItem key={p.id}>
-                          <Link
-                            to={`/artists/${p.slug}`}
-                            className="flex items-center gap-3 py-3 group -mx-1 px-1 hover:bg-paper/80 transition-colors"
-                          >
-                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-paper flex-shrink-0">
-                              {p.photo_url ? (
-                                <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full grid place-items-center text-[13px] font-semibold text-ink">
-                                  {p.name.charAt(0)}
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-semibold text-ink truncate tracking-tight" style={{ fontFamily: display }}>
-                                {p.name}
-                              </p>
-                              <p className="text-[11px] text-ink-mute truncate">{p.genre || p.city || 'Artiste'}</p>
-                            </div>
-                            {p.verified && <CheckCircle className="w-3.5 h-3.5 text-ink/40 flex-shrink-0" />}
-                          </Link>
-                        </StaggerItem>
-                      ))}
-                    </Stagger>
-                  </div>
-                )}
-              </aside>
+      <section className="pt-12 md:pt-16">
+        <h2 className="!mb-6 !text-[24px] !font-semibold !leading-8 md:!text-[28px]">Prochaine date</h2>
+        {next ? (
+          <div className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-line p-4 md:grid-cols-[160px_minmax(0,1fr)_auto] md:gap-8 md:p-6">
+            <span className="block h-[120px] w-24 overflow-hidden rounded-md bg-[#1B1D33] md:h-[200px] md:w-40">
+              {next.event.image_url ? <img src={next.event.image_url} alt="" className="h-full w-full object-cover" /> : null}
+            </span>
+            <div className="min-w-0">
+              {role ? <span className="inline-flex h-6 items-center rounded-md bg-surf px-2 text-[12px] font-semibold text-ink-2">{role}</span> : null}
+              <div className="mt-2 text-[14px] font-semibold text-brand md:mt-4 md:text-[16px]">{whenLabel(next.event, next.span)}</div>
+              <div className="mt-1 font-display text-[20px] font-semibold leading-6 md:text-[28px] md:leading-8">{next.event.title}</div>
+              <div className="mt-2 flex items-center gap-2 text-[15px] text-ink-2"><MapPin size={18} className="text-ink-3" />{next.venueName}{next.city ? ` · ${next.city}` : ''}</div>
+              <div className="mt-2 text-[15px] font-semibold">{price?.main}</div>
+              {price?.soon ? <div className="text-[13px] font-medium text-ink-3">Vente pas encore ouverte</div> : null}
             </div>
-
-            <FadeUp delay={0.08}>
-              <section
-                aria-labelledby="artist-faq"
-                className="mt-14 md:mt-16 pt-10 border-t border-line"
-              >
-                <p className="eyebrow mb-3 tracking-[0.18em]">Billets</p>
-                <h2
-                  id="artist-faq"
-                  className="text-[22px] sm:text-[28px] font-semibold text-ink tracking-[-0.04em] leading-none mb-6"
-                  style={{ fontFamily: display }}
-                >
-                  Concert {artist.name} : questions fréquentes
-                </h2>
-                <div className="divide-y divide-line border-y border-line">
-                  {artistFaqItems({ name: artist.name, city: artist.city, nextShow }).map((item) => (
-                    <details key={item.q} className="group py-4">
-                      <summary className="cursor-pointer list-none flex items-start justify-between gap-4 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
-                        <span>{item.q}</span>
-                        <span className="text-ink-mute text-[18px] leading-none mt-0.5 group-open:hidden" aria-hidden>
-                          +
-                        </span>
-                        <span className="text-ink-mute text-[18px] leading-none mt-0.5 hidden group-open:inline" aria-hidden>
-                          −
-                        </span>
-                      </summary>
-                      <p className="mt-2.5 text-[14px] text-ink-mute leading-relaxed max-w-2xl">{item.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </section>
-            </FadeUp>
+            <Link to={eventPublicPath(next.event)} className="col-span-2 flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-[15px] font-semibold text-white md:col-span-1">
+              Voir l’événement <ArrowRight size={18} />
+            </Link>
           </div>
-        </div>
-      </div>
-    </>
+        ) : (
+          <EmptyBlock
+            title="Pas de date à venir sur Temba pour l’instant."
+            text="Sa prochaine date s’affichera ici dès qu’un organisateur la publie."
+            action={<Link to="/events" className="inline-flex h-12 items-center gap-2 rounded-lg border border-line px-4 text-[15px] font-semibold">Voir l’agenda à {place} <ArrowRight size={18} /></Link>}
+          />
+        )}
+      </section>
+
+      {artist.past.length ? (
+        <section className="pt-12 md:pt-16">
+          <div className="mb-2 flex items-baseline gap-4">
+            <h2 className="!text-[24px] !font-semibold !leading-8 md:!text-[28px]">Déjà passé sur Temba</h2>
+            <span className="text-[16px] text-ink-4">{artist.past.length}</span>
+          </div>
+          {artist.past.map((show) => <PastRow key={`${show.event.id}-${show.role || ''}`} show={show} />)}
+        </section>
+      ) : null}
+
+      {peers.length ? (
+        <section className="pt-12 md:pt-16">
+          <h2 className="!text-[24px] !font-semibold !leading-8 md:!text-[28px]">Dans le même style</h2>
+          <p className="mt-2 text-[16px] text-ink-3">{styleLabel}, sur Temba.</p>
+          <div className="mt-6 flex gap-4 overflow-x-auto md:grid md:grid-cols-6 md:gap-6 md:overflow-visible">
+            {peers.map((peer) => (
+              <Link key={peer.id} to={`/artists/${peer.slug}`} className="w-36 shrink-0 md:w-auto">
+                <span className="block aspect-square overflow-hidden rounded-lg bg-surf">
+                  <img src={peer.photo} alt={peer.name} className="h-full w-full object-cover object-[50%_25%]" />
+                </span>
+                <span className="mt-4 block font-display text-[17px] font-semibold leading-6">{peer.name}</span>
+                <span className="block text-[14px] text-ink-3">{[peer.genre, peer.city].filter(Boolean).join(' · ')}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      <FaqList items={faq} />
+    </DirectoryPage>
   );
 }

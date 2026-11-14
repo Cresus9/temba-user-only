@@ -54,7 +54,10 @@ export default function DisplayCard({
           <span className="mt-0.5 block truncate font-display text-[15px] font-bold">{event.title}</span>
           <span className="mt-0.5 block truncate text-[13px] text-ink-3">{place}</span>
         </span>
-        <span className={`shrink-0 text-[14px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : ''}`}>{price.label}</span>
+        <span className={`shrink-0 text-right text-[14px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : ''}`}>
+          <span className="block">{price.label.replace(/\s·\svente pas encore ouverte$/i, '')}</span>
+          {/vente pas encore ouverte/i.test(price.label) ? <span className="mt-0.5 block text-[12px] font-medium text-ink-3">Vente pas encore ouverte</span> : null}
+        </span>
       </Link>
     );
   }
@@ -91,7 +94,12 @@ export default function DisplayCard({
       </p>
       <p className="mt-1 line-clamp-2 font-display text-[16.5px] font-bold leading-snug tracking-[-0.015em]">{event.title}</p>
       <p className="mt-1 truncate text-[13.5px] text-ink-3">{place}</p>
-      <p className={`mt-1.5 text-[14px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : 'text-ink'}`}>{price.label}</p>
+      <p className={`mt-1.5 text-[14px] font-semibold ${price.tone === 'free' ? 'text-[#0B7A52]' : 'text-ink'}`}>
+        {price.label.replace(/\s·\svente pas encore ouverte$/i, '')}
+      </p>
+      {/vente pas encore ouverte/i.test(price.label) ? (
+        <p className="mt-0.5 text-[13px] font-medium text-ink-3">Vente pas encore ouverte</p>
+      ) : null}
     </Link>
   );
 }
