@@ -81,7 +81,10 @@ export default function Home() {
     const pool = dedupeEvents([...(filteredEvents ?? []), ...permanent]);
     const flagged = pool.filter((event) => event.featured && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))));
     const list = (flagged.length ? flagged : pool.filter((event) => event.image_url && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))))).slice(0, 2);
-    return list.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+    return list.sort((a, b) => {
+      if (Boolean(a.is_permanent) !== Boolean(b.is_permanent)) return a.is_permanent ? 1 : -1;
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
   }, [filteredEvents, permanent, spans]);
   const current = featured[Math.min(slide, Math.max(featured.length - 1, 0))];
   const categoryCounts = useMemo(() => {
