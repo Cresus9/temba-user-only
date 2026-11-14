@@ -123,10 +123,34 @@ export async function buildTicketPdf(input: PdfTicketInput, assets: PdfAssets): 
     page.drawImage(logo, { x: left + 5 * MM, y: cardTop - 9 * MM, width: 22 * MM, height: 5 * MM });
     const vip = ticket.name.trim().toLowerCase() === "vip";
     if (vip) {
-      page.drawText("VIP", { x: left + cardW - 18 * MM, y: cardTop - 9 * MM, size: 14, font: bold, color: gold });
+      const vipLabel = "VIP";
+      const vipSize = 16;
+      page.drawText(vipLabel, {
+        x: left + cardW - 5 * MM - tight.widthOfTextAtSize(vipLabel, vipSize),
+        y: cardTop - 10 * MM,
+        size: vipSize,
+        font: tight,
+        color: gold,
+      });
     } else {
-      const tag = ticket.name.trim().toUpperCase();
-      page.drawText(tag, { x: left + cardW - 8 * MM - semi.widthOfTextAtSize(tag, 7), y: cardTop - 9 * MM, size: 7, font: semi, color: white });
+      const tag = ticket.name.trim().toUpperCase().slice(0, 18);
+      const tagSize = 7;
+      const tagW = bold.widthOfTextAtSize(tag, tagSize);
+      const padX = 1.6 * MM;
+      const boxW = tagW + padX * 2;
+      const boxH = 4.6 * MM;
+      const boxX = left + cardW - 5 * MM - boxW;
+      const boxY = cardTop - 10.2 * MM;
+      page.drawRectangle({
+        x: boxX,
+        y: boxY,
+        width: boxW,
+        height: boxH,
+        borderColor: rgb(0.773, 0.776, 0.969),
+        borderWidth: 0.9,
+        color: blue,
+      });
+      page.drawText(tag, { x: boxX + padX, y: boxY + 1.4 * MM, size: tagSize, font: bold, color: white });
     }
     const titleLines = wrap(input.eventTitle, tight, 12, 70 * MM);
     titleLines.forEach((line, i) => {

@@ -120,9 +120,9 @@ async function pdfAssets(): Promise<PdfAssets> {
   const fonts = new URL("./fonts/", import.meta.url);
   const read = (name: string) => Deno.readFile(new URL(name, fonts));
   return {
-    inter: await read("Inter-Regular.otf"),
-    interSemi: await read("Inter-SemiBold.otf"),
-    interBold: await read("Inter-Bold.otf"),
+    inter: await read("Inter-Regular.ttf"),
+    interSemi: await read("Inter-SemiBold.ttf"),
+    interBold: await read("Inter-Bold.ttf"),
     tightBold: await read("InterTight-Bold.ttf"),
     mono: await read("JetBrainsMono-SemiBold.ttf"),
     logo: await Deno.readFile(new URL("../../../public/email/temba-logo-white-noR.png", import.meta.url)),
