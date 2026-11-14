@@ -18,6 +18,7 @@ import {
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { sendTicketEmailForPayment } from "../_shared/ticketEmail.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -80,6 +81,11 @@ Deno.serve(async (req) => {
           });
         }
         await sendMetaPurchase(supabase, payment_id);
+        try {
+          await sendTicketEmailForPayment(supabase, payment_id);
+        } catch (emailErr) {
+          console.error("[finalize-order] ticket email:", emailErr);
+        }
         return json({ ok: true, note: "already finalized" });
       }
     }
@@ -107,6 +113,11 @@ Deno.serve(async (req) => {
     }
 
     await sendMetaPurchase(supabase, payment_id);
+    try {
+      await sendTicketEmailForPayment(supabase, payment_id);
+    } catch (emailErr) {
+      console.error("[finalize-order] ticket email:", emailErr);
+    }
     console.log("[finalize-order] finalized:", payment_id);
     return json({ ok: true, payment_id });
 

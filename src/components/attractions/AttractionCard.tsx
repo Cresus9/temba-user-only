@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ATTRACTION_TYPE_LABELS } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
+import FlyerFrame from '../events/FlyerFrame';
 
 export interface AttractionCardData {
   id: string;
@@ -30,23 +30,18 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
   const price = lowestPrice(attraction);
   const typeLabel = ATTRACTION_TYPE_LABELS[attraction.attraction_type ?? 'other'] ?? '';
   const place = attraction.city || attraction.location;
-  const flag = attraction.country_code ? countryFlag(attraction.country_code) : '';
+  const amount = price === null
+    ? null
+    : price <= 0
+      ? 'Prix bientôt disponible'
+      : `Dès ${formatCurrency(price, attraction.currency ?? 'XOF')}`;
 
   return (
     <Link
       to={eventPublicPath(attraction)}
       className="group flex h-full flex-col border border-ink/15 bg-paper"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-cream">
-        {attraction.image_url ? (
-          <img
-            src={attraction.image_url}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : null}
-      </div>
+      <FlyerFrame src={attraction.image_url} alt={attraction.title} ratio="16/9" />
       <div className="flex flex-1 flex-col border-t border-ink/10 px-4 py-3.5">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-mute">
           {typeLabel}
@@ -56,15 +51,10 @@ export default function AttractionCard({ attraction }: { attraction: AttractionC
           {attraction.title}
         </h3>
         {place ? (
-          <p className="mt-1 truncate text-[13px] text-ink-mute">
-            {place}
-            {flag ? <span className="ml-1.5">{flag}</span> : null}
-          </p>
+          <p className="mt-1 truncate text-[13px] text-ink-mute">{place}</p>
         ) : null}
         <p className="mt-auto pt-3 text-[13px] font-semibold tabular-nums text-ink">
-          {price !== null
-            ? `À partir de ${formatCurrency(price, attraction.currency ?? 'XOF')}`
-            : 'Tarifs sur la fiche'}
+          {amount ?? 'Tarifs sur la fiche'}
         </p>
       </div>
     </Link>

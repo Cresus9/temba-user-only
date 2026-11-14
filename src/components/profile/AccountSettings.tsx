@@ -54,8 +54,8 @@ export default function AccountSettings() {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmation.toLowerCase() !== 'delete my account') {
-      toast.error(t('account.delete.invalid_confirmation', { default: 'Please type "delete my account" to confirm' }), {
+    if (deleteConfirmation.trim().toUpperCase() !== 'SUPPRIMER') {
+      toast.error(t('account.delete.invalid_confirmation', { default: 'Tapez SUPPRIMER pour confirmer.' }), {
         icon: <img src="/favicon.svg" alt="Temba Icon" className="w-6 h-6" />,
       });
       return;
@@ -241,17 +241,11 @@ export default function AccountSettings() {
                     default: 'Ajoutez une couche de sécurité supplémentaire à votre compte.',
                   })}
                 </p>
-                <span className="inline-flex items-center mt-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.08em] bg-amber-50 text-amber-800 ring-1 ring-amber-200">
-                  Bientôt
+                <span className="inline-flex items-center mt-2 px-2 py-1 rounded text-[12px] font-semibold text-ink-3 bg-surf">
+                  Bientôt disponible
                 </span>
               </div>
             </div>
-            <button
-              disabled
-              className="inline-flex items-center justify-center h-9 px-4 bg-cream-deep text-ink-mute border border-line rounded-lg text-[12px] font-bold cursor-not-allowed flex-shrink-0"
-            >
-              {t('account.security.2fa.enable', { default: 'Activer' })}
-            </button>
           </div>
 
           {/* Login History */}
@@ -333,7 +327,7 @@ export default function AccountSettings() {
             <div className="bg-red-50 border border-red-200 rounded-xl2 p-4">
               <p className="text-[13px] font-bold text-red-900 mb-1">
                 {t('account.delete.confirm_text', {
-                  default: 'Pour confirmer, tapez « delete my account » ci-dessous.',
+                  default: 'Pour confirmer, tapez SUPPRIMER ci-dessous.',
                 })}
               </p>
               <p
@@ -348,7 +342,7 @@ export default function AccountSettings() {
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
                 className="w-full h-11 px-3.5 bg-paper border border-red-300 text-ink rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 mb-4 placeholder:text-red-400"
                 placeholder={t('account.delete.confirm_placeholder', {
-                  default: 'Tapez « delete my account »',
+                  default: 'Tapez SUPPRIMER',
                 })}
               />
               <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
@@ -363,7 +357,7 @@ export default function AccountSettings() {
                 </button>
                 <button
                   onClick={handleDeleteAccount}
-                  disabled={loading || deleteConfirmation.toLowerCase() !== 'delete my account'}
+                  disabled={loading || deleteConfirmation.trim().toUpperCase() !== 'SUPPRIMER'}
                   className="inline-flex items-center justify-center gap-1.5 h-10 px-4 bg-red-600 hover:bg-red-700 text-paper rounded-lg text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-card"
                 >
                   {loading ? (

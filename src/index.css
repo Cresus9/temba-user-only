@@ -8,14 +8,20 @@
 /* Global styles */
 :root {
   /* Brand tokens (mirror tailwind.config.js — for non-tailwind contexts) */
-  --ink: #14172A;
-  --ink-mute: #7E8B9F;
-  --line: #DEE3EB;
+  --ink: #03061E;
+  --ink-2: #2E3147;
+  --ink-3: #5E6178;
+  --ink-4: #9497AB;
+  --ink-mute: #5E6178;
+  --line: #E6E7EE;
   --brand: #3D3FE2;
-  --brand-50: #ECEBFB;
-  --accent: #C68A1F;
-  --cream: #FAF7F2;
+  --brand-dark: #2F3095;
+  --brand-50: #ECECFD;
+  --accent: #F6B84A;
+  --surf: #F4F5FA;
+  --cream: #F4F5FA;
   --paper: #FFFFFF;
+  --ok: #0B7A52;
 
   /* Legacy aliases — kept so older components keep working during migration */
   --primary: var(--brand);
@@ -88,10 +94,9 @@ body {
   font-feature-settings: 'cv11', 'ss01', 'ss03';
 }
 
-/* Typography hierarchy — one disciplined scale.
-   Headings use Plus Jakarta Sans; body stays on Inter. */
+/* Typography — Inter Tight for headings, Inter for body. */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  font-family: 'Inter Tight', Inter, system-ui, sans-serif;
   color: var(--ink);
 }
 
@@ -125,7 +130,7 @@ p {
 
 /* Display / hero headline — opt-in via class */
 .text-display {
-  font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+  font-family: 'Inter Tight', Inter, sans-serif;
   font-size: clamp(36px, 6vw, 60px);
   line-height: 1.04;
   letter-spacing: -0.025em;
@@ -135,11 +140,11 @@ p {
 /* Eyebrow / kicker label — uppercase, tracked */
 .eyebrow {
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  text-transform: none;
   font-weight: 600;
-  color: var(--ink-mute);
+  color: var(--brand);
 }
 
 /* ------- Buttons ------- */
@@ -155,9 +160,33 @@ p {
   @apply bg-brand text-paper hover:bg-brand-700 active:bg-brand-800 shadow-card hover:shadow-card-hover;
 }
 
-/* Accent = warm orange — reserved for special highlights / secondary conversion. */
+/* Gold is reserved for VIP / invité d'honneur. Accent buttons stay on brand blue. */
 .btn-accent {
-  @apply bg-accent text-paper hover:bg-accent-700 active:bg-accent-700 shadow-card hover:shadow-card-hover;
+  @apply bg-brand text-paper hover:bg-brand-700 active:bg-brand-800 shadow-card hover:shadow-card-hover;
+}
+
+@keyframes ticket-live {
+  from { transform: translateX(-8px); }
+  to { transform: translateX(128px); }
+}
+.ticket-live-dot {
+  animation: ticket-live 2.4s linear infinite;
+}
+
+/* Netlify injects this drawer on every deploy preview. It sits fixed at the bottom centre. */
+[data-netlify-deploy-id] {
+  display: none !important;
+}
+
+@media print {
+  header, footer, nav, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .ticket-pass {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #111;
+  }
+  .ticket-pass * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* Ink = grounded near-black — for inverted surfaces or quiet alternatives. */

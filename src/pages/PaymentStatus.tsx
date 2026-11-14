@@ -284,7 +284,7 @@ export default function PaymentStatus() {
                 className="text-ink text-[20px] font-bold tracking-tight"
                 style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
               >
-                Paiement en cours
+                Validez sur votre téléphone
               </h1>
               <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
               <p className="text-[11px] text-ink-mute/70">
@@ -397,14 +397,14 @@ export default function PaymentStatus() {
                 className="text-ink text-[20px] font-bold tracking-tight"
                 style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
               >
-                Paiement échoué
+                Le paiement n’a pas abouti
               </h1>
               <p className="text-[13px] text-ink-mute leading-relaxed">{message}</p>
               <Link
                 to="/checkout"
                 className="inline-flex items-center justify-center w-full h-11 rounded-lg border border-line bg-paper text-ink text-[14px] font-bold hover:border-brand/40 hover:text-brand transition-colors"
               >
-                Retour au paiement
+                Réessayer le paiement
               </Link>
             </div>
           </>

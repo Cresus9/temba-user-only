@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ScrollToTop from '../components/ScrollToTop';
@@ -31,6 +31,13 @@ import Cookies from '../pages/Cookies';
 import About from '../pages/About';
 import AccountDeletion from '../pages/AccountDeletion';
 import MobileAppPreview from '../pages/MobileAppPreview';
+
+const DevAccountPreview = import.meta.env.DEV
+  ? lazy(() => import('../pages/dev/AccountPreview'))
+  : null;
+const DevTicketsPreview = import.meta.env.DEV
+  ? lazy(() => import('../pages/dev/TicketsReceivedPreview'))
+  : null;
 
 // Blog Pages
 import BlogHome from '../pages/blog/BlogHome';
@@ -65,6 +72,7 @@ import FindGuestTickets from '../pages/FindGuestTickets';
 import WhatsAppShare from '../pages/WhatsAppShare';
 import ReferralLanding from '../pages/ReferralLanding';
 import ReferralProgram from '../pages/profile/ReferralProgram';
+import NotFound from '../pages/NotFound';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -98,6 +106,7 @@ export default function AppRoutes() {
         <Route path="/categories/:categoryId" element={<CategoryEvents />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/terms" element={<Terms />} />
@@ -153,6 +162,16 @@ export default function AppRoutes() {
         <Route path="/payment/:paymentId" element={<PaymentStatus />} />
 
         {/* Protected User Routes */}
+        {DevAccountPreview ? (
+          <Route
+            path="/dev/compte"
+            element={
+              <Suspense fallback={null}>
+                <DevAccountPreview />
+              </Suspense>
+            }
+          />
+        ) : null}
         <Route path="/dashboard" element={
           <RequireAuth>
             <Dashboard />
@@ -164,6 +183,16 @@ export default function AppRoutes() {
           </RequireAuth>
         } />
         <Route path="/checkout" element={<Checkout />} />
+        {DevTicketsPreview ? (
+          <Route
+            path="/dev/billets-recus"
+            element={
+              <Suspense fallback={null}>
+                <DevTicketsPreview />
+              </Suspense>
+            }
+          />
+        ) : null}
         <Route path="/booking/confirmation/:bookingId" element={<EnhancedBookingConfirmation />} />
         <Route path="/support" element={<Support />} />
         <Route path="/support/:id" element={
@@ -177,8 +206,7 @@ export default function AppRoutes() {
           </RequireAuth>
         } />
 
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

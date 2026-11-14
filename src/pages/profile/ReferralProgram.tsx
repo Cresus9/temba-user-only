@@ -307,7 +307,7 @@ export default function ReferralProgram() {
                     className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute mb-2"
                     style={{ fontFamily: monoFamily }}
                   >
-                    REFERRAL CODE
+                    Code de parrainage
                   </p>
                   <p
                     className="text-[28px] md:text-[32px] font-bold tracking-[0.08em] text-ink leading-none"

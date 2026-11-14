@@ -18,6 +18,9 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import PageSEO from '../components/SEO/PageSEO';
+import { useAuth } from '../context/AuthContext';
+import AccountShell from '../components/account/AccountShell';
+import { formatPhoneForDisplay } from '../utils/phoneValidation';
 
 const displayFamily = '"Plus Jakarta Sans", Inter, sans-serif';
 const monoFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -49,7 +52,7 @@ const steps = [
           className="inline-block px-2 py-0.5 rounded-md text-[12px] font-mono bg-cream-deep border border-line text-ink mx-0.5"
           style={{ fontFamily: monoFamily }}
         >
-          delete my account
+          SUPPRIMER
         </code>{' '}
         et confirmez.
       </>
@@ -95,6 +98,7 @@ const retentionPeriods = [
 ];
 
 export default function AccountDeletion() {
+  const { user, profile, logout } = useAuth();
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
 
   // Data-request form state
@@ -124,6 +128,30 @@ export default function AccountDeletion() {
   };
 
   const isFr = lang === 'fr';
+
+  if (user) {
+    const name = profile?.name || (profile?.phone ? formatPhoneForDisplay(profile.phone) : 'Compte');
+    return (
+      <div className="bg-white">
+        <PageSEO title="Supprimer mon compte" description="Supprimez votre compte Temba." robots="noindex, nofollow" />
+        <AccountShell
+          name={name}
+          phone={profile?.phone ? formatPhoneForDisplay(profile.phone) : null}
+          active="supprimer"
+          onLogout={() => { logout(); }}
+        >
+          <h1 className="font-display text-[32px] font-bold tracking-tight">Supprimer mon compte</h1>
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-2">
+            La suppression est définitive. Vos billets, vos commandes et les informations du profil sont effacés. Les enregistrements de paiement restent le temps exigé par la loi.
+          </p>
+          <p className="mt-4 text-[15px] text-ink-2">
+            Ouvrez les paramètres, puis tapez <span className="font-mono text-[14px] font-semibold">SUPPRIMER</span> pour confirmer.
+          </p>
+          <Link to="/profile/settings" className="btn btn-primary mt-6 inline-flex h-11 items-center px-4">Aller aux paramètres</Link>
+        </AccountShell>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-paper">

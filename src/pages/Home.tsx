@@ -1,442 +1,246 @@
-import React, { useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, MapPin } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useTranslation } from '../context/TranslationContext';
+import { FormEvent, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  CalendarBlank,
+  CalendarDots,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
+  ChartLineUp,
+  Coins,
+  Confetti,
+  DeviceMobile,
+  FilmSlate,
+  MagnifyingGlass,
+  Moon,
+  MusicNotes,
+  QrCode,
+  Scan,
+  SealCheck,
+  TreePalm,
+  WhatsappLogo,
+} from '@phosphor-icons/react';
 import { useEvents } from '../context/EventContext';
-import HomeSearch from '../components/search/HomeSearch';
-import EventCardList from '../components/EventCardList';
-import Banner from '../components/home/Banner';
-import Features from '../components/home/Features';
-import CategoryList from '../components/categories/CategoryList';
-import AppDownload from '../components/home/AppDownload';
-import HowItWorks from '../components/home/HowItWorks';
-import { imagePreloader } from '../utils/imagePreloader';
 import PageSEO from '../components/SEO/PageSEO';
-import CategoryEventsDisplay from '../components/events/CategoryEventsDisplay';
-import UpcomingEvents from '../components/events/UpcomingEvents';
-import PopularVenues from '../components/home/PopularVenues';
-import AttractionsHighlight from '../components/home/AttractionsHighlight';
-import ArtistsHighlight from '../components/home/ArtistsHighlight';
-import Image from '../components/common/Image';
-import { FadeUp, SlideIn, Stagger, StaggerItem } from '../components/common/Motion';
-import { pickSpotlightEvents } from '../utils/eventGeo';
-import { localTodayYmd, parseLocalDate } from '../utils/formatters';
+import DomePattern from '../components/design/DomePattern';
+import AppBand from '../components/design/AppBand';
+import HomeRails from '../components/events/HomeRails';
+import { type QuickFilterState } from '../components/events/QuickFilters';
+import { useEventSchedule } from '../hooks/useEventSchedule';
+import { shortPlace } from '../utils/eventGeo';
+import { formatCalendarDate, formatEventTime } from '../utils/formatters';
+import { eventPricePresentation } from '../utils/labels';
+import { eventPublicPath } from '../utils/eventPath';
+import { dedupeEvents, isPastSpan, spanFor } from '../utils/eventDisplay';
+import FlyerFrame from '../components/events/FlyerFrame';
+const CHIP = [
+  { kind: 'concert' as const, label: 'Concerts', icon: MusicNotes, to: '/events?category=concerts' },
+  { kind: 'festival' as const, label: 'Festivals', icon: Confetti, to: '/events?category=festivals' },
+  { kind: 'cinema' as const, label: 'Cinéma', icon: FilmSlate, to: '/events?category=cinema' },
+  { kind: 'attraction' as const, label: 'Attractions', icon: TreePalm, to: '/attractions' },
+];
 
-// Hero poster mosaic — three fanned event posters, content-aware
-function HeroPosterMosaic({ events }: { events: any[] }) {
-  const fallback = 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?q=80&w=800';
-  const slots = [0, 1, 2].map((i) => events[i] || null);
+export default function Home() {
+  const navigate = useNavigate();
+  const { filteredEvents, loading } = useEvents();
+  const { spans, kinds, permanent, running, ready } = useEventSchedule(filteredEvents ?? []);
+  const [filters, setFilters] = useState<QuickFilterState>({
+    city: 'Ouagadougou',
+    tonight: false,
+    weekend: false,
+    free: false,
+  });
 
-  // Each slot has its own transform so they fan out organically.
-  const slotStyles = [
-    { rotate: '-6deg',  translate: '0 24px',   z: 1 },
-    { rotate: '4deg',   translate: '40px 0',   z: 3 },
-    { rotate: '-2deg',  translate: '20px 60px',z: 2 },
-  ];
+  const [query, setQuery] = useState('');
+  const [where, setWhere] = useState('Ouagadougou');
+  const [when, setWhen] = useState('');
+  const [slide, setSlide] = useState(0);
+
+  const cities = useMemo(() => {
+    const set = new Set<string>();
+    (filteredEvents ?? []).forEach((event) => {
+      if (event.city) set.add(event.city);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [filteredEvents]);
+
+  const onSearch = (event: FormEvent) => {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (query.trim()) params.set('query', query.trim());
+    if (where) params.set('location', where);
+    if (when) params.set('date', when);
+    navigate(`/events${params.toString() ? `?${params}` : ''}`);
+  };
+
+  const featured = useMemo(() => {
+    const pool = dedupeEvents([...(filteredEvents ?? []), ...permanent]);
+    const flagged = pool.filter((event) => event.featured && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))));
+    const list = (flagged.length ? flagged : pool.filter((event) => event.image_url && (event.is_permanent || !isPastSpan(spans.get(event.id) ?? spanFor(event))))).slice(0, 2);
+    return list.sort((a, b) => {
+      if (Boolean(a.is_permanent) !== Boolean(b.is_permanent)) return a.is_permanent ? 1 : -1;
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
+  }, [filteredEvents, permanent, spans]);
+  const current = featured[Math.min(slide, Math.max(featured.length - 1, 0))];
+  const categoryCounts = useMemo(() => {
+    const counts = { concert: 0, festival: 0, cinema: 0, attraction: permanent.length };
+    (filteredEvents ?? []).forEach((event) => {
+      const kind = kinds.get(event.id);
+      if (kind === 'concert' || kind === 'festival' || kind === 'cinema') counts[kind] += 1;
+    });
+    return counts;
+  }, [filteredEvents, kinds, permanent.length]);
 
   return (
-    <div className="relative h-[360px] w-full">
-      {/* Floating "ticket sold" pill */}
-      <div className="absolute -top-1 -left-1 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-paper border border-line shadow-card">
-        <span className="grid place-items-center w-5 h-5 rounded-full bg-accent text-paper text-[10px] font-bold">✓</span>
-        <span className="text-[11px] font-semibold text-ink">Billet réservé en 30s</span>
-      </div>
+    <div className="overflow-x-clip bg-white">
+      <PageSEO
+        title="Temba — billetterie en FCFA"
+        description="Concerts, festivals et spectacles à Ouagadougou, Bobo-Dioulasso et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée."
+        canonicalUrl="https://tembas.com/"
+        ogImage="https://tembas.com/temba-wordmark-dark.jpg"
+      />
 
-      {/* Floating "live" pill */}
-      <div className="absolute bottom-1 -right-1 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-brand text-paper shadow-card">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent" />
-        </span>
-        <span className="text-[11px] font-semibold">42 réservations cette heure</span>
-      </div>
+      <section className="relative -mt-14 overflow-hidden bg-brand text-white lg:-mt-[72px]">
+        <DomePattern variant="hero" className="hidden object-right-bottom md:block" />
+        <DomePattern variant="hero-mobile" className="object-right-bottom md:hidden" />
+        <div className="relative grid items-center gap-8 px-5 pb-8 pt-20 min-[1100px]:grid-cols-[minmax(0,680px)_440px] min-[1100px]:justify-between min-[1100px]:px-16 min-[1100px]:pb-14 min-[1100px]:pt-[104px] min-[1440px]:px-20">
+          <div>
+            <p className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-white/80 md:text-[13.5px]"><i className="h-1.5 w-1.5 rounded-full bg-[#F6B84A]" /> Billetterie officielle · Burkina Faso · Côte d’Ivoire</p>
+            <h1 className="mt-3 max-w-[680px] font-display text-[36px] font-bold leading-none tracking-[-0.04em] text-white md:mt-4 md:text-[60px]">
+              Les meilleures sorties, réservées en FCFA.
+            </h1>
+            <p className="mb-5 mt-3 max-w-[560px] text-[15px] leading-relaxed text-white/85 md:mb-0 md:mt-4 md:text-[18px] md:leading-[1.5]">
+              <span className="md:hidden">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan.</span>
+              <span className="hidden md:inline">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l’entrée.</span>
+            </p>
+            <form onSubmit={onSearch} className="mt-5 grid max-w-[680px] grid-cols-1 gap-2 rounded-[14px] bg-white p-2 text-ink shadow-[0_18px_40px_-22px_rgba(3,6,30,0.55)] md:grid-cols-[minmax(0,1.4fr)_1px_minmax(0,1.1fr)_1px_minmax(0,1.1fr)_auto] md:items-center md:gap-0">
+              <label className="px-3 py-1.5">
+                <span className="block text-[12px] font-semibold text-ink-3">Quoi</span>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Artiste, événement, lieu"
+                  className="mt-0.5 w-full bg-transparent text-[15px] text-ink placeholder:text-ink-4 focus:outline-none"
+                />
+              </label>
+              <span className="hidden h-9 bg-line md:block" />
+              <label className="relative border-t border-line px-3 py-1.5 md:border-t-0">
+                <span className="block text-[12px] font-semibold text-ink-3">Où</span>
+                <select
+                  value={where}
+                  onChange={(e) => setWhere(e.target.value)}
+                  className="mt-0.5 w-full appearance-none bg-transparent pr-6 text-[15px] font-medium focus:outline-none"
+                >
+                  <option value="">Toutes les villes</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+                <CaretDown size={16} className="pointer-events-none absolute bottom-3 right-3 text-ink-3" />
+              </label>
+              <span className="hidden h-9 bg-line md:block" />
+              <label className="relative border-t border-line px-3 py-1.5 md:border-t-0">
+                <span className="block text-[12px] font-semibold text-ink-3">Quand</span>
+                <select
+                  value={when}
+                  onChange={(e) => setWhen(e.target.value)}
+                  className="mt-0.5 w-full appearance-none bg-transparent pr-6 text-[15px] font-medium focus:outline-none"
+                >
+                  <option value="">Toutes les dates</option>
+                  <option value="today">Ce soir</option>
+                  <option value="weekend">Ce week-end</option>
+                  <option value="week">Cette semaine</option>
+                </select>
+                <CaretDown size={16} className="pointer-events-none absolute bottom-3 right-3 text-ink-3" />
+              </label>
+              <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white md:h-[52px]">
+                <MagnifyingGlass size={18} />
+                Rechercher
+              </button>
+            </form>
+            <div className="mt-4 flex flex-nowrap gap-4 overflow-hidden text-[12.5px] font-medium text-white/80 md:mt-5 md:gap-6 md:text-[14px]">
+              <span className="inline-flex items-center gap-2"><DeviceMobile size={18} /> Mobile Money ou carte</span>
+              <span className="inline-flex items-center gap-2"><SealCheck size={18} /> Prix officiels, sans revente</span>
+              <span className="hidden items-center gap-2 md:inline-flex"><QrCode size={18} /> Billet QR, même hors ligne</span>
+            </div>
+          </div>
 
-      {slots.map((event, i) => {
-        const style = slotStyles[i];
-        const left = `${i * 18}%`;
-        const top  = `${i * 8}%`;
-        return (
-          <div
-            key={event?.id || i}
-            className="absolute w-[58%] aspect-[3/4] rounded-2xl overflow-hidden border border-line shadow-pop bg-cream-deep"
-            style={{
-              left, top,
-              transform: `translate(${style.translate}) rotate(${style.rotate})`,
-              zIndex: style.z,
-            }}
-          >
-            <Image
-              src={event?.image_url || fallback}
-              alt={event?.title || 'Événement'}
-              className="w-full h-full object-cover"
-              fallbackSrc={fallback}
-              width={600}
-              height={800}
-              quality={85}
-            />
-            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-ink/85 via-ink/40 to-transparent">
-              <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-paper/80 mb-1">
-                {event ? 'À l’affiche' : 'Bientôt'}
-              </p>
-              <p className="text-[14px] font-bold text-paper line-clamp-1 leading-tight" style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}>
-                {event?.title || 'Festival des Arts'}
-              </p>
-              {event && (
-                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-paper/75">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {event.is_permanent
-                      ? 'Toute l’année'
-                      : event.date
-                        ? parseLocalDate(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                        : 'Ouvert'}
-                  </span>
-                  <span className="flex items-center gap-1 truncate">
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate max-w-[120px]">{event.location}</span>
-                  </span>
+          {current && (
+            <div>
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-2xl bg-white text-ink min-[1100px]:grid-cols-[200px_minmax(0,1fr)]">
+                <div className="relative min-h-[140px] min-[1100px]:min-h-[250px]">
+                  <FlyerFrame src={current.image_url} alt={current.title} eager className="h-full rounded-none" />
+                  <span className="absolute left-2 top-2 rounded-md bg-[#F6B84A] px-2 py-1 text-[12px] font-semibold text-ink">À la une</span>
+                </div>
+                <div className="flex min-w-0 flex-col p-3.5 min-[1100px]:p-5">
+                  <p className="text-[12px] font-semibold text-ink-3">{current.is_permanent ? 'Attraction' : kinds.get(current.id) === 'concert' ? 'Concert · Musique' : kinds.get(current.id) === 'festival' ? 'Festival' : kinds.get(current.id) === 'cinema' ? 'Cinéma' : 'Événement'}</p>
+                  <p className="mt-2 text-[13px] font-semibold text-brand">{current.is_permanent ? 'Ouvert tous les jours' : `${formatCalendarDate(current.date, { weekday: 'short', day: 'numeric', month: 'short' }, current.timezone)}${formatEventTime(current.time) ? ` · ${formatEventTime(current.time)}` : ''}`}</p>
+                  <p className="mt-1 font-display text-[17px] font-bold leading-tight min-[1100px]:text-[22px]">{current.title}</p>
+                  <p className="mt-1 text-[12.5px] text-ink-3 min-[1100px]:text-[13.5px]">{shortPlace(current.location, current.city).label}</p>
+                  <p className="mt-auto pt-2 text-[14px] font-semibold">{eventPricePresentation(current).label}</p>
+                  <Link to={eventPublicPath(current)} className="mt-3 hidden h-[42px] items-center justify-center rounded-[10px] bg-brand text-[14.5px] font-semibold text-white min-[1100px]:inline-flex">Voir l’événement <ArrowRight size={16} /></Link>
+                </div>
+              </div>
+              {featured.length > 1 && (
+                <div className="mt-3 flex items-center gap-3 text-[13.5px] text-white/80">
+                  <span className="flex gap-1.5">{featured.map((event, index) => <i key={event.id} className={`h-1 rounded-full ${index === slide ? 'w-8 bg-white' : 'w-4 bg-white/40'}`} />)}</span>
+                  <span>{slide + 1} / {featured.length}</span>
+                  <span className="hidden min-w-0 flex-1 truncate min-[1100px]:inline">· Suivant : {featured[(slide + 1) % featured.length].title}</span>
+                  <button type="button" aria-label="Précédent" onClick={() => setSlide((n) => (n - 1 + featured.length) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretLeft size={15} weight="bold" /></button>
+                  <button type="button" aria-label="Suivant" onClick={() => setSlide((n) => (n + 1) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretRight size={15} weight="bold" /></button>
                 </div>
               )}
             </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-export default function Home() {
-  const { t } = useTranslation();
-  const { filteredEvents } = useEvents();
-  const spotlight = useMemo(
-    () => pickSpotlightEvents(filteredEvents ?? [], 9, localTodayYmd()),
-    [filteredEvents]
-  );
-
-  // Preload featured event images for instant loading
-  useEffect(() => {
-    const toPreload = spotlight
-      .slice(0, 6)
-      .filter(event => event.image_url)
-      .map(event => ({ image_url: event.image_url, title: event.title }));
-    if (toPreload.length > 0) {
-      imagePreloader.preloadEventImages(toPreload);
-    }
-  }, [spotlight]);
-
-  const structuredData = useMemo(
-    () => [
-      {
-        '@context': 'https://schema.org',
-        '@type': 'Organization',
-        name: 'Temba',
-        url: 'https://tembas.com/',
-        logo: 'https://tembas.com/temba-wordmark-dark.jpg',
-        description: 'N°1 billetterie en ligne au Burkina Faso – concerts, festivals et événements culturels.',
-        contactPoint: {
-          '@type': 'ContactPoint',
-          contactType: 'customer support',
-          availableLanguage: ['French'],
-          url: 'https://tembas.com/support',
-        },
-        sameAs: [
-          'https://www.facebook.com/temba',
-          'https://www.instagram.com/temba',
-          'https://www.linkedin.com/company/temba',
-        ],
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'WebSite',
-        name: 'Temba',
-        url: 'https://tembas.com/',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: 'https://tembas.com/events?query={search_term_string}',
-          'query-input': 'required name=search_term_string',
-        },
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'LocalBusiness',
-        name: 'Temba Billetterie',
-        description: 'N°1 plateforme de billetterie en ligne au Burkina Faso.',
-        url: 'https://tembas.com/',
-        image: 'https://tembas.com/temba-wordmark-dark.jpg',
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: 'Ouagadougou',
-          addressCountry: 'BF',
-        },
-        geo: { '@type': 'GeoCoordinates', latitude: 12.3714, longitude: -1.5197 },
-        priceRange: 'FCFA',
-        currenciesAccepted: 'XOF',
-        paymentAccepted: 'Mobile Money, Carte bancaire',
-        openingHours: 'Mo-Su 00:00-24:00',
-        areaServed: [
-          { '@type': 'Country', name: 'Burkina Faso' },
-          { '@type': 'Country', name: 'France' },
-          { '@type': 'Country', name: 'United States' },
-        ],
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: [
-          {
-            '@type': 'Question',
-            name: 'Comment acheter des billets sur Temba ?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Recherchez un événement, choisissez vos billets, payez en FCFA via Mobile Money ou carte bancaire. Vos billets arrivent instantanément sur votre mobile.',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: "Peut-on transférer un billet Temba à quelqu’un d’autre ?",
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: "Oui. Depuis l’application Temba, vous pouvez transférer n’importe quel billet à un autre numéro de téléphone en quelques secondes.",
-            },
-          },
-          {
-            '@type': 'Question',
-            name: 'Comment acheter un billet de concert au Burkina Faso ?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Sur Temba : ouvrez la fiche de l’artiste ou de l’événement, payez en Orange Money, Moov ou carte, et présentez le QR à l’entrée.',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: 'Quels événements trouve-t-on sur Temba ?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Concerts, festivals, soirées, conférences, spectacles et événements sportifs à Ouagadougou, Bobo-Dioulasso et partout au Burkina Faso.',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: 'Temba est-il disponible en dehors du Burkina Faso ?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Oui. Les membres de la diaspora en France, aux États-Unis, au Canada, en Belgique et au Royaume-Uni peuvent acheter des billets pour des événements au Burkina et dans leur pays de résidence.',
-            },
-          },
-        ],
-      },
-    ],
-    []
-  );
-
-  return (
-    <div>
-      <PageSEO
-        title="N°1 Billetterie Burkina Faso – Concerts, Festivals & Événements en ligne"
-        description="Achetez vos billets en ligne pour les concerts, festivals et événements à Ouagadougou et partout au Burkina Faso. Paiement sécurisé en FCFA, transfert instantané."
-        canonicalUrl="https://tembas.com/"
-        ogImage="https://tembas.com/temba-wordmark-dark.jpg"
-        keywords={[
-          'billetterie Burkina Faso',
-          'acheter billets concerts Burkina',
-          'billets événements Ouagadougou',
-          'billetterie en ligne FCFA',
-          'festivals Burkina Faso',
-          'concerts Ouagadougou',
-          'billets soirées Burkina',
-          'artistes Burkina Faso',
-          'billets concert Ouagadougou',
-          'billetterie africaine en ligne',
-        ]}
-        structuredData={structuredData}
-      />
-      {/* Banner Section */}
-      <Banner />
-
-      {/* ───── Hero ───── */}
-      <section className="relative bg-cream bg-grain overflow-hidden">
-        {/* Soft brand glows — subtle */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 -left-24 w-[380px] h-[380px] rounded-full bg-brand-50 blur-3xl opacity-70"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-28 -right-24 w-[340px] h-[340px] rounded-full bg-accent-50 blur-3xl opacity-80"
-        />
-
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-6 pt-10 pb-10 md:pt-14 md:pb-14">
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-            {/* Copy + search — sequential entrance */}
-            <div className="lg:col-span-7">
-              <motion.p
-                className="eyebrow mb-3"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
-              >
-                Billetterie · Afrique de l'Ouest
-              </motion.p>
-              <motion.h1
-                className="!text-[clamp(28px,4.6vw,46px)] !leading-[1.06] text-ink mb-4"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.13 }}
-              >
-                Vibrez avec les événements{' '}
-                <span className="relative inline-block">
-                  <span className="relative z-10">qui comptent</span>
-                  <motion.span
-                    aria-hidden
-                    className="absolute left-0 right-0 bottom-1 h-2.5 md:h-3 bg-accent/40 rounded-sm -z-0"
-                    initial={{ scaleX: 0, originX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.52 }}
-                  />
-                </span>
-                .
-              </motion.h1>
-              <motion.p
-                className="text-[15px] text-ink-mute max-w-xl mb-6 leading-relaxed"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.22 }}
-              >
-                Concerts, festivals et expériences culturelles en Afrique de l'Ouest.
-                Achetez en FCFA, transférez en un clic.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-              >
-                <HomeSearch />
-              </motion.div>
-
-              {/* Trust strip */}
-              <motion.div
-                className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-ink-mute"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.44 }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <div className="flex -space-x-1">
-                    {['#C68A1F', '#3D3FE2', '#14172A'].map((c) => (
-                      <span
-                        key={c}
-                        className="w-5 h-5 rounded-full border-2 border-cream"
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </div>
-                  <span><span className="font-semibold text-ink">+10 000</span> billets vendus</span>
-                </div>
-                <div className="hidden sm:block w-px h-3.5 bg-line" />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-accent text-[11px]">★★★★★</span>
-                  <span><span className="font-semibold text-ink">4,8/5</span></span>
-                </div>
-                <div className="hidden sm:block w-px h-3.5 bg-line" />
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-50 text-brand text-[9px] font-bold">✓</span>
-                  <span>Paiement <span className="font-semibold text-ink">en FCFA</span></span>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Poster mosaic — floats in from right */}
-            <motion.div
-              className="lg:col-span-5 hidden lg:block"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
-            >
-              <HeroPosterMosaic events={spotlight.slice(0, 3)} />
-            </motion.div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* ───── Événements à la une ───── */}
-      <section className="section-normal bg-paper">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6">
-          <FadeUp className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
-            <div className="max-w-2xl">
-              <p className="eyebrow mb-2">À l'affiche</p>
-              <h2 className="text-ink mb-2">Événements à la une</h2>
-              <p className="text-[14px] text-ink-mute">
-                Sélectionnés pour vous : concerts, festivals et soirées que vous n'avez pas envie de manquer.
-              </p>
-            </div>
-            <Link
-              to="/events"
-              className="self-start md:self-end text-[14px] font-semibold text-ink hover:text-brand transition-colors inline-flex items-center gap-1.5"
-            >
-              Tout voir
-              <span aria-hidden>→</span>
+      <div className="sticky top-14 z-40 border-b border-line bg-white lg:top-[72px]">
+        <div className="flex h-[72px] items-center gap-2.5 overflow-x-auto px-5 min-[1280px]:px-16 min-[1440px]:px-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <label className="hidden h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border border-line px-3 text-[14.5px] font-semibold md:inline-flex">
+            <select aria-label="Ville" value={filters.city} onChange={(event) => setFilters({ ...filters, city: event.target.value })} className="appearance-none bg-transparent pr-4 focus:outline-none">
+              {['Ouagadougou', 'Bobo-Dioulasso', 'Abidjan', 'Toutes les villes'].map((city) => <option key={city}>{city}</option>)}
+            </select>
+            <CaretDown size={13} weight="bold" />
+          </label>
+          <span className="hidden h-7 w-px bg-line md:block" />
+          <button type="button" onClick={() => setFilters({ ...filters, tonight: !filters.tonight, weekend: false })} className={`inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${filters.tonight ? 'border-ink bg-ink text-white' : 'border-line'}`}><Moon size={17} /> Ce soir</button>
+          <button type="button" onClick={() => setFilters({ ...filters, weekend: !filters.weekend, tonight: false })} className={`inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${filters.weekend ? 'border-ink bg-ink text-white' : 'border-line'}`}><CalendarBlank size={17} /> Ce week-end</button>
+          <span className="hidden h-7 w-px bg-line md:block" />
+          {CHIP.filter((chip) => (categoryCounts[chip.kind] || 0) > 0).map((chip) => (
+            <Link key={chip.label} to={chip.to} className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-line px-3.5 text-[14px] font-medium">
+              <chip.icon size={17} /> {chip.label}
             </Link>
-          </FadeUp>
-          <EventCardList featured={true} limit={9} showNavigation={true} />
+          ))}
+          <Link to="/events" className="ml-auto inline-flex shrink-0 items-center gap-1 text-[14.5px] font-semibold text-brand"><CalendarDots size={16} /> Agenda complet</Link>
         </div>
+      </div>
+      <HomeRails events={dedupeEvents([...(filteredEvents ?? []), ...running])} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
+
+      <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
+        <AppBand exampleTitle={current?.title || 'Alif Naaba'} />
       </section>
 
-      {/* ───── Attractions permanentes ───── */}
-      <AttractionsHighlight />
-
-      {/* ───── Agenda ───── */}
-      <section className="section-normal surface-cream">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 space-y-10 md:space-y-12">
-          <ArtistsHighlight />
-
-          <UpcomingEvents limit={6} />
-
-          <CategoryEventsDisplay
-            searchQuery=""
-            locationFilter=""
-            dateFilter=""
-          />
-
-          <PopularVenues />
-        </div>
-      </section>
-
-      {/* ───── Catégories populaires ───── */}
-      <section className="section-normal bg-paper">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6">
-          <FadeUp className="max-w-2xl mb-6">
-            <p className="eyebrow mb-2">Explorer</p>
-            <h2 className="text-ink mb-2">Catégories populaires</h2>
-            <p className="text-[14px] text-ink-mute">
-              Concerts, festivals, sport, culture — trouvez l'événement qui vous ressemble.
-            </p>
-          </FadeUp>
-          <div className="flex flex-wrap gap-2 mb-6">
-            {[
-              { slug: 'ouagadougou', name: 'Ouagadougou' },
-              { slug: 'bobo-dioulasso', name: 'Bobo-Dioulasso' },
-              { slug: 'abidjan', name: 'Abidjan' },
-              { slug: 'dakar', name: 'Dakar' },
-            ].map((c) => (
-              <Link
-                key={c.slug}
-                to={`/${c.slug}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cream border border-line text-[13px] font-semibold text-ink hover:border-brand/40"
-              >
-                <MapPin className="w-3.5 h-3.5 text-brand" />
-                {c.name}
-              </Link>
-            ))}
+      <section className="px-5 pb-20 pt-8 min-[1280px]:px-16 min-[1440px]:px-20">
+        <div className="grid items-center gap-8 rounded-[20px] bg-[#F7F4EE] px-6 py-8 md:grid-cols-[1.1fr_1fr] md:px-14 md:py-12">
+          <div>
+            <p className="text-[13.5px] font-semibold text-brand">Organisateurs</p>
+            <h2 className="mt-3 font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] md:text-[40px]">Vous organisez<br />un événement ?</h2>
+            <p className="mt-3 max-w-[460px] text-[16.5px] leading-relaxed text-ink-3">Vendez vos billets en FCFA, suivez vos ventes et contrôlez l’entrée avec Temba.</p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <Link to="/organizers" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white">Devenir organisateur <ArrowRight size={16} /></Link>
+              <a href="https://wa.me/22674750815" className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-line bg-white px-5 text-[15px] font-semibold"><WhatsappLogo size={18} /> Parler à l’équipe</a>
+            </div>
           </div>
-          <CategoryList />
+          <div className="space-y-3.5 text-[15px] text-ink-2">
+            <p className="flex gap-3"><Coins size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Vente en FCFA</b>Mobile Money et carte, au prix que vous fixez.</span></p>
+            <p className="flex gap-3"><ChartLineUp size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Suivi des ventes</b>Billets vendus et recettes, événement par événement.</span></p>
+            <p className="flex gap-3"><Scan size={22} className="shrink-0 text-brand" /><span><b className="block text-ink">Contrôle à l’entrée</b>Les billets QR sont vérifiés à la porte.</span></p>
+          </div>
         </div>
       </section>
-
-      <HowItWorks />
-      <Features />
-      <AppDownload />
     </div>
   );
 }

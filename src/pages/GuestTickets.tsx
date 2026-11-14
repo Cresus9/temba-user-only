@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Download, Loader, MessageCircle, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import EnhancedFestivalTicket from '../components/tickets/EnhancedFestivalTicket';
+import TicketsDesk from '../components/design/TicketsDesk';
 import PageSEO from '../components/SEO/PageSEO';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -132,117 +132,64 @@ export default function GuestTickets() {
   const first = tickets[0];
   const holder = first.guest_name || realGuestEmail(first.guest_email)?.split('@')[0] || first.guest_phone || 'Invité';
   const orderCode = (first.order_id || '').slice(0, 8).toUpperCase();
-  const waUrl = guestWhatsAppShareUrl(token, first.event_title);
 
   return (
-    <div>
+    <>
       <PageSEO
-        title={`Billets – ${first.event_title || 'Temba'}`}
+        title={`Vos billets – ${first.event_title || 'Temba'}`}
         description="Vos billets Temba. Présentez le QR à l'entrée."
         robots="noindex, nofollow"
       />
-
-      <section className="relative bg-cream bg-grain border-b border-line overflow-hidden">
-        <div className="relative max-w-3xl mx-auto px-4 lg:px-6 pt-7 pb-8 md:pt-9 md:pb-10 text-center">
-          <button
-            onClick={() => navigate('/events')}
-            className="absolute top-5 left-4 inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Événements
-          </button>
-
-          <div className="grid place-items-center w-14 h-14 rounded-full bg-green-50 mx-auto mb-4 ring-1 ring-green-200">
-            <Check className="h-7 w-7 text-green-600" />
+      <TicketsDesk
+        tickets={tickets.map((ticket) => ({
+          id: ticket.id,
+          eventTitle: ticket.event_title || 'Événement',
+          eventDate: ticket.event_date,
+          eventTime: ticket.event_time,
+          venue: ticket.event_location,
+          holder,
+          categoryName: ticket.ticket_type_name,
+          price: ticket.ticket_type_price,
+          qrValue: ticket.qr_code,
+          ticketCode: ticket.id.slice(0, 8).toUpperCase(),
+          orderCode,
+          state: (ticket.status || '').toUpperCase() === 'SCANNED' ? 'scanned' : 'valid',
+          image: ticket.event_image,
+        }))}
+        phoneHint={first.guest_phone}
+        emailHint={realGuestEmail(first.guest_email)}
+        onDownload={handleDownload}
+        onCalendar={() => {
+          const [ey, em, ed] = String(first.event_date || '').split('T')[0].split('-').map(Number);
+          if (!ey || !em || !ed) return;
+          const start = new Date(ey, em - 1, ed);
+          const startTime = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+          const endTime = new Date(start.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+          const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(first.event_title || 'Temba')}&dates=${startTime}/${endTime}`;
+          window.open(url, '_blank');
+        }}
+        onShare={() => {
+          const url = guestWhatsAppShareUrl(token, first.event_title);
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }}
+      />
+      {!isAuthenticated ? (
+        <div className="mx-auto mb-10 max-w-[1200px] px-4 md:px-6">
+          <div className="rounded-2xl border border-line bg-surf p-5 text-center">
+            <p className="text-[14px] font-bold text-ink">Garder ces billets sur votre compte</p>
+            <p className="mx-auto mt-1 max-w-md text-[13px] text-ink-2">
+              Créez un compte avec le même téléphone ou e-mail pour transférer un billet et les retrouver partout.
+            </p>
+            <Link to="/signup" state={{ redirectTo: '/profile/my-tickets' }} className="btn btn-ink mt-4 h-11">
+              Créer un compte
+            </Link>
           </div>
-          <p className="eyebrow mb-2">
-            <span className="tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-              ORD · {orderCode || '—'}
-            </span>
-          </p>
-          <h1 className="!text-[clamp(24px,3.4vw,36px)] !leading-[1.06] text-ink mb-2 tracking-tight">
-            Vos billets sont prêts
-          </h1>
-          <p className="text-[14px] text-ink-mute max-w-md mx-auto">
-            Enregistrez-les sur cet appareil. À l'entrée, présentez le QR code.
-          </p>
         </div>
-      </section>
-
-      <section className="bg-paper">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10">
-          <div className="space-y-6 mb-7">
-            {tickets.map(ticket => (
-              <div key={ticket.id} data-ticket>
-                <EnhancedFestivalTicket
-                  ticketHolder={holder}
-                  ticketType={ticket.ticket_type_name || 'Billet'}
-                  ticketId={ticket.id}
-                  eventTitle={ticket.event_title || 'Événement'}
-                  eventDate={ticket.event_date || ''}
-                  eventTime={ticket.event_time || ''}
-                  eventLocation={ticket.event_location || ''}
-                  qrCode={ticket.qr_code}
-                  eventImage={ticket.event_image}
-                  price={ticket.ticket_type_price}
-                  currency="XOF"
-                  specialInstructions="Arrivez 30 minutes avant. Présentez ce QR à l'entrée."
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 mb-8">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloading}
-              className="inline-flex items-center justify-center gap-2 h-11 px-5 bg-brand hover:bg-brand-700 text-paper rounded-lg text-[14px] font-bold disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              {downloading ? 'Téléchargement…' : 'Télécharger'}
-            </button>
-            <a
-              href={waUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 h-11 px-5 border border-line bg-paper hover:bg-cream text-ink rounded-lg text-[14px] font-bold"
-            >
-              <MessageCircle className="h-4 w-4 text-emerald-600" />
-              Envoyer sur WhatsApp
-            </a>
-          </div>
-
-          {!isAuthenticated ? (
-            <div className="rounded-xl2 border border-line bg-cream p-5 text-center">
-              <p className="text-[14px] font-bold text-ink mb-1">Garder ces billets sur votre compte</p>
-              <p className="text-[13px] text-ink-mute mb-4">
-                Créez un compte avec le même téléphone ou e-mail pour transférer un billet et les retrouver partout.
-              </p>
-              <Link
-                to="/signup"
-                state={{ redirectTo: '/profile/my-tickets' }}
-                className="inline-flex items-center gap-2 h-11 px-5 bg-ink text-paper rounded-lg text-[14px] font-bold"
-              >
-                <UserPlus className="h-4 w-4" />
-                Créer un compte
-              </Link>
-              <p className="mt-3 text-[13px] text-ink-mute">
-                Déjà un compte ?{' '}
-                <Link to="/login" state={{ redirectTo: '/profile/my-tickets' }} className="font-semibold text-brand">
-                  Se connecter
-                </Link>
-              </p>
-            </div>
-          ) : (
-            <div className="text-center">
-              <Link to="/profile/my-tickets" className="text-[14px] font-semibold text-brand">
-                Voir dans mon compte →
-              </Link>
-            </div>
-          )}
+      ) : (
+        <div className="pb-8 text-center">
+          <Link to="/profile/my-tickets" className="text-[14px] font-semibold text-brand">Voir dans mon compte</Link>
         </div>
-      </section>
-    </div>
+      )}
+    </>
   );
 }

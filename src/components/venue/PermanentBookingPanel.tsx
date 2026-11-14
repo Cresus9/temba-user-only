@@ -211,24 +211,20 @@ export default function PermanentBookingPanel({
   return (
     <div className="space-y-4 w-full min-w-0">
       {/* ── Step breadcrumb ── */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-display text-[18px] font-bold">Réserver une visite</p>
+        <p className="text-[13px] text-ink-3">1 Date · 2 Billets · 3 Confirmer</p>
+      </div>
       <div className="flex items-center gap-2 text-[13px]">
         {(['date', 'tickets', 'confirm'] as const).map((s, i) => (
           <React.Fragment key={s}>
             {i > 0 && <span aria-hidden className="text-ink/25">/</span>}
             <button
               type="button"
-              onClick={() => step !== 'date' && s === 'date' ? setStep('date') : undefined}
-              className={`transition-colors ${
-                step === s
-                  ? 'font-medium text-brand'
-                  : s === 'confirm' && step !== 'confirm'
-                    ? 'text-ink/30 cursor-default'
-                    : 'text-ink/55 hover:text-ink cursor-pointer'
-              }`}
+              onClick={() => (s === 'date' || (s === 'tickets' && visitData) ? setStep(s) : undefined)}
+              className={step === s ? 'font-semibold text-ink' : 'text-ink-3'}
             >
-              {s === 'date'    ? 'Date'      : ''}
-              {s === 'tickets' ? 'Billets'   : ''}
-              {s === 'confirm' ? 'Confirmer' : ''}
+              {i + 1} {s === 'date' ? 'Date' : s === 'tickets' ? 'Billets' : 'Confirmer'}
             </button>
           </React.Fragment>
         ))}

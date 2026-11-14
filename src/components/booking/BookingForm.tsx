@@ -199,10 +199,10 @@ export default function BookingForm({
 
   if (availableTickets.length === 0) {
     return (
-      <div className="text-center py-8 px-4">
-        <p className="text-[15px] font-bold text-ink mb-1">Aucun billet disponible</p>
-        <p className="text-[13px] text-ink-mute">
-          Les billets ne sont pas disponibles pour le moment. Revenez plus tard ou contactez l'organisateur.
+      <div className="px-1 py-6 text-left">
+        <p className="font-display text-[18px] font-bold text-ink">Bientôt en vente</p>
+        <p className="mt-1.5 text-[14px] leading-relaxed text-ink-3">
+          Aucun billet n'est en vente pour le moment. La page sera mise à jour dès l'ouverture.
         </p>
       </div>
     );

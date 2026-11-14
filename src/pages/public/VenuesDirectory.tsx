@@ -1,288 +1,202 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Building2, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase-client';
-import { countryFlag } from '../../utils/eventGeo';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import PageSEO from '../../components/SEO/PageSEO';
+import { CityTabs, DirectoryPage, SearchField } from '../../components/directory/DirectoryUi';
+import { getCatalog, isMainCity, MAIN_CITIES, type Catalog, type VenueGroup } from '../../services/laCatalog';
+import { formatCalendarDate } from '../../utils/formatters';
+import { whenLabel } from '../../utils/eventDisplay';
 import { venuesDirectoryStructuredData } from '../../utils/venueSeo';
 
-const VenuesGlobe = lazy(() => import('../../components/venue/VenuesGlobe'));
-
-interface Venue {
-  id: string;
-  name: string;
-  slug: string | null;
-  city: string | null;
-  country_code: string | null;
-  capacity: number | null;
-  photos: string[] | null;
-  verified: boolean;
-  event_count: number;
-  lat?: number | string | null;
-  lng?: number | string | null;
+function matches(venue: VenueGroup, query: string) {
+  if (!query) return true;
+  return venue.name.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr'));
 }
 
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
-const PAGE_SIZE = 16;
+function inTab(venue: VenueGroup, tab: string) {
+  if (tab === 'all') return true;
+  if (tab === 'other') return !isMainCity(venue.city);
+  return venue.city === tab;
+}
 
-function Pagination({
-  page,
-  total,
-  pageSize,
-  onChange,
-}: {
-  page: number;
-  total: number;
-  pageSize: number;
-  onChange: (p: number) => void;
-}) {
-  const totalPages = Math.ceil(total / pageSize);
-  if (totalPages <= 1) return null;
+function upcomingOrder(a: VenueGroup, b: VenueGroup) {
+  const left = a.upcoming.find((show) => !show.permanent);
+  const right = b.upcoming.find((show) => !show.permanent);
+  if (Boolean(left) !== Boolean(right)) return left ? -1 : 1;
+  return (left?.span.min || '9999').localeCompare(right?.span.min || '9999') || a.name.localeCompare(b.name, 'fr');
+}
+
+function lastText(venue: VenueGroup) {
+  const count = venue.past.length;
+  const day = venue.past[0]?.span.max;
+  const when = day ? formatCalendarDate(day, { month: 'short', year: 'numeric' }) : '';
+  return `${count} événement${count > 1 ? 's' : ''}${when ? ` · dernier en ${when}` : ''}`;
+}
+
+function Thumbs({ venue, limit }: { venue: VenueGroup; limit: number }) {
   return (
-    <div className="flex items-center justify-center gap-1 mt-10 pb-4">
-      <button
-        type="button"
-        onClick={() => onChange(page - 1)}
-        disabled={page === 1}
-        className="w-9 h-9 flex items-center justify-center rounded-xl border border-line text-ink disabled:opacity-30 hover:border-ink/40 transition-colors"
-      >
-        <ChevronLeft className="w-4 h-4" />
-      </button>
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-        <button
-          key={p}
-          type="button"
-          onClick={() => onChange(p)}
-          className={`w-9 h-9 rounded-xl text-[13px] font-semibold border transition-colors ${
-            p === page
-              ? 'bg-ink text-paper border-ink'
-              : 'bg-transparent border-line text-ink hover:border-ink/40'
-          }`}
-        >
-          {p}
-        </button>
+    <span className="flex justify-end gap-2">
+      {venue.upcoming.slice(0, limit).map((show) => (
+        <span key={show.event.id} className="block h-[50px] w-10 overflow-hidden rounded-md bg-[#1B1D33] md:h-[60px] md:w-12">
+          {show.event.image_url ? <img src={show.event.image_url} alt="" className="h-full w-full object-cover" /> : null}
+        </span>
       ))}
-      <button
-        type="button"
-        onClick={() => onChange(page + 1)}
-        disabled={page === totalPages}
-        className="w-9 h-9 flex items-center justify-center rounded-xl border border-line text-ink disabled:opacity-30 hover:border-ink/40 transition-colors"
-      >
-        <ChevronRight className="w-4 h-4" />
-      </button>
-    </div>
+    </span>
+  );
+}
+
+function VenueRow({ venue }: { venue: VenueGroup }) {
+  const next = venue.upcoming[0];
+  const count = `${venue.upcoming.length} date${venue.upcoming.length > 1 ? 's' : ''} à venir`;
+  return (
+    <Link to={`/venues/${venue.primarySlug}`} className="block border-b border-line py-4 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,360px)_168px_20px] md:items-center md:gap-8 md:py-6">
+      <span className="flex items-center gap-4 md:contents">
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-[18px] font-semibold leading-6 md:text-[22px] md:leading-8">{venue.name}</span>
+          <span className="mt-1 hidden text-[14px] font-medium text-ink-3 md:block">{count}</span>
+          <span className="mt-1 block truncate text-[14px] text-ink-2 md:hidden">
+            <span className="font-semibold text-brand">{whenLabel(next.event, next.span)}</span>
+            {` · ${next.event.title}`}
+          </span>
+          <span className="mt-1 block text-[14px] font-medium text-ink-3 md:hidden">{count}</span>
+        </span>
+        <span className="md:hidden"><Thumbs venue={venue} limit={1} /></span>
+      </span>
+      <span className="hidden min-w-0 flex-col md:flex">
+        <small className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-4">Prochaine date</small>
+        <span className="text-[14px] font-semibold text-brand">{whenLabel(next.event, next.span)}</span>
+        <span className="truncate text-[16px] font-medium">{next.event.title}</span>
+      </span>
+      <span className="hidden md:block"><Thumbs venue={venue} limit={3} /></span>
+      <CaretRight size={20} className="hidden text-ink-4 md:block" />
+    </Link>
   );
 }
 
 export default function VenuesDirectory() {
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [failed, setFailed] = useState(false);
   const [search, setSearch] = useState('');
-  const [cityFilter, setCityFilter] = useState('');
-  const [page, setPage] = useState(1);
+  const [params, setParams] = useSearchParams();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const tab = params.get('ville') || 'all';
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('venues')
-        .select('id, name, slug, city, country_code, capacity, photos, verified, event_count, lat, lng')
-        .order('name');
-      setVenues(data || []);
-      setLoading(false);
-    })();
+    getCatalog().then(setCatalog).catch(() => setFailed(true));
   }, []);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, cityFilter]);
+  const venues = catalog?.venues ?? [];
+  const tabs = useMemo(() => {
+    const list = [
+      { id: 'all', label: 'Toutes les villes', count: venues.length },
+      ...MAIN_CITIES.map((city) => ({ id: city, label: city, count: venues.filter((venue) => venue.city === city).length })),
+      { id: 'other', label: 'Autres villes', count: venues.filter((venue) => !isMainCity(venue.city)).length },
+    ];
+    return list.filter((item) => item.id === 'all' || item.count > 0);
+  }, [venues]);
 
-  const cities = Array.from(new Set(venues.map((v) => v.city).filter(Boolean))) as string[];
-  const filtered = venues
-    .filter((v) => {
-      if (search && !v.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (cityFilter && v.city !== cityFilter) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const ap = Array.isArray(a.photos) && a.photos.length > 0 ? 1 : 0;
-      const bp = Array.isArray(b.photos) && b.photos.length > 0 ? 1 : 0;
-      if (ap !== bp) return bp - ap;
-      return (b.event_count || 0) - (a.event_count || 0) || a.name.localeCompare(b.name, 'fr');
-    });
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const directorySchema = useMemo(
-    () => venuesDirectoryStructuredData(venues.filter((v) => v.slug)),
-    [venues]
+  const visible = venues.filter((venue) => inTab(venue, tab) && matches(venue, search.trim()));
+  const cities = tab === 'all'
+    ? [...MAIN_CITIES, 'other']
+    : [tab];
+  const upcomingCount = visible.filter((venue) => venue.upcoming.length > 0).length;
+
+  const schema = useMemo(
+    () => venuesDirectoryStructuredData(venues.map((venue) => ({ name: venue.name, slug: venue.primarySlug }))),
+    [venues],
   );
 
-  const firstPhoto = (v: Venue): string | null =>
-    Array.isArray(v.photos) && v.photos.length > 0 ? v.photos[0] : null;
-
   return (
-    <div className="min-h-screen bg-cream bg-grain">
+    <DirectoryPage>
       <PageSEO
         title="Lieux — salles et sites Temba"
-        description="Salles et sites partenaires Temba. Trouvez où se jouent les concerts et festivals, puis achetez vos billets en FCFA."
+        description="Les salles, scènes et terrains où se jouent les événements vendus sur Temba. Chaque fiche liste les prochaines dates du lieu."
         canonicalUrl="https://tembas.com/venues"
-        keywords={[
-          'salles concert Burkina',
-          'lieux Ouagadougou',
-          'événements Temba',
-          'billets concert Burkina',
-        ]}
-        structuredData={directorySchema}
+        keywords={['salles concert Burkina', 'lieux Ouagadougou', 'événements Temba', 'billets concert Burkina']}
+        structuredData={schema}
       />
-
-      <header className="bg-black text-white">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 md:py-10">
-          <p className="eyebrow !text-white/40 mb-2 tracking-[0.22em]">Temba</p>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h1
-              className="text-[clamp(32px,5vw,48px)] font-semibold tracking-[-0.045em] leading-none text-white"
-              style={{ fontFamily: display, color: '#fff' }}
-            >
-              Lieux
-            </h1>
-            <p className="text-[13px] text-white/45 tabular-nums">
-              {loading ? '…' : `${filtered.length} lieu${filtered.length !== 1 ? 'x' : ''}`}
-            </p>
-          </div>
-          <p className="mt-4 max-w-xl text-[14px] text-white/50 leading-relaxed">
-            Salles et sites où les dates Temba se jouent vraiment — billets en FCFA, sur place ou en ligne.
+      <section className="flex flex-col py-8 md:flex-row md:items-end md:justify-between md:gap-12 md:py-16">
+        <div>
+          <h1 className="!text-[32px] !font-semibold !leading-10 md:!text-[48px] md:!leading-[56px]">Lieux</h1>
+          <p className="mt-2 max-w-xl text-[16px] leading-6 text-ink-2 md:mt-4 md:text-[18px] md:leading-7">
+            Les salles, scènes et terrains où se jouent les événements vendus sur Temba. Chaque fiche liste les prochaines dates du lieu.
           </p>
         </div>
-      </header>
+        <SearchField value={search} onChange={setSearch} placeholder="Rechercher un lieu" />
+      </section>
+      <CityTabs
+        tabs={tabs}
+        value={tabs.some((item) => item.id === tab) ? tab : 'all'}
+        onChange={(id) => {
+          const next = new URLSearchParams(params);
+          if (id === 'all') next.delete('ville');
+          else next.set('ville', id);
+          setParams(next, { replace: true });
+        }}
+      />
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 md:py-10">
-        <div className="flex items-end gap-4 mb-8 pb-5 border-b border-line">
-          <div className="flex-1 relative">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un lieu…"
-              className="w-full h-11 pl-7 pr-2 bg-transparent text-[15px] text-ink placeholder:text-ink-mute/70 focus:outline-none"
-            />
-          </div>
-          {cities.length > 0 && (
-            <select
-              value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="h-11 sm:w-[200px] bg-transparent text-[13px] text-ink focus:outline-none"
-            >
-              <option value="">Toutes les villes</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border border-ink/20 border-t-ink rounded-full animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-16 border-y border-line">
-            <Building2 className="w-6 h-6 text-ink-mute mb-3" />
-            <p className="text-[18px] font-semibold text-ink" style={{ fontFamily: display }}>
-              Aucun lieu trouvé
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('');
-                setCityFilter('');
-              }}
-              className="mt-4 text-[13px] font-semibold text-ink underline underline-offset-4"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        ) : (
-          <>
-            <Suspense fallback={<div className="h-[280px] md:h-[420px] mb-8 rounded-xl2 bg-ink animate-pulse" />}>
-              <VenuesGlobe venues={filtered} className="h-[280px] md:h-[420px] mb-8" />
-            </Suspense>
-            <div className="border-t border-line">
-              {paged.map((venue) => {
-                const photo = firstPhoto(venue);
-                const place = [venue.city, venue.country_code ? countryFlag(venue.country_code) : null]
-                  .filter(Boolean)
-                  .join(' ');
-                const inner = (
-                  <div className="group grid grid-cols-[4.5rem_1fr_auto] gap-4 sm:gap-5 items-center py-4 hover:bg-paper/70 transition-colors -mx-2 px-2 sm:mx-0 sm:px-1">
-                    <div className="relative w-[4.5rem] h-[4.5rem] rounded-xl overflow-hidden bg-paper ring-1 ring-line flex-shrink-0">
-                      {photo ? (
-                        <img
-                          src={photo}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                        />
-                      ) : (
-                        <div className="h-full w-full grid place-items-center bg-cream">
-                          <span
-                            className="text-[22px] font-semibold text-ink/35 tracking-tight"
-                            style={{ fontFamily: display }}
-                          >
-                            {venue.name.replace(/^[^\p{L}]+/u, '').charAt(0).toUpperCase() || 'L'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p
-                        className="text-[16px] font-semibold text-ink truncate tracking-tight"
-                        style={{ fontFamily: display }}
-                      >
-                        {venue.name}
-                      </p>
-                      <p className="mt-1 text-[12px] text-ink-mute truncate">
-                        {[place, venue.capacity ? `${venue.capacity.toLocaleString('fr-FR')} places` : null]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      {venue.verified && <CheckCircle className="w-3.5 h-3.5 text-ink/35" />}
-                      <span className="text-[12px] font-semibold text-accent tabular-nums">
-                        {venue.event_count > 0
-                          ? `${venue.event_count} date${venue.event_count > 1 ? 's' : ''}`
-                          : '—'}
-                      </span>
-                    </div>
-                  </div>
-                );
-                return venue.slug ? (
-                  <Link
-                    key={venue.id}
-                    to={`/venues/${venue.slug}`}
-                    className="block border-b border-line"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={venue.id} className="border-b border-line">
-                    {inner}
-                  </div>
-                );
-              })}
+      {!catalog && !failed ? (
+        <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border border-ink/20 border-t-ink" /></div>
+      ) : failed ? (
+        <p className="py-16 text-[16px] text-ink-3">Les lieux ne se sont pas chargés. Rechargez la page.</p>
+      ) : (
+        <>
+          <section className="pt-12 md:pt-16">
+            <div className="mb-2">
+              <h2 className="!text-[24px] !font-semibold !leading-8 md:!text-[28px]">À l’affiche</h2>
+              <p className="mt-2 text-[16px] leading-6 text-ink-3">{upcomingCount} lieu{upcomingCount > 1 ? 'x' : ''} {upcomingCount > 1 ? 'ont' : 'a'} au moins une date à venir. Triés par prochaine date.</p>
             </div>
-            <Pagination
-              page={page}
-              total={filtered.length}
-              pageSize={PAGE_SIZE}
-              onChange={(p) => {
-                setPage(p);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-          </>
-        )}
-      </div>
-    </div>
+            {cities.map((city) => {
+              const rows = visible.filter((venue) => (city === 'other' ? !isMainCity(venue.city) : venue.city === city) && venue.upcoming.length > 0).sort(upcomingOrder);
+              if (!rows.length) return null;
+              const shown = rows;
+              return (
+                <div key={city}>
+                  <div className="mt-8 flex items-baseline gap-4 border-b border-ink py-2">
+                    <h3 className="!text-[20px] !font-semibold !leading-6">{city === 'other' ? 'Autres villes' : city}</h3>
+                    <span className="text-[14px] font-medium text-ink-3">{rows.length} lieu{rows.length > 1 ? 'x' : ''} avec des dates à venir</span>
+                  </div>
+                  {shown.map((venue) => <VenueRow key={venue.key} venue={venue} />)}
+                </div>
+              );
+            })}
+          </section>
+
+          <section className="pt-12 md:pt-16">
+            <h2 className="!text-[24px] !font-semibold !leading-8 md:!text-[28px]">Déjà passés sur Temba</h2>
+            <p className="mt-2 text-[16px] leading-6 text-ink-3">Pas de date à venir pour l’instant. Leur fiche garde les événements passés.</p>
+            {cities.map((city) => {
+              const rows = visible
+                .filter((venue) => (city === 'other' ? !isMainCity(venue.city) : venue.city === city) && venue.upcoming.length === 0 && venue.past.length > 0)
+                .sort((a, b) => b.past.length - a.past.length || a.name.localeCompare(b.name, 'fr'));
+              if (!rows.length) return null;
+              const label = city === 'other' ? 'Autres villes' : city;
+              const shown = expanded[`past-${city}`] ? rows : rows.slice(0, 12);
+              return (
+                <div key={city}>
+                  <div className="mt-8 flex items-baseline gap-4 border-b border-line py-2">
+                    <h3 className="!text-[20px] !font-semibold !leading-6">{label}</h3>
+                    <span className="text-[14px] font-medium text-ink-3">{rows.length}</span>
+                  </div>
+                  <div className="md:grid md:grid-cols-3 md:gap-x-8">
+                    {shown.map((venue) => (
+                      <Link key={venue.key} to={`/venues/${venue.primarySlug}`} className="flex flex-col border-b border-line py-4">
+                        <span className="text-[16px] font-medium">{venue.name}</span>
+                        <small className="text-[14px] text-ink-3">{city === 'other' && venue.city ? `${venue.city} · ` : ''}{lastText(venue)}</small>
+                      </Link>
+                    ))}
+                  </div>
+                  {shown.length < rows.length ? (
+                    <button type="button" className="mt-2 flex h-12 w-full items-center justify-center gap-2 text-[15px] font-semibold text-brand" onClick={() => setExpanded((state) => ({ ...state, [`past-${city}`]: true }))}>
+                      Voir les {rows.length} lieux <CaretDown size={18} />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </section>
+        </>
+      )}
+    </DirectoryPage>
   );
 }

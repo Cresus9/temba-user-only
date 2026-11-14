@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import EnhancedFestivalTicket from '../tickets/EnhancedFestivalTicket';
 import TransferTicketModal from '../tickets/TransferTicketModal';
 import { formatCurrency } from '../../utils/formatters';
+import { shortPlace } from '../../utils/eventGeo';
 import toast from 'react-hot-toast';
 
 interface Booking {
@@ -306,7 +307,7 @@ export default function BookingHistory() {
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 truncate min-w-0">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{booking.event.location}</span>
+                        <span className="truncate">{shortPlace(booking.event.location).label}</span>
                       </span>
                     </div>
                   </div>
