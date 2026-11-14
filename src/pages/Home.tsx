@@ -47,7 +47,7 @@ const CHIP = [
 export default function Home() {
   const navigate = useNavigate();
   const { filteredEvents, loading } = useEvents();
-  const { spans, kinds, permanent, ready } = useEventSchedule(filteredEvents ?? []);
+  const { spans, kinds, permanent, running, ready } = useEventSchedule(filteredEvents ?? []);
   const [filters, setFilters] = useState<QuickFilterState>({
     city: 'Ouagadougou',
     tonight: false,
@@ -217,7 +217,7 @@ export default function Home() {
           <Link to="/events" className="ml-auto inline-flex shrink-0 items-center gap-1 text-[14.5px] font-semibold text-brand"><CalendarDots size={16} /> Agenda complet</Link>
         </div>
       </div>
-      <HomeRails events={filteredEvents ?? []} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
+      <HomeRails events={dedupeEvents([...(filteredEvents ?? []), ...running])} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
 
       <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
         <div className="relative grid items-center gap-8 overflow-hidden rounded-[20px] bg-brand px-6 py-8 text-white md:grid-cols-[minmax(0,1fr)_auto] md:px-14 md:py-12">

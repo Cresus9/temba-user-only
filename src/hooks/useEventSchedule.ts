@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Event } from '../types/event';
 import { supabase } from '../lib/supabase-client';
-import { categoryKind, spanFor, type CategoryKind, type ScheduleSpan } from '../utils/eventDisplay';
+import { calendarDayInZone } from '../utils/formatters';
+import { addDays, categoryKind, spanFor, type CategoryKind, type ScheduleSpan } from '../utils/eventDisplay';
 
 export function useEventSchedule(events: Event[]) {
   const [spans, setSpans] = useState<Map<string, ScheduleSpan>>(new Map());
   const [kinds, setKinds] = useState<Map<string, CategoryKind>>(new Map());
   const [permanent, setPermanent] = useState<Event[]>([]);
+  const [running, setRunning] = useState<Event[]>([]);
   const [ready, setReady] = useState(false);
 
   const ids = events.map((event) => event.id).join(',');
@@ -46,11 +48,29 @@ export function useEventSchedule(events: Event[]) {
       });
 
       const kindMap = new Map<string, CategoryKind>();
-      const [{ data: relations, error: relError }, { data: categories, error: catError }, { data: alwaysOn }] = await Promise.all([
+      const [{ data: relations, error: relError }, { data: categories, error: catError }, { data: alwaysOn }, { data: started }] = await Promise.all([
         supabase.from('event_category_relations').select('event_id, category_id'),
         supabase.from('categories').select('id, name'),
         supabase.from('events').select('id, title, slug, image_url, city, location, date, time, price, currency, is_permanent, attraction_type, featured, status').eq('status', 'PUBLISHED').eq('is_permanent', true),
+        supabase.from('events').select('id, title, slug, image_url, city, location, date, time, price, currency, is_permanent, attraction_type, featured, status').eq('status', 'PUBLISHED').gte('date', addDays(calendarDayInZone(), -21)).lt('date', calendarDayInZone()),
       ]);
+      const extraIds = ((started ?? []) as { id: string }[]).map((event) => event.id).filter((id) => !idList.includes(id));
+      if (extraIds.length) {
+        const { data: extraDates } = await supabase.from('event_dates').select('event_id, date').in('event_id', extraIds);
+        (extraDates ?? []).forEach((row: { event_id: string; date: string }) => {
+          const day = String(row.date || '').split('T')[0];
+          if (!day) return;
+          const list = byEvent.get(row.event_id) ?? [];
+          list.push(day);
+          byEvent.set(row.event_id, list);
+        });
+        (started ?? []).forEach((event) => {
+          const row = event as Event;
+          const dates = byEvent.get(row.id) ?? [];
+          nextSpans.set(row.id, spanFor(row, dates.length ? { dates, min: '', max: '' } : null));
+        });
+      }
+
       if (!relError && !catError) {
         const names = new Map<string, string>();
         (categories ?? []).forEach((cat: { id: string; name?: string; slug?: string }) => {
@@ -66,6 +86,7 @@ export function useEventSchedule(events: Event[]) {
         setSpans(nextSpans);
         setKinds(kindMap);
         setPermanent((alwaysOn ?? []) as Event[]);
+        setRunning((started ?? []) as Event[]);
         setReady(true);
       }
     })();
@@ -75,5 +96,5 @@ export function useEventSchedule(events: Event[]) {
     };
   }, [ids]);
 
-  return { spans, kinds, permanent, ready };
+  return { spans, kinds, permanent, running, ready };
 }
