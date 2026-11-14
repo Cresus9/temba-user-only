@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { execSync } from "node:child_process";
 import puppeteer from "/tmp/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js";
@@ -33,6 +33,8 @@ const html = ticketEmailHtml({
   eventTitle: "MALAKEY EN CONCERT",
   whenLong: "Vendredi 18 décembre 2026 · 19:00",
   whenShort: "Ven. 18 déc. 2026 · 19:00",
+  dateLabel: "Ven. 18 déc. 2026",
+  timeLabel: "19:00",
   subjectDate: "ven. 18 déc.",
   timezoneLabel: "Heure de Ouagadougou",
   venueLine: "Maison de la Culture · Bobo-Dioulasso",
@@ -42,7 +44,8 @@ const html = ticketEmailHtml({
     id: ticket.id,
     name: ticket.name,
     price: ticket.price,
-    qrSrc: await qr(ticket.code),
+    number: `0000000${index + 1}`.slice(-8),
+    qrSrc: await qr(`00000000-0000-4000-8000-00000000000${index + 1}`),
     qrAlt: `QR code du billet ${index + 1} sur 3 (${ticket.name}) pour MALAKEY EN CONCERT`,
   }))),
   lines: [
@@ -57,25 +60,30 @@ const html = ticketEmailHtml({
   ticketsUrl: "https://tembas.com/find-tickets",
   guestHint: true,
   hidePayment: false,
-}).replace(
-  "https://tembas.com/email/temba-logo-white-noR.png",
-  "file:///workspace/public/email/temba-logo-white-noR.png",
-);
-
+});
+async function dataUri(path) {
+  const bytes = await readFile(path);
+  return `data:image/png;base64,${bytes.toString("base64")}`;
+}
+const withAssets = html
+  .replaceAll("https://tembas.com/email/temba-logo-white-noR.png", await dataUri("/workspace/public/email/temba-logo-white-noR.png"))
+  .replaceAll("https://tembas.com/email/tk-dome-170x300.png", await dataUri("/workspace/public/email/tk-dome-170x300.png"))
+  .replaceAll("https://tembas.com/email/tk-dome-536x190.png", await dataUri("/workspace/public/email/tk-dome-536x190.png"))
+  .replaceAll("https://tembas.com/email/symbol-purple.png", await dataUri("/workspace/public/email/symbol-purple.png"));
 const out = "/opt/cursor/artifacts/redesign/v6-email";
 await mkdir(out, { recursive: true });
-await writeFile(`${out}/ticket-email.html`, html);
+await writeFile(`${out}/ticket-email.html`, withAssets);
 
 const browser = await puppeteer.launch({
   executablePath: "/usr/local/bin/google-chrome",
   headless: true,
   args: ["--no-sandbox", "--allow-file-access-from-files"],
 });
-for (const width of [600, 375]) {
+for (const [width, file] of [[780, "ticket-email-600.png"], [375, "ticket-email-375.png"]]) {
   const page = await browser.newPage();
   await page.setViewport({ width, height: 900, deviceScaleFactor: 2 });
   await page.goto(`file://${out}/ticket-email.html`, { waitUntil: "networkidle0" });
-  await page.screenshot({ path: `${out}/ticket-email-${width}.png`, fullPage: true });
+  await page.screenshot({ path: `${out}/${file}`, fullPage: true });
   await page.close();
   console.log("wrote", width);
 }

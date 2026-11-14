@@ -170,6 +170,9 @@ export function recoveryCodeEmailHtml(code: string) {
 }
 
 export const TICKET_EMAIL_LOGO = "https://tembas.com/email/temba-logo-white-noR.png";
+const TICKET_DOME = "https://tembas.com/email/tk-dome-170x300.png";
+const TICKET_DOME_MOBILE = "https://tembas.com/email/tk-dome-536x190.png";
+const TICKET_SYMBOL = "https://tembas.com/email/symbol-purple.png";
 
 export interface TicketEmailTicket {
   id: string;
@@ -177,6 +180,7 @@ export interface TicketEmailTicket {
   price: number;
   qrSrc: string;
   qrAlt: string;
+  number: string;
 }
 
 export interface TicketEmailLine {
@@ -189,6 +193,8 @@ export interface TicketEmailInput {
   eventTitle: string;
   whenLong: string;
   whenShort: string;
+  dateLabel: string;
+  timeLabel: string;
   subjectDate: string;
   timezoneLabel: string;
   venueLine: string;
@@ -221,32 +227,49 @@ function row(label: string, value: string) {
 function ticketBlock(input: TicketEmailInput, ticket: TicketEmailTicket, index: number) {
   const vip = ticket.name.trim().toLowerCase() === "vip";
   const tag = vip
-    ? `background:#F6B84A;color:#03061E;`
-    : `background:#ECECFD;color:#3D3FE2;`;
+    ? `<span style="font:800 30px/0.9 'Inter Tight','Inter',Helvetica,Arial,sans-serif;letter-spacing:-.02em;color:#F6B84A;">VIP</span>`
+    : `<span style="display:inline-block;font:700 10.5px/1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#FFFFFF;border:1.5px solid #C5C6F7;border-radius:6px;padding:6px 7px;">${escapeHtml(ticket.name.trim())}</span>`;
+  const gold = vip ? "border-top:3px solid #F6B84A;" : "border-top:3px solid #FFFFFF;";
   const holder = (input.buyerName || "").trim();
+  const field = (label: string, value: string, mono = false) =>
+    `<tr><td style="padding:0 0 12px;"><span style="display:block;font:600 10.5px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5E6178;">${label}</span><span class="ink" style="display:block;margin-top:4px;font:600 ${mono ? "13px" : "14.5px"}/1.3 ${mono ? "'JetBrains Mono',Menlo,Consolas,monospace" : "'Inter',Helvetica,Arial,sans-serif"};color:#03061E;">${value}</span></td></tr>`;
   return `<tr><td style="padding:0 32px 16px;" class="px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card" style="border:1px solid #E4E6F0;border-radius:14px;border-collapse:separate;background:#FFFFFF;">
-    <tr><td colspan="2" bgcolor="#3D3FE2" style="background:#3D3FE2;padding:13px 20px 13px 22px;border-radius:13px 13px 0 0;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td align="left" style="font:800 14px/1.3 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.eventTitle)}<br><span style="font:600 12.5px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#D9DAFB;">${escapeHtml(input.whenShort)}</span></td>
-        <td align="right" valign="middle" width="110"><span style="display:inline-block;${tag}font:800 11px/1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:6px 9px;border-radius:6px;">${escapeHtml(ticket.name.trim())}</span></td>
-      </tr></table>
-    </td></tr>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card" style="border:1px solid #E6E7EE;border-radius:16px;border-collapse:separate;background:#FFFFFF;">
     <tr>
-      <td class="stack" width="326" valign="top" style="padding:18px 20px 4px 22px;">
+      <td class="stack tkhd" width="172" valign="top" bgcolor="#3D3FE2" background="${TICKET_DOME}" style="width:172px;background-color:#3D3FE2;background-image:url('${TICKET_DOME}');background-repeat:no-repeat;background-position:50% 100%;background-size:172px auto;padding:18px 16px 18px 18px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-          ${holder ? row("Détenteur", escapeHtml(holder)) : ""}
-          ${row("Catégorie", `${escapeHtml(ticket.name.trim())} · <span style="white-space:nowrap">${fcfa(ticket.price)}</span>`)}
-          ${row("Lieu", escapeHtml(input.venueLine))}
-          ${row("Billet · Commande", `${index + 1}/${input.tickets.length} · ${escapeHtml(input.orderRef)}`)}
+          <tr><td valign="top" height="30"><img src="${TICKET_EMAIL_LOGO}" width="74" height="17" alt="Temba" style="display:block;width:74px;height:17px;border:0;"></td>
+              <td valign="top" align="right">${tag}</td></tr>
+          <tr><td colspan="2" height="72" style="height:72px;font-size:0;line-height:0;">&nbsp;</td></tr>
+          <tr><td colspan="2" style="padding:0 0 12px;font:700 18px/1.12 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.eventTitle)}</td></tr>
+          <tr><td colspan="2">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="padding:0 12px 0 0;"><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Date</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.dateLabel)}</span></td>
+              <td><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Heure</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.timeLabel)}</span></td>
+            </tr></table>
+          </td></tr>
         </table>
       </td>
-      <td class="stack qrcell" width="210" valign="middle" align="center" style="padding:18px 18px 16px;border-left:1px dashed #E4E6F0;">
+      <td class="stack" valign="top" style="${gold}padding:15px 16px 12px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          ${holder ? field("Détenteur", escapeHtml(holder)) : ""}
+          ${field("Catégorie", `${escapeHtml(ticket.name.trim())}<span style="display:block;margin-top:1px;font:500 12.5px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#5E6178;">${fcfa(ticket.price)}</span>`)}
+          ${field("Lieu", escapeHtml(input.venueLine))}
+          ${field("Billet · Commande", `${index + 1}/${input.tickets.length} · ${escapeHtml(input.orderRef)}`, true)}
+          <tr><td style="border-top:1px solid #E6E7EE;padding:10px 0 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font:500 11.5px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#5E6178;">Billet nominatif · 1 QR = 1 entrée</td>
+              <td align="right" width="16"><img src="${TICKET_SYMBOL}" width="14" height="14" alt="" style="display:block;width:14px;height:14px;border:0;"></td>
+            </tr></table>
+          </td></tr>
+        </table>
+      </td>
+      <td class="stack qrcell" width="140" valign="middle" align="center" style="width:140px;border-left:2px dashed #E6E7EE;padding:16px 10px 14px;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
-          <td bgcolor="#FFFFFF" style="background:#FFFFFF;padding:8px;border-radius:10px;border:1px solid #E4E6F0;">
-            <img src="${ticket.qrSrc}" width="160" height="160" alt="${escapeHtml(ticket.qrAlt)}" class="qr" style="display:block;width:160px;height:160px;border:0;">
+          <td bgcolor="#FFFFFF" style="background:#FFFFFF;padding:6px;">
+            <img src="${ticket.qrSrc}" width="118" height="118" alt="${escapeHtml(ticket.qrAlt)}" class="qr" style="display:block;width:118px;height:118px;border:0;">
           </td></tr></table>
-        <p style="margin:10px 0 0;font:600 12px/1.4 'Inter',Helvetica,Arial,sans-serif;color:#6B6F86;text-align:center;">1 QR = 1 entrée</p>
+        <p style="margin:8px 0 0;font:600 11px/1.3 'JetBrains Mono',Menlo,Consolas,monospace;color:#5E6178;text-align:center;">Billet <b style="color:#03061E;">${escapeHtml(ticket.number)}</b></p>
       </td>
     </tr>
   </table>
@@ -291,7 +314,8 @@ table{border-collapse:collapse;}
   .h1{font-size:25px!important;}
   .stack{display:block!important;width:100%!important;}
   .qrcell{border-left:0!important;border-top:1px dashed #E4E6F0!important;}
-  .qr{width:200px!important;height:200px!important;}
+  .tkhd{background-image:url('${TICKET_DOME_MOBILE}')!important;background-size:100% auto!important;}
+  .qr{width:210px!important;height:210px!important;}
   .poster{width:96px!important;height:120px!important;}
 }
 @media (prefers-color-scheme:dark){
@@ -338,7 +362,7 @@ table{border-collapse:collapse;}
 </td></tr>
 <tr><td class="px" style="padding:26px 32px 12px;">
   <p class="ink" style="margin:0;font:800 18px/1.3 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#03061E;">Vos ${count} ${count > 1 ? "billets" : "billet"}</p>
-  <p style="margin:4px 0 0;font:500 13.5px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#6B6F86;">Gardez cet e-mail : vos billets sont aussi sur tembas.com et dans l’appli Temba.</p>
+  <p style="margin:4px 0 0;font:500 13.5px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#6B6F86;">Ils sont aussi en PDF joint à cet e-mail (une page par billet, à imprimer ou à garder sur le téléphone), sur tembas.com et dans l’appli Temba.</p>
 </td></tr>
 ${input.tickets.map((ticket, index) => ticketBlock(input, ticket, index)).join("")}
 <tr><td class="px" style="padding:10px 32px 8px;">
@@ -402,7 +426,7 @@ ${input.tickets.map((ticket, index) => ticketBlock(input, ticket, index)).join("
 export interface ResendAttachment {
   filename: string;
   content: string;
-  content_id: string;
+  content_id?: string;
 }
 
 export async function sendResendEmail(opts: {
@@ -430,7 +454,7 @@ export async function sendResendEmail(opts: {
             attachments: opts.attachments.map((file) => ({
               filename: file.filename,
               content: file.content,
-              content_id: file.content_id,
+              ...(file.content_id ? { content_id: file.content_id } : {}),
             })),
           }
         : {}),

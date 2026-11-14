@@ -4,13 +4,13 @@
  * A send failure must not roll back finalization.
  * Idempotency flag: payments.metadata.ticket_email_sent_at (no new column).
  */
-import QRCode from "https://esm.sh/qrcode@1.5.4";
 import {
   sendResendEmail,
   ticketEmailHtml,
   ticketEmailSubject,
   type TicketEmailInput,
 } from "./email.ts";
+import { buildTicketPdf, qrPng, type PdfAssets } from "./ticketPdf.ts";
 
 const TZ = "Africa/Ouagadougou";
 
@@ -110,17 +110,25 @@ function maskPhone(phone?: string | null) {
   return `+226 ${local.slice(0, 2)} •• •• ${local.slice(-2)}`;
 }
 
-async function qrPngBase64(value: string) {
-  const buf = await QRCode.toBuffer(value, {
-    errorCorrectionLevel: "M",
-    margin: 2,
-    width: 360,
-    color: { dark: "#03061E", light: "#FFFFFF" },
-  });
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+async function pdfAssets(): Promise<PdfAssets> {
+  const fonts = new URL("./fonts/", import.meta.url);
+  const read = (name: string) => Deno.readFile(new URL(name, fonts));
+  return {
+    inter: await read("Inter-Regular.otf"),
+    interSemi: await read("Inter-SemiBold.otf"),
+    interBold: await read("Inter-Bold.otf"),
+    tightBold: await read("InterTight-Bold.ttf"),
+    mono: await read("JetBrainsMono-SemiBold.ttf"),
+    logo: await Deno.readFile(new URL("../../../public/email/temba-logo-white-noR.png", import.meta.url)),
+    dome: await Deno.readFile(new URL("../../../public/email/tk-dome-170x300.png", import.meta.url)),
+    symbol: await Deno.readFile(new URL("../../../public/email/symbol-purple.png", import.meta.url)),
+  };
 }
 
 export async function sendTicketEmailForPayment(supabase: any, paymentId: string) {
@@ -145,7 +153,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
 
   const { data: tickets } = await supabase
     .from("tickets")
-    .select("id, qr_code, ticket_type_id")
+    .select("id, ticket_type_id")
     .eq("order_id", order.id);
   if (!tickets?.length) return;
 
@@ -209,21 +217,31 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
     const venue = cleanVenue(event.venue || event.location, event.city);
     const attachments = [];
     const emailTickets = [];
+    const pdfTickets = [];
     for (const [index, ticket] of tickets.entries()) {
       const type = typeMap.get(ticket.ticket_type_id);
       const name = String(type?.name || "Billet").trim();
       const contentId = `qr-${ticket.id}`;
+      const png = await qrPng(String(ticket.id));
       attachments.push({
         filename: `${contentId}.png`,
-        content: await qrPngBase64(String(ticket.qr_code || "")),
+        content: bytesToBase64(png),
         content_id: contentId,
       });
       emailTickets.push({
         id: ticket.id,
         name,
         price: Number(type?.price || 0),
+        number: String(ticket.id).slice(0, 8).toUpperCase(),
         qrSrc: `cid:${contentId}`,
         qrAlt: `QR code du billet ${index + 1} sur ${tickets.length} (${name}) pour ${event.title}`,
+      });
+      pdfTickets.push({
+        id: String(ticket.id),
+        name,
+        price: Number(type?.price || 0),
+        index: index + 1,
+        total: tickets.length,
       });
     }
     const counts = new Map<string, { name: string; price: number; qty: number }>();
@@ -243,6 +261,8 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
       eventTitle: event.title,
       whenLong: when.long,
       whenShort: when.short,
+      dateLabel: when.short.split("·")[0].trim(),
+      timeLabel: clock(time) || "—",
       subjectDate: when.subject,
       timezoneLabel: "Heure de Ouagadougou",
       venueLine: venue,
@@ -259,6 +279,24 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
       guestHint: !order.user_id,
       hidePayment: hidePayment(Number(order.total || 0), payment.payment_method),
     };
+    const orderRef = String(order.id).slice(0, 8).toUpperCase();
+    try {
+      const pdf = await buildTicketPdf({
+        eventTitle: event.title,
+        dateLabel: input.dateLabel,
+        timeLabel: input.timeLabel,
+        venueLine: venue,
+        buyerName: input.buyerName,
+        orderRef,
+        tickets: pdfTickets,
+      }, await pdfAssets());
+      attachments.push({
+        filename: `Temba-billets-${orderRef}.pdf`,
+        content: bytesToBase64(pdf),
+      });
+    } catch (pdfErr) {
+      console.error("[ticket-email] PDF skipped:", pdfErr);
+    }
     await sendResendEmail({
       to: email,
       subject: ticketEmailSubject({ eventTitle: event.title, subjectDate: when.subject }),
