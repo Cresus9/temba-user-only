@@ -462,8 +462,14 @@ export default function EventDetails() {
   const org = (event as any).organizer_profiles;
   const city = cityName(cityKey(event)) || place.city || 'Ouagadougou';
   const titleKey = event.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  const sameShow = (title: string) => {
+    const other = title.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (other === titleKey) return true;
+    const [short, long] = titleKey.length < other.length ? [titleKey, other] : [other, titleKey];
+    return short.length > 12 && long.startsWith(short);
+  };
   const related = dedupeEvents(filteredEvents ?? [])
-    .filter((item) => item.id !== event.id && item.title.toLowerCase().replace(/\s+/g, ' ').trim() !== titleKey)
+    .filter((item) => item.id !== event.id && !sameShow(item.title))
     .filter((item) => cityKey(item) === cityKey(event))
     .filter((item) => !kind || kinds.get(item.id) === kind || kind === 'other')
     .filter((item) => item.is_permanent || !isPastSpan(spanFor(item), calendarDayInZone(tz)))
