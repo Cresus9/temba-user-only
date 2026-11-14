@@ -126,7 +126,6 @@ async function pdfAssets(): Promise<PdfAssets> {
     tightBold: await read("InterTight-Bold.ttf"),
     mono: await read("JetBrainsMono-SemiBold.ttf"),
     logo: await Deno.readFile(new URL("../../../public/email/temba-logo-white-noR.png", import.meta.url)),
-    dome: await Deno.readFile(new URL("../../../public/email/tk-dome-170x300.png", import.meta.url)),
     symbol: await Deno.readFile(new URL("../../../public/email/symbol-purple.png", import.meta.url)),
   };
 }
