@@ -84,7 +84,7 @@ export default function Events() {
       setActiveCountryCodes(usedCodes);
 
       // Always count all published events regardless of country
-      let locationQuery = supabase
+      const locationQuery = supabase
         .from('events')
         .select('location, country_code', { count: 'exact' })
         .eq('status', 'PUBLISHED');

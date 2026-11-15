@@ -61,7 +61,7 @@ export default function BookingForm({
         console.log('🔍 Fetching event dates for event:', eventId);
         
         // Fetch active dates from event_dates, ordered by date
-        let { data, error } = await supabase
+        const { data, error } = await supabase
           .from('event_dates')
           .select('id, date, start_time, end_time, capacity, status')
           .eq('event_id', eventId)

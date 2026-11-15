@@ -29,7 +29,7 @@ export default function AttractionsHighlight() {
     let cancelled = false;
     listAttractions({ limit: 6 })
       .then((data) => {
-        if (!cancelled) setFallback((data as Event[]).slice(0, 6));
+        if (!cancelled) setFallback((data as unknown as Event[]).slice(0, 6));
       })
       .catch(() => {
         if (!cancelled) setFallback([]);

@@ -15,9 +15,8 @@ import {
 import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import { useEvents } from '../context/EventContext';
-import { displayVenue, fullAddressDisplay, mapsSearchUrl, shortPlace } from '../utils/eventGeo';
+import { displayVenue, mapsSearchUrl, shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate } from '../utils/formatters';
-import { eventPricePresentation, isTicketSellable } from '../utils/labels';
 import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
@@ -32,28 +31,6 @@ import { useEventSchedule } from '../hooks/useEventSchedule';
 import { calendarDayInZone, formatEventTime } from '../utils/formatters';
 import { cityKey, cityName, dedupeEvents, eventBadges, isPastSpan, spanFor } from '../utils/eventDisplay';
 import { categoryLabelFr } from '../utils/labels';
-
-interface EventLocation {
-  latitude: number;
-  longitude: number;
-}
-
-const SMALL_WORDS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'à', 'au', 'aux', 'en', 'sur', 'chez', 'pour', 'un', 'une', 'détente', 'visite', 'journée']);
-
-function readableTitle(title: string): string {
-  const letters = [...title].filter((char) => /\p{L}/u.test(char));
-  const shouting = letters.length > 3 && letters.every((char) => char === char.toLocaleUpperCase('fr') && char !== char.toLocaleLowerCase('fr'));
-  if (!shouting) return title;
-  let wordIndex = 0;
-  return title.split(/(\s+)/).map((part) => {
-    if (!/\p{L}/u.test(part)) return part;
-    const word = part.toLocaleLowerCase('fr');
-    const keepSmall = wordIndex > 0 && SMALL_WORDS.has(word);
-    wordIndex += 1;
-    if (keepSmall) return word;
-    return word.charAt(0).toLocaleUpperCase('fr') + word.slice(1);
-  }).join('');
-}
 
 interface EventDate {
   id: string;
@@ -93,7 +70,9 @@ export default function EventDetails() {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        if (!eventIdOrSlug) return;
+        const lookup = eventIdOrSlug?.trim() ?? '';
+        // An empty slug becomes `events?slug=eq.` and the request fails.
+        if (!lookup) return;
 
         // 1. Serve from EventContext in-memory cache first (instant, no network)
         const cached = getEvent(eventIdOrSlug);
@@ -133,9 +112,9 @@ export default function EventDetails() {
                 sales_enabled
               )
             `);
-          query = isEventUuid(eventIdOrSlug)
-            ? query.eq('id', eventIdOrSlug)
-            : query.eq('slug', eventIdOrSlug);
+          query = isEventUuid(lookup)
+            ? query.eq('id', lookup)
+            : query.eq('slug', lookup);
 
           const { data, error } = await query.maybeSingle();
 
@@ -221,12 +200,15 @@ export default function EventDetails() {
         setEvent(enrichedEvent);
         setLoading(false);
 
-        let { data: datesData, error: datesError } = await supabase
+        const datesResult = await supabase
           .from('event_dates')
           .select('id, date, start_time, end_time, status')
           .eq('event_id', data.id)
           .ilike('status', 'active')
           .order('date', { ascending: true });
+
+        let datesData = datesResult.data;
+        const datesError = datesResult.error;
 
         if (datesError || !datesData || datesData.length === 0) {
           const { data: allDates } = await supabase
@@ -281,7 +263,6 @@ export default function EventDetails() {
     const startDate = event.is_permanent
       ? undefined
       : event.time ? `${event.date}T${event.time}` : event.date;
-    const addressDisplay = fullAddressDisplay(event);
     const countryCode = event.country_code ?? 'BF';
     return {
       '@context': 'https://schema.org',
@@ -390,16 +371,6 @@ export default function EventDetails() {
       `Achetez vos billets pour ${event.title} à ${shortPlace(event.location, event.city).label}.`
     );
   }, [event?.description, event?.title, event?.location]);
-
-  const formatLong = (iso?: string) =>
-    iso
-      ? formatCalendarDate(iso, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        }, event?.timezone ?? 'Africa/Ouagadougou')
-      : '';
 
   const shareWhatsApp = () => {
     if (!event) return;

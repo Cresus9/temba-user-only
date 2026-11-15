@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Search, Filter, Loader } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import EventCard from '../components/EventCard';
 import { CardSkeleton } from '../components/events/FlyerFrame';
 import DomePattern from '../components/design/DomePattern';
 import { categoryLabelFr } from '../utils/labels';
-import { formatCalendarDate } from '../utils/formatters';
+import { calendarDayInZone, formatCalendarDate, parseLocalDate } from '../utils/formatters';
+import { supabase } from '../lib/supabase-client';
 import { CategoryService } from '../services/categoryService';
 import { Event, EventCategory } from '../types/event';
 import toast from 'react-hot-toast';
-import { parseLocalDate } from '../utils/formatters';
+import { isPastSpan, spanFor, ymd } from '../utils/eventDisplay';
 import PageSEO from '../components/SEO/PageSEO';
 import { CITY_LANDINGS } from '../data/cityLandings';
 import {
@@ -17,8 +18,6 @@ import {
   categoryLandingFromRecord,
   categoryPublicSlug,
 } from '../data/categoryLandings';
-
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
 
 function dateSortValue(event: Event): number {
   const d = String(event.date ?? '').split('T')[0];
@@ -35,7 +34,7 @@ export default function CategoryEvents() {
   const [category, setCategory] = useState<EventCategory | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('date');
+  const [sortBy] = useState('date');
 
   useEffect(() => {
     if (categoryId) {
@@ -69,7 +68,25 @@ export default function CategoryEvents() {
 
       if (resolvedCategoryId) {
         const eventsData = await CategoryService.fetchEventsByCategory(resolvedCategoryId);
-        setEvents(eventsData);
+        const today = calendarDayInZone();
+        const ids = eventsData.map((event) => event.id).filter(Boolean);
+        const lastById = new Map<string, string>();
+        for (let i = 0; i < ids.length; i += 80) {
+          const chunk = ids.slice(i, i + 80);
+          const { data } = await supabase.from('event_dates').select('event_id, date').in('event_id', chunk);
+          for (const row of data || []) {
+            const day = ymd((row as { date?: string }).date);
+            const id = (row as { event_id: string }).event_id;
+            if (!day) continue;
+            const prev = lastById.get(id);
+            if (!prev || day > prev) lastById.set(id, day);
+          }
+        }
+        setEvents(eventsData.filter((event) => {
+          if (event.is_permanent) return true;
+          const span = spanFor(event, lastById.get(event.id) ? { dates: [lastById.get(event.id) as string], min: '', max: '' } : null);
+          return !isPastSpan(span, today);
+        }));
       }
     } catch (error) {
       console.error('Error fetching category and events:', error);

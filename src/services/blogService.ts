@@ -385,11 +385,6 @@ class BlogService {
         .order('published_at', { ascending: false })
         .limit(limit);
 
-      // Filter by category if available
-      if (post.category_id) {
-        query = query.eq('category_id', post.category_id);
-      }
-
       const { data, error } = await query;
 
       if (error) throw error;
