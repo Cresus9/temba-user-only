@@ -133,7 +133,7 @@ async function pdfAssets(): Promise<PdfAssets> {
 export async function sendTicketEmailForPayment(supabase: any, paymentId: string) {
   const { data: payment, error } = await supabase
     .from("payments")
-    .select("id, order_id, payment_method, completed_at, metadata, customer_email, customer_phone, charge_currency, charge_amount_minor")
+    .select("id, order_id, payment_method, completed_at, metadata, charge_currency, charge_amount_minor")
     .eq("id", paymentId)
     .maybeSingle();
   if (error || !payment?.order_id) {
@@ -170,7 +170,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
       .maybeSingle();
     profile = data;
   }
-  const email = realEmail(guest?.email) || realEmail(order.guest_email) || realEmail(profile?.email) || realEmail(payment.customer_email);
+  const email = realEmail(guest?.email) || realEmail(order.guest_email) || realEmail(profile?.email);
   if (!email) return;
 
   const { data: event } = await supabase
@@ -250,7 +250,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
       row.qty += 1;
       counts.set(key, row);
     }
-    const phone = maskPhone(payment.customer_phone || guest?.phone || profile?.phone || (meta.phone as string));
+    const phone = maskPhone(guest?.phone || profile?.phone || (meta.phone as string));
     const paid = methodLabel(payment.payment_method, {
       currency: payment.charge_currency,
       minor: payment.charge_amount_minor,
