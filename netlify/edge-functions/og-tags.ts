@@ -10,6 +10,9 @@ import type { Context } from "https://edge.netlify.com";
  * Do NOT add a meta-refresh — Google treats that as a redirect and drops the page.
  */
 
+/** Official share image. Never the old purple-T placeholder. */
+const TEMBA_OG_IMAGE = "https://tembas.com/og-image-v2.png";
+
 function getSupabaseRestConfig(): { url: string; anonKey: string } | null {
   const url =
     Deno.env.get("SUPABASE_URL") ?? Deno.env.get("VITE_SUPABASE_URL") ?? "";
@@ -388,7 +391,20 @@ function layout(opts: {
   );
   const description = escapeHtml(opts.description.slice(0, 220));
   const url = escapeHtml(opts.url);
-  const image = escapeHtml(opts.image || "https://tembas.com/temba-wordmark-dark.jpg");
+  const imageRaw = opts.image || TEMBA_OG_IMAGE;
+  const image = escapeHtml(imageRaw);
+  const imageLower = imageRaw.toLowerCase();
+  const imageType = imageLower.includes(".png")
+    ? "image/png"
+    : imageLower.includes(".webp")
+      ? "image/webp"
+      : imageLower.includes(".jpg") || imageLower.includes(".jpeg")
+        ? "image/jpeg"
+        : "";
+  const imageTypeTag = imageType
+    ? `  <meta property="og:image:type" content="${imageType}" />
+`
+    : "";
   const ogType = escapeHtml(opts.ogType || "website");
   const robots = escapeHtml(opts.robots || "index, follow");
   const jsonLd = opts.jsonLd
@@ -404,13 +420,17 @@ function layout(opts: {
   <meta name="description" content="${description}" />
   <meta name="robots" content="${robots}" />
   <link rel="canonical" href="${url}" />
+  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=2" />
+  <link rel="icon" type="image/png" sizes="32x32" href="https://tembas.com/favicon-32x32.png?v=2" />
+  <link rel="apple-touch-icon" sizes="180x180" href="https://tembas.com/apple-touch-icon-v2.png" />
   <meta property="og:type" content="${ogType}" />
   <meta property="og:site_name" content="Temba" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${image}" />
-  <meta property="og:image:width" content="1200" />
+${imageTypeTag}  <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="${title}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:locale" content="fr_BF" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -470,7 +490,7 @@ function generateEventHtml(
   const eventUrl = `https://tembas.com${
     event ? eventPublicPath(event) : `/e/${requestParam}`
   }`;
-  const imageUrl = event?.image_url || "https://tembas.com/temba-wordmark-dark.jpg";
+  const imageUrl = event?.image_url || TEMBA_OG_IMAGE;
   const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
   const minPrice =
@@ -645,14 +665,14 @@ function generateHomeHtml(events: any[], artists: { href: string; name: string; 
     title,
     description,
     url: "https://tembas.com/",
-    image: "https://tembas.com/temba-mark-navy.jpg",
+    image: TEMBA_OG_IMAGE,
     jsonLd: [
       {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Temba",
         url: "https://tembas.com/",
-        logo: "https://tembas.com/temba-mark-navy.jpg",
+        logo: TEMBA_OG_IMAGE,
         description,
         areaServed: ["BF", "CI", "SN"],
         address: {
