@@ -3,26 +3,32 @@
   "name": "Temba - Plateforme de Billetterie d'Événements",
   "icons": [
     {
-      "src": "favicon.svg",
+      "src": "/favicon.svg?v=2",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "temba-mark-navy.jpg",
-      "type": "image/jpeg",
-      "sizes": "256x256",
+      "src": "/icon-192-v2.png",
+      "type": "image/png",
+      "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "temba-mark-dark.jpg",
-      "type": "image/jpeg",
-      "sizes": "256x256",
+      "src": "/icon-512-v2.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-512-maskable-v2.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0E1020",
-  "background_color": "#FAF7F2"
+  "theme_color": "#3D3FE2",
+  "background_color": "#F4F5FA"
 }

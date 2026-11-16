@@ -22,7 +22,7 @@ import {
   WhatsappLogo,
 } from '@phosphor-icons/react';
 import { useEvents } from '../context/EventContext';
-import PageSEO from '../components/SEO/PageSEO';
+import PageSEO, { TEMBA_OG_IMAGE } from '../components/SEO/PageSEO';
 import DomePattern from '../components/design/DomePattern';
 import AppBand from '../components/design/AppBand';
 import HomeRails from '../components/events/HomeRails';
@@ -127,7 +127,7 @@ export default function Home() {
         title="Temba — billetterie en FCFA"
         description="Concerts, festivals et spectacles à Ouagadougou, Bobo-Dioulasso et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée."
         canonicalUrl="https://tembas.com/"
-        ogImage="https://tembas.com/temba-wordmark-dark.jpg"
+        ogImage={TEMBA_OG_IMAGE}
       />
 
       <section className="relative -mt-14 bg-brand text-white lg:-mt-[72px]">
