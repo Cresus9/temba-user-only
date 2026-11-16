@@ -6,10 +6,11 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
 import { formatCurrency, parseLocalDate } from '../../utils/formatters';
-import { countryFlag } from '../../utils/eventGeo';
+import { countryFlag, shortPlace } from '../../utils/eventGeo';
 import OptimizedImage from '../../components/common/Image';
 import PageSEO from '../../components/SEO/PageSEO';
 import { eventPublicPath } from '../../utils/eventPath';
+import FlyerFrame from '../../components/events/FlyerFrame';
 
 interface OrganizerProfile {
   organizer_id: string;
@@ -74,11 +75,9 @@ function EventTile({ event }: { event: EventCard }) {
       </div>
 
       {/* Cover */}
-      {event.image_url && (
-        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-cream">
-          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        </div>
-      )}
+      <div className="w-16 shrink-0">
+        <FlyerFrame src={event.image_url} alt={event.title} />
+      </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
@@ -88,14 +87,14 @@ function EventTile({ event }: { event: EventCard }) {
         <p className="text-[12px] text-ink-mute mt-0.5 truncate capitalize">{weekday}</p>
         <div className="flex items-center gap-1.5 mt-1">
           <MapPin className="w-3 h-3 text-ink-mute flex-shrink-0" />
-          <span className="text-[11px] text-ink-mute truncate">{event.location}</span>
+          <span className="text-[11px] text-ink-mute truncate">{shortPlace(event.location).label}</span>
         </div>
       </div>
 
       {/* Price + availability */}
       <div className="flex-shrink-0 flex flex-col items-end justify-between">
         <span className="text-[12px] font-bold text-brand">
-          {event.price === 0 ? 'Gratuit' : formatCurrency(event.price, event.currency)}
+          {event.price > 0 ? formatCurrency(event.price, event.currency) : 'Prix bientôt disponible'}
         </span>
         <div className="w-16">
           <div className="h-1 bg-cream rounded-full overflow-hidden">

@@ -156,21 +156,9 @@ export function formatEventDateTime(
 } {
   const timePart = (time || '').slice(0, 5) || '';
   const datePart = String(isoDate ?? '').split('T')[0];
-  const [year, month, day] = datePart.split('-').map(Number);
-  const calendar =
-    Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
-      ? new Date(year, month - 1, day)
-      : null;
 
   const tzLabel = formatTzLabel(timezone, locale);
-  const dateLabel = calendar
-    ? calendar.toLocaleDateString(locale, {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
+  const dateLabel = formatCalendarDateFromParts(datePart, locale, timezone);
 
   return {
     date: dateLabel,
@@ -189,12 +177,31 @@ export function shortDateLabel(
   locale: string = 'fr-FR'
 ): string {
   const datePart = String(isoDate ?? '').split('T')[0];
-  const [y, m, d] = datePart.split('-').map(Number);
-  if (!y || !m || !d) return '';
-  return new Date(y, m - 1, d).toLocaleDateString(locale, {
+  return formatCalendarDateFromParts(datePart, locale, _timezone || 'Africa/Ouagadougou', {
     day: 'numeric',
     month: 'short',
   });
+}
+
+function formatCalendarDateFromParts(
+  datePart: string,
+  locale: string,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  },
+): string {
+  const [year, month, day] = datePart.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  try {
+    return new Intl.DateTimeFormat(locale, { timeZone, ...options }).format(anchor);
+  } catch {
+    return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(anchor);
+  }
 }
 
 /**
@@ -225,15 +232,14 @@ export function eventLocationLabel(event: {
   city?: string;
   country_code?: string;
 }): { primary: string; badge: string | null } {
+  const place = shortPlace(event.location, event.city).label;
   const abroad = isAbroadEvent(event.country_code);
   if (!abroad) {
-    return { primary: event.location, badge: null };
+    return { primary: place, badge: null };
   }
-  const flag = countryFlag(event.country_code);
-  const city = event.city ?? event.location;
   return {
-    primary: city,
-    badge: flag,
+    primary: place,
+    badge: countryFlag(event.country_code),
   };
 }
 
@@ -348,4 +354,32 @@ export function fullAddressDisplay(event: {
   const country = getCountryMeta(event.country_code ?? 'BF');
   if (country && event.country_code !== 'BF') parts.push(country.nameFr);
   return parts.join(', ');
+}
+
+/** Venue name and city only. Drops street lines, regions, and GPS pairs. */
+export function shortPlace(raw?: string | null, cityHint?: string | null): { venue: string; city: string; label: string } {
+  let text = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  text = text.replace(/,?\s*-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\s*$/g, '').trim();
+  text = text.replace(/\s+-?\d{1,3}\.\d{3,}\s+-?\d{1,3}\.\d{3,}\s*$/g, '').trim();
+  text = text.replace(/,?\s*burkina faso\s*$/i, '').trim();
+  const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
+  const cityFromParts = parts.find((part) => /^(ouagadougou|bobo-dioulasso|bobo dioulasso|abidjan|dakar)$/i.test(part)) ?? '';
+  const city = (cityHint || cityFromParts).trim();
+  const venue = (parts[0] || text).trim();
+  const includesCity = Boolean(city) && venue.toLowerCase().includes(city.toLowerCase());
+  const label = [venue, includesCity ? '' : city].filter(Boolean).join(' · ');
+  return { venue: venue || 'Lieu', city, label: label || venue || 'Lieu' };
+}
+
+/** Drop a parenthetical city already shown beside the place, without changing stored data. */
+export function displayVenue(raw?: string | null, cityHint?: string | null): { venue: string; city: string; label: string } {
+  const stripped = String(raw ?? '')
+    .replace(/\s*\(([^)]*(ouaga|bobo|abidjan|dakar)[^)]*)\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return shortPlace(stripped, cityHint);
+}
+
+export function mapsSearchUrl(label: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
 }

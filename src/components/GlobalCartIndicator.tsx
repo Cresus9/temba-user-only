@@ -31,7 +31,7 @@ export default function GlobalCartIndicator({ onClick }: GlobalCartIndicatorProp
 
       Object.keys(cartState).forEach(eventId => {
         const eventCart = cartState[eventId];
-        const itemCount = Object.values(eventCart).reduce((sum: number, qty: any) => sum + qty, 0);
+        const itemCount = Object.values(eventCart as Record<string, unknown>).reduce((sum: number, qty) => sum + Number(qty || 0), 0);
         
         if (itemCount > 0) {
           events.push({ eventId, itemCount });

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { eventPublicPath } from '../../utils/eventPath';
 import PageSEO from '../../components/SEO/PageSEO';
 import { AttractionCardData } from '../../components/attractions/AttractionCard';
+import FlyerFrame from '../../components/events/FlyerFrame';
 
 const PAGE_SIZE = 12;
 
@@ -276,11 +277,7 @@ function PlaceRow({ attraction }: { attraction: AttractionCardData }) {
       to={eventPublicPath(attraction)}
       className="group grid grid-cols-1 gap-4 border-b border-ink/10 py-6 sm:grid-cols-[240px_1fr] sm:items-center sm:gap-8"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-ink/[0.04]">
-        {attraction.image_url ? (
-          <img src={attraction.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-        ) : null}
-      </div>
+      <FlyerFrame src={attraction.image_url} alt="" ratio="16/9" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="!text-[12px] font-medium uppercase tracking-[0.14em] text-ink/50">
@@ -293,13 +290,15 @@ function PlaceRow({ attraction }: { attraction: AttractionCardData }) {
           {place ? <p className="mt-1 !text-[15px] !leading-normal text-ink/65">{place}</p> : null}
         </div>
         <p className="shrink-0 sm:pb-0.5 sm:text-right">
-          {amount ? (
+          {price === null ? (
+            <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
+          ) : price <= 0 ? (
+            <span className="!text-[16px] !font-semibold text-ink">Prix bientôt disponible</span>
+          ) : (
             <>
               <span className="block !text-[12px] !leading-none text-ink/50">Dès</span>
               <span className="mt-1 block !text-[18px] !font-semibold !leading-none tabular-nums text-ink">{amount}</span>
             </>
-          ) : (
-            <span className="!text-[14px] text-ink/55">Tarifs sur la fiche</span>
           )}
         </p>
       </div>

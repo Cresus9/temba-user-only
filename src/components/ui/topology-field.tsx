@@ -82,7 +82,7 @@ export default function TopologyField({ className, mode = 'dark' }: TopologyFiel
       const originX = w * 0.82;
       const originY = h * 0.48;
       const projected = nodes.map((n) => {
-        let x = n.x * cy - n.z * sy;
+        const x = n.x * cy - n.z * sy;
         let z = n.x * sy + n.z * cy;
         const y = n.y * cx - z * sx;
         z = n.y * sx + z * cx;

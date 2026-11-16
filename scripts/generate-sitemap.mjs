@@ -127,7 +127,7 @@ async function fetchSlugPages(table, prefix, extras = {}) {
 }
 
 async function fetchCategoryPages() {
-  const data = await rest('categories?select=id,slug,name,updated_at');
+  const data = await rest('categories?select=id,name,updated_at');
   return data
     .filter((row) => row?.slug || row?.name || row?.id)
     .map((row) => {

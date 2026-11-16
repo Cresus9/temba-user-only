@@ -14,6 +14,18 @@ const SUPABASE_ANON   = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
  * Fetch published events via the get-events Edge Function (Redis-first).
  * Falls back to a direct Supabase query if the Edge Function is unreachable.
  */
+/** get-events omits slug, so cards would link to /e/<uuid>. Fill slugs from the table. */
+async function withPublicSlugs(eventsData: Event[]): Promise<Event[]> {
+  if (!eventsData.length || eventsData.every((event) => event.slug?.trim())) return eventsData;
+  const { data, error } = await supabase.from('events').select('id, slug').eq('status', 'PUBLISHED');
+  if (error || !data) return eventsData;
+  const slugs = new Map(data.map((row) => [row.id as string, (row.slug as string | null) ?? '']));
+  return eventsData.map((event) => ({
+    ...event,
+    slug: event.slug?.trim() || slugs.get(event.id)?.trim() || event.slug,
+  }));
+}
+
 async function fetchEventsFromEdge(): Promise<Event[]> {
   if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL not set');
 
@@ -121,6 +133,8 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
         eventsData = data ?? [];
         console.debug(`[EventContext] loaded ${eventsData.length} events via direct Supabase`);
       }
+
+      eventsData = await withPublicSlugs(eventsData);
 
       // 4. Store in in-memory cache (browser-level)
       queryCache.set(CACHE_KEY, eventsData, TTL.EVENTS);

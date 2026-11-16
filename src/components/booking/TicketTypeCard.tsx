@@ -2,19 +2,13 @@ import React, { useState } from 'react';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { TicketType } from '../../types/event';
 import { formatCurrency } from '../../utils/formatters';
+import { ticketNameFr } from '../../utils/labels';
 
-const display = '"Plus Jakarta Sans", Inter, sans-serif';
-const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
+const display = '"Inter Tight", Inter, sans-serif';
+const mono = '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
 
 function ticketCopy(value?: string | null) {
-  if (!value) return value || '';
-  const map: Record<string, string> = {
-    'General admission ticket': 'Billet entrée générale',
-    'Standard admission ticket': 'Billet d’entrée',
-    'General Admission': 'Entrée générale',
-    'Standard admission': 'Entrée',
-  };
-  return map[value] || value;
+  return ticketNameFr(value);
 }
 
 interface TicketTypeCardProps {

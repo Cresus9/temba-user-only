@@ -72,32 +72,17 @@ export class CategoryService {
     }
   }
 
-  // Fetch category by slug (French public slug, English aliases, or name)
+  // Fetch category by public name. `categories` has no slug column; filtering on it returns 400.
   static async fetchCategoryBySlug(slug: string): Promise<EventCategory | null> {
     try {
-      const landing = categoryLandingFromParam(slug);
+      const key = slug?.trim();
+      if (!key) return null;
+      const landing = categoryLandingFromParam(key);
       const namesToTry = [
         landing?.name,
-        decodeURIComponent(slug).replace(/-/g, ' ').trim(),
+        decodeURIComponent(key).replace(/-/g, ' ').trim(),
         ...(landing?.aliases ?? []),
       ].filter(Boolean) as string[];
-
-      const { data: bySlug } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('slug', landing?.slug || slug)
-        .maybeSingle();
-      if (bySlug) return bySlug;
-
-      if (landing) {
-        const { data: aliasSlug } = await supabase
-          .from('categories')
-          .select('*')
-          .in('slug', [landing.slug, ...landing.aliases.filter((a) => !a.includes(' '))])
-          .limit(1)
-          .maybeSingle();
-        if (aliasSlug) return aliasSlug;
-      }
 
       for (const name of namesToTry) {
         const { data, error } = await supabase

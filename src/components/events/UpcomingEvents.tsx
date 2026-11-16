@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { Event } from '../../types/event';
-import { formatCurrency } from '../../utils/formatters';
+import { calendarDayInZone } from '../../utils/formatters';
+import { eventPricePresentation } from '../../utils/labels';
 import { eventLocationLabel, sortEventsByCountryPriority } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
 import { categoryPublicPath } from '../../data/categoryLandings';
@@ -18,7 +19,7 @@ interface UpcomingEventsProps {
 export default function UpcomingEvents({ limit = 6, category, countryFilter = '' }: UpcomingEventsProps) {
   const { events: allEvents, activeCountry, loading } = useEvents();
   const effectiveCountry = countryFilter || activeCountry || '';
-  const today = new Date().toISOString().split('T')[0];
+  const today = calendarDayInZone();
 
   // Derive upcoming events from EventContext — zero extra Supabase calls
   const events = useMemo(() => {
@@ -114,7 +115,7 @@ function UpcomingEventCard({ event }: UpcomingEventCardProps) {
   const month = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: tz, month: 'short' }).replace('.', '');
   const weekday = new Date(`${event.date}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: tz, weekday: 'short' }).replace('.', '');
 
-  const { primary: locationLabel, badge: flagBadge } = eventLocationLabel({
+  const { primary: locationLabel } = eventLocationLabel({
     location: event.location,
     city: event.city,
     country_code: event.country_code,
@@ -157,22 +158,24 @@ function UpcomingEventCard({ event }: UpcomingEventCardProps) {
         <div className="flex items-center gap-1.5 text-ink-mute text-[13px]">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="truncate">{locationLabel}</span>
-          {flagBadge && (
-            <span className="flex-shrink-0" aria-label={event.country_code ?? ''}>{flagBadge}</span>
-          )}
         </div>
       </div>
 
       {/* Price + CTA */}
       <div className="flex flex-col items-end justify-center flex-shrink-0 gap-2 ml-auto">
-        <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-mute leading-none mb-1">À partir de</p>
-          <p className="text-[15px] font-bold text-ink leading-none tracking-tight">{formatCurrency(event.price, event.currency)}</p>
-        </div>
-        <span className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-brand text-paper rounded-xl text-[13px] font-semibold group-hover:bg-brand-700 transition-colors whitespace-nowrap shadow-card">
-          Réserver
-          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-        </span>
+        {(() => {
+          const price = eventPricePresentation(event);
+          const cta = price.tone === 'soon' ? 'Bientôt' : price.tone === 'soldout' ? 'Complet' : 'Voir';
+          return (
+            <>
+              <p className={`text-[15px] font-bold leading-none tracking-tight ${price.tone === 'free' ? 'text-[#0B7A52]' : 'text-ink'}`}>{price.label}</p>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-ink text-paper rounded-lg text-[13px] font-semibold whitespace-nowrap">
+                {cta}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </>
+          );
+        })()}
       </div>
     </Link>
   );

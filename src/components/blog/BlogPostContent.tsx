@@ -63,7 +63,7 @@ function blocksToHtml(raw: string): string {
     }
 
     // Headings
-    let m = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    const m = trimmed.match(/^(#{1,6})\s+(.*)$/);
     if (m) {
       const level = Math.min(m[1].length, 4); // cap at h4
       const tag = level <= 1 ? 'h2' : `h${level}`; // promote h1 → h2 (we own h1)

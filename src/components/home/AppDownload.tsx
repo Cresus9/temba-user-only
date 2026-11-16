@@ -36,14 +36,11 @@ export default function AppDownload() {
   }, []);
 
   const handleAppStoreDownload = () => {
-    window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
+    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
   };
 
   const handleGooglePlayDownload = () => {
-    window.open(
-      'https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share',
-      '_blank'
-    );
+    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
   };
 
   const handleInstallWebApp = async () => {

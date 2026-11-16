@@ -30,14 +30,7 @@ export default function AppBanner() {
   };
 
   const handleDownload = () => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-    if (/android/i.test(ua)) {
-      window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
-    } else if (/iPad|iPhone|iPod/.test(ua)) {
-      window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
-    } else {
-      window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
-    }
+    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
     handleDismiss();
   };
 

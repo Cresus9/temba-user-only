@@ -8,6 +8,7 @@ import { CategoryService } from '../../services/categoryService';
 import { sortEventsForDisplay } from '../../utils/eventGeo';
 import { useEvents } from '../../context/EventContext';
 import { categoryPublicPath } from '../../data/categoryLandings';
+import { categoryLabelFr } from '../../utils/labels';
 
 interface CategoryEventsDisplayProps {
   searchQuery?: string;
@@ -273,7 +274,7 @@ function CategorySection({ section }: CategorySectionProps) {
       <div className="flex items-end justify-between gap-2 mb-4">
         <div>
           <p className="eyebrow mb-1.5">Catégorie</p>
-          <h2 className="text-ink">{category.name}</h2>
+          <h2 className="text-ink">{categoryLabelFr(category.name)}</h2>
         </div>
         <div className="flex items-center gap-2">
           {/* Arrow buttons — only when there's overflow */}

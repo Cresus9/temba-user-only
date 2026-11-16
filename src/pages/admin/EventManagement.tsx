@@ -5,6 +5,7 @@ import EventForm from '../../components/admin/events/EventForm';
 import GalleryManager from '../../components/venue/GalleryManager';
 import { useTranslation } from '../../context/TranslationContext';
 import { invalidateEventsCache } from '../../utils/invalidateEventsCache';
+import { shortPlace } from '../../utils/eventGeo';
 import toast from 'react-hot-toast';
 
 interface Organizer {
@@ -339,7 +340,7 @@ export default function EventManagement() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-gray-500">
                       <MapPin className="h-4 w-4" />
-                      {event.location}
+                      {shortPlace(event.location).label}
                     </div>
                   </td>
                   <td className="px-6 py-4">

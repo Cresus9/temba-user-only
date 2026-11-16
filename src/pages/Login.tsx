@@ -14,9 +14,14 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { detectInputType, getPhoneInfo, isValidPhone } from '../utils/phoneValidation';
 import CountryCodeSelector from '../components/CountryCodeSelector';
-import AuthShell from '../components/auth/AuthShell';
 import toast from 'react-hot-toast';
 import PageSEO from '../components/SEO/PageSEO';
+import { useEvents } from '../context/EventContext';
+import { eventPublicPath } from '../utils/eventPath';
+import { shortPlace } from '../utils/eventGeo';
+import { calendarDayInZone, formatCalendarDate } from '../utils/formatters';
+import Logo from '../components/brand/Logo';
+import { eventPricePresentation } from '../utils/labels';
 
 type LoginMethod = 'email' | 'phone';
 
@@ -37,6 +42,10 @@ export default function Login() {
   const [error, setError] = useState('');
 
   const { login } = useAuth();
+  const { events } = useEvents();
+  const nextEvent = [...events]
+    .filter((event) => !event.is_permanent && (event.date || '').split('T')[0] >= calendarDayInZone())
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -145,16 +154,19 @@ export default function Login() {
   return (
     <>
       <PageSEO title="Se connecter" description="Connexion à votre compte Temba." robots="noindex, nofollow" />
-    <AuthShell
-      eyebrow="Espace client"
-      title="Bon retour."
-      subtitle="Connectez-vous pour retrouver vos billets, vos commandes et vos transferts."
-      illustration="party"
-      posterEyebrow="Tickets · 226"
-      posterHeadline="On vous attendait."
-      posterSub="Retrouvez vos billets, vos commandes et vos transferts — tout est resté à sa place."
-      posterTagline="La file est ouverte"
-    >
+    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_46%]">
+      <div className="relative h-[200px] overflow-hidden bg-ink lg:hidden">
+        <img src="/photos/awa-sissao-lg.jpg" alt="Awa Sissao en concert" className="absolute inset-0 h-full w-full object-cover object-[28%_35%]" />
+        <p className="absolute bottom-2 left-4 right-4 text-[11px] text-white/80">Awa Sissao, 2023 · La Cour du Naaba, CC BY-SA 4.0</p>
+      </div>
+      <div className="flex flex-col px-5 py-8 sm:px-10 lg:px-16">
+        <div className="mb-8 flex items-center justify-between">
+          <Link to="/" aria-label="Temba — accueil"><Logo size={26} /></Link>
+          <Link to="/events" className="text-[14px] font-medium text-ink-2">Voir les événements</Link>
+        </div>
+        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center">
+        <h1 className="font-display text-[36px] font-bold leading-[1.05] tracking-tight md:text-[44px]">Retrouvez<br />vos billets.</h1>
+        <p className="mt-3 text-[16px] leading-relaxed text-ink-2">Connectez-vous avec le numéro utilisé lors de votre achat.</p>
       {/* Error banner */}
       {error && (
         <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl2 flex items-start gap-2.5 text-red-700">
@@ -164,37 +176,6 @@ export default function Login() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Method segmented toggle */}
-        <div>
-          <p className={labelClass}>Méthode de connexion</p>
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-cream rounded-xl2 border border-line">
-            <button
-              type="button"
-              onClick={() => switchMethod('phone')}
-              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] font-bold transition-all ${
-                loginMethod === 'phone'
-                  ? 'bg-paper text-brand shadow-card ring-1 ring-line'
-                  : 'text-ink-mute hover:text-ink'
-              }`}
-            >
-              <Phone className="h-4 w-4" />
-              Téléphone
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMethod('email')}
-              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] font-bold transition-all ${
-                loginMethod === 'email'
-                  ? 'bg-paper text-brand shadow-card ring-1 ring-line'
-                  : 'text-ink-mute hover:text-ink'
-              }`}
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </button>
-          </div>
-        </div>
-
         {/* Email or Phone input */}
         <div>
           <label htmlFor="emailOrPhone" className={labelClass}>
@@ -286,8 +267,9 @@ export default function Login() {
 
         {/* Password */}
         <div>
-          <label htmlFor="password" className={labelClass}>
-            Mot de passe
+          <label htmlFor="password" className="mb-1.5 flex items-center justify-between text-[14px] font-semibold">
+            <span>Mot de passe</span>
+            <Link to="/forgot-password" className="text-[14px] font-semibold text-brand">Mot de passe oublié ?</Link>
           </label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-mute" />
@@ -311,25 +293,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Remember me + forgot */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 text-brand focus:ring-brand border-line rounded"
-            />
-            <span className="text-[13px] text-ink">Se souvenir de moi</span>
-          </label>
-          <Link
-            to="/forgot-password"
-            className="text-[13px] font-semibold text-brand hover:text-brand-700 transition-colors"
-          >
-            Mot de passe oublié ?
-          </Link>
-        </div>
-
         {/* Submit */}
         <button
           type="submit"
@@ -348,34 +311,46 @@ export default function Login() {
             </>
           )}
         </button>
+        <button
+          type="button"
+          onClick={() => switchMethod(loginMethod === 'phone' ? 'email' : 'phone')}
+          className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-line text-[15px] font-semibold"
+        >
+          {loginMethod === 'phone' ? 'Utiliser mon e-mail' : 'Utiliser mon téléphone'}
+        </button>
       </form>
 
-      {/* Footer link */}
-      <div className="mt-6 pt-5 border-t border-line">
-        <p className="text-center text-[13px] text-ink-mute">
-          Pas encore de compte ?{' '}
-          <Link
-            to="/signup"
-            state={
-              state?.redirectTo
-                ? { redirectTo: state.redirectTo, checkoutData: state.checkoutData }
-                : undefined
-            }
-            className="font-bold text-brand hover:text-brand-700 transition-colors"
-          >
-            Créer un compte
-          </Link>
+      <p className="mt-5 text-[15px] text-ink-2">
+        Pas encore de compte ?{' '}
+        <Link to="/signup" state={state?.redirectTo ? { redirectTo: state.redirectTo, checkoutData: state.checkoutData } : undefined} className="font-semibold text-brand">Créer un compte</Link>
+      </p>
+      <p className="mt-6 border-t border-line pt-4 text-[14px] text-ink-2">
+        Acheté sans compte ? <Link to="/find-tickets" className="font-semibold text-ink underline">Retrouvez vos billets avec votre numéro</Link>.
+      </p>
+        </div>
+        <p className="mt-8 flex flex-wrap gap-4 text-[12.5px] text-ink-3">
+          <span>Billets vendus par les organisateurs, au prix officiel</span>
+          <span>Aide : +226 74 75 08 15</span>
         </p>
       </div>
-
-      {/* Tiny security strip */}
-      <p
-        className="mt-5 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute/70"
-        style={{ fontFamily: monoFamily }}
-      >
-        🔒 Connexion chiffrée · Vos données restent privées
-      </p>
-    </AuthShell>
+      <aside className="relative hidden min-h-screen overflow-hidden bg-ink lg:block">
+        <img src="/photos/awa-sissao-lg.jpg" alt="Awa Sissao en concert" className="absolute inset-0 h-full w-full object-cover object-[30%_40%]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#03061E]/80 via-transparent to-transparent" />
+        <div className="absolute bottom-8 left-8 right-8 text-white">
+          {nextEvent && (
+            <Link to={eventPublicPath(nextEvent)} className="mb-4 flex max-w-[430px] items-center gap-3 rounded-xl bg-white p-3 text-ink shadow-lg">
+              {nextEvent.image_url ? <img src={nextEvent.image_url} alt="" className="h-16 w-[52px] rounded-md object-cover" /> : null}
+              <span>
+                <span className="block text-[12.5px] font-semibold text-brand">Prochainement · {formatCalendarDate(nextEvent.date, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                <span className="mt-0.5 block font-display text-[16px] font-bold">{nextEvent.title}</span>
+                <span className="mt-0.5 block text-[13px] text-ink-3">{shortPlace(nextEvent.location, nextEvent.city).label} · {eventPricePresentation(nextEvent).label}</span>
+              </span>
+            </Link>
+          )}
+          <p className="max-w-md text-[12px] text-white/80">Awa Sissao en concert, 2023 · Photo La Cour du Naaba, CC BY-SA 4.0, Wikimedia Commons</p>
+        </div>
+      </aside>
+    </div>
     </>
   );
 }

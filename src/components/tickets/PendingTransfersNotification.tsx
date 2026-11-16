@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, X, CheckCircle, Clock, User, Calendar, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { EnhancedFestivalTicket } from './EnhancedFestivalTicket';
 
 interface PendingTransfer {
   id: string;

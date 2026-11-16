@@ -261,7 +261,7 @@ export default function FindGuestTickets() {
 
         <p className="text-[14px] text-ink-mute mb-6 leading-relaxed">
           {SKIP_GUEST_TICKET_OTP
-            ? 'Orange/Moov : le numéro du paiement. Carte : e-mail ou téléphone. Sans code pour les tests.'
+            ? 'Orange Money ou Moov : le numéro du paiement. Carte : e-mail ou téléphone.'
             : 'Orange/Moov : le numéro du paiement. Carte : e-mail ou téléphone. Un code confirme que c’est bien vous.'}
         </p>
 

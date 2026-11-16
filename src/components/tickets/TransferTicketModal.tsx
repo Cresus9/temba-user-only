@@ -3,6 +3,7 @@ import { X, Send, User, Mail, Phone, MessageSquare, AlertCircle, ShieldAlert, Ar
 import { ticketTransferService, TransferTicketRequest } from '../../services/ticketTransferService';
 import { normalizePhone, isValidPhone } from '../../utils/phoneValidation';
 import toast from 'react-hot-toast';
+import FullscreenBackdrop from '../account/FullscreenBackdrop';
 
 interface TransferTicketModalProps {
   isOpen: boolean;
@@ -139,10 +140,7 @@ export default function TransferTicketModal({
   const labelClass = 'block text-[12px] font-semibold text-ink mb-1.5';
 
   return (
-    <div
-      className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
-      onClick={onClose}
-    >
+    <FullscreenBackdrop onClose={onClose}>
       <div
         className="bg-paper rounded-xl2 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-card-hover my-auto"
         onClick={(e) => e.stopPropagation()}
@@ -472,6 +470,6 @@ export default function TransferTicketModal({
           </footer>
         )}
       </div>
-    </div>
+    </FullscreenBackdrop>
   );
 }

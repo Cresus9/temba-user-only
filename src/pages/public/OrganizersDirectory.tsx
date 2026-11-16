@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, MapPin, Users, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase-client';
-import { countryFlag } from '../../utils/eventGeo';
+import { countryNameFr } from '../../utils/eventGeo';
 import PageSEO from '../../components/SEO/PageSEO';
+import DomePattern from '../../components/design/DomePattern';
 
 interface Organizer {
   organizer_id: string;
@@ -74,13 +75,53 @@ export default function OrganizersDirectory() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="min-h-screen bg-cream bg-grain py-8">
+    <div className="bg-white">
       <PageSEO
         title="Organisateurs"
-        description="Découvrez les organisateurs d'événements sur Temba : concerts, festivals et attractions en Afrique de l'Ouest."
+        description="Vendez vos billets en FCFA sur Temba. Paiement Mobile Money, QR à l'entrée, équipe à Ouagadougou."
         canonicalUrl="https://tembas.com/organizers"
       />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+      <section className="relative -mt-14 overflow-hidden bg-ink pt-14 text-white lg:-mt-[72px] lg:pt-[72px]">
+        <DomePattern variant="band" className="opacity-70" />
+        <div className="relative mx-auto max-w-[1200px] px-5 pb-16 pt-16 md:px-10 md:pb-24 md:pt-20">
+          <p className="text-[14px] font-semibold text-[#F6B84A]">Temba pour les organisateurs</p>
+          <h1 className="mt-3 max-w-[820px] font-display text-[40px] font-bold leading-[1.02] tracking-[-0.035em] text-white md:text-[64px]">
+            Vendez vos billets en FCFA. On s'occupe du reste.
+          </h1>
+          <p className="mt-5 max-w-[620px] text-[18px] leading-relaxed text-white/80">
+            Billetterie en ligne, paiement Mobile Money, QR à l'entrée et une équipe locale. Conçu à Ouagadougou pour les événements d'Afrique de l'Ouest.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-2.5">
+            <a href="https://admin.tembas.com/login" className="inline-flex h-[52px] items-center rounded-[10px] bg-white px-5 text-[15px] font-semibold text-ink">Créer mon événement</a>
+            <a href="https://wa.me/22674750815" className="inline-flex h-[52px] items-center rounded-[10px] border border-white/30 bg-white/10 px-5 text-[15px] font-semibold text-white">Parler à l'équipe</a>
+          </div>
+          <div className="mt-12 flex flex-wrap gap-10 border-t border-white/15 pt-7 text-[15px] text-white/90">
+            <span><b className="block font-display text-[26px] font-bold">15 000+</b>utilisateurs</span>
+            <span><b className="block font-display text-[26px] font-bold">FCFA</b>Orange Money, Moov Money, carte</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-[1200px] gap-6 px-5 py-16 md:grid-cols-2 md:px-10">
+        <div className="rounded-xl border border-line p-8">
+          <p className="eyebrow">Tarifs</p>
+          <h2 className="mt-1.5 font-display text-[28px] font-bold tracking-tight">Une offre adaptée à votre événement.</h2>
+          <p className="mt-2.5 text-[15px] leading-relaxed text-ink-3">Commission et options (badges, accréditations, visuels) présentées lors de l'échange avec l'équipe.</p>
+          <p className="mt-2.5 text-[12.5px] text-[#8A5A00]">Grille officielle à compléter. Les taux ne sont pas affichés tant qu'ils ne sont pas validés.</p>
+          <a href="https://wa.me/22674750815" className="mt-5 inline-flex h-12 items-center rounded-[10px] bg-ink px-5 text-[15px] font-semibold text-white">Demander une offre</a>
+        </div>
+        <div className="relative overflow-hidden rounded-xl bg-brand p-8 text-white">
+          <DomePattern variant="tile" className="opacity-60" />
+          <div className="relative">
+            <h2 className="font-display text-[28px] font-bold">Une question avant de vous lancer ?</h2>
+            <p className="mt-2.5 text-[15px] leading-relaxed text-white/85">WhatsApp ou téléphone : +226 74 75 08 15<br />E-mail : support@tembas.com</p>
+            <a href="https://wa.me/22674750815" className="mt-5 inline-flex h-12 items-center rounded-[10px] bg-white px-5 text-[15px] font-semibold text-ink">Écrire sur WhatsApp</a>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+        <h2 className="mb-4 font-display text-[24px] font-bold">Ils vendent sur Temba</h2>
         {/* Header */}
         <div className="bg-paper border border-line rounded-2xl shadow-card p-5 sm:p-6 mb-6">
           <div className="flex items-center gap-3 mb-5">
@@ -142,7 +183,7 @@ export default function OrganizersDirectory() {
                       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
                         {(org.city || org.country_code) && (
                           <span className="flex items-center gap-1 text-[11px] text-ink-mute">
-                            <MapPin className="w-3 h-3" />{[org.city, org.country_code ? countryFlag(org.country_code) : null].filter(Boolean).join(' ')}
+                            <MapPin className="w-3 h-3" />{[org.city, org.country_code ? countryNameFr(org.country_code) : null].filter(Boolean).join(' · ')}
                           </span>
                         )}
                         {org.followers_count > 0 && (
