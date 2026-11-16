@@ -20,6 +20,7 @@ function PageTransition({ children }: { children: React.ReactNode }) {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
+        className="min-w-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -64,12 +65,12 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col bg-paper">
+      <div className="flex min-h-screen min-w-0 flex-col bg-paper">
         <MetaPixel />
         <ReferralQueryCapture />
         {!bareAuth && !focusedCheckout && <AppBanner />}
         {!bareAuth && !focusedCheckout && <Navbar />}
-        <main className="flex-grow">
+        <main className="min-w-0 flex-grow">
           <PageTransition>
             <AppRoutes />
           </PageTransition>

@@ -45,7 +45,7 @@ export default function DisplayCard({
 
   if (variant === 'compact') {
     return (
-      <Link to={eventPublicPath(event)} className="flex items-center gap-3 border-t border-line py-3">
+      <Link to={eventPublicPath(event)} className="flex min-w-0 items-center gap-3 border-t border-line py-3">
         <div className="w-[52px] shrink-0">
           <FlyerFrame src={event.image_url} alt="" past={badges.some((badge) => badge.kind === 'past')} />
         </div>
