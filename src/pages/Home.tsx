@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, type UIEvent, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -56,6 +56,7 @@ export default function Home() {
   const [where, setWhere] = useState('Ouagadougou');
   const [when, setWhen] = useState('');
   const [slide, setSlide] = useState(0);
+  const featuredScroller = useRef<HTMLDivElement>(null);
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -84,6 +85,33 @@ export default function Home() {
     });
   }, [filteredEvents, permanent, spans]);
   const current = featured[Math.min(slide, Math.max(featured.length - 1, 0))];
+
+  const goToSlide = (next: number) => {
+    if (featured.length === 0) return;
+    const i = ((next % featured.length) + featured.length) % featured.length;
+    setSlide(i);
+    const el = featuredScroller.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  };
+
+  const onFeaturedScroll = (event: UIEvent<HTMLDivElement>) => {
+    const el = event.currentTarget;
+    if (!el.clientWidth) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    setSlide((n) => (i >= 0 && i < featured.length && i !== n ? i : n));
+  };
+
+  const featuredKind = (event: (typeof featured)[number]) => (
+    event.is_permanent
+      ? 'Attraction'
+      : kinds.get(event.id) === 'concert'
+        ? 'Concert · Musique'
+        : kinds.get(event.id) === 'festival'
+          ? 'Festival'
+          : kinds.get(event.id) === 'cinema'
+            ? 'Cinéma'
+            : 'Événement'
+  );
   const categoryCounts = useMemo(() => {
     const counts = { concert: 0, festival: 0, cinema: 0, attraction: permanent.length };
     (filteredEvents ?? []).forEach((event) => {
@@ -94,7 +122,7 @@ export default function Home() {
   }, [filteredEvents, kinds, permanent.length]);
 
   return (
-    <div className="overflow-x-clip bg-white">
+    <div className="min-w-0 bg-white">
       <PageSEO
         title="Temba — billetterie en FCFA"
         description="Concerts, festivals et spectacles à Ouagadougou, Bobo-Dioulasso et Abidjan. Payez par Mobile Money, présentez le QR à l'entrée."
@@ -102,9 +130,11 @@ export default function Home() {
         ogImage="https://tembas.com/temba-wordmark-dark.jpg"
       />
 
-      <section className="relative -mt-14 overflow-hidden bg-brand text-white lg:-mt-[72px]">
-        <DomePattern variant="hero" className="hidden object-right-bottom md:block" />
-        <DomePattern variant="hero-mobile" className="object-right-bottom md:hidden" />
+      <section className="relative -mt-14 bg-brand text-white lg:-mt-[72px]">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <DomePattern variant="hero" className="hidden object-right-bottom md:block" />
+          <DomePattern variant="hero-mobile" className="object-right-bottom md:hidden" />
+        </div>
         <div className="relative grid items-center gap-8 px-5 pb-8 pt-20 min-[1100px]:grid-cols-[minmax(0,680px)_440px] min-[1100px]:justify-between min-[1100px]:px-16 min-[1100px]:pb-14 min-[1100px]:pt-[104px] min-[1440px]:px-20">
           <div>
             <p className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-white/80 md:text-[13.5px]"><i className="h-1.5 w-1.5 rounded-full bg-[#F6B84A]" /> Billetterie officielle · Burkina Faso · Côte d’Ivoire</p>
@@ -167,29 +197,50 @@ export default function Home() {
             </div>
           </div>
 
-          {current && (
-            <div>
-              <div className="grid grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-2xl bg-white text-ink min-[1100px]:grid-cols-[200px_minmax(0,1fr)]">
-                <div className="relative min-h-[140px] min-[1100px]:min-h-[250px]">
-                  <FlyerFrame src={current.image_url} alt={current.title} eager className="h-full rounded-none" />
-                  <span className="absolute left-2 top-2 rounded-md bg-[#F6B84A] px-2 py-1 text-[12px] font-semibold text-ink">À la une</span>
-                </div>
-                <div className="flex min-w-0 flex-col p-3.5 min-[1100px]:p-5">
-                  <p className="text-[12px] font-semibold text-ink-3">{current.is_permanent ? 'Attraction' : kinds.get(current.id) === 'concert' ? 'Concert · Musique' : kinds.get(current.id) === 'festival' ? 'Festival' : kinds.get(current.id) === 'cinema' ? 'Cinéma' : 'Événement'}</p>
-                  <p className="mt-2 text-[13px] font-semibold text-brand">{current.is_permanent ? 'Ouvert tous les jours' : `${formatCalendarDate(current.date, { weekday: 'short', day: 'numeric', month: 'short' }, current.timezone)}${formatEventTime(current.time) ? ` · ${formatEventTime(current.time)}` : ''}`}</p>
-                  <p className="mt-1 font-display text-[17px] font-bold leading-tight min-[1100px]:text-[22px]">{current.title}</p>
-                  <p className="mt-1 text-[12.5px] text-ink-3 min-[1100px]:text-[13.5px]">{shortPlace(current.location, current.city).label}</p>
-                  <p className="mt-auto pt-2 text-[14px] font-semibold">{eventPricePresentation(current).label}</p>
-                  <Link to={eventPublicPath(current)} className="mt-3 hidden h-[42px] items-center justify-center rounded-[10px] bg-brand text-[14.5px] font-semibold text-white min-[1100px]:inline-flex">Voir l’événement <ArrowRight size={16} /></Link>
-                </div>
+          {featured.length > 0 && (
+            <div className="min-w-0">
+              <div
+                ref={featuredScroller}
+                onScroll={onFeaturedScroll}
+                className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden"
+              >
+                {featured.map((event) => (
+                  <div key={event.id} className="w-full min-w-full shrink-0 snap-start">
+                    <Link to={eventPublicPath(event)} className="grid grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-2xl bg-white text-ink min-[1100px]:grid-cols-[200px_minmax(0,1fr)]">
+                      <div className="relative min-h-[140px] min-[1100px]:min-h-[250px]">
+                        <FlyerFrame src={event.image_url} alt={event.title} eager className="h-full rounded-none" />
+                        <span className="absolute left-2 top-2 rounded-md bg-[#F6B84A] px-2 py-1 text-[12px] font-semibold text-ink">À la une</span>
+                      </div>
+                      <div className="flex min-w-0 flex-col p-3.5 min-[1100px]:p-5">
+                        <p className="text-[12px] font-semibold text-ink-3">{featuredKind(event)}</p>
+                        <p className="mt-2 text-[13px] font-semibold text-brand">{event.is_permanent ? 'Ouvert tous les jours' : `${formatCalendarDate(event.date, { weekday: 'short', day: 'numeric', month: 'short' }, event.timezone)}${formatEventTime(event.time) ? ` · ${formatEventTime(event.time)}` : ''}`}</p>
+                        <p className="mt-1 font-display text-[17px] font-bold leading-tight min-[1100px]:text-[22px]">{event.title}</p>
+                        <p className="mt-1 text-[12.5px] text-ink-3 min-[1100px]:text-[13.5px]">{shortPlace(event.location, event.city).label}</p>
+                        <p className="mt-auto pt-2 text-[14px] font-semibold">{eventPricePresentation(event).label}</p>
+                        <span className="mt-3 hidden h-[42px] items-center justify-center rounded-[10px] bg-brand text-[14.5px] font-semibold text-white min-[1100px]:inline-flex">Voir l’événement <ArrowRight size={16} /></span>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
               </div>
               {featured.length > 1 && (
                 <div className="mt-3 flex items-center gap-3 text-[13.5px] text-white/80">
-                  <span className="flex gap-1.5">{featured.map((event, index) => <i key={event.id} className={`h-1 rounded-full ${index === slide ? 'w-8 bg-white' : 'w-4 bg-white/40'}`} />)}</span>
+                  <span className="flex gap-1.5">
+                    {featured.map((event, index) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        aria-label={`À la une ${index + 1}`}
+                        aria-current={index === slide ? 'true' : undefined}
+                        onClick={() => goToSlide(index)}
+                        className={`h-1 rounded-full ${index === slide ? 'w-8 bg-white' : 'w-4 bg-white/40'}`}
+                      />
+                    ))}
+                  </span>
                   <span>{slide + 1} / {featured.length}</span>
                   <span className="hidden min-w-0 flex-1 truncate min-[1100px]:inline">· Suivant : {featured[(slide + 1) % featured.length].title}</span>
-                  <button type="button" aria-label="Précédent" onClick={() => setSlide((n) => (n - 1 + featured.length) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretLeft size={15} weight="bold" /></button>
-                  <button type="button" aria-label="Suivant" onClick={() => setSlide((n) => (n + 1) % featured.length)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretRight size={15} weight="bold" /></button>
+                  <button type="button" aria-label="Précédent" onClick={() => goToSlide(slide - 1)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretLeft size={15} weight="bold" /></button>
+                  <button type="button" aria-label="Suivant" onClick={() => goToSlide(slide + 1)} className="hidden h-[34px] w-[34px] place-items-center rounded-full border border-white/30 min-[1100px]:grid"><CaretRight size={15} weight="bold" /></button>
                 </div>
               )}
             </div>
@@ -198,7 +249,7 @@ export default function Home() {
       </section>
 
       <div className="sticky top-14 z-40 border-b border-line bg-white lg:top-[72px]">
-        <div className="flex h-[72px] items-center gap-2.5 overflow-x-auto px-5 min-[1280px]:px-16 min-[1440px]:px-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex h-[72px] min-w-0 items-center gap-2.5 overflow-x-auto overscroll-x-contain px-5 min-[1280px]:px-16 min-[1440px]:px-20 [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden">
           <label className="hidden h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border border-line px-3 text-[14.5px] font-semibold md:inline-flex">
             <select aria-label="Ville" value={filters.city} onChange={(event) => setFilters({ ...filters, city: event.target.value })} className="appearance-none bg-transparent pr-4 focus:outline-none">
               {['Ouagadougou', 'Bobo-Dioulasso', 'Abidjan', 'Toutes les villes'].map((city) => <option key={city}>{city}</option>)}

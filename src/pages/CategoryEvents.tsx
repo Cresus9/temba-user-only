@@ -163,7 +163,7 @@ export default function CategoryEvents() {
           <p className="mt-3 max-w-2xl text-[15px] text-white/85 md:text-[17px]">{loading ? 'Chargement des dates…' : `${sortedEvents.length} événement${sortedEvents.length > 1 ? 's' : ''} à venir.`}</p>
         </div>
       </header>
-      <div className="mx-auto flex max-w-[1440px] gap-2 overflow-x-auto px-5 py-4 md:px-16 xl:px-20">
+      <div className="mx-auto flex min-w-0 max-w-[1440px] gap-2 overflow-x-auto overscroll-x-contain px-5 py-4 md:px-16 xl:px-20 [touch-action:pan-x_pan-y]">
         <input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}

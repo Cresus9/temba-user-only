@@ -37,7 +37,7 @@ export default function EventRail({
   }, [count]);
 
   return (
-    <section className="max-w-full overflow-x-clip pt-10 md:pt-12">
+    <section className="max-w-full min-w-0 pt-10 md:pt-12">
       <div className={`mb-4 flex items-end justify-between gap-4 ${TITLE}`}>
         <div className="min-w-0">
           <h2 className="font-display text-[20px] font-bold tracking-[-0.025em] md:text-[26px]">{title}</h2>
@@ -66,7 +66,7 @@ export default function EventRail({
       ) : (
         <div
           ref={scroller}
-          className={`flex w-full max-w-full snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden pr-5 scroll-pl-5 min-[1280px]:scroll-pl-16 min-[1440px]:scroll-pl-20 ${ALIGN} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          className={`flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-5 overflow-x-auto overscroll-x-contain pr-5 scroll-pl-5 min-[1280px]:scroll-pl-16 min-[1440px]:scroll-pl-20 ${ALIGN} [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden`}
         >
           {children}
         </div>
