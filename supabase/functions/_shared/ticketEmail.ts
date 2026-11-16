@@ -198,7 +198,10 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
   const { data: types } = typeIds.length
     ? await supabase.from("ticket_types").select("id, name, price").in("id", typeIds)
     : { data: [] };
-  const typeMap = new Map((types || []).map((row: any) => [row.id, row]));
+  type TicketTypeRow = { id: string; name?: string | null; price?: number | string | null };
+  const typeMap = new Map<string, TicketTypeRow>(
+    ((types || []) as TicketTypeRow[]).map((row) => [row.id, row]),
+  );
 
   const claimedAt = new Date().toISOString();
   const claimed = { ...meta, ticket_email_sent_at: claimedAt };
