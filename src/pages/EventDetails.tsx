@@ -38,6 +38,8 @@ interface EventDate {
   start_time: string;
   end_time: string | null;
   status: string;
+  capacity?: number | null;
+  tickets_sold?: number | null;
 }
 
 export default function EventDetails() {
@@ -202,7 +204,7 @@ export default function EventDetails() {
 
         const datesResult = await supabase
           .from('event_dates')
-          .select('id, date, start_time, end_time, status')
+          .select('id, date, start_time, end_time, status, capacity, tickets_sold')
           .eq('event_id', data.id)
           .ilike('status', 'active')
           .order('date', { ascending: true });
@@ -213,7 +215,7 @@ export default function EventDetails() {
         if (datesError || !datesData || datesData.length === 0) {
           const { data: allDates } = await supabase
             .from('event_dates')
-            .select('id, date, start_time, end_time, status')
+            .select('id, date, start_time, end_time, status, capacity, tickets_sold')
             .eq('event_id', data.id)
             .order('date', { ascending: true });
 
@@ -536,7 +538,7 @@ export default function EventDetails() {
               <p className="mt-2 text-[15px] text-ink-2">{hoursLine(eventDates)}</p>
               <p className="text-[13px] text-ink-3">Heures de Ouagadougou.</p>
             </section>
-          ) : eventDates.length > 1 && (
+          ) : eventDates.length > 1 && mode !== 'open' && (
             <section>
               <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{eventDates.length} dates</h2>
               <p className="mt-1 text-[13px] text-ink-3">Heures de Ouagadougou.</p>

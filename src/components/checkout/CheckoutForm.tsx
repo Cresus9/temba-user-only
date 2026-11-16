@@ -623,7 +623,8 @@ export default function CheckoutForm({
           eventId,
           ticketQuantities: tickets,
           paymentMethod: actualPaymentMethod,
-          paymentDetails
+          paymentDetails,
+          eventDateId
         });
 
         if (result.orderId) noteMetaOrder(result.orderId);
@@ -728,6 +729,7 @@ export default function CheckoutForm({
           undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
+        event_date_id: eventDateId || null,
         ticket_lines: ticketLines,
         amount_major: grandTotal,
         currency: 'XOF',
