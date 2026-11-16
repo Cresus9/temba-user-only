@@ -97,17 +97,30 @@ export default function CheckoutForm({
   });
   const selections = useMemo(() => Object.entries(tickets).map(([ticket_type_id, quantity]) => ({ ticket_type_id, quantity: Number(quantity), price: 0 })), [tickets]);
 
-  // Fetch prices for selections
+  // Fetch prices for selections. The first render is all zeros, so Meta must wait.
   const [pricedSelections, setPricedSelections] = useState(selections);
+  const [pricesReady, setPricesReady] = useState(false);
+  const sawFeeLoad = useRef(false);
+  const [feesSettled, setFeesSettled] = useState(false);
   useEffect(() => {
+    let cancelled = false;
     const loadPrices = async () => {
+      setPricesReady(false);
+      setFeesSettled(false);
+      sawFeeLoad.current = false;
       const ids = Object.keys(tickets);
-      if (ids.length === 0) { setPricedSelections([]); return; }
+      if (ids.length === 0) {
+        if (!cancelled) setPricedSelections([]);
+        return;
+      }
       const { data } = await supabase.from('ticket_types').select('id, price').in('id', ids);
+      if (cancelled) return;
       const map = new Map((data || []).map((t: any) => [t.id, Number(t.price || 0)]));
       setPricedSelections(Object.entries(tickets).map(([id, q]) => ({ ticket_type_id: id, quantity: Number(q), price: map.get(id) || 0 })));
+      setPricesReady(true);
     };
     loadPrices();
+    return () => { cancelled = true; };
   }, [tickets]);
 
   const { fees, loading: feesLoading } = useFeeCalculation(eventId, pricedSelections);
@@ -130,14 +143,28 @@ export default function CheckoutForm({
     });
   };
 
+  useEffect(() => {
+    if (!pricesReady) return;
+    if (feesLoading) {
+      sawFeeLoad.current = true;
+      return;
+    }
+    if (sawFeeLoad.current) setFeesSettled(true);
+  }, [pricesReady, feesLoading]);
+
   const checkoutTracked = useRef(false);
   useEffect(() => {
-    if (checkoutTracked.current || feesLoading) return;
+    if (checkoutTracked.current || !pricesReady || !feesSettled) return;
     const numItems = Object.values(tickets).reduce((sum, qty) => sum + Number(qty || 0), 0);
-    if (!eventId || numItems <= 0 || pricedSelections.length === 0) return;
-    trackInitiateCheckout({ eventId, value: grandTotal, currency, numItems });
+    if (!eventId || numItems <= 0) return;
+    trackInitiateCheckout({
+      eventId,
+      value: grandTotal,
+      currency: currency || 'XOF',
+      numItems,
+    });
     checkoutTracked.current = true;
-  }, [feesLoading, eventId, grandTotal, currency, tickets, pricedSelections.length]);
+  }, [pricesReady, feesSettled, eventId, grandTotal, currency, tickets]);
 
   // Format account display for better presentation
   const formatAccountDisplay = (method: SavedPaymentMethod) => {
