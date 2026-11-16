@@ -207,8 +207,8 @@ export default function Home() {
                 {featured.map((event) => (
                   <div key={event.id} className="w-full min-w-full shrink-0 snap-start">
                     <Link to={eventPublicPath(event)} className="grid grid-cols-[112px_minmax(0,1fr)] overflow-hidden rounded-2xl bg-white text-ink min-[1100px]:grid-cols-[200px_minmax(0,1fr)]">
-                      <div className="relative min-h-[140px] min-[1100px]:min-h-[250px]">
-                        <FlyerFrame src={event.image_url} alt={event.title} eager className="h-full rounded-none" />
+                      <div className="relative min-h-[140px] min-w-0 overflow-hidden min-[1100px]:min-h-[250px]">
+                        <FlyerFrame src={event.image_url} alt={event.title} eager className="absolute inset-0 h-full w-full rounded-none" />
                         <span className="absolute left-2 top-2 rounded-md bg-[#F6B84A] px-2 py-1 text-[12px] font-semibold text-ink">À la une</span>
                       </div>
                       <div className="flex min-w-0 flex-col p-3.5 min-[1100px]:p-5">
