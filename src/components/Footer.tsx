@@ -12,10 +12,8 @@ import StoreBadges from './design/StoreBadges';
 
 const EXPLORE = [
   { label: 'Événements', href: '/events' },
-  { label: 'Artistes', href: '/artists' },
-  { label: 'Lieux', href: '/venues' },
-  { label: 'Catégories', href: '/categories' },
   { label: 'Attractions', href: '/attractions' },
+  { label: 'Catégories', href: '/categories' },
   { label: 'Blog', href: '/blog' },
 ];
 
