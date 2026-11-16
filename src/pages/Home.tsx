@@ -56,6 +56,8 @@ export default function Home() {
   const [where, setWhere] = useState('Ouagadougou');
   const [when, setWhen] = useState('');
   const [slide, setSlide] = useState(0);
+  const whenLabel =
+    when === 'today' ? 'Ce soir' : when === 'weekend' ? 'Ce week-end' : when === 'week' ? 'Cette semaine' : 'Toutes les dates';
 
   const cities = useMemo(() => {
     const set = new Set<string>();
@@ -105,17 +107,61 @@ export default function Home() {
       <section className="relative -mt-14 overflow-hidden bg-brand text-white lg:-mt-[72px]">
         <DomePattern variant="hero" className="hidden object-right-bottom md:block" />
         <DomePattern variant="hero-mobile" className="object-right-bottom md:hidden" />
-        <div className="relative grid items-center gap-8 px-5 pb-8 pt-20 min-[1100px]:grid-cols-[minmax(0,680px)_440px] min-[1100px]:justify-between min-[1100px]:px-16 min-[1100px]:pb-14 min-[1100px]:pt-[104px] min-[1440px]:px-20">
+        <div className="relative grid items-center gap-5 px-5 pb-5 pt-16 md:gap-8 md:pb-8 md:pt-20 min-[1100px]:grid-cols-[minmax(0,680px)_440px] min-[1100px]:justify-between min-[1100px]:px-16 min-[1100px]:pb-14 min-[1100px]:pt-[104px] min-[1440px]:px-20">
           <div>
             <p className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-white/80 md:text-[13.5px]"><i className="h-1.5 w-1.5 rounded-full bg-[#F6B84A]" /> Billetterie officielle · Burkina Faso · Côte d’Ivoire</p>
-            <h1 className="mt-3 max-w-[680px] font-display text-[36px] font-bold leading-none tracking-[-0.04em] text-white md:mt-4 md:text-[60px]">
+            <h1 className="mt-2 max-w-[680px] font-display text-[30px] font-bold leading-[1.08] tracking-[-0.04em] text-white md:mt-4 md:text-[60px] md:leading-none">
               Les meilleures sorties, réservées en FCFA.
             </h1>
-            <p className="mb-5 mt-3 max-w-[560px] text-[15px] leading-relaxed text-white/85 md:mb-0 md:mt-4 md:text-[18px] md:leading-[1.5]">
-              <span className="md:hidden">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan.</span>
-              <span className="hidden md:inline">Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l’entrée.</span>
+            <p className="mb-5 mt-3 hidden max-w-[560px] text-[15px] leading-relaxed text-white/85 md:mb-0 md:mt-4 md:block md:text-[18px] md:leading-[1.5]">
+              Concerts, festivals et spectacles à Ouaga, Bobo et Abidjan. Payez par Mobile Money, présentez le QR à l’entrée.
             </p>
-            <form onSubmit={onSearch} className="mt-5 grid max-w-[680px] grid-cols-1 gap-2 rounded-[14px] bg-white p-2 text-ink shadow-[0_18px_40px_-22px_rgba(3,6,30,0.55)] md:grid-cols-[minmax(0,1.4fr)_1px_minmax(0,1.1fr)_1px_minmax(0,1.1fr)_auto] md:items-center md:gap-0">
+            <form onSubmit={onSearch} className="mt-4 md:hidden">
+              <div className="flex h-11 items-center gap-2 rounded-[12px] bg-white px-3 text-ink shadow-[0_18px_40px_-22px_rgba(3,6,30,0.55)]">
+                <button type="submit" aria-label="Rechercher" className="shrink-0 text-ink-3">
+                  <MagnifyingGlass size={18} />
+                </button>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Artiste, événement, lieu"
+                  className="min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-4 focus:outline-none"
+                />
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <label className="relative inline-flex h-8 max-w-full items-center rounded-full border border-white/30 bg-white/10 pl-3 pr-7 text-[13px] font-medium text-white">
+                  <select
+                    aria-label="Ville"
+                    value={where}
+                    onChange={(e) => setWhere(e.target.value)}
+                    className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+                  >
+                    <option value="">Toutes les villes</option>
+                    {cities.map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                  <span className="truncate">{where || 'Toutes les villes'}</span>
+                  <CaretDown size={12} weight="bold" className="pointer-events-none absolute right-2" />
+                </label>
+                <label className="relative inline-flex h-8 max-w-full items-center rounded-full border border-white/30 bg-white/10 pl-3 pr-7 text-[13px] font-medium text-white">
+                  <select
+                    aria-label="Date"
+                    value={when}
+                    onChange={(e) => setWhen(e.target.value)}
+                    className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+                  >
+                    <option value="">Toutes les dates</option>
+                    <option value="today">Ce soir</option>
+                    <option value="weekend">Ce week-end</option>
+                    <option value="week">Cette semaine</option>
+                  </select>
+                  <span className="truncate">{whenLabel}</span>
+                  <CaretDown size={12} weight="bold" className="pointer-events-none absolute right-2" />
+                </label>
+              </div>
+            </form>
+            <form onSubmit={onSearch} className="mt-5 hidden max-w-[680px] grid-cols-1 gap-2 rounded-[14px] bg-white p-2 text-ink shadow-[0_18px_40px_-22px_rgba(3,6,30,0.55)] md:grid md:grid-cols-[minmax(0,1.4fr)_1px_minmax(0,1.1fr)_1px_minmax(0,1.1fr)_auto] md:items-center md:gap-0">
               <label className="px-3 py-1.5">
                 <span className="block text-[12px] font-semibold text-ink-3">Quoi</span>
                 <input
@@ -160,10 +206,10 @@ export default function Home() {
                 Rechercher
               </button>
             </form>
-            <div className="mt-4 flex flex-nowrap gap-4 overflow-hidden text-[12.5px] font-medium text-white/80 md:mt-5 md:gap-6 md:text-[14px]">
+            <div className="mt-5 hidden flex-nowrap gap-6 overflow-hidden text-[14px] font-medium text-white/80 md:flex">
               <span className="inline-flex items-center gap-2"><DeviceMobile size={18} /> Mobile Money ou carte</span>
               <span className="inline-flex items-center gap-2"><SealCheck size={18} /> Prix officiels, sans revente</span>
-              <span className="hidden items-center gap-2 md:inline-flex"><QrCode size={18} /> Billet QR, même hors ligne</span>
+              <span className="inline-flex items-center gap-2"><QrCode size={18} /> Billet QR, même hors ligne</span>
             </div>
           </div>
 
