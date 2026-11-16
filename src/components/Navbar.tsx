@@ -16,8 +16,8 @@ import Logo from './brand/Logo';
 
 const NAV = [
   { label: 'Événements', to: '/events' },
-  { label: 'Artistes', to: '/artists' },
-  { label: 'Lieux', to: '/venues' },
+  { label: 'Attractions', to: '/attractions' },
+  { label: 'Catégories', to: '/categories' },
   { label: 'Organisateurs', to: '/organizers' },
 ];
 
@@ -79,7 +79,7 @@ export default function Navbar() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  const onDark = immersive && !scrolled;
+  const onDark = immersive && !scrolled && !isOpen;
   const logoVariant = onDark ? 'onBlue' : 'auto';
 
   return (
@@ -186,7 +186,7 @@ export default function Navbar() {
       </div>
 
       {isOpen && (
-        <div className="border-t border-line bg-white px-5 py-2 lg:hidden">
+        <div className="border-t border-line bg-white px-5 py-2 text-ink lg:hidden">
           {NAV.map((item) => (
             <Link
               key={item.to}
@@ -196,7 +196,6 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
-          <Link to="/attractions" className="flex h-[52px] items-center border-b border-line text-[15px] font-medium">Attractions</Link>
           <Link to={ticketsTo} className="flex h-[52px] items-center border-b border-line text-[15px] font-medium">Mes billets</Link>
           {isAuthenticated ? (
             <>
