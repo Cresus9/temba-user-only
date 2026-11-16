@@ -47,7 +47,7 @@ export default function QuickFilters({
     : 'mx-auto max-w-[1440px] px-5 md:px-16 xl:px-20';
   return (
     <div className="border-b border-line bg-white">
-      <div className={`flex items-center gap-2.5 overflow-x-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${row}`}>
+      <div className={`flex min-w-0 items-center gap-2.5 overflow-x-auto overscroll-x-contain py-3 [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden ${row}`}>
         <label className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-white px-3 text-[14.5px] font-semibold">
           <MapPin size={17} weight="fill" />
           <select

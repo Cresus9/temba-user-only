@@ -94,6 +94,19 @@ body {
   font-feature-settings: 'cv11', 'ss01', 'ss03';
 }
 
+/* Keep the document as wide as the viewport so flex/grid children can shrink
+   and horizontal rails scroll inside themselves instead of stretching the page. */
+html, body, #root {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Momentum scrolling on iOS; contain sideways overscroll so the page doesn't wobble. */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 /* Typography — Inter Tight for headings, Inter for body. */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Inter Tight', Inter, system-ui, sans-serif;

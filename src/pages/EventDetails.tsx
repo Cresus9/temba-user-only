@@ -38,6 +38,8 @@ interface EventDate {
   start_time: string;
   end_time: string | null;
   status: string;
+  capacity?: number | null;
+  tickets_sold?: number | null;
 }
 
 export default function EventDetails() {
@@ -202,7 +204,7 @@ export default function EventDetails() {
 
         const datesResult = await supabase
           .from('event_dates')
-          .select('id, date, start_time, end_time, status')
+          .select('id, date, start_time, end_time, status, capacity, tickets_sold')
           .eq('event_id', data.id)
           .ilike('status', 'active')
           .order('date', { ascending: true });
@@ -213,7 +215,7 @@ export default function EventDetails() {
         if (datesError || !datesData || datesData.length === 0) {
           const { data: allDates } = await supabase
             .from('event_dates')
-            .select('id, date, start_time, end_time, status')
+            .select('id, date, start_time, end_time, status, capacity, tickets_sold')
             .eq('event_id', data.id)
             .order('date', { ascending: true });
 
@@ -446,7 +448,7 @@ export default function EventDetails() {
   const maps = mapsSearchUrl([place.venue, place.city].filter(Boolean).join(' '));
 
   return (
-    <div className="overflow-x-clip bg-white pb-24 lg:pb-0">
+    <div className="min-w-0 bg-white pb-24 lg:pb-0">
       {eventUrl && (
         <PageSEO
           title={event.title}
@@ -536,7 +538,7 @@ export default function EventDetails() {
               <p className="mt-2 text-[15px] text-ink-2">{hoursLine(eventDates)}</p>
               <p className="text-[13px] text-ink-3">Heures de Ouagadougou.</p>
             </section>
-          ) : eventDates.length > 1 && (
+          ) : eventDates.length > 1 && mode !== 'open' && (
             <section>
               <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{eventDates.length} dates</h2>
               <p className="mt-1 text-[13px] text-ink-3">Heures de Ouagadougou.</p>
@@ -586,12 +588,12 @@ export default function EventDetails() {
           </section>
 
           {related.length > 0 && (
-            <section className="max-w-full overflow-x-clip">
+            <section className="max-w-full min-w-0">
               <div className="mb-3 flex items-end justify-between">
                 <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{kind === 'concert' ? `Autres concerts à ${city}` : `Aussi à ${city}`}</h2>
                 <Link to="/events" className="text-[14px] font-semibold text-brand">Tout voir</Link>
               </div>
-              <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none]">
+              <div className="flex min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden">
                 {related.map((item, index) => (
                   <DisplayCard key={item.id} event={item} span={spanFor(item)} width={236} eager={index < 3} />
                 ))}

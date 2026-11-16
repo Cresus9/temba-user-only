@@ -125,9 +125,9 @@ export default function HomeRails({
         </EventRail>
       )}
 
-      <section className="grid items-start gap-8 px-5 pt-12 min-[1100px]:grid-cols-[1.9fr_1fr] min-[1100px]:gap-12 min-[1280px]:px-16 min-[1440px]:px-20">
-        <div>
-          <div className="mb-4 flex items-end justify-between">
+      <section className="grid min-w-0 items-start gap-8 px-5 pt-12 min-[1100px]:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] min-[1100px]:gap-12 min-[1280px]:px-16 min-[1440px]:px-20">
+        <div className="min-w-0">
+          <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Festivals et soirées</h2>
               <p className="mt-1 text-[14.5px] text-ink-3">Aussi à {filters.city === 'Toutes les villes' ? 'l’affiche' : filters.city}</p>
@@ -137,18 +137,18 @@ export default function HomeRails({
           {festivals.length === 0 ? (
             <p className="text-[15px] text-ink-2">Aucun festival à montrer pour ces filtres.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 min-[1100px]:grid-cols-3">
+            <div className="grid min-w-0 grid-cols-2 gap-4 min-[1100px]:grid-cols-3">
               {festivals.map((event) => <DisplayCard key={event.id} event={event} span={spanOf(event)} variant="grid" />)}
             </div>
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Ailleurs</h2>
           <p className="mt-1 text-[14.5px] text-ink-3">Le même agenda, dans les autres villes.</p>
           <div className="mt-4 grid gap-4">
             {elsewhere.map((panel) => (
-              <div key={panel.key} className="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
-                <div className="mb-2 flex items-end justify-between">
+              <div key={panel.key} className="min-w-0 max-w-full rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
+                <div className="mb-2 flex min-w-0 items-end justify-between gap-3">
                   <div>
                     <p className="font-display text-[22px] font-bold">{panel.name}</p>
                     <p className="text-[13.5px] text-ink-3">{panel.events.length} événement{panel.events.length > 1 ? 's' : ''} à venir</p>
@@ -166,8 +166,8 @@ export default function HomeRails({
 
       {attractions.length > 0 && (
         <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
-          <div className="mb-4 flex items-end justify-between">
-            <div>
+          <div className="mb-4 flex min-w-0 items-end justify-between gap-4">
+            <div className="min-w-0">
               <h2 className="font-display text-[22px] font-bold tracking-[-0.025em] md:text-[26px]">Ouvert toute l’année</h2>
               <p className="mt-1 text-[14.5px] text-ink-3">Parcs et zoos à visiter le jour de votre choix.</p>
             </div>

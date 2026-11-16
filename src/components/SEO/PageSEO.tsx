@@ -15,12 +15,15 @@ interface PageSEOProps {
   robots?: string;
 }
 
+/** Official share image — Logo-Purple-White-noR on ink. Never the old T placeholder. */
+export const TEMBA_OG_IMAGE = 'https://tembas.com/og-image-v2.png';
+
 const DEFAULTS = {
   title: "Temba \u2013 N\u00b01 Billetterie Burkina Faso | Concerts, Festivals & \u00c9v\u00e9nements",
   description:
     "Achetez vos billets en ligne pour les meilleurs concerts, festivals et \u00e9v\u00e9nements culturels au Burkina Faso. Paiement s\u00e9curis\u00e9 en FCFA, billets sur mobile.",
   canonical: 'https://tembas.com/',
-  ogImage: 'https://tembas.com/temba-wordmark-dark.jpg',
+  ogImage: TEMBA_OG_IMAGE,
   locale: 'fr_BF',
   siteName: 'Temba',
 };
@@ -118,6 +121,17 @@ export function PageSEO({
     setMetaTag('property', 'og:image', resolvedOgImage);
     setMetaTag('property', 'og:image:width', '1200');
     setMetaTag('property', 'og:image:height', '630');
+    setMetaTag('property', 'og:image:alt', resolvedTitle);
+    const lower = resolvedOgImage.toLowerCase();
+    const imageType = lower.includes('.png')
+      ? 'image/png'
+      : lower.includes('.webp')
+        ? 'image/webp'
+        : lower.includes('.jpg') || lower.includes('.jpeg')
+          ? 'image/jpeg'
+          : undefined;
+    if (imageType) setMetaTag('property', 'og:image:type', imageType);
+    else removeMetaTag('property', 'og:image:type');
     setMetaTag('property', 'og:url', resolvedCanonical);
     setMetaTag('property', 'og:locale', resolvedLocale);
 
