@@ -232,6 +232,7 @@ export default function GuestCheckoutForm({
         buyer_email: resolveGuestEmail('', intlPhone) || undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
+        event_date_id: eventDateId || null,
         ticket_lines: ticketLines,
         amount_major: grandTotal,
         currency: 'XOF',

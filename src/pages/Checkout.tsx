@@ -65,6 +65,7 @@ export default function Checkout() {
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
   const [lines, setLines] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
+  const [chosenDate, setChosenDate] = useState<{ date: string; start_time: string | null } | null>(null);
 
   const locationState = location.state as CheckoutState | null;
   const state =
@@ -125,6 +126,24 @@ export default function Checkout() {
     });
   }, [state.eventId]);
 
+  React.useEffect(() => {
+    if (!state.eventDateId) {
+      setChosenDate(null);
+      return;
+    }
+    supabase
+      .from('event_dates')
+      .select('date, start_time')
+      .eq('id', state.eventDateId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setChosenDate(data?.date ? { date: data.date, start_time: data.start_time || null } : null);
+      });
+  }, [state.eventDateId]);
+
+  const recapDate = chosenDate?.date || event?.date;
+  const recapTime = chosenDate?.start_time || event?.time;
+
   const summary = (
     <div className="rounded-2xl border border-line bg-white p-4">
       <div className="flex gap-3">
@@ -132,10 +151,10 @@ export default function Checkout() {
         <div className="min-w-0">
           <p className="font-display text-[16px] font-bold leading-snug">{event?.title || 'Votre commande'}</p>
           <p className="mt-1 text-[13px] text-ink-2">
-            {event?.date ? formatCalendarDate(event.date, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : ''}
-            {formatEventTime(event?.time) ? ` · ${formatEventTime(event?.time)}` : ''}
+            {recapDate ? formatCalendarDate(recapDate, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : ''}
+            {formatEventTime(recapTime) ? ` · ${formatEventTime(recapTime)}` : ''}
           </p>
-          {formatEventTime(event?.time) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
+          {formatEventTime(recapTime) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
           <p className="mt-1 text-[13px] text-ink-3">{place.label}</p>
         </div>
       </div>

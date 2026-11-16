@@ -14,6 +14,9 @@ export interface PanelDate {
   date: string;
   start_time: string;
   end_time: string | null;
+  status?: string | null;
+  capacity?: number | null;
+  tickets_sold?: number | null;
 }
 
 type Mode = 'open' | 'date' | 'soon' | 'none' | 'sold' | 'ended';
@@ -48,6 +51,26 @@ export function ticketMode(event: Event, dates: PanelDate[], today = calendarDay
   return 'none';
 }
 
+
+function dateIso(row: PanelDate) {
+  return (row.date || '').split('T')[0];
+}
+
+function isDateSoldOut(row: PanelDate) {
+  const status = (row.status || '').toLowerCase();
+  if (status === 'sold_out' || status === 'cancelled') return true;
+  if (row.capacity != null && Number(row.tickets_sold) >= Number(row.capacity)) return true;
+  return false;
+}
+
+function isDateUnavailable(row: PanelDate, today: string) {
+  return isDateSoldOut(row) || dateIso(row) < today;
+}
+
+function firstUpcomingDate(dates: PanelDate[], today: string) {
+  return dates.find((row) => !isDateUnavailable(row, today)) || dates[0] || null;
+}
+
 function showNote(text?: string | null) {
   const value = (text || '').trim();
   if (!value) return '';
@@ -77,6 +100,13 @@ export default function EventTicketPanel({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
   const week = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(today, index)), [today]);
+  const multiOpen = mode === 'open' && dates.length > 1;
+  const defaultDate = useMemo(() => firstUpcomingDate(dates, today), [dates, today]);
+  const selectedDateId = dateId || (multiOpen ? defaultDate?.id ?? null : null);
+  const timesDiffer = useMemo(() => {
+    const times = new Set(dates.map((row) => formatEventTime(row.start_time) || ''));
+    return times.size > 1;
+  }, [dates]);
 
   const selections = useMemo(
     () => Object.entries(qty)
@@ -110,14 +140,17 @@ export default function EventTicketPanel({
 
   const buy = () => {
     if (count === 0) return;
-    const chosen = mode === 'date' ? dates.find((row) => row.date.split('T')[0] === day) : dates[0];
+    if (multiOpen && !selectedDateId) return;
+    const chosen = mode === 'date'
+      ? dates.find((row) => dateIso(row) === day)
+      : dates.find((row) => row.id === selectedDateId) || dates[0];
     navigate('/checkout', {
       state: {
         tickets: Object.fromEntries(selections.map((item) => [item.ticket_type_id, item.quantity])),
         totals: { subtotal, processingFee: 0, total },
         currency: event.currency,
         eventId: event.id,
-        eventDateId: dateId || chosen?.id || null,
+        eventDateId: (mode === 'date' ? dateId || chosen?.id : selectedDateId || chosen?.id) || null,
         ...(mode === 'date' ? { isPermanent: true, visitDate: day, addonTotal: 0 } : {}),
       },
     });
@@ -140,7 +173,7 @@ export default function EventTicketPanel({
         <p className="font-display text-[20px] font-bold tracking-[-0.02em]">
           {mode === 'date' ? 'Réserver une visite' : mode === 'soon' ? 'Vente pas encore ouverte' : mode === 'none' ? 'Prix bientôt disponible' : mode === 'sold' ? 'Complet' : mode === 'ended' ? 'Événement terminé' : 'Billets'}
         </p>
-        {dateChip && mode !== 'ended' && (
+        {dateChip && mode !== 'ended' && !multiOpen && (
           <span className="inline-flex items-center gap-1 rounded-full bg-surf px-2.5 py-1 text-[12px] font-semibold text-ink-2">
             <CalendarBlank size={14} /> {dateChip}
           </span>
@@ -171,6 +204,39 @@ export default function EventTicketPanel({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {multiOpen && (
+        <div className="mt-4">
+          <p className="text-[13px] font-semibold text-ink-2">Choisissez une date</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {dates.map((row) => {
+              const unavailable = isDateUnavailable(row, today);
+              const selected = selectedDateId === row.id;
+              const label = formatCalendarDate(row.date, { weekday: 'short', day: 'numeric', month: 'short' }, TZ);
+              const time = timesDiffer ? formatEventTime(row.start_time) : '';
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  disabled={unavailable}
+                  onClick={() => setDateId(row.id)}
+                  className={`min-w-[7.5rem] rounded-[10px] px-2.5 py-2 text-center text-[12px] font-semibold ${
+                    unavailable
+                      ? 'cursor-not-allowed bg-surf text-ink-4'
+                      : selected
+                        ? 'bg-ink text-white'
+                        : 'bg-surf text-ink'
+                  }`}
+                >
+                  <span className="block">{label}</span>
+                  {time ? <span className={`mt-0.5 block text-[11px] font-medium ${selected && !unavailable ? 'text-white/80' : 'text-ink-3'}`}>{time}</span> : null}
+                  {isDateSoldOut(row) ? <span className="mt-0.5 block text-[11px] font-medium">Complet</span> : dateIso(row) < today ? <span className="mt-0.5 block text-[11px] font-medium">Passé</span> : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -241,8 +307,8 @@ export default function EventTicketPanel({
       )}
 
       {mode === 'open' || mode === 'date' ? (
-        <button type="button" disabled={count === 0} onClick={buy} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-brand text-[15px] font-semibold text-white disabled:bg-surf disabled:text-ink-3">
-          {count === 0 ? 'Choisissez vos billets' : <>Acheter {count} billet{count > 1 ? 's' : ''} <ArrowRight size={16} /></>}
+        <button type="button" disabled={count === 0 || (multiOpen && !selectedDateId)} onClick={buy} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-brand text-[15px] font-semibold text-white disabled:bg-surf disabled:text-ink-3">
+          {count === 0 ? 'Choisissez vos billets' : multiOpen && !selectedDateId ? 'Choisissez une date' : <>Acheter {count} billet{count > 1 ? 's' : ''} <ArrowRight size={16} /></>}
         </button>
       ) : mode === 'soon' || mode === 'none' ? (
         <>
