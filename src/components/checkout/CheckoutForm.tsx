@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase-client';
 import { useFeeCalculation } from '../../hooks/useFeeCalculation';
 import StripeElementsProvider from './StripeElementsProvider';
 import StripePaymentForm from './StripePaymentForm';
+import { orderDateFields, type LineAllocation } from '../../utils/lineAllocations';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { pawapayService } from '../../services/pawapayService';
 import { formatCurrency } from '../../utils/formatters';
@@ -39,6 +40,8 @@ interface CheckoutFormProps {
   currency: string;
   eventId: string;
   eventDateId?: string | null;
+  /** Multi-date purchase lines; only set when the order has several dates. */
+  lineAllocations?: LineAllocation[] | null;
   /** Extra amount from venue service add-ons selected on the checkout page */
   addonTotal?: number;
   onSuccess: (orderId: string) => void;
@@ -50,12 +53,15 @@ export default function CheckoutForm({
   totalAmount, 
   currency, 
   eventId,
-  eventDateId,
+  eventDateId: eventDateIdProp,
+  lineAllocations: lineAllocationsProp = null,
   addonTotal = 0,
   onSuccess,
   onCreateAccount,
 }: CheckoutFormProps) {
   const { user, login } = useAuth();
+  // Single date: event_date_id as before. Several dates: event_date_id null + line_allocations.
+  const { event_date_id: eventDateId, line_allocations: lineAllocations } = orderDateFields(eventDateIdProp, lineAllocationsProp);
   const isGuestCheckout = !user;
   const [identityMode, setIdentityMode] = useState<'guest' | 'account'>('guest');
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
@@ -339,7 +345,8 @@ export default function CheckoutForm({
       const result = await orderService.createFreeOrder({
         eventId,
         ticketQuantities: tickets,
-        eventDateId
+        eventDateId,
+        lineAllocations
       });
 
       if (!result.success || !result.orderId) {
@@ -583,6 +590,7 @@ export default function CheckoutForm({
             eventId,
             ticketQuantities: tickets,
             eventDateId,
+            lineAllocations,
             paymentMethod: actualPaymentMethod,
             paymentDetails
           });
@@ -624,7 +632,8 @@ export default function CheckoutForm({
           ticketQuantities: tickets,
           paymentMethod: actualPaymentMethod,
           paymentDetails,
-          eventDateId
+          eventDateId,
+          lineAllocations
         });
 
         if (result.orderId) noteMetaOrder(result.orderId);
@@ -681,6 +690,7 @@ export default function CheckoutForm({
           eventId,
           ticketQuantities: tickets,
           eventDateId,
+          lineAllocations,
           paymentMethod: actualPaymentMethod,
           paymentDetails
         });
@@ -698,7 +708,8 @@ export default function CheckoutForm({
           ticketQuantities: tickets,
           paymentMethod: actualPaymentMethod,
           paymentDetails,
-          eventDateId
+          eventDateId,
+          lineAllocations
         });
       }
 
@@ -730,6 +741,7 @@ export default function CheckoutForm({
         event_id: eventId,
         order_id: orderResult.orderId,
         event_date_id: eventDateId || null,
+        ...(lineAllocations ? { line_allocations: lineAllocations } : {}),
         ticket_lines: ticketLines,
         amount_major: grandTotal,
         currency: 'XOF',
@@ -1478,6 +1490,8 @@ export default function CheckoutForm({
                         guestEmail={isGuestCheckout ? formData.email.trim() : undefined}
                         guestPhone={isGuestCheckout && formData.phone ? toInternationalPhone(formData.phone, phoneCountryCode) : undefined}
                         tickets={tickets}
+                        eventDateId={eventDateId}
+                        lineAllocations={lineAllocations}
                         fxQuote={fxQuote}
                         subtotal={subtotal}
                         serviceFees={buyerFees}

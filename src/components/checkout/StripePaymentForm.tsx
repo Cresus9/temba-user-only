@@ -6,6 +6,7 @@ import { orderService } from '../../services/orderService';
 import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
+import type { LineAllocation } from '../../utils/lineAllocations';
 
 interface StripePaymentFormProps {
   xofAmountMinor: number;
@@ -14,6 +15,10 @@ interface StripePaymentFormProps {
   guestEmail?: string;
   guestPhone?: string;
   tickets: { [key: string]: number };
+  /** Single-date order only. */
+  eventDateId?: string | null;
+  /** Several-date order only. */
+  lineAllocations?: LineAllocation[] | null;
   description?: string;
   onSuccess: (paymentId: string, orderId: string, paymentToken: string, guestToken?: string | null) => void;
   onError: (error: string) => void;
@@ -33,6 +38,8 @@ export default function StripePaymentForm({
   guestEmail,
   guestPhone,
   tickets,
+  eventDateId = null,
+  lineAllocations = null,
   description,
   onSuccess,
   onError,
@@ -141,6 +148,8 @@ export default function StripePaymentForm({
             payment_method: 'CARD',
             guest_email: resolveGuestEmail(guestEmail, guestPhone) || undefined,
             guest_phone: guestPhone?.trim() || undefined,
+            event_date_id: lineAllocations?.length ? null : eventDateId,
+            line_allocations: lineAllocations?.length ? lineAllocations : null,
           }
         );
       } else {
@@ -165,6 +174,8 @@ export default function StripePaymentForm({
             payment_method: 'CARD',
             guest_email: resolveGuestEmail(guestEmail, guestPhone) || undefined,
             guest_phone: guestPhone?.trim() || undefined,
+            event_date_id: lineAllocations?.length ? null : eventDateId,
+            line_allocations: lineAllocations?.length ? lineAllocations : null,
           }
         );
       }

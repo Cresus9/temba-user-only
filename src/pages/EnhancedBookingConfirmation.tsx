@@ -384,6 +384,10 @@ export default function EnhancedBookingConfirmation() {
         .select(`
           id,
           qr_code,
+          event_date:event_dates (
+            date,
+            start_time
+          ),
           ticket_type:ticket_types!inner (
             id,
             name,
@@ -406,7 +410,12 @@ export default function EnhancedBookingConfirmation() {
         throw ticketsError;
       }
       
-      ticketsData = tickets;
+      // Multi-date events: each ticket shows its own date.
+      ticketsData = (tickets || []).map((ticket: any) => {
+        const own = Array.isArray(ticket.event_date) ? ticket.event_date[0] : ticket.event_date;
+        if (!own?.date || !ticket.event) return ticket;
+        return { ...ticket, event: { ...ticket.event, date: own.date, time: own.start_time || ticket.event.time } };
+      });
       console.log('📋 Tickets query result:', { count: ticketsData?.length || 0, ticketsData });
       
       if (!ticketsData || ticketsData.length === 0) {
