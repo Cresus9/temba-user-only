@@ -6,7 +6,7 @@ import TicketPass from '../design/TicketPass';
 import { ticketStateFromRecord } from '../../utils/labels';
 import { shortPlace } from '../../utils/eventGeo';
 import TransferTicketModal from '../tickets/TransferTicketModal';
-import { generateTicketPNG } from '../../utils/ticketService';
+import { generateTicketPNG, ticketQrPayload } from '../../utils/ticketService';
 import { calendarDayInZone, formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
 import PosterTile from '../account/PosterTile';
@@ -559,7 +559,7 @@ export default function MyTickets() {
                       holder={profile?.name || user?.email?.split('@')[0] || 'Détenteur'}
                       categoryName={selectedTicket.ticket_type.name}
                       price={selectedTicket.ticket_type.price}
-                      qrValue={selectedTicket.qr_code}
+                      qrValue={ticketQrPayload(selectedTicket.id)}
                       ticketCode={selectedTicket.id.slice(0, 8).toUpperCase()}
                       orderCode={selectedTicket.order?.id?.slice(0, 8).toUpperCase()}
                       state={ticketStateFromRecord(selectedTicket)}

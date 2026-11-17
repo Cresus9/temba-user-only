@@ -181,6 +181,15 @@ export const generateQRData = (ticketId: string): string => {
   }
 };
 
+/** Payload the door scanner accepts. Falls back to the ticket id only if signing fails. */
+export const ticketQrPayload = (ticketId: string): string => {
+  try {
+    return generateQRData(ticketId);
+  } catch {
+    return ticketId;
+  }
+};
+
 /**
  * Decodes and validates the QR data
  */
