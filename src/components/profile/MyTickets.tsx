@@ -78,6 +78,11 @@ export default function MyTickets() {
           ticket_type_id,
           order_id,
           created_at,
+          event_date_id,
+          event_date:event_dates (
+            date,
+            start_time
+          ),
           event:events (
             id,
             title,
@@ -176,7 +181,14 @@ export default function MyTickets() {
       const transferredTicketIds = new Set(transfers?.map(t => t.ticket_id) || []);
       const validTickets = allTickets.filter(ticket => !transferredTicketIds.has(ticket.id));
 
-      setTickets(validTickets as MyTicket[]);
+      // Multi-date events: each ticket shows its own date, not the event's first date.
+      const datedTickets = validTickets.map((ticket: any) => {
+        const own = Array.isArray(ticket.event_date) ? ticket.event_date[0] : ticket.event_date;
+        if (!own?.date || !ticket.event) return ticket;
+        return { ...ticket, event: { ...ticket.event, date: own.date, time: own.start_time || ticket.event.time } };
+      });
+
+      setTickets(datedTickets as MyTicket[]);
 
       // Step 4: Check ticket ownership (if ticket was purchased by user)
       const ownershipMap = new Map<string, boolean>();

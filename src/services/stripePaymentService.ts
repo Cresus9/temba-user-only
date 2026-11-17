@@ -113,6 +113,8 @@ class StripePaymentService {
       payment_method?: string;
       guest_email?: string;
       guest_phone?: string;
+      event_date_id?: string | null;
+      line_allocations?: Array<{ ticket_type_id: string; event_date_id: string; quantity: number }> | null;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -135,6 +137,8 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        ...(options.event_date_id ? { event_date_id: options.event_date_id } : {}),
+        ...(options.line_allocations?.length ? { line_allocations: options.line_allocations } : {}),
         ...metaBrowserMatch(),
       });
 
@@ -167,6 +171,8 @@ class StripePaymentService {
       payment_method?: string;
       guest_email?: string;
       guest_phone?: string;
+      event_date_id?: string | null;
+      line_allocations?: Array<{ ticket_type_id: string; event_date_id: string; quantity: number }> | null;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
@@ -184,6 +190,8 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        ...(options.event_date_id ? { event_date_id: options.event_date_id } : {}),
+        ...(options.line_allocations?.length ? { line_allocations: options.line_allocations } : {}),
         ...metaBrowserMatch(),
       });
 

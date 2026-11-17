@@ -16,6 +16,7 @@ import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
+import { distinctDateIds, sanitizeAllocations, type LineAllocation } from '../utils/lineAllocations';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -28,6 +29,10 @@ interface CheckoutState {
   eventId: string;
   eventSlug?: string | null;
   eventDateId?: string | null;
+  /** Multi-date purchase: chosen dates, in event order. */
+  eventDateIds?: string[] | null;
+  /** Multi-date purchase: one line per (ticket type, date). Absent for single-date orders. */
+  lineAllocations?: LineAllocation[] | null;
   /** Pre-computed extras total passed from PermanentBookingPanel (addons + food) */
   addonTotal?: number;
   /** True when navigating from the permanent attraction booking panel */
@@ -66,6 +71,7 @@ export default function Checkout() {
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
   const [lines, setLines] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
   const [chosenDate, setChosenDate] = useState<{ date: string; start_time: string | null } | null>(null);
+  const [dateRows, setDateRows] = useState<Record<string, { date: string; start_time: string | null }>>({});
 
   const locationState = location.state as CheckoutState | null;
   const state =
@@ -141,6 +147,41 @@ export default function Checkout() {
       });
   }, [state.eventDateId]);
 
+  const allocations = React.useMemo(() => {
+    const clean = sanitizeAllocations(state.lineAllocations);
+    return clean && distinctDateIds(clean).length > 1 ? clean : null;
+  }, [state.lineAllocations]);
+  const allocationDateIds = React.useMemo(() => {
+    const ids = distinctDateIds(allocations);
+    const order = (state.eventDateIds || []).filter((id) => ids.includes(id));
+    return [...order, ...ids.filter((id) => !order.includes(id))];
+  }, [allocations, state.eventDateIds]);
+
+  React.useEffect(() => {
+    if (!allocationDateIds.length) {
+      setDateRows({});
+      return;
+    }
+    supabase
+      .from('event_dates')
+      .select('id, date, start_time')
+      .in('id', allocationDateIds)
+      .then(({ data }) => {
+        const next: Record<string, { date: string; start_time: string | null }> = {};
+        for (const row of (data || []) as { id: string; date: string; start_time: string | null }[]) {
+          next[row.id] = { date: row.date, start_time: row.start_time || null };
+        }
+        setDateRows(next);
+      });
+  }, [allocationDateIds.join(',')]);
+
+  const priceById = React.useMemo(() => new Map(lines.map((line) => [line.id, line])), [lines]);
+  const dateGroups = allocations
+    ? allocationDateIds
+      .map((id) => ({ id, rows: allocations.filter((line) => line.event_date_id === id) }))
+      .sort((a, b) => (dateRows[a.id]?.date || '').localeCompare(dateRows[b.id]?.date || ''))
+    : [];
+
   const recapDate = chosenDate?.date || event?.date;
   const recapTime = chosenDate?.start_time || event?.time;
 
@@ -150,14 +191,48 @@ export default function Checkout() {
         {event?.image_url ? <img src={event.image_url} alt="" className="h-[90px] w-[72px] rounded-[8px] object-contain bg-[#1B1D33]" /> : null}
         <div className="min-w-0">
           <p className="font-display text-[16px] font-bold leading-snug">{event?.title || 'Votre commande'}</p>
+          {allocations ? (
+            <p className="mt-1 text-[13px] text-ink-2">{allocationDateIds.length} dates</p>
+          ) : (
           <p className="mt-1 text-[13px] text-ink-2">
             {recapDate ? formatCalendarDate(recapDate, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : ''}
             {formatEventTime(recapTime) ? ` · ${formatEventTime(recapTime)}` : ''}
           </p>
-          {formatEventTime(recapTime) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
+          )}
+          {!allocations && formatEventTime(recapTime) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
           <p className="mt-1 text-[13px] text-ink-3">{place.label}</p>
         </div>
       </div>
+      {allocations ? (
+        <div className="mt-3 border-t border-line pt-1 text-[14px]">
+          {dateGroups.map((group) => {
+            const row = dateRows[group.id];
+            const time = formatEventTime(row?.start_time);
+            const groupTotal = group.rows.reduce((sum, line) => sum + (priceById.get(line.ticket_type_id)?.price || 0) * line.quantity, 0);
+            return (
+              <div key={group.id} className="border-b border-line py-2.5 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-semibold">
+                    {row?.date ? formatCalendarDate(row.date, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : '…'}
+                    {time ? <span className="font-normal text-ink-3"> · {time}</span> : null}
+                  </p>
+                  <span className="shrink-0 font-semibold tabular-nums">{formatCurrency(groupTotal, state.currency)}</span>
+                </div>
+                {group.rows.map((line) => {
+                  const type = priceById.get(line.ticket_type_id);
+                  return (
+                    <p key={`${group.id}-${line.ticket_type_id}`} className="mt-0.5 flex justify-between gap-3 text-[13px] text-ink-2">
+                      <span>{line.quantity} × {type?.name || 'Billet'}</span>
+                      <span className="tabular-nums">{formatCurrency((type?.price || 0) * line.quantity, state.currency)}</span>
+                    </p>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {formatEventTime(dateRows[allocationDateIds[0]]?.start_time) ? <p className="pt-1 text-[12px] text-ink-3">Heures de Ouagadougou</p> : null}
+        </div>
+      ) : (
       <div className="mt-3 space-y-1 border-t border-line pt-3 text-[14px]">
         {lines.map((line) => (
           <p key={line.id} className="flex justify-between gap-3">
@@ -166,6 +241,7 @@ export default function Checkout() {
           </p>
         ))}
       </div>
+      )}
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3 font-display text-[20px] font-bold">
         <span>Total</span>
         <span className="tabular-nums">{formatCurrency(asideTotal, state.currency)}</span>
@@ -247,7 +323,8 @@ export default function Checkout() {
             addonTotal={extrasTotal}
             currency={state.currency}
             eventId={state.eventId}
-            eventDateId={state.eventDateId}
+            eventDateId={allocations ? null : state.eventDateId}
+            lineAllocations={allocations}
             onCreateAccount={() => {
               persistCheckoutDraft(state);
               navigate('/signup', {

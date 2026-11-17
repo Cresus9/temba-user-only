@@ -8,6 +8,8 @@ export interface CreatePawaPayPaymentRequest {
   event_id: string;
   order_id?: string;  // order ID if already created
   event_date_id?: string | null;  // NEW: For multi-date events
+  /** Several dates: one line per (ticket type, date). Informational; the order already holds it. */
+  line_allocations?: Array<{ ticket_type_id: string; event_date_id: string; quantity: number }> | null;
   ticket_lines: Array<{
     ticket_type_id: string;
     quantity: number;
