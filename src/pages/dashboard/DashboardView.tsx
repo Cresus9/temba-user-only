@@ -6,6 +6,7 @@ import PosterTile from '../../components/account/PosterTile';
 import { calendarDayInZone, formatCalendarDate, formatCurrency } from '../../utils/formatters';
 import { mapsSearchUrl, shortPlace } from '../../utils/eventGeo';
 import { eventPublicPath } from '../../utils/eventPath';
+import { ticketQrPayload } from '../../utils/ticketService';
 
 export interface DashPass {
   id: string;
@@ -131,7 +132,7 @@ function MiniPass({ pass }: { pass: DashPass }) {
       </div>
       <div className="flex items-center gap-3 p-3">
         <div className="bg-white p-0.5">
-          <QRCodeSVG value={pass.qr || pass.id} size={56} level="M" includeMargin={false} />
+          <QRCodeSVG value={ticketQrPayload(pass.id)} size={56} level="M" includeMargin={false} />
         </div>
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold">{pass.holder}</p>

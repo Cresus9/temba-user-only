@@ -12,7 +12,7 @@ import {
   realGuestEmail,
   type GuestTicketRow,
 } from '../services/guestTicketService';
-import { generateTicketPNG } from '../utils/ticketService';
+import { generateTicketPNG, ticketQrPayload } from '../utils/ticketService';
 import { trackPurchase } from '../lib/metaPixel';
 
 export default function GuestTickets() {
@@ -150,7 +150,7 @@ export default function GuestTickets() {
           holder,
           categoryName: ticket.ticket_type_name,
           price: ticket.ticket_type_price,
-          qrValue: ticket.qr_code,
+          qrValue: ticketQrPayload(ticket.id),
           ticketCode: ticket.id.slice(0, 8).toUpperCase(),
           orderCode,
           state: (ticket.status || '').toUpperCase() === 'SCANNED' ? 'scanned' : 'valid',

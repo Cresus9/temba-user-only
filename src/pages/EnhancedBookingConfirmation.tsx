@@ -14,7 +14,7 @@ import TransferTicketModal from '../components/tickets/TransferTicketModal';
 import { shortPlace } from '../utils/eventGeo';
 import { formatCalendarDate, formatEventTime } from '../utils/formatters';
 import toast from 'react-hot-toast';
-import { generateTicketPNG } from '../utils/ticketService';
+import { generateTicketPNG, ticketQrPayload } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
 import PageSEO from '../components/SEO/PageSEO';
 import { referralService } from '../services/referralService';
@@ -908,7 +908,7 @@ export default function EnhancedBookingConfirmation() {
           holder: profile?.name || user?.email?.split('@')[0] || 'Détenteur',
           categoryName: ticket.ticket_type.name,
           price: ticket.ticket_type.price,
-          qrValue: ticket.qr_code,
+          qrValue: ticketQrPayload(ticket.id),
           ticketCode: ticket.id.slice(0, 8).toUpperCase(),
           orderCode: bookingId ? String(bookingId).slice(0, 8).toUpperCase() : undefined,
           state: 'valid' as const,
