@@ -420,9 +420,9 @@ function layout(opts: {
   <meta name="description" content="${description}" />
   <meta name="robots" content="${robots}" />
   <link rel="canonical" href="${url}" />
-  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=2" />
-  <link rel="icon" type="image/png" sizes="32x32" href="https://tembas.com/favicon-32x32.png?v=2" />
-  <link rel="apple-touch-icon" sizes="180x180" href="https://tembas.com/apple-touch-icon-v2.png" />
+  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=3" />
+  <link rel="icon" type="image/png" sizes="32x32" href="https://tembas.com/favicon-32x32.png?v=3" />
+  <link rel="apple-touch-icon" sizes="180x180" href="https://tembas.com/apple-touch-icon-v2.png?v=3" />
   <meta property="og:type" content="${ogType}" />
   <meta property="og:site_name" content="Temba" />
   <meta property="og:title" content="${title}" />
