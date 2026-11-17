@@ -165,10 +165,11 @@ export default function EventTicketPanel({
 
   const change = (ticket: TicketType, delta: number) => {
     // max_per_order applies to each date line; stock is shared by all chosen dates.
-    const stockCap = multiPick
-      ? Math.floor((Number(ticket.available) || 0) / dateFactor) || 0
-      : Number(ticket.available) || ticket.max_per_order || 10;
-    const cap = Math.max(multiPick ? 0 : 1, Math.min(ticket.max_per_order || 10, stockCap));
+    // Same fallback as before when `available` is missing; with several dates the
+    // stock is split across them (shortStock below blocks an order that doesn't fit).
+    const available = Number(ticket.available) || ticket.max_per_order || 10;
+    const stockCap = multiPick && dateFactor > 1 ? Math.floor(available / dateFactor) : available;
+    const cap = Math.max(1, Math.min(ticket.max_per_order || 10, stockCap));
     setQty((prev) => {
       const next = Math.min(cap, Math.max(0, (prev[ticket.id] || 0) + delta));
       return { ...prev, [ticket.id]: next };
