@@ -10,6 +10,33 @@ import {
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { ticketLinesForOrder } from "../_shared/ticketLines.ts";
+
+// Fire-and-forget: ask finalize-order to send the ticket email for this payment.
+// finalize-order (email_only) only sends the email; it is idempotent via
+// payments.metadata.ticket_email_sent_at. Never throws, never blocks the response.
+function triggerTicketEmail(paymentId: string): void {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL");
+    if (!baseUrl || !paymentId) return;
+    const pending = fetch(`${baseUrl}/functions/v1/finalize-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Finalize-Secret": Deno.env.get("FINALIZE_ORDER_SECRET") ?? "",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+      },
+      body: JSON.stringify({ payment_id: paymentId, email_only: true }),
+    })
+      .then((r) => {
+        if (!r.ok) console.warn("[ticket-email] finalize-order HTTP", r.status);
+      })
+      .catch((err) => console.warn("[ticket-email] trigger failed:", err));
+    (globalThis as any).EdgeRuntime?.waitUntil?.(pending);
+  } catch (err) {
+    console.warn("[ticket-email] trigger error:", err);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -281,7 +308,7 @@ Deno.serve(async (req) => {
     const status = payload.status?.toUpperCase();
     const event = payload.event?.toLowerCase();
     
-    const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
+    // supabaseUrl is declared (and checked) above; redeclaring it here broke boot.
     const finalizeUrl    = `${supabaseUrl}/functions/v1/finalize-order`;
     const finalizeSecret = Deno.env.get("FINALIZE_ORDER_SECRET") ?? "";
     const anonKey        = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -438,6 +465,7 @@ async function handleSuccessfulPayment(
   });
 
   await sendMetaPurchase(supabase, payment.id);
+  if (orderId) triggerTicketEmail(payment.id);
   console.log("✅ Payment completed successfully:", payment.id);
 }
 
@@ -537,16 +565,19 @@ async function generateTickets(supabase: any, orderId: string, payment: any) {
     // Generate tickets for each ticket type
     const ticketPromises: Promise<any>[] = [];
     
-    for (const [ticketTypeId, quantity] of Object.entries(ticketQuantities)) {
-      for (let i = 0; i < (quantity as number); i++) {
+    // One entry per (ticket type, date); single-date orders: ticket_quantities + order date as before.
+    const ticketLines = await ticketLinesForOrder(supabase, order);
+
+    for (const line of ticketLines) {
+      for (let i = 0; i < line.quantity; i++) {
         const ticketPromise = supabase
           .from("tickets")
           .insert({
             user_id: order.user_id,
             event_id: order.event_id,
-            ticket_type_id: ticketTypeId,
+            ticket_type_id: line.ticket_type_id,
             order_id: orderId,
-            event_date_id: order.event_date_id || null,
+            event_date_id: line.event_date_id || null,
             payment_id: payment.id,
             status: "VALID",
             qr_code: crypto.randomUUID(),

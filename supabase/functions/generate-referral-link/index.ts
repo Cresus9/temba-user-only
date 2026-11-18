@@ -1,6 +1,3 @@
-// Supabase Edge Function: Generate Referral Link
-// Creates or retrieves user's referral code and generates shareable link
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -18,43 +15,27 @@ serve(async (req) => {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    if (authError || !user) throw new Error('Unauthorized')
 
-    if (authError || !user) {
-      throw new Error('Unauthorized')
-    }
-
-    // Create service client for admin operations
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    // Get or create user's referral code
-    let { data: referralData, error: codeError } = await serviceClient
+    let { data: referralData } = await serviceClient
       .from('user_referral_codes')
       .select('referral_code, is_active')
       .eq('user_id', user.id)
       .maybeSingle()
 
-    // If no referral code exists, create one
     if (!referralData) {
-      // Generate unique referral code
       const generateCode = () => {
-        const prefix = 'TEMBA'
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // No confusing chars
-        let code = prefix
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        let code = 'TEMBA'
         for (let i = 0; i < 5; i++) {
           code += chars.charAt(Math.floor(Math.random() * chars.length))
         }
@@ -65,91 +46,93 @@ serve(async (req) => {
       let attempts = 0
       let created = false
 
-      // Try to create unique code (max 5 attempts)
       while (!created && attempts < 5) {
         const { data: newCode, error: insertError } = await serviceClient
           .from('user_referral_codes')
-          .insert({
-            user_id: user.id,
-            referral_code: referralCode,
-            is_active: true,
-          })
+          .insert({ user_id: user.id, referral_code: referralCode, is_active: true })
           .select('referral_code, is_active')
           .single()
 
         if (!insertError && newCode) {
           referralData = newCode
           created = true
-        } else if (insertError.code === '23505') {
-          // Duplicate code, try again
+        } else if (insertError?.code === '23505') {
           referralCode = generateCode()
           attempts++
         } else {
-          throw new Error(`Failed to create referral code: ${insertError.message}`)
+          throw new Error(`Failed to create referral code: ${insertError?.message}`)
         }
       }
 
-      if (!created) {
-        throw new Error('Failed to generate unique referral code')
-      }
+      if (!created) throw new Error('Failed to generate unique referral code')
 
-      // Also create user_credits record
       await serviceClient
         .from('user_credits')
-        .insert({
-          user_id: user.id,
-          balance: 0,
-          lifetime_earned: 0,
-          lifetime_spent: 0,
-        })
+        .insert({ user_id: user.id, balance: 0, lifetime_earned: 0, lifetime_spent: 0 })
         .single()
     }
 
-    if (!referralData.is_active) {
-      throw new Error('Referral code is inactive')
-    }
+    if (!referralData!.is_active) throw new Error('Referral code is inactive')
 
-    const referralCode = referralData.referral_code
+    const referralCode = referralData!.referral_code
 
-    // Generate shareable links with AppsFlyer OneLink
+    // ✅ Parse optional event_id from request body
+    let eventIdForLink: string | undefined
+    try {
+      const ct = req.headers.get('content-type') || ''
+      if (ct.includes('application/json')) {
+        const body = await req.json().catch(() => ({} as Record<string, unknown>))
+        const eid = body?.event_id
+        if (typeof eid === 'string' && eid.trim()) eventIdForLink = eid.trim()
+      }
+    } catch { /* optional body */ }
+
     const oneLinkBase = 'https://temba.onelink.me/Xbe8'
     const customScheme = 'temba'
 
-    const links = {
-      // Main OneLink - automatically redirects to app or store
-      oneLink: `${oneLinkBase}?deep_link_value=ref/${encodeURIComponent(referralCode)}`,
-      // Direct app deep link (if app is installed)
-      app: `${customScheme}://ref/${referralCode}`,
-      // Fallback web link
-      web: `https://tembas.com/ref/${referralCode}`,
+    // ✅ Validate event_id before using in URLs
+    const safeEventId =
+      eventIdForLink &&
+      /^[a-zA-Z0-9_-]+$/.test(eventIdForLink) &&
+      eventIdForLink.length >= 4
+        ? eventIdForLink
+        : undefined
+
+    // ✅ Separate deep_link_value (routing) from referral_code (attribution)
+    const oneLinkParams = new URLSearchParams({
+      deep_link_value: safeEventId ? 'event_detail' : 'referral_home',
+      referral_code: referralCode,  // always present for attribution
+    })
+    if (safeEventId) {
+      oneLinkParams.set('event_id', safeEventId)  // for navigation
     }
 
-    // Generate share message with OneLink
-    const shareMessage = `Rejoignez TEMBA avec mon code de parrainage ${referralCode} et recevez des récompenses! Téléchargez: ${links.oneLink}`
+    const eventQuery = safeEventId
+      ? `?event_id=${encodeURIComponent(safeEventId)}&ref=${referralCode}`
+      : `?ref=${referralCode}`
+
+    const links = {
+      // ✅ Main shareable link — routes to event OR home + tracks referral
+      oneLink: `${oneLinkBase}?${oneLinkParams.toString()}`,
+      // ✅ Direct URI scheme (app already installed)
+      app: `${customScheme}://ref/${referralCode}${eventQuery}`,
+      // ✅ Web fallback
+      web: `https://tembas.com/ref/${referralCode}${eventQuery}`,
+    }
+
+    const shareMessage = safeEventId
+      ? `Découvrez cet événement sur TEMBA! ${links.oneLink} (Code: ${referralCode})`
+      : `Rejoignez TEMBA avec mon code de parrainage ${referralCode} et recevez des récompenses! Téléchargez: ${links.oneLink}`
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        referralCode,
-        links,
-        shareMessage,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      JSON.stringify({ success: true, referralCode, links, shareMessage }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
     console.error('Error generating referral link:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: (error as Error).message,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })
