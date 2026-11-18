@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
   // ── Auth check ────────────────────────────────────────────────────────────
-  if (!verifyFinalizeAuth(req)) {
+  if (!(await verifyFinalizeAuth(req))) {
     console.error("[finalize-order] unauthorized");
     return json({ error: "Unauthorized" }, 401);
   }

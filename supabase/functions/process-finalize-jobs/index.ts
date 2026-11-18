@@ -31,7 +31,7 @@ const json = (body: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
-  if (!verifyFinalizeAuth(req)) {
+  if (!(await verifyFinalizeAuth(req))) {
     console.error("[process-finalize-jobs] unauthorized");
     return json({ error: "Unauthorized" }, 401);
   }
