@@ -6,12 +6,12 @@
  * Runs admin_finalize_payment RPC to create tickets and complete the order.
  * Returns 5xx on failure — QStash will retry up to 5×.
  *
- * Auth: X-Finalize-Secret header (forwarded by QStash).
+ * Auth: X-Finalize-Secret, or Authorization: Bearer <service role>.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import {
-  verifyFinalizeSecret,
+  verifyFinalizeAuth,
   redisSet,
   paymentStatusKey,
   PAYMENT_STATUS_TTL,
@@ -19,6 +19,7 @@ import {
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 import { sendTicketEmailForPayment } from "../_shared/ticketEmail.ts";
+import { stampTicketVisitDates } from "../_shared/ticketLines.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
   // ── Auth check ────────────────────────────────────────────────────────────
-  if (!verifyFinalizeSecret(req)) {
+  if (!verifyFinalizeAuth(req)) {
     console.error("[finalize-order] unauthorized");
     return json({ error: "Unauthorized" }, 401);
   }
@@ -84,6 +85,11 @@ Deno.serve(async (req) => {
 
       if (order?.status === "COMPLETED") {
         console.log("[finalize-order] order already completed, skipping:", payment.order_id);
+        try {
+          await stampTicketVisitDates(supabase, payment.order_id);
+        } catch (stampErr) {
+          console.error("[finalize-order] visit date stamp:", stampErr);
+        }
         await redisSet(paymentStatusKey(payment_id), "finalized", PAYMENT_STATUS_TTL);
         if (provider !== "stripe") {
           await notifyWhatsAppAdapter({
@@ -111,6 +117,14 @@ Deno.serve(async (req) => {
       console.error("[finalize-order] RPC error:", rpcErr);
       // Return 5xx so QStash retries
       return json({ error: rpcErr.message }, 500);
+    }
+
+    if (payment.order_id) {
+      try {
+        await stampTicketVisitDates(supabase, payment.order_id);
+      } catch (stampErr) {
+        console.error("[finalize-order] visit date stamp:", stampErr);
+      }
     }
 
     // ── Mark finalized in Redis ───────────────────────────────────────────

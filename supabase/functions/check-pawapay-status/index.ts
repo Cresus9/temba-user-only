@@ -23,6 +23,7 @@ import {
   PAYMENT_STATUS_TTL,
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
+import { stampTicketVisitDates } from "../_shared/ticketLines.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -108,16 +109,13 @@ Deno.serve(async (req) => {
     console.log("[check-pawapay-status] PawaPay status:", apiStatus);
 
     // ── 4. Still PENDING — return 5xx to trigger QStash retry ────────────
-    if (!["COMPLETED", "FAILED"].includes(apiStatus)) {
+    if (!["COMPLETED", "FAILED", "REJECTED"].includes(apiStatus)) {
       console.log("[check-pawapay-status] still pending, will retry");
       return json({ note: "still pending" }, 500);
     }
 
-    // ── 5. Terminal status — write Redis dedup + status keys ─────────────
+    // ── 5. Terminal status. A failure is cached only after the paid row accepts it.
     const normalized = apiStatus === "COMPLETED" ? "completed" : "failed";
-
-    await redisSetNx(dedupKey, normalized, WEBHOOK_DEDUP_TTL);
-    await redisSet(statusKey, normalized, PAYMENT_STATUS_TTL);
 
     // ── 6. Update payment in DB ──────────────────────────────────────────
     const updateFields: any = {
@@ -127,20 +125,35 @@ Deno.serve(async (req) => {
     if (normalized === "completed") updateFields.completed_at = new Date().toISOString();
     if (normalized === "failed")    updateFields.failed_at    = new Date().toISOString();
 
-    await supabase.from("payments").update(updateFields).eq("id", payment_id);
+    let paymentQuery = supabase.from("payments").update(updateFields).eq("id", payment_id);
+    if (normalized === "failed") {
+      paymentQuery = paymentQuery.not("status", "in", "(completed,COMPLETED,paid,PAID)");
+    }
+    const { data: updatedPayments, error: paymentUpdateErr } = await paymentQuery.select("id, order_id");
+    if (paymentUpdateErr) {
+      console.error("[check-pawapay-status] payment update failed", paymentUpdateErr.message);
+      return json({ error: paymentUpdateErr.message }, 500);
+    }
+    if (normalized === "failed" && !updatedPayments?.length) {
+      console.log("[check-pawapay-status] refused to downgrade a completed payment", payment_id);
+      await redisSet(statusKey, "completed", PAYMENT_STATUS_TTL);
+      return json({ ok: true, status: "completed", note: "kept completed payment" });
+    }
+
+    await redisSetNx(dedupKey, normalized, WEBHOOK_DEDUP_TTL);
+    await redisSet(statusKey, normalized, PAYMENT_STATUS_TTL);
 
     if (normalized === "failed") {
-      const { data: pmt } = await supabase
-        .from("payments")
-        .select("order_id")
-        .eq("id", payment_id)
-        .maybeSingle();
-
-      if (pmt?.order_id) {
-        await supabase
+      const orderId = updatedPayments?.[0]?.order_id;
+      if (orderId) {
+        const { data: cancelled, error: orderErr } = await supabase
           .from("orders")
           .update({ status: "CANCELLED", visible_in_history: false, updated_at: new Date().toISOString() })
-          .eq("id", pmt.order_id);
+          .eq("id", orderId)
+          .not("status", "in", "(COMPLETED,paid,PAID)")
+          .select("id");
+        if (orderErr) console.error("[check-pawapay-status] order cancel failed", orderErr.message);
+        else if (!cancelled?.length) console.log("[check-pawapay-status] kept completed order", orderId);
       }
       return json({ ok: true, status: "failed" });
     }
@@ -185,6 +198,14 @@ Deno.serve(async (req) => {
         }
         // Return 5xx → QStash retries this safety-net function too
         return json({ error: rpcErr.message }, 500);
+      }
+      const orderId = updatedPayments?.[0]?.order_id;
+      if (orderId) {
+        try {
+          await stampTicketVisitDates(supabase, orderId);
+        } catch (stampErr) {
+          console.error("[check-pawapay-status] visit date stamp:", stampErr);
+        }
       }
     }
 

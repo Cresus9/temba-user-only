@@ -2,6 +2,7 @@
 // deno-lint-ignore-file no-explicit-any
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
+import { stampTicketVisitDates } from "../_shared/ticketLines.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
@@ -170,7 +171,14 @@ Deno.serve(async (req)=>{
           p_payment_id: paymentId
         });
         if (rpcErr) console.error("admin_finalize_payment error:", rpcErr);
-        else if (orderId && !payment.metadata?.ticket_email_sent_at) triggerTicketEmail(paymentId);
+        else if (orderId) {
+          try {
+            await stampTicketVisitDates(supabase, orderId);
+          } catch (stampErr) {
+            console.error("[verify-payment] visit date stamp:", stampErr);
+          }
+          if (!payment.metadata?.ticket_email_sent_at) triggerTicketEmail(paymentId);
+        }
         return new Response(JSON.stringify({
           success: true,
           state: "succeeded",
@@ -261,7 +269,14 @@ Deno.serve(async (req)=>{
           p_payment_id: paymentId
         });
         if (rpcErr) console.error("admin_finalize_payment error:", rpcErr);
-        else if (!payment.metadata?.ticket_email_sent_at) triggerTicketEmail(paymentId);
+        else if (orderId) {
+          try {
+            await stampTicketVisitDates(supabase, orderId);
+          } catch (stampErr) {
+            console.error("[verify-payment] visit date stamp:", stampErr);
+          }
+          if (!payment.metadata?.ticket_email_sent_at) triggerTicketEmail(paymentId);
+        }
         return new Response(JSON.stringify({
           success: true,
           state: "succeeded",

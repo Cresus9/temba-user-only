@@ -1,0 +1,26 @@
+-- Not applied by this change. The 401 is fixed in the edge functions:
+-- finalize-order and process-finalize-jobs accept
+--   Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+-- and still accept X-Finalize-Secret.
+-- Supabase's scheduler already sends that bearer. No new secret belongs in SQL.
+--
+-- If a hand-written pg_cron job posts to the wrong URL, point it at
+-- process-finalize-jobs and keep using the service-role bearer from Vault
+-- or current_setting. Do not paste the key into this file.
+--
+-- Example (fill the URL only; the key stays in the database setting):
+-- SELECT cron.schedule(
+--   'process-finalize-jobs-minutely',
+--   '* * * * *',
+--   $$SELECT net.http_post(
+--       url := 'https://wlyncuwbzhzjafmqozcm.supabase.co/functions/v1/process-finalize-jobs',
+--       headers := jsonb_build_object(
+--         'Content-Type', 'application/json',
+--         'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+--       ),
+--       body := '{}'::jsonb
+--     )$$
+-- );
+--
+-- Rollback, only if you created that schedule:
+-- SELECT cron.unschedule('process-finalize-jobs-minutely');

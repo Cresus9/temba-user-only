@@ -12,7 +12,7 @@ import {
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
-import { ticketLinesForOrder } from "../_shared/ticketLines.ts";
+import { stampTicketVisitDates, ticketLinesForOrder } from "../_shared/ticketLines.ts";
 
 // Fire-and-forget: ask finalize-order to send the ticket email for this payment.
 // finalize-order (email_only) only sends the email; it is idempotent via
@@ -234,6 +234,11 @@ Deno.serve(async (req) => {
             console.error("❌ Error checking existing tickets:", existingTicketsError);
           } else if (existingTickets && existingTickets.length > 0) {
             console.log(`ℹ️ Tickets already exist for order ${payment.order_id} (${existingTickets.length} tickets), skipping ticket creation`);
+            try {
+              await stampTicketVisitDates(supabase, payment.order_id);
+            } catch (stampErr) {
+              console.error("[stripe-webhook] visit date stamp:", stampErr);
+            }
           } else {
             // Create tickets for the order (same logic as PayDunya)
             if (order.ticket_quantities) {
@@ -318,7 +323,7 @@ Deno.serve(async (req) => {
     if (event.type === "payment_intent.payment_failed") {
       const intent = event.data.object as Stripe.PaymentIntent;
 
-      const { error: failErr } = await supabase
+      const { data: failedRows, error: failErr } = await supabase
         .from("payments")
         .update({
           status: "failed",
@@ -329,35 +334,38 @@ Deno.serve(async (req) => {
             failure_message: intent.last_payment_error?.message,
           },
         })
-        .eq("stripe_payment_intent_id", intent.id);
+        .eq("stripe_payment_intent_id", intent.id)
+        .not("status", "in", "(completed,COMPLETED,paid,PAID)")
+        .select("id, order_id");
 
       if (failErr) {
         console.error("❌ Failed to update payment as failed:", failErr);
+      } else if (!failedRows?.length) {
+        console.log("[stripe-webhook] refused to downgrade a completed payment", intent.id);
       } else {
         console.log("✅ Payment marked as failed:", intent.id);
-
-        const { data: failedPayment } = await supabase
-          .from("payments")
-          .select("id, order_id")
-          .eq("stripe_payment_intent_id", intent.id)
-          .maybeSingle();
+        const failedPayment = failedRows[0];
 
         if (failedPayment?.id) {
           await redisSet(paymentStatusKey(failedPayment.id), "failed", PAYMENT_STATUS_TTL);
         }
 
         if (failedPayment?.order_id) {
-          const { error: orderFailErr } = await supabase
+          const { data: cancelled, error: orderFailErr } = await supabase
             .from("orders")
             .update({
               status: "CANCELLED",
               visible_in_history: false,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", failedPayment.order_id);
+            .eq("id", failedPayment.order_id)
+            .not("status", "in", "(COMPLETED,paid,PAID)")
+            .select("id");
 
           if (orderFailErr) {
             console.error("❌ Failed to mark order as cancelled:", orderFailErr);
+          } else if (!cancelled?.length) {
+            console.log("[stripe-webhook] kept completed order", failedPayment.order_id);
           }
         }
       }
