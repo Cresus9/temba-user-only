@@ -5,6 +5,7 @@ import {
   commissionRate,
   decideAttribution,
   holdAvailableAt,
+  isFullChargeRefund,
   normalizeAttributionCode,
   planReversal,
   planRewards,
@@ -163,6 +164,12 @@ describe('hold and reversal', () => {
     const paid = new Date('2026-11-01T00:00:00Z');
     const at = holdAvailableAt(null, 'Africa/Ouagadougou', paid, 7);
     expect(at.getTime() - paid.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it('reverses rewards only when the card charge is fully refunded', () => {
+    expect(isFullChargeRefund({ refunded: false, amount: 1000, amountRefunded: 100 })).toBe(false);
+    expect(isFullChargeRefund({ refunded: true, amount: 1000, amountRefunded: 1000 })).toBe(true);
+    expect(isFullChargeRefund({ refunded: false, amount: 1000, amountRefunded: 1000 })).toBe(true);
   });
 
   it('reverses a pending row once', () => {

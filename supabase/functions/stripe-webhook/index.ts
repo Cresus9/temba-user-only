@@ -383,10 +383,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // A refund does not change ticket issuance. It writes a reversal row
-    // when the ledger function is installed. Missing SQL must not fail the webhook.
+    // A full refund does not change ticket issuance. It writes a reversal row
+    // when the ledger function is installed. A partial refund leaves the reward.
+    // Missing SQL must not fail the webhook.
     if (event.type === "charge.refunded") {
       const charge = event.data.object as Stripe.Charge;
+      const amount = charge.amount ?? 0;
+      const amountRefunded = charge.amount_refunded ?? 0;
+      const fullyRefunded = charge.refunded === true || (amount > 0 && amountRefunded >= amount);
+      if (!fullyRefunded) {
+        console.log("[stripe-webhook] partial refund, rewards left in place");
+        return new Response(
+          JSON.stringify({ received: true, status: "partial_refund" }),
+          { headers: cors },
+        );
+      }
       const paymentIntent = typeof charge.payment_intent === "string"
         ? charge.payment_intent
         : charge.payment_intent?.id;

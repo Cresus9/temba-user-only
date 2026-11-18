@@ -214,6 +214,18 @@ export function attributionAttachDecision(input: {
   return input.guestTokenMatches ? "allow" : "skip";
 }
 
+/** Stripe `charge.refunded` fires for a partial refund too. Only a full refund reverses rewards. */
+export function isFullChargeRefund(input: {
+  refunded?: boolean;
+  amount?: number | null;
+  amountRefunded?: number | null;
+}): boolean {
+  if (input.refunded === true) return true;
+  const amount = input.amount ?? 0;
+  const refundedAmount = input.amountRefunded ?? 0;
+  return amount > 0 && refundedAmount >= amount;
+}
+
 export function planReversal(entries: Array<{ key: string; status: string }>): string[] {
   return entries
     .filter((entry) => !entry.key.startsWith("reversal:") && (entry.status === "pending" || entry.status === "available"))

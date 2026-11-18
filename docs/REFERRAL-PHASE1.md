@@ -6,7 +6,7 @@ Nothing in this change is applied to Temba-EU and no edge function is deployed. 
 
 - `?r=CODE` is stored for 30 days (last click). `?ref=` is still accepted.
 - Checkout sends the code. The payment functions write it on the order they just created, or on an unpaid order the caller owns (buyer session or guest token). They do not replace a code already stored. The database resolves it to a referrer or a reseller, and blocks self-referral.
-- When the order becomes `COMPLETED` inside `admin_finalize_payment`, the existing order trigger writes `reward_ledger`. The key is unique, so a webhook replay does not pay twice. Rows stay `pending` until the day after the event. Cancel and a Stripe refund insert a reversal row.
+- When the order becomes `COMPLETED` inside `admin_finalize_payment`, the existing order trigger writes `reward_ledger`. The key is unique, so a webhook replay does not pay twice. Rows stay `pending` until the day after the event. Cancel and a full Stripe refund insert a reversal row. A partial refund leaves the reward.
 - A checkout with no code does not write a reward and does not change the amount.
 - New rewards are not added to `user_credits` and are not deducted at payment.
 - Users can read their own ledger rows. They can no longer insert, update, or truncate `credit_transactions`, `user_credits`, or `referral_rewards`. `grant-signup-bonus` keeps working only if it writes with the service role.
