@@ -2,10 +2,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name, x-guest-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -40,6 +41,8 @@ interface CreatePawaPayPaymentRequest {
   description: string;
   fbp?: string;
   fbc?: string;
+  /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
+  attribution_code?: string | null;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -288,6 +291,15 @@ Deno.serve(async (req) => {
       // If order_id is not provided and create_order is false, warn but continue
       console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");
     }
+
+    // Candidate code only. Does not change the charged amount.
+    // A caller-supplied order is updated only for its buyer or guest token.
+    const createdHere = Boolean(createOrder && !payload.order_id && finalOrderId);
+    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code, {
+      createdInThisRequest: createdHere,
+      jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
+      guestToken: createdHere ? null : readGuestToken(req),
+    });
 
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();

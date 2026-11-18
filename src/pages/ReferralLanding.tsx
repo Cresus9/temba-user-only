@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Gift, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { referralService } from '../services/referralService';
-import { clearPendingReferralCode, normalizeReferralCode, setPendingReferralCode } from '../utils/referralStorage';
+import { normalizeReferralCode, setPendingReferralCode } from '../utils/referralStorage';
 import PageSEO from '../components/SEO/PageSEO';
 import toast from 'react-hot-toast';
 
@@ -34,11 +34,9 @@ export default function ReferralLanding() {
       const result = await referralService.trackReferral(code);
       if (cancelled) return;
       if (result.ok) {
-        clearPendingReferralCode();
-        toast.success('Invitation enregistrée sur votre compte.');
-      } else if (result.message && !result.message.includes('no session')) {
+        toast.success('Invitation enregistrée. Elle reste active pour votre prochain achat.');
+      } else if (result.message && !result.message.includes('no session') && !result.message.toLowerCase().includes('disabled')) {
         toast(result.message, { icon: 'ℹ️' });
-        clearPendingReferralCode();
       }
       setTracking(false);
     })();
@@ -113,14 +111,14 @@ export default function ReferralLanding() {
         {!isAuthenticated && !loading && (
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              to={`/signup?ref=${encodeURIComponent(code)}`}
+              to={`/signup?r=${encodeURIComponent(code)}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-white font-medium hover:bg-indigo-700"
             >
               Créer un compte
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              to={`/login?ref=${encodeURIComponent(code)}`}
+              to={`/login?r=${encodeURIComponent(code)}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 text-gray-800 font-medium hover:bg-gray-50"
             >
               J&apos;ai déjà un compte

@@ -19,7 +19,8 @@ export const REFERRAL_WEB_ORIGIN =
   'https://tembas.com';
 
 /**
- * Builds share URLs aligned with mobile: deep_link_value = ref/{CODE}
+ * Web share link is https://tembas.com/?r=CODE. /ref/CODE still captures the same code.
+ * OneLink keeps deep_link_value=ref/CODE for the app.
  */
 export function buildReferralShareLinks(referralCode: string): BuiltReferralShareLinks {
   const trimmed = referralCode.trim();
@@ -28,6 +29,6 @@ export function buildReferralShareLinks(referralCode: string): BuiltReferralShar
   return {
     oneLink: `${REFERRAL_ONELINK_BASE}?${q}`,
     app: `${REFERRAL_APP_SCHEME}://ref/${trimmed}`,
-    web: `${REFERRAL_WEB_ORIGIN}/ref/${encodeURIComponent(trimmed)}`,
+    web: `${REFERRAL_WEB_ORIGIN}/?r=${encodeURIComponent(trimmed)}`,
   };
 }

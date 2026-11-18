@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
+import { getPendingReferralCode } from '../utils/referralStorage';
 
 export interface CreatePawaPayPaymentRequest {
   idempotency_key: string;
@@ -25,6 +26,8 @@ export interface CreatePawaPayPaymentRequest {
   return_url?: string;
   cancel_url?: string;
   description: string;
+  /** Guest retrieval token. Sent as a header, not in the logged body. */
+  guest_token?: string;
 }
 
 // New structured response types from backend
@@ -82,23 +85,29 @@ export interface PawaPayPaymentResponse {
 class PawaPayService {
   async createPayment(request: CreatePawaPayPaymentRequest): Promise<PawaPayPaymentResponse> {
     try {
-      console.log('Creating pawaPay payment with request:', request);
-      
-      // Ensure the request is properly serialized
-      const requestBody = JSON.stringify({ ...request, ...metaBrowserMatch() });
+      const attributionCode = getPendingReferralCode();
+      const { guest_token: guestToken, ...paymentRequest } = request;
+      console.log('Creating pawaPay payment with request:', paymentRequest);
+      const requestBody = JSON.stringify({
+        ...paymentRequest,
+        ...metaBrowserMatch(),
+        ...(attributionCode ? { attribution_code: attributionCode } : {}),
+      });
       console.log('Serialized request body:', requestBody);
       
       // Use Supabase Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(`${supabaseUrl}/functions/v1/create-pawapay-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Authorization': `Bearer ${session?.access_token || supabaseAnonKey}`,
           'apikey': supabaseAnonKey,
-          'x-application-name': 'Temba'
+          'x-application-name': 'Temba',
+          ...(guestToken ? { 'x-guest-token': guestToken } : {}),
         },
         body: requestBody
       });

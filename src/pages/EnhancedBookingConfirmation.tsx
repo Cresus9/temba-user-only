@@ -17,7 +17,6 @@ import toast from 'react-hot-toast';
 import { generateTicketPNG, ticketQrPayload } from '../utils/ticketService';
 import { paymentService } from '../services/paymentService';
 import PageSEO from '../components/SEO/PageSEO';
-import { referralService } from '../services/referralService';
 import {
   getGuestTokenForOrder,
   getGuestTicketsByToken,
@@ -247,40 +246,6 @@ export default function EnhancedBookingConfirmation() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, authLoading, user]);
-
-  // first_purchase referral completion (parity with mobile); fires once per order. Checkout credit logic unchanged.
-  useEffect(() => {
-    if (!bookingId || !user?.id || tickets.length === 0) return;
-    const flagKey = `referral_complete_${bookingId}`;
-    if (sessionStorage.getItem(flagKey)) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: orderRow } = await supabase
-          .from('orders')
-          .select('user_id, total_amount')
-          .eq('id', bookingId)
-          .single();
-        if (cancelled || !orderRow || orderRow.user_id !== user.id) return;
-        const amount = Number(orderRow.total_amount ?? 0);
-        const ok = await referralService.completeReferral({
-          userId: user.id,
-          orderId: bookingId,
-          orderAmount: amount,
-        });
-        if (ok) {
-          sessionStorage.setItem(flagKey, '1');
-        }
-      } catch (e) {
-        console.warn('[referral] post-order completion skipped', e);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [bookingId, user?.id, tickets.length]);
 
   const verifyPaymentAndFetchTickets = async (token: string) => {
     try {
