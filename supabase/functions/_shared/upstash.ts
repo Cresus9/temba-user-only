@@ -12,6 +12,8 @@
  *   FINALIZE_ORDER_SECRET     arbitrary shared secret (openssl rand -hex 32)
  */
 
+import { authorizeFinalize, probeProjectServiceRole } from "./finalizeAuth.ts";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Config helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,15 +194,6 @@ export function verifyFinalizeSecret(req: Request): boolean {
   return req.headers.get("X-Finalize-Secret") === secret;
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const left = new TextEncoder().encode(a);
-  const right = new TextEncoder().encode(b);
-  if (left.length !== right.length) return false;
-  let diff = 0;
-  for (let i = 0; i < left.length; i++) diff |= left[i] ^ right[i];
-  return diff === 0;
-}
-
 function bearerToken(req: Request): string {
   const header = req.headers.get("Authorization") || "";
   const match = header.match(/^Bearer\s+(\S+)/i);
@@ -208,19 +201,21 @@ function bearerToken(req: Request): string {
 }
 
 /**
- * X-Finalize-Secret still works. pg_cron / the Supabase scheduler send
- * Authorization: Bearer <service role> and no finalize secret, which was a 401.
- * The service-role key is compared to SUPABASE_SERVICE_ROLE_KEY and never logged.
+ * X-Finalize-Secret still works. A bearer is accepted when it equals
+ * SUPABASE_SERVICE_ROLE_KEY, or when it is a service_role JWT for this project
+ * (the legacy cron token). Anon and user tokens are rejected.
  */
-export function verifyFinalizeAuth(req: Request): boolean {
-  const secret = Deno.env.get("FINALIZE_ORDER_SECRET");
-  if (!secret) return true;
-  const presented = req.headers.get("X-Finalize-Secret") || "";
-  if (presented && timingSafeEqual(presented, secret)) return true;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const bearer = bearerToken(req);
-  if (serviceKey && bearer && timingSafeEqual(bearer, serviceKey)) return true;
-  return false;
+export async function verifyFinalizeAuth(req: Request): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  return authorizeFinalize({
+    finalizeSecret: Deno.env.get("FINALIZE_ORDER_SECRET") || "",
+    presentedSecret: req.headers.get("X-Finalize-Secret") || "",
+    serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    bearer: bearerToken(req),
+    supabaseUrl,
+    jwtSecret: Deno.env.get("SUPABASE_JWT_SECRET") || Deno.env.get("JWT_SECRET") || "",
+    probe: (token) => probeProjectServiceRole(supabaseUrl, token),
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
