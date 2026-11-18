@@ -94,3 +94,64 @@ export async function ticketLinesForOrder(supabase: any, order: any): Promise<Ti
   }
   return res.lines;
 }
+
+/**
+ * admin_finalize_payment creates tickets from ticket_quantities and leaves
+ * event_date_id null. Fill those nulls from the checked lines. Existing dates
+ * are left alone, and a line that does not match the billed quantities is ignored.
+ */
+export async function stampTicketVisitDates(supabase: any, orderId: string): Promise<number> {
+  const { data: order, error: orderErr } = await supabase
+    .from("orders")
+    .select("id, event_id, event_date_id, line_allocations, ticket_quantities")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (orderErr || !order) return 0;
+
+  const wanted = new Map<string, { ticket_type_id: string; event_date_id: string; left: number }>();
+  for (const line of await ticketLinesForOrder(supabase, order)) {
+    if (!line.event_date_id || line.quantity <= 0) continue;
+    const key = `${line.ticket_type_id}|${line.event_date_id}`;
+    const row = wanted.get(key) || {
+      ticket_type_id: line.ticket_type_id,
+      event_date_id: line.event_date_id,
+      left: 0,
+    };
+    row.left += line.quantity;
+    wanted.set(key, row);
+  }
+  if (!wanted.size) return 0;
+
+  const { data: tickets, error: ticketErr } = await supabase
+    .from("tickets")
+    .select("id, ticket_type_id, event_date_id")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (ticketErr || !tickets?.length) return 0;
+
+  for (const ticket of tickets) {
+    if (!ticket.event_date_id) continue;
+    const row = wanted.get(`${ticket.ticket_type_id}|${ticket.event_date_id}`);
+    if (row) row.left = Math.max(0, row.left - 1);
+  }
+
+  let stamped = 0;
+  for (const ticket of tickets) {
+    if (ticket.event_date_id) continue;
+    for (const row of wanted.values()) {
+      if (row.ticket_type_id !== ticket.ticket_type_id || row.left <= 0) continue;
+      const { error } = await supabase
+        .from("tickets")
+        .update({ event_date_id: row.event_date_id })
+        .eq("id", ticket.id)
+        .is("event_date_id", null);
+      if (!error) {
+        row.left -= 1;
+        stamped += 1;
+      }
+      break;
+    }
+  }
+  if (stamped) console.log(`[ticketLines] stamped visit date on ${stamped} ticket(s) for order ${orderId}`);
+  return stamped;
+}

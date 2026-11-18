@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
+import { stampTicketVisitDates } from "./ticketLines.ts";
 
 export type PawaPaySyncResult =
   | {
@@ -92,7 +93,7 @@ export async function applyPawaPayProviderStatus(
   if (providerStatus === "COMPLETED") {
     newStatus = "completed";
     state = "succeeded";
-  } else if (providerStatus === "FAILED") {
+  } else if (providerStatus === "FAILED" || providerStatus === "REJECTED") {
     newStatus = "failed";
     state = "failed";
   } else {
@@ -112,7 +113,7 @@ export async function applyPawaPayProviderStatus(
 
   let updateError: { message: string } | null = null;
   if (!isNoopPending) {
-    const updateResult = await supabase
+    let paymentQuery = supabase
       .from("payments")
       .update({
         status: newStatus,
@@ -122,7 +123,21 @@ export async function applyPawaPayProviderStatus(
         updated_at: new Date().toISOString(),
       })
       .eq("id", paymentId);
+    if (newStatus === "failed") {
+      paymentQuery = paymentQuery.not("status", "in", "(completed,COMPLETED,paid,PAID)");
+    }
+    const updateResult = await paymentQuery.select("id");
     updateError = updateResult.error;
+    if (!updateError && newStatus === "failed" && !updateResult.data?.length) {
+      console.log("[pawapayPaymentSync] refused to downgrade a completed payment", paymentId);
+      return {
+        ok: true,
+        state: "succeeded",
+        payment_id: paymentId,
+        order_id: orderId,
+        message: "Payment already completed",
+      };
+    }
   }
 
   if (updateError) {
@@ -137,14 +152,19 @@ export async function applyPawaPayProviderStatus(
   }
 
   if (orderId && newStatus === "failed") {
-    const { error: orderFailError } = await supabase
+    const { data: cancelled, error: orderFailError } = await supabase
       .from("orders")
       .update({
         status: "CANCELLED",
         visible_in_history: false,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .not("status", "in", "(COMPLETED,paid,PAID)")
+      .select("id");
+    if (!orderFailError && !cancelled?.length) {
+      console.log("[pawapayPaymentSync] kept completed order", orderId);
+    }
 
     if (orderFailError) {
       console.error("applyPawaPayProviderStatus: order cancel failed", orderFailError);
@@ -171,6 +191,12 @@ export async function applyPawaPayProviderStatus(
         order_id: orderId,
         message: "Payment confirmed. Tickets are being prepared and will appear shortly.",
       };
+    }
+
+    try {
+      await stampTicketVisitDates(supabase, orderId);
+    } catch (stampErr) {
+      console.error("[pawapayPaymentSync] visit date stamp:", stampErr);
     }
 
     return {
