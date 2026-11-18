@@ -442,7 +442,7 @@ class ReferralService {
    * which does not exist, and the call was the only reward path. Rewards are now
    * written on the server when the order is paid. This method does not call the network.
    */
-  async completeReferral(_input: CompleteReferralInput): Promise<boolean> {
+  async completeReferral(): Promise<boolean> {
     return false;
   }
 

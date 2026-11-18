@@ -250,7 +250,8 @@ export default function GuestCheckoutForm({
         preAuthorisationCode: formData.preAuthorisationCode || undefined, // OTP for second attempt (if provided)
         return_url: `${window.location.origin}/payment/success?order=${orderResult.orderId}`,
         cancel_url: `${window.location.origin}/payment/cancelled?order=${orderResult.orderId}`,
-        description: `Billets d'événement (Invité) - ${eventId}`
+        description: `Billets d'événement (Invité) - ${eventId}`,
+        ...(orderResult.token ? { guest_token: orderResult.token } : {}),
       });
 
       // ✅ BEST CASE: Payment URL redirect available (no OTP needed!)

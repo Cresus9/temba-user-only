@@ -4,7 +4,7 @@ import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
-import { attachAttributionCode } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -304,9 +304,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Candidate code only. Resolution and rewards happen in the database.
+    // Candidate code only. A pre-existing order is updated only for its buyer.
     // A failure here does not change the amount or stop the payment.
-    await attachAttributionCode(supabase, finalOrderId, body.attribution_code);
+    const createdHere = Boolean(create_order && !order_id && finalOrderId);
+    await attachAttributionCode(supabase, finalOrderId, body.attribution_code, {
+      createdInThisRequest: createdHere,
+      jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
+      guestToken: createdHere ? null : readGuestToken(req),
+    });
 
     // Check idempotency
     if (idempotencyKey) {

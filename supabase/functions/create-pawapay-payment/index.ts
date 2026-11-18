@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
-import { attachAttributionCode } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -292,8 +292,14 @@ Deno.serve(async (req) => {
       console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");
     }
 
-    // Candidate code only. Does not change the charged amount. No-op when absent.
-    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code);
+    // Candidate code only. Does not change the charged amount.
+    // A caller-supplied order is updated only for its buyer or guest token.
+    const createdHere = Boolean(createOrder && !payload.order_id && finalOrderId);
+    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code, {
+      createdInThisRequest: createdHere,
+      jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
+      guestToken: createdHere ? null : readGuestToken(req),
+    });
 
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();

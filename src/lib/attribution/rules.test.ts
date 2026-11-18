@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTRIBUTION_WINDOW_MS,
+  attributionAttachDecision,
   commissionRate,
   decideAttribution,
   holdAvailableAt,
@@ -169,6 +170,66 @@ describe('hold and reversal', () => {
     expect(planReversal([{ key, status: 'pending' }])).toEqual([`reversal:${key}`]);
     expect(planReversal([{ key, status: 'reversed' }])).toEqual([]);
     expect(planReversal([{ key: `reversal:${key}`, status: 'reversed' }])).toEqual([]);
+  });
+});
+
+describe('attributionAttachDecision', () => {
+  it('allows the order this request just created and refuses to overwrite a code', () => {
+    expect(attributionAttachDecision({
+      createdInThisRequest: true,
+      existingCode: null,
+      orderUserId: null,
+      jwtUserId: null,
+      guestTokenMatches: false,
+    })).toBe('allow');
+    expect(attributionAttachDecision({
+      createdInThisRequest: true,
+      existingCode: 'SIGUI1',
+      orderUserId: buyer,
+      jwtUserId: buyer,
+      guestTokenMatches: false,
+    })).toBe('skip');
+  });
+
+  it('refuses a caller who does not own the unpaid order', () => {
+    expect(attributionAttachDecision({
+      createdInThisRequest: false,
+      existingCode: null,
+      orderUserId: buyer,
+      jwtUserId: referrer,
+      guestTokenMatches: false,
+    })).toBe('skip');
+    expect(attributionAttachDecision({
+      createdInThisRequest: false,
+      existingCode: null,
+      orderUserId: buyer,
+      jwtUserId: null,
+      guestTokenMatches: true,
+    })).toBe('skip');
+    expect(attributionAttachDecision({
+      createdInThisRequest: false,
+      existingCode: null,
+      orderUserId: null,
+      jwtUserId: null,
+      guestTokenMatches: false,
+    })).toBe('skip');
+  });
+
+  it('allows the buyer session or the matching guest token', () => {
+    expect(attributionAttachDecision({
+      createdInThisRequest: false,
+      existingCode: null,
+      orderUserId: buyer,
+      jwtUserId: buyer,
+      guestTokenMatches: false,
+    })).toBe('allow');
+    expect(attributionAttachDecision({
+      createdInThisRequest: false,
+      existingCode: null,
+      orderUserId: null,
+      jwtUserId: null,
+      guestTokenMatches: true,
+    })).toBe('allow');
   });
 });
 

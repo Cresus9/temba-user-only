@@ -194,6 +194,26 @@ export function planRewards(input: RewardPlanInput): PlannedReward[] {
   ];
 }
 
+/**
+ * Whether an unauthenticated payment function may write the code.
+ * An order created in this request is ours. Any other unpaid order needs
+ * the buyer session or the guest token, and an existing code is left as it is.
+ */
+export function attributionAttachDecision(input: {
+  createdInThisRequest: boolean;
+  existingCode: string | null;
+  orderUserId: string | null;
+  jwtUserId: string | null;
+  guestTokenMatches: boolean;
+}): "allow" | "skip" {
+  if (input.existingCode) return "skip";
+  if (input.createdInThisRequest) return "allow";
+  if (input.orderUserId) {
+    return input.jwtUserId && input.jwtUserId === input.orderUserId ? "allow" : "skip";
+  }
+  return input.guestTokenMatches ? "allow" : "skip";
+}
+
 export function planReversal(entries: Array<{ key: string; status: string }>): string[] {
   return entries
     .filter((entry) => !entry.key.startsWith("reversal:") && (entry.status === "pending" || entry.status === "available"))
