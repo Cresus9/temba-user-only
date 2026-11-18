@@ -162,7 +162,8 @@ export async function qstashPublish(
     }
 
     const res = await fetch(
-      `https://qstash.upstash.io/v2/publish/${encodeURIComponent(destinationUrl)}`,
+      // QStash expects the raw destination URL in the path (/v2/publish/https://...)
+      `https://qstash.upstash.io/v2/publish/${destinationUrl}`,
       { method: "POST", headers, body: JSON.stringify(body) }
     );
 

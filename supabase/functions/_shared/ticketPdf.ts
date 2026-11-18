@@ -1,6 +1,6 @@
 /**
  * A6 portrait ticket PDF, one page per ticket.
- * Fonts are subset at embed time. QR modules encode tickets.id.
+ * Fonts are subset at embed time. QR modules encode the same signed payload as the web scanner.
  */
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
@@ -82,6 +82,9 @@ export interface PdfTicket {
   price: number;
   index: number;
   total: number;
+  /** Multi-date orders: this ticket's own date / time (else the order's). */
+  dateLabel?: string;
+  timeLabel?: string;
 }
 
 export interface PdfTicketInput {
@@ -125,6 +128,30 @@ function wrap(text: string, font: PDFFont, size: number, max: number) {
   }
   if (line) lines.push(line);
   return lines.slice(0, 3);
+}
+
+function ticketSecret(): string {
+  // Must match the web build and scanner (tembas.com uses the code default; Supabase TICKET_SECRET_KEY differs).
+  return Deno.env.get("VITE_TICKET_SECRET_KEY") || "default-secret-key";
+}
+
+function createSignature(data: string, secret: string): string {
+  let hash = 0;
+  const combined = data + secret;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+}
+
+/** Same string as web `generateQRData`: base64 JSON `{ data: { id, timestamp, version }, sig }`. */
+export function ticketQrPayload(ticketId: string): string {
+  const payload = { id: ticketId, timestamp: Date.now(), version: "1.0" };
+  const jsonData = JSON.stringify(payload);
+  const result = { data: payload, sig: createSignature(jsonData, ticketSecret()) };
+  return btoa(JSON.stringify(result));
 }
 
 export async function qrPng(value: string): Promise<Uint8Array> {
@@ -219,9 +246,9 @@ export async function buildTicketPdf(input: PdfTicketInput, assets: PdfAssets): 
       page.drawText(line, { x: left + 5 * MM, y: cardTop - 24 * MM - i * 14, size: 12, font: tight, color: white });
     });
     page.drawText("DATE", { x: left + 5 * MM, y: cardTop - 34 * MM, size: 6, font: semi, color: rgb(0.85, 0.855, 0.984) });
-    page.drawText(input.dateLabel, { x: left + 5 * MM, y: cardTop - 37.5 * MM, size: 9, font: semi, color: white });
+    page.drawText(ticket.dateLabel || input.dateLabel, { x: left + 5 * MM, y: cardTop - 37.5 * MM, size: 9, font: semi, color: white });
     page.drawText("HEURE", { x: left + 48 * MM, y: cardTop - 34 * MM, size: 6, font: semi, color: rgb(0.85, 0.855, 0.984) });
-    page.drawText(input.timeLabel || "—", { x: left + 48 * MM, y: cardTop - 37.5 * MM, size: 9, font: semi, color: white });
+    page.drawText((ticket.dateLabel ? ticket.timeLabel : input.timeLabel) || "—", { x: left + 48 * MM, y: cardTop - 37.5 * MM, size: 9, font: semi, color: white });
     if (vip) page.drawRectangle({ x: left, y: cardTop - headH - 0.9 * MM, width: cardW, height: 0.9 * MM, color: gold });
 
     let cursor = cardTop - headH - 8 * MM;
@@ -252,7 +279,7 @@ export async function buildTicketPdf(input: PdfTicketInput, assets: PdfAssets): 
     const qrSize = 37 * MM;
     const qrX = left + (cardW - qrSize) / 2;
     const qrY = 18 * MM;
-    drawQr(page, ticket.id, qrX, qrY, qrSize);
+    drawQr(page, ticketQrPayload(ticket.id), qrX, qrY, qrSize);
     const num = ticket.id.replace(/-/g, "").slice(0, 8).toUpperCase();
     const caption = `Billet ${num}`;
     page.drawText(caption, {

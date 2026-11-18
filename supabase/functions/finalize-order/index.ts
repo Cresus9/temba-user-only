@@ -48,6 +48,18 @@ Deno.serve(async (req) => {
       return json({ error: "payment_id is required" }, 400);
     }
 
+    // Email-only mode (backup payment paths): send the ticket email if not sent yet.
+    // No RPC, no WhatsApp, no Meta. sendTicketEmailForPayment is idempotent and
+    // returns early unless the order is COMPLETED with tickets.
+    if ((body as any)?.email_only === true) {
+      try {
+        await sendTicketEmailForPayment(supabase, payment_id);
+      } catch (emailErr) {
+        console.error("[finalize-order] ticket email (email_only):", emailErr);
+      }
+      return json({ ok: true, note: "email only" });
+    }
+
     console.log("[finalize-order] processing:", payment_id, "provider:", provider);
 
     // ── Idempotency guard: check order status before calling RPC ─────────

@@ -169,10 +169,25 @@ export function recoveryCodeEmailHtml(code: string) {
   });
 }
 
-export const TICKET_EMAIL_LOGO = "https://tembas.com/email/temba-logo-white-noR.png";
-const TICKET_DOME = "https://tembas.com/email/tk-dome-170x300.png";
-const TICKET_DOME_MOBILE = "https://tembas.com/email/tk-dome-536x190.png";
-const TICKET_SYMBOL = "https://tembas.com/email/symbol-purple.png";
+// Public https PNGs (Supabase Storage, bucket event-images). Gmail blocks SVG and data: URIs,
+// and tembas.com/email/* is not deployed (returns the SPA HTML), so the email hosts its own copies.
+const EMAIL_ASSETS = "https://wlyncuwbzhzjafmqozcm.supabase.co/storage/v1/object/public/event-images/email-assets/v1";
+export const TICKET_EMAIL_LOGO = `${EMAIL_ASSETS}/temba-logo-white-noR.png`;
+const TICKET_DOME = `${EMAIL_ASSETS}/tk-dome-170x300.png`;
+const TICKET_DOME_MOBILE = `${EMAIL_ASSETS}/tk-dome-536x190.png`;
+// Phosphor icons (MIT) and Simple Icons (CC0), rendered to PNG.
+const IC_TICKET = `${EMAIL_ASSETS}/ic-ticket-white.png`;
+const IC_MAP_PIN = `${EMAIL_ASSETS}/ic-map-pin-brand.png`;
+const IC_ID_CARD = `${EMAIL_ASSETS}/ic-id-card-mute.png`;
+const IC_CLOCK = `${EMAIL_ASSETS}/ic-clock-brand.png`;
+const IC_SUN = `${EMAIL_ASSETS}/ic-sun-brand.png`;
+const IC_USERS = `${EMAIL_ASSETS}/ic-users-brand.png`;
+const IC_ENVELOPE = `${EMAIL_ASSETS}/ic-envelope-brand.png`;
+const SI_APPLE = `${EMAIL_ASSETS}/si-apple-ink.png`;
+const SI_GOOGLE_PLAY = `${EMAIL_ASSETS}/si-googleplay-ink.png`;
+const SI_WHATSAPP = `${EMAIL_ASSETS}/si-whatsapp-green.png`;
+const icon = (src: string, size: number, mr = 6, valign = -3) =>
+  `<img src="${src}" width="${size}" height="${size}" alt="" style="display:inline-block;width:${size}px;height:${size}px;border:0;vertical-align:${valign}px;margin-right:${mr}px;">`;
 
 export interface TicketEmailTicket {
   id: string;
@@ -181,11 +196,16 @@ export interface TicketEmailTicket {
   qrSrc: string;
   qrAlt: string;
   number: string;
+  /** Multi-date orders: this ticket's own date / time (else the order's). */
+  dateLabel?: string;
+  timeLabel?: string;
 }
 
 export interface TicketEmailLine {
   label: string;
   amount: number;
+  /** Multi-date orders: date heading the line is grouped under. */
+  group?: string;
 }
 
 export interface TicketEmailInput {
@@ -244,8 +264,8 @@ function ticketBlock(input: TicketEmailInput, ticket: TicketEmailTicket, index: 
           <tr><td colspan="2" style="padding:0 0 12px;font:700 18px/1.12 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.eventTitle)}</td></tr>
           <tr><td colspan="2">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-              <td style="padding:0 12px 0 0;"><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Date</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.dateLabel)}</span></td>
-              <td><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Heure</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(input.timeLabel)}</span></td>
+              <td style="padding:0 12px 0 0;"><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Date</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml(ticket.dateLabel || input.dateLabel)}</span></td>
+              <td><span style="display:block;font:600 10px/1.1 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#D9DAFB;">Heure</span><span style="display:block;margin-top:4px;font:600 13px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${escapeHtml((ticket.dateLabel ? ticket.timeLabel : input.timeLabel) || "—")}</span></td>
             </tr></table>
           </td></tr>
         </table>
@@ -258,8 +278,7 @@ function ticketBlock(input: TicketEmailInput, ticket: TicketEmailTicket, index: 
           ${field("Billet · Commande", `${index + 1}/${input.tickets.length} · ${escapeHtml(input.orderRef)}`, true)}
           <tr><td style="border-top:1px solid #E6E7EE;padding:10px 0 0;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-              <td style="font:500 11.5px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#5E6178;">Billet nominatif · 1 QR = 1 entrée</td>
-              <td align="right" width="16"><img src="${TICKET_SYMBOL}" width="14" height="14" alt="" style="display:block;width:14px;height:14px;border:0;"></td>
+              <td style="font:500 11.5px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#5E6178;">${icon(IC_ID_CARD, 14, 6, -3)}Billet nominatif · 1 QR = 1 entrée</td>
             </tr></table>
           </td></tr>
         </table>
@@ -287,7 +306,11 @@ export function ticketEmailHtml(input: TicketEmailInput): string {
   const poster = input.posterUrl
     ? `<img src="${escapeHtml(input.posterUrl)}" width="120" height="150" alt="Affiche de ${escapeHtml(input.eventTitle)}" class="poster" style="display:block;width:120px;height:150px;border-radius:10px;border:0;background:#F5F6FB;">`
     : "";
+  let lastGroup: string | undefined;
   const lines = input.lines.map((line) =>
+    (line.group && line.group !== lastGroup && (lastGroup = line.group)
+      ? `<tr><td colspan="2" class="ink" style="padding:12px 0 2px;font:700 12px/1.3 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#3D3FE2;">${escapeHtml(line.group)}</td></tr>`
+      : "") +
     `<tr><td class="ink" style="padding:8px 0;font:500 14px/1.4 'Inter',Helvetica,Arial,sans-serif;color:#03061E;">${escapeHtml(line.label)}</td><td class="ink" align="right" style="padding:8px 0;font:600 14px/1.4 'Inter',Helvetica,Arial,sans-serif;color:#03061E;white-space:nowrap;">${fcfa(line.amount)}</td></tr>`,
   ).join("");
   const payRows = input.hidePayment ? "" : `
@@ -348,14 +371,14 @@ table{border-collapse:collapse;}
       <p style="margin:2px 0 0;font:700 13.5px/1.4 'Inter',Helvetica,Arial,sans-serif;color:#3D3FE2;">${escapeHtml(input.whenLong)}</p>
       <p class="ink" style="margin:6px 0 0;font:800 21px/1.2 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#03061E;">${escapeHtml(input.eventTitle)}</p>
       <p style="margin:6px 0 0;font:500 13px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#6B6F86;">${escapeHtml(input.timezoneLabel)}</p>
-      <p class="ink" style="margin:12px 0 0;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">${escapeHtml(input.venueLine)}<br><a href="${escapeHtml(input.mapsUrl)}" style="color:#3D3FE2;font-weight:600;text-decoration:none;">Itinéraire →</a></p>
+      <p class="ink" style="margin:12px 0 0;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">${escapeHtml(input.venueLine)}<br><a href="${escapeHtml(input.mapsUrl)}" style="color:#3D3FE2;font-weight:600;text-decoration:none;">${icon(IC_MAP_PIN, 15, 4, -2)}Itinéraire →</a></p>
     </td>
   </tr></table>
 </td></tr>
 <tr><td class="px" style="padding:18px 32px 6px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td align="center" bgcolor="#3D3FE2" style="background:#3D3FE2;border-radius:10px;">
-      <a href="${escapeHtml(input.ticketsUrl)}" style="display:block;padding:14px 18px;font:700 15px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;">Voir mes billets sur tembas.com</a>
+      <a href="${escapeHtml(input.ticketsUrl)}" style="display:block;padding:14px 18px;font:700 15px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;">${icon(IC_TICKET, 18, 8, -4)}Voir mes billets sur tembas.com</a>
     </td>
   </tr></table>
   ${input.guestHint ? `<p style="margin:10px 0 0;font:500 12.5px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#6B6F86;text-align:center;">Sans compte ? Entrez le numéro ou l’e-mail de la commande sur tembas.com/find-tickets.</p>` : ""}
@@ -369,9 +392,9 @@ ${input.tickets.map((ticket, index) => ticketBlock(input, ticket, index)).join("
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F5F6FB" style="background:#F5F6FB;border-radius:12px;">
     <tr><td style="padding:18px 20px 8px;">
       <p class="ink" style="margin:0 0 12px;font:700 15px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#03061E;">Le jour J</p>
-      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">1. Arrivez 30 minutes avant le début.</p>
-      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">2. Montez la luminosité de l’écran au moment du scan.</p>
-      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">3. Vous venez à plusieurs ? Chaque personne présente son propre QR.</p>
+      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">${icon(IC_CLOCK, 18, 8, -4)}Arrivez 30 minutes avant le début.</p>
+      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">${icon(IC_SUN, 18, 8, -4)}Montez la luminosité de l’écran au moment du scan.</p>
+      <p class="ink" style="margin:0 0 10px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">${icon(IC_USERS, 18, 8, -4)}Vous venez à plusieurs ? Chaque personne présente son propre QR.</p>
     </td></tr>
   </table>
 </td></tr>
@@ -393,14 +416,14 @@ ${input.tickets.map((ticket, index) => ticketBlock(input, ticket, index)).join("
       <p style="margin:0;font:700 11px/1.3 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#F6B84A;">L’appli Temba</p>
       <p style="margin:8px 0 0;font:800 19px/1.25 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">Vos billets dans la poche</p>
       <p style="margin:8px 0 16px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#C9CBDA;">Connectez-vous avec le numéro ou l’e-mail de cette commande pour retrouver vos billets dans l’appli, sur Android et iPhone.</p>
-      <a href="https://apps.apple.com/us/app/temba/id6748848506" style="display:inline-block;margin:0 8px 8px 0;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#03061E;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">App Store</a>
-      <a href="https://play.google.com/store/apps/details?id=app.rork.temba" style="display:inline-block;margin:0 0 8px;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#03061E;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">Google Play</a>
+      <a href="https://apps.apple.com/us/app/temba/id6748848506" style="display:inline-block;margin:0 8px 8px 0;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#03061E;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">${icon(SI_APPLE, 18, 8, -3)}App Store</a>
+      <a href="https://play.google.com/store/apps/details?id=app.rork.temba" style="display:inline-block;margin:0 0 8px;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#03061E;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">${icon(SI_GOOGLE_PLAY, 18, 8, -3)}Google Play</a>
     </td></tr>
   </table>
 </td></tr>
 <tr><td class="px" style="padding:20px 32px 28px;">
   <p class="ink" style="margin:0;font:700 15px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#03061E;">Une question sur votre commande ?</p>
-  <p style="margin:6px 0 0;font:500 14px/1.55 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">Écrivez-nous sur WhatsApp au <a href="https://wa.me/22674750815" style="color:#3D3FE2;font-weight:700;text-decoration:none;">+226 74 75 08 15</a>, 7j/7, ou à <a href="mailto:support@tembas.com" style="color:#3D3FE2;font-weight:700;text-decoration:none;">support@tembas.com</a>. Donnez le numéro de commande <span style="font-family:Menlo,Consolas,monospace;font-weight:600;">${escapeHtml(input.orderRef)}</span>.</p>
+  <p style="margin:6px 0 0;font:500 14px/1.55 'Inter',Helvetica,Arial,sans-serif;color:#3A3D55;">Écrivez-nous sur WhatsApp au <a href="https://wa.me/22674750815" style="color:#3D3FE2;font-weight:700;text-decoration:none;white-space:nowrap;">${icon(SI_WHATSAPP, 16, 4, -3)}+226 74 75 08 15</a>, 7j/7, ou à <a href="mailto:support@tembas.com" style="color:#3D3FE2;font-weight:700;text-decoration:none;white-space:nowrap;">${icon(IC_ENVELOPE, 16, 4, -3)}support@tembas.com</a>. Donnez le numéro de commande <span style="font-family:Menlo,Consolas,monospace;font-weight:600;">${escapeHtml(input.orderRef)}</span>.</p>
 </td></tr>
 </table>
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="wrap" style="width:600px;max-width:600px;">

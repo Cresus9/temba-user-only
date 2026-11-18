@@ -12,6 +12,33 @@ import {
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { ticketLinesForOrder } from "../_shared/ticketLines.ts";
+
+// Fire-and-forget: ask finalize-order to send the ticket email for this payment.
+// finalize-order (email_only) only sends the email; it is idempotent via
+// payments.metadata.ticket_email_sent_at. Never throws, never blocks the response.
+function triggerTicketEmail(paymentId: string): void {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL");
+    if (!baseUrl || !paymentId) return;
+    const pending = fetch(`${baseUrl}/functions/v1/finalize-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Finalize-Secret": Deno.env.get("FINALIZE_ORDER_SECRET") ?? "",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+      },
+      body: JSON.stringify({ payment_id: paymentId, email_only: true }),
+    })
+      .then((r) => {
+        if (!r.ok) console.warn("[ticket-email] finalize-order HTTP", r.status);
+      })
+      .catch((err) => console.warn("[ticket-email] trigger failed:", err));
+    (globalThis as any).EdgeRuntime?.waitUntil?.(pending);
+  } catch (err) {
+    console.warn("[ticket-email] trigger error:", err);
+  }
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -119,6 +146,7 @@ Deno.serve(async (req) => {
         console.log("ℹ️ Payment already finalized:", payment.id, payment.status);
         if (payment.status === "completed" || payment.status === "succeeded") {
           await sendMetaPurchase(supabase, payment.id);
+          triggerTicketEmail(payment.id);
         }
         if (webhookLog?.id) {
           await supabase
@@ -210,15 +238,17 @@ Deno.serve(async (req) => {
             // Create tickets for the order (same logic as PayDunya)
             if (order.ticket_quantities) {
               const ticketInserts = [];
-              
-              for (const [ticketTypeId, quantity] of Object.entries(order.ticket_quantities)) {
-                for (let i = 0; i < Number(quantity); i++) {
+              // One entry per (ticket type, date); single-date orders: ticket_quantities + order date as before.
+              const ticketLines = await ticketLinesForOrder(supabase, order);
+
+              for (const line of ticketLines) {
+                for (let i = 0; i < line.quantity; i++) {
                   ticketInserts.push({
                     order_id: order.id,
                     event_id: order.event_id,
                     user_id: order.user_id,
-                    ticket_type_id: ticketTypeId,
-                    event_date_id: order.event_date_id || null,
+                    ticket_type_id: line.ticket_type_id,
+                    event_date_id: line.event_date_id || null,
                     status: "VALID",
                     payment_status: "paid",
                     payment_id: payment.id,
@@ -264,6 +294,7 @@ Deno.serve(async (req) => {
       } // end sync fallback
 
       if (!queued) await sendMetaPurchase(supabase, payment.id);
+      if (!queued) triggerTicketEmail(payment.id);
 
       // Mark webhook as processed
       if (webhookLog?.id) {

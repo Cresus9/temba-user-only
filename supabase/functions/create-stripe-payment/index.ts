@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
+import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -55,6 +56,10 @@ type CreatePaymentBody = {
   // Order creation data (new)
   create_order?: boolean;
   ticket_quantities?: { [key: string]: number };
+  /** Single-date order: the chosen date (kept only if it belongs to event_id). */
+  event_date_id?: string | null;
+  /** Several dates: [{ticket_type_id, event_date_id, quantity}], per-type sums = ticket_quantities. */
+  line_allocations?: Array<{ ticket_type_id: string; event_date_id: string; quantity: number }> | null;
   payment_method?: string;
   guest_email?: string | null;
   guest_phone?: string | null;
@@ -93,6 +98,8 @@ Deno.serve(async (req) => {
       // Order creation data
       create_order = false,
       ticket_quantities,
+      event_date_id,
+      line_allocations,
       payment_method,
       guest_email,
       guest_phone,
@@ -216,6 +223,31 @@ Deno.serve(async (req) => {
 
       console.log("🔵 Order total calculated:", totalAmount);
 
+      // Dates: several dates -> line_allocations (refused if they don't add up),
+      // one date -> orders.event_date_id. Nothing sent -> no date, as before.
+      let orderEventDateId: string | null = null;
+      let orderLines: Array<{ ticket_type_id: string; event_date_id: string | null; quantity: number }> | null = null;
+      if (Array.isArray(line_allocations) && line_allocations.length > 0) {
+        const checked = await checkLineAllocations(supabase, event_id, ticket_quantities, line_allocations);
+        if (!checked.ok) {
+          console.error("❌ Invalid line_allocations:", checked.reason);
+          return new Response(
+            JSON.stringify({ error: "Les billets par date ne correspondent pas à la commande" }),
+            { status: 400, headers: cors }
+          );
+        }
+        if (checked.single) orderEventDateId = checked.single;
+        else orderLines = checked.lines;
+      } else if (isUuid(event_date_id)) {
+        const { data: dateRow } = await supabase
+          .from("event_dates")
+          .select("id")
+          .eq("id", event_date_id)
+          .eq("event_id", event_id)
+          .maybeSingle();
+        orderEventDateId = dateRow?.id ?? null;
+      }
+
       const resolvedGuestEmail = resolveGuestEmail(guest_email, guest_phone);
       const storedGuestPhone = guest_phone?.trim() || "";
 
@@ -236,7 +268,9 @@ Deno.serve(async (req) => {
           // Constraint order_user_or_guest_check requires guest_email when user_id is null.
           // Phone-only guests use a placeholder inbox; lookup ignores those for email search.
           guest_email: resolvedGuestEmail || null,
-          visible_in_history: false
+          visible_in_history: false,
+          ...(orderEventDateId ? { event_date_id: orderEventDateId } : {}),
+          ...(orderLines ? { line_allocations: orderLines } : {}),
         })
         .select('id')
         .single();

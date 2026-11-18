@@ -10,7 +10,7 @@ import {
   ticketEmailSubject,
   type TicketEmailInput,
 } from "./email.ts";
-import { buildTicketPdf, qrPng, type PdfAssets } from "./ticketPdf.ts";
+import { buildTicketPdf, qrPng, ticketQrPayload, type PdfAssets } from "./ticketPdf.ts";
 
 const TZ = "Africa/Ouagadougou";
 
@@ -125,8 +125,8 @@ async function pdfAssets(): Promise<PdfAssets> {
     interBold: await read("Inter-Bold.ttf"),
     tightBold: await read("InterTight-Bold.ttf"),
     mono: await read("JetBrainsMono-SemiBold.ttf"),
-    logo: await Deno.readFile(new URL("../../../public/email/temba-logo-white-noR.png", import.meta.url)),
-    symbol: await Deno.readFile(new URL("../../../public/email/symbol-purple.png", import.meta.url)),
+    logo: await Deno.readFile(new URL("./email-assets/temba-logo-white-noR.png", import.meta.url)),
+    symbol: await Deno.readFile(new URL("./email-assets/symbol-purple.png", import.meta.url)),
   };
 }
 
@@ -152,7 +152,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
 
   const { data: tickets } = await supabase
     .from("tickets")
-    .select("id, ticket_type_id")
+    .select("id, ticket_type_id, event_date_id")
     .eq("order_id", order.id);
   if (!tickets?.length) return;
 
@@ -182,7 +182,28 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
 
   let date = event.date;
   let time = event.time;
-  if (order.event_date_id) {
+  // Multi-date orders (orders.line_allocations): each ticket carries its own date.
+  // An order whose tickets all share one date uses it like orders.event_date_id.
+  const ticketDateIds = [...new Set(tickets.map((ticket: any) => ticket.event_date_id).filter(Boolean))] as string[];
+  const dateRows = new Map<string, { date: string; start_time?: string | null }>();
+  if (ticketDateIds.length > 1 || (!order.event_date_id && ticketDateIds.length === 1)) {
+    const { data: rows } = await supabase
+      .from("event_dates")
+      .select("id, date, start_time")
+      .in("id", ticketDateIds);
+    for (const row of (rows || []) as any[]) if (row?.date) dateRows.set(row.id, row);
+  }
+  const multiDate = ticketDateIds.length > 1 && dateRows.size === ticketDateIds.length;
+  if (!order.event_date_id && ticketDateIds.length === 1 && dateRows.has(ticketDateIds[0])) {
+    const only = dateRows.get(ticketDateIds[0])!;
+    date = only.date;
+    time = only.start_time || time;
+  } else if (multiDate) {
+    // Header/subject use the first date; every ticket and PDF page shows its own.
+    const first = [...dateRows.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+    date = first.date;
+    time = first.start_time || time;
+  } else if (order.event_date_id) {
     const { data: eventDate } = await supabase
       .from("event_dates")
       .select("date, start_time")
@@ -216,6 +237,19 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
   try {
     const zone = event.timezone || TZ;
     const when = formatWhen(String(date || ""), time, zone);
+    // Multi-date: per-ticket labels, tickets sorted by date (then type), header "N dates".
+    const ticketWhen = (ticket: any) => {
+      const row = multiDate ? dateRows.get(ticket.event_date_id) : undefined;
+      if (!row) return null;
+      const t = row.start_time || event.time;
+      const w = formatWhen(String(row.date), t, zone);
+      return { sort: `${String(row.date).split("T")[0]} ${clock(t)}`, dateLabel: w.short.split("·")[0].trim(), timeLabel: clock(t) || "—" };
+    };
+    if (multiDate) {
+      tickets.sort((a: any, b: any) =>
+        (ticketWhen(a)?.sort || "").localeCompare(ticketWhen(b)?.sort || "") ||
+        String(a.ticket_type_id).localeCompare(String(b.ticket_type_id)));
+    }
     const venue = cleanVenue(event.venue || event.location, event.city);
     const attachments = [];
     const emailTickets = [];
@@ -224,7 +258,8 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
       const type = typeMap.get(ticket.ticket_type_id);
       const name = String(type?.name || "Billet").trim();
       const contentId = `qr-${ticket.id}`;
-      const png = await qrPng(String(ticket.id));
+      const perTicket = ticketWhen(ticket);
+      const png = await qrPng(ticketQrPayload(String(ticket.id)));
       attachments.push({
         filename: `${contentId}.png`,
         content: bytesToBase64(png),
@@ -237,6 +272,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
         number: String(ticket.id).slice(0, 8).toUpperCase(),
         qrSrc: `cid:${contentId}`,
         qrAlt: `QR code du billet ${index + 1} sur ${tickets.length} (${name}) pour ${event.title}`,
+        ...(perTicket ? { dateLabel: perTicket.dateLabel, timeLabel: perTicket.timeLabel } : {}),
       });
       pdfTickets.push({
         id: String(ticket.id),
@@ -244,15 +280,21 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
         price: Number(type?.price || 0),
         index: index + 1,
         total: tickets.length,
+        ...(perTicket ? { dateLabel: perTicket.dateLabel, timeLabel: perTicket.timeLabel } : {}),
       });
     }
-    const counts = new Map<string, { name: string; price: number; qty: number }>();
-    for (const ticket of emailTickets) {
-      const key = `${ticket.name}:${ticket.price}`;
-      const row = counts.get(key) || { name: ticket.name, price: ticket.price, qty: 0 };
+    const counts = new Map<string, { name: string; price: number; qty: number; group?: string }>();
+    for (const ticket of emailTickets as any[]) {
+      // Multi-date: recap grouped by date (tickets are already in date order).
+      const group = multiDate && ticket.dateLabel
+        ? (ticket.timeLabel && ticket.timeLabel !== "—" ? `${ticket.dateLabel} · ${ticket.timeLabel}` : ticket.dateLabel)
+        : undefined;
+      const key = `${group ?? ""}|${ticket.name}:${ticket.price}`;
+      const row = counts.get(key) || { name: ticket.name, price: ticket.price, qty: 0, group };
       row.qty += 1;
       counts.set(key, row);
     }
+    const dateCount = multiDate ? dateRows.size : 1;
     const phone = maskPhone(guest?.phone || profile?.phone || (meta.phone as string));
     const paid = methodLabel(payment.payment_method, {
       currency: payment.charge_currency,
@@ -261,17 +303,21 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
     const input: TicketEmailInput = {
       buyerName: guest?.name || profile?.name || "",
       eventTitle: event.title,
-      whenLong: when.long,
-      whenShort: when.short,
+      whenLong: multiDate ? `${dateCount} dates · à partir du ${when.long}` : when.long,
+      whenShort: multiDate ? `${dateCount} dates` : when.short,
       dateLabel: when.short.split("·")[0].trim(),
       timeLabel: clock(time) || "—",
-      subjectDate: when.subject,
+      subjectDate: multiDate ? `${dateCount} dates` : when.subject,
       timezoneLabel: "Heure de Ouagadougou",
       venueLine: venue,
       mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`,
       posterUrl: event.image_url,
       tickets: emailTickets,
-      lines: [...counts.values()].map((row) => ({ label: `${row.qty} × ${row.name}`, amount: row.price * row.qty })),
+      lines: [...counts.values()].map((row) => ({
+        label: `${row.qty} × ${row.name}`,
+        amount: row.price * row.qty,
+        ...(row.group ? { group: row.group } : {}),
+      })),
       total: Number(order.total || 0),
       orderRef: String(order.id).slice(0, 8).toUpperCase(),
       paymentRef: String(payment.id).slice(0, 8).toUpperCase(),
@@ -301,7 +347,7 @@ export async function sendTicketEmailForPayment(supabase: any, paymentId: string
     }
     await sendResendEmail({
       to: email,
-      subject: ticketEmailSubject({ eventTitle: event.title, subjectDate: when.subject }),
+      subject: ticketEmailSubject({ eventTitle: event.title, subjectDate: input.subjectDate }),
       html: ticketEmailHtml(input),
       attachments,
     });
