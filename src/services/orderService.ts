@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase-client';
 import { notificationTriggers } from './notificationTriggers';
 import { getGuestTicketsByToken, resolveGuestEmail } from './guestTicketService';
 import { orderDateFields, sumAllocations, type LineAllocation } from '../utils/lineAllocations';
+import { getPendingReferralCode } from '../utils/referralStorage';
 
 export interface CreateOrderInput {
   eventId: string;
@@ -17,6 +18,20 @@ export interface CreateOrderInput {
     expiryDate?: string;
     cvv?: string;
   };
+}
+
+/**
+ * Sends the stored code when the column exists. If the patch is not applied yet,
+ * retries without it so a visit that has a code can still pay.
+ */
+async function insertOrderRow(row: Record<string, unknown>) {
+  const code = getPendingReferralCode();
+  const payload = code ? { ...row, attribution_code: code } : row;
+  const first = await supabase.from('orders').insert(payload).select().single();
+  if (first.error && code && /attribution_code/i.test(first.error.message || '')) {
+    return supabase.from('orders').insert(row).select().single();
+  }
+  return first;
 }
 
 /** Several-date lines must add up to ticketQuantities, or the order would bill one thing and issue another. */
@@ -86,9 +101,7 @@ class OrderService {
         console.log('Order will be created by Edge Function for card payment');
       } else {
         // For mobile money, create order directly (legacy flow)
-        const { data: orderDataDirect, error: orderError } = await supabase
-          .from('orders')
-          .insert({
+        const { data: orderDataDirect, error: orderError } = await insertOrderRow({
             user_id: user.id,
             event_id: input.eventId,
             total: totalAmount,
@@ -98,9 +111,7 @@ class OrderService {
             event_date_id: dateFields.event_date_id,
             ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
             visible_in_history: false
-          })
-          .select()
-          .single();
+          });
 
         if (orderError) throw orderError;
         orderData = orderDataDirect;
@@ -190,9 +201,7 @@ class OrderService {
       checkAllocations(input.ticketQuantities, dateFields.line_allocations);
 
       // Create order with COMPLETED status (no payment needed)
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
+      const { data: orderData, error: orderError } = await insertOrderRow({
           user_id: user.id,
           event_id: input.eventId,
           total: 0, // Free order
@@ -202,9 +211,7 @@ class OrderService {
           event_date_id: dateFields.event_date_id,
           ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
           visible_in_history: true // Show in history immediately
-        })
-        .select()
-        .single();
+        });
 
       if (orderError) {
         console.error('❌ [FREE ORDER] Order creation error:', orderError);

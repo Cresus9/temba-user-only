@@ -1,20 +1,16 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { normalizeReferralCode, setPendingReferralCode } from '../../utils/referralStorage';
+import { captureAttributionSearch } from '../../utils/referralStorage';
 
 /**
- * Captures ?ref=CODE on any route (marketing UTM-style) using the same storage key as /ref/:code.
+ * Captures ?r=CODE on any route. ?ref= is still accepted as an alias.
+ * Last click wins and is kept for 30 days.
  */
 export default function ReferralQueryCapture() {
   const location = useLocation();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const ref = params.get('ref');
-    const code = normalizeReferralCode(ref);
-    if (code) {
-      setPendingReferralCode(code);
-    }
+    captureAttributionSearch(location.search);
   }, [location.search]);
 
   return null;

@@ -6,14 +6,14 @@
  * - get-referral-config — public program config (no JWT required)
  * - generate-referral-link — JWT required
  * - track-referral — body `{ referralCode }` (+ optional fields), JWT required
- * - complete-referral — body `{ userId, orderId, orderAmount }` (prefer trusted server in production)
+ * - complete-referral — retired. Rewards are written by the database when the order is paid.
  *
  * Optional REST reads (same host `/rest/v1/…`) if RLS allows: referrals, user_credits,
  * credit_transactions, user_referral_codes.
  */
 import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase-client';
 import { buildReferralShareLinks } from '../config/referralShare';
-import { clearPendingReferralCode, getPendingReferralCode } from '../utils/referralStorage';
+import { getPendingReferralCode } from '../utils/referralStorage';
 import {
   fetchUserCreditBalanceFromSupabase,
   fetchUserCreditTransactionsFromSupabase,
@@ -228,19 +228,6 @@ async function fetchGenerateReferralLinkDirect(accessToken: string): Promise<unk
   }
 }
 
-function isBenignTrackError(message: string): boolean {
-  const m = message.toLowerCase();
-  return (
-    m.includes('already') ||
-    m.includes('duplicate') ||
-    m.includes('self') ||
-    m.includes('own code') ||
-    m.includes('invalid') ||
-    m.includes('disabled') ||
-    m.includes('not found')
-  );
-}
-
 /** Reads stored code if Edge Function did not return one (same Supabase DB as mobile). */
 async function fetchReferralCodeFromUserTable(userId: string): Promise<string | null> {
   const { data, error } = await supabase.from('user_referral_codes').select('*').eq('user_id', userId).maybeSingle();
@@ -416,15 +403,8 @@ class ReferralService {
   async flushPendingReferralAfterAuth(): Promise<void> {
     const code = getPendingReferralCode();
     if (!code) return;
-
-    const result = await this.trackReferral(code);
-    if (result.ok) {
-      clearPendingReferralCode();
-      return;
-    }
-    if (result.message && isBenignTrackError(result.message)) {
-      clearPendingReferralCode();
-    }
+    // Keep the code for checkout. Last click stays for 30 days even if signup tracking fails.
+    await this.trackReferral(code);
   }
 
   async grantSignupBonus(): Promise<ReferralActionResult> {
@@ -457,31 +437,35 @@ class ReferralService {
     }
   }
 
-  async completeReferral(input: CompleteReferralInput): Promise<boolean> {
+  /**
+   * Retired. The buyer page used to call complete-referral with orders.total_amount,
+   * which does not exist, and the call was the only reward path. Rewards are now
+   * written on the server when the order is paid. This method does not call the network.
+   */
+  async completeReferral(_input: CompleteReferralInput): Promise<boolean> {
+    return false;
+  }
+
+  async getRewardSummary(): Promise<{
+    code: string | null;
+    link: string | null;
+    pending_amount: number;
+    available_amount: number;
+    currency: string;
+  } | null> {
     try {
-      const headers = await authHeaders();
-      const { data, error } = await supabase.functions.invoke('complete-referral', {
-        method: 'POST',
-        body: {
-          userId: input.userId,
-          user_id: input.userId,
-          orderId: input.orderId,
-          order_id: input.orderId,
-          orderAmount: input.orderAmount,
-          order_amount: input.orderAmount,
-        },
-        headers,
-      });
-      if (error) {
-        console.warn('[referral] complete-referral:', error.message);
-        return false;
-      }
-      const top = flattenEdgeResponse(data);
-      if (top?.success === false) return false;
-      return true;
-    } catch (e) {
-      console.warn('[referral] complete-referral exception', e);
-      return false;
+      const { data, error } = await supabase.rpc('get_my_referral_summary');
+      if (error || !data || typeof data !== 'object') return null;
+      const row = data as Record<string, unknown>;
+      return {
+        code: typeof row.code === 'string' ? row.code : null,
+        link: typeof row.link === 'string' ? row.link : null,
+        pending_amount: Number(row.pending_amount ?? 0) || 0,
+        available_amount: Number(row.available_amount ?? 0) || 0,
+        currency: typeof row.currency === 'string' ? row.currency : 'XOF',
+      };
+    } catch {
+      return null;
     }
   }
 

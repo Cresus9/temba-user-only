@@ -4,6 +4,7 @@ import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
+import { attachAttributionCode } from "../_shared/attribution.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +66,8 @@ type CreatePaymentBody = {
   guest_phone?: string | null;
   fbp?: string | null;
   fbc?: string | null;
+  /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
+  attribution_code?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -300,6 +303,10 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    // Candidate code only. Resolution and rewards happen in the database.
+    // A failure here does not change the amount or stop the payment.
+    await attachAttributionCode(supabase, finalOrderId, body.attribution_code);
 
     // Check idempotency
     if (idempotencyKey) {

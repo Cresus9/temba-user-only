@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
+import { getPendingReferralCode } from '../utils/referralStorage';
 
 export interface CreatePawaPayPaymentRequest {
   idempotency_key: string;
@@ -85,7 +86,12 @@ class PawaPayService {
       console.log('Creating pawaPay payment with request:', request);
       
       // Ensure the request is properly serialized
-      const requestBody = JSON.stringify({ ...request, ...metaBrowserMatch() });
+      const attributionCode = getPendingReferralCode();
+      const requestBody = JSON.stringify({
+        ...request,
+        ...metaBrowserMatch(),
+        ...(attributionCode ? { attribution_code: attributionCode } : {}),
+      });
       console.log('Serialized request body:', requestBody);
       
       // Use Supabase Edge Function

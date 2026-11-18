@@ -383,6 +383,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // A refund does not change ticket issuance. It writes a reversal row
+    // when the ledger function is installed. Missing SQL must not fail the webhook.
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntent = typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id;
+      if (paymentIntent) {
+        const { data: refundedPayment } = await supabase
+          .from("payments")
+          .select("order_id")
+          .eq("stripe_payment_intent_id", paymentIntent)
+          .maybeSingle();
+        if (refundedPayment?.order_id) {
+          const { error: reverseErr } = await supabase.rpc("reverse_order_rewards", {
+            p_order_id: refundedPayment.order_id,
+            p_reason: "stripe_refund",
+          });
+          if (reverseErr) console.warn("[stripe-webhook] reversal:", reverseErr.message);
+        }
+      }
+      return new Response(
+        JSON.stringify({ received: true, status: "refunded" }),
+        { headers: cors },
+      );
+    }
+
     // Other events (log only)
     console.log("ℹ️ Unhandled event type:", event.type);
     return new Response(

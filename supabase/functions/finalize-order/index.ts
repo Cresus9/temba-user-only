@@ -27,6 +27,30 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
+/**
+ * Safety net for the orders trigger that writes the reward ledger in the
+ * same transaction as admin_finalize_payment. Idempotent. Never fails the
+ * ticket email or the finalize response. No-op when the order has no code.
+ */
+async function recordAttributionIfPresent(supabase: any, orderId: string | null | undefined) {
+  if (!orderId) return;
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("attribution_status")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error || data?.attribution_status !== "attributed") return;
+    const { error: rewardErr } = await supabase.rpc("record_order_rewards", {
+      p_order_id: orderId,
+    });
+    if (rewardErr) console.warn("[finalize-order] attribution:", rewardErr.message);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "skipped";
+    console.warn("[finalize-order] attribution:", message);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
@@ -99,6 +123,7 @@ Deno.serve(async (req) => {
           });
         }
         await sendMetaPurchase(supabase, payment_id);
+        await recordAttributionIfPresent(supabase, payment.order_id);
         try {
           await sendTicketEmailForPayment(supabase, payment_id);
         } catch (emailErr) {
@@ -139,6 +164,7 @@ Deno.serve(async (req) => {
     }
 
     await sendMetaPurchase(supabase, payment_id);
+    await recordAttributionIfPresent(supabase, payment.order_id);
     try {
       await sendTicketEmailForPayment(supabase, payment_id);
     } catch (emailErr) {

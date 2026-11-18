@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
+import { attachAttributionCode } from "../_shared/attribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,8 @@ interface CreatePawaPayPaymentRequest {
   description: string;
   fbp?: string;
   fbc?: string;
+  /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
+  attribution_code?: string | null;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -288,6 +291,9 @@ Deno.serve(async (req) => {
       // If order_id is not provided and create_order is false, warn but continue
       console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");
     }
+
+    // Candidate code only. Does not change the charged amount. No-op when absent.
+    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code);
 
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();
