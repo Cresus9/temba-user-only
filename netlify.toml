@@ -5,6 +5,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["sharp"]
+
 # Association files are served as themselves. A rewrite to index.html, or a
 # redirect, makes Apple and Google ignore universal links.
 [[redirects]]
@@ -25,6 +30,13 @@
 [[redirects]]
   from = "/.well-known/assetlinks.json/"
   to = "/.well-known/assetlinks.json"
+  status = 200
+
+# First-party OG images. Must sit above the SPA /* rewrite or WhatsApp
+# would receive index.html instead of a JPEG.
+[[redirects]]
+  from = "/og/e/*"
+  to = "/.netlify/functions/og-image?key=:splat"
   status = 200
 
 # Main domain redirects
