@@ -62,11 +62,20 @@ function persist(stamp: StampedCode): void {
 
 /**
  * Last click wins, for 30 days. `?r=` is the link format. `?ref=` is the legacy alias.
- * When both are present, `r` is the one that is stored.
+ * `deep_link_sub1` is what an AppsFlyer return carries when the web page
+ * did not keep `?r=`. The first valid code wins, so `?r=` is kept.
  */
-export function captureAttributionSearch(search: string, now = Date.now()): void {
+export function attributionCodeFromSearch(search: string): string | null {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  const code = normalizeAttributionCode(params.get("r") ?? params.get("ref"));
+  for (const key of ["r", "ref", "deep_link_sub1"]) {
+    const code = normalizeAttributionCode(params.get(key));
+    if (code) return code;
+  }
+  return null;
+}
+
+export function captureAttributionSearch(search: string, now = Date.now()): void {
+  const code = attributionCodeFromSearch(search);
   if (!code) return;
   persist({ code, setAt: now });
 }

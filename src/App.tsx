@@ -45,6 +45,7 @@ function App() {
   const { pathname } = useLocation();
   const bareAuth = pathname === '/login';
   const focusedCheckout = /^\/(checkout|payment)(\/|$)/.test(pathname);
+  const openInAppPage = /^\/(e|event|events|ref)\/[^/]+$/.test(pathname);
 
   // Warm image cache when app loads
   useEffect(() => {
@@ -68,7 +69,7 @@ function App() {
       <div className="flex min-h-screen min-w-0 flex-col bg-paper">
         <MetaPixel />
         <ReferralQueryCapture />
-        {!bareAuth && !focusedCheckout && <AppBanner />}
+        {!bareAuth && !focusedCheckout && !openInAppPage && <AppBanner />}
         {!bareAuth && !focusedCheckout && <Navbar />}
         <main className="min-w-0 flex-grow">
           <PageTransition>

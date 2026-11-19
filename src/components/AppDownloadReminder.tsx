@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Ticket, Bell, Zap } from 'lucide-react';
 import Logo from './brand/Logo';
-
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share';
-const APP_STORE_URL  = 'https://apps.apple.com/us/app/temba/id6748848506';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../config/appLinks';
 
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
 const display = '"Plus Jakarta Sans", Inter, sans-serif';

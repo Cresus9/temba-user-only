@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../../config/appLinks';
 
 const AppStoreIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -36,11 +37,11 @@ export default function AppDownload() {
   }, []);
 
   const handleAppStoreDownload = () => {
-    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
+    window.open(APP_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handleGooglePlayDownload = () => {
-    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
+    window.open(PLAY_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handleInstallWebApp = async () => {

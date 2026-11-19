@@ -20,13 +20,14 @@ import { formatCalendarDate } from '../utils/formatters';
 import { queryCache, TTL } from '../utils/queryCache';
 import toast from 'react-hot-toast';
 import { Event } from '../types/event';
-import { eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath';
+import { canonicalEventTarget, eventPublicPath, eventPublicUrl, isEventUuid } from '../utils/eventPath';
 import { trackViewContent } from '../lib/metaPixel';
 import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
 import DisplayCard from '../components/events/DisplayCard';
 import AppBand from '../components/design/AppBand';
+import OpenInAppBanner from '../components/events/OpenInAppBanner';
 import { useEventSchedule } from '../hooks/useEventSchedule';
 import { calendarDayInZone, formatEventTime } from '../utils/formatters';
 import { cityKey, cityName, dedupeEvents, eventBadges, isPastSpan, spanFor } from '../utils/eventDisplay';
@@ -241,11 +242,9 @@ export default function EventDetails() {
 
   useEffect(() => {
     if (!event?.id) return;
-    const canonical = eventPublicPath(event);
-    if (route.pathname !== canonical) {
-      navigate(canonical, { replace: true });
-    }
-  }, [event, route.pathname, navigate]);
+    const target = canonicalEventTarget(route.pathname, route.search, route.hash, eventPublicPath(event));
+    if (target) navigate(target, { replace: true });
+  }, [event, route.hash, route.pathname, route.search, navigate]);
 
   const eventUrl = useMemo(
     () => (event?.id ? eventPublicUrl(event) : undefined),
@@ -504,6 +503,8 @@ export default function EventDetails() {
           </div>
         </div>
       </section>
+
+      <OpenInAppBanner />
 
       <div className="grid items-start gap-8 px-5 pt-6 min-[1280px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:px-16 min-[1440px]:grid-cols-[minmax(0,1fr)_400px] min-[1440px]:px-20">
         <div className="order-2 min-w-0 space-y-10 min-[1280px]:order-1">

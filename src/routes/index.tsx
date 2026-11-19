@@ -101,6 +101,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<Events />} />
         <Route path="/e/:eventId" element={<EventDetails />} />
+        <Route path="/event/:eventId" element={<EventDetails />} />
         <Route path="/events/:id" element={<EventDetails />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/categories/:categoryId" element={<CategoryEvents />} />

@@ -1,6 +1,7 @@
 import { AppleLogo, GooglePlayLogo } from '@phosphor-icons/react';
+import { APP_STORE_URL, ONELINK_BASE, PLAY_STORE_URL } from '../../config/appLinks';
 
-export const APP_ONELINK = 'https://temba.onelink.me/Xbe8';
+export const APP_ONELINK = ONELINK_BASE;
 
 export default function StoreBadges({
   dark = false,
@@ -15,7 +16,7 @@ export default function StoreBadges({
   return (
     <div className={`flex gap-2.5 ${stacked ? 'flex-col items-start' : 'flex-row flex-wrap'}`}>
       <a
-        href={APP_ONELINK}
+        href={APP_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={`inline-flex h-11 items-center gap-2 rounded-lg px-3.5 ${cls}`}
@@ -27,7 +28,7 @@ export default function StoreBadges({
         </span>
       </a>
       <a
-        href={APP_ONELINK}
+        href={PLAY_STORE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={`inline-flex h-11 items-center gap-2 rounded-lg px-3.5 ${cls}`}

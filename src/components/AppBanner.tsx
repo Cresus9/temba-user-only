@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowDownToLine, Smartphone } from 'lucide-react';
+import { detectMobilePlatform, storeUrlFor } from '../config/appLinks';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -30,7 +31,9 @@ export default function AppBanner() {
   };
 
   const handleDownload = () => {
-    window.open('https://temba.onelink.me/Xbe8', '_blank', 'noopener,noreferrer');
+    const platform = detectMobilePlatform(navigator.userAgent, navigator.maxTouchPoints);
+    const store = storeUrlFor(platform);
+    if (store) window.open(store, '_blank', 'noopener,noreferrer');
     handleDismiss();
   };
 
