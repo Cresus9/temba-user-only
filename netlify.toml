@@ -5,6 +5,28 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Association files are served as themselves. A rewrite to index.html, or a
+# redirect, makes Apple and Google ignore universal links.
+[[redirects]]
+  from = "/.well-known/apple-app-site-association"
+  to = "/.well-known/apple-app-site-association"
+  status = 200
+
+[[redirects]]
+  from = "/.well-known/apple-app-site-association/"
+  to = "/.well-known/apple-app-site-association"
+  status = 200
+
+[[redirects]]
+  from = "/.well-known/assetlinks.json"
+  to = "/.well-known/assetlinks.json"
+  status = 200
+
+[[redirects]]
+  from = "/.well-known/assetlinks.json/"
+  to = "/.well-known/assetlinks.json"
+  status = 200
+
 # Main domain redirects
 [[redirects]]
   from = "/*"
@@ -116,6 +138,10 @@
 [[edge_functions]]
   function = "og-tags"
   path = "/e/*"
+
+[[edge_functions]]
+  function = "og-tags"
+  path = "/event/*"
 
 [[edge_functions]]
   function = "og-tags"

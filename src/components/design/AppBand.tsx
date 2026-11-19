@@ -2,6 +2,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import DomePattern from './DomePattern';
 import StoreBadges from './StoreBadges';
 import Logo from '../brand/Logo';
+import { ONELINK_BASE } from '../../config/appLinks';
 
 const STEPS = [
   'Choisissez votre sortie sur tembas.com ou dans l’appli.',
@@ -56,7 +57,7 @@ export default function AppBand({
           </div>
         </div>
         <div className="hidden w-[168px] rounded-[14px] bg-white p-3.5 text-center text-ink md:block">
-          <QRCodeSVG value="https://temba.onelink.me/Xbe8" size={140} className="mx-auto" aria-label="QR de téléchargement" />
+          <QRCodeSVG value={ONELINK_BASE} size={140} className="mx-auto" aria-label="QR de téléchargement" />
           <p className="mt-2 text-[12.5px] font-semibold">Scannez pour télécharger</p>
           <p className="text-[11.5px] text-ink-3">iPhone et Android</p>
         </div>

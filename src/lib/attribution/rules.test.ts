@@ -258,4 +258,14 @@ describe('capture', () => {
     captureAttributionSearch('', Date.UTC(2026, 10, 3));
     expect(getPendingReferralCode(Date.UTC(2026, 10, 3))).toBe('SIGUI1');
   });
+
+  it('keeps ?r= on a OneLink return and reads deep_link_sub1 only when ?r= is absent', () => {
+    clearPendingReferralCode();
+    const start = Date.UTC(2026, 10, 4);
+    captureAttributionSearch('?deep_link_value=ref/OTHER01&deep_link_sub1=OTHER01&r=SIGUI1', start);
+    expect(getPendingReferralCode(start)).toBe('SIGUI1');
+    clearPendingReferralCode();
+    captureAttributionSearch('?deep_link_value=e/soiree&deep_link_sub1=TEMBA8YEF', start);
+    expect(getPendingReferralCode(start)).toBe('TEMBA8YEF');
+  });
 });

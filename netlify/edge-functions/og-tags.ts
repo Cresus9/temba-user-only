@@ -740,6 +740,16 @@ function generateReferralHtml(referralCode: string): string {
   });
 }
 
+/** Crawler canonical redirects must not drop ?r= from a shared or OneLink URL. */
+function redirectKeepingQuery(pathname: string, search: string): Response {
+  const target = new URL(pathname, "https://tembas.com");
+  const incoming = new URLSearchParams(search);
+  incoming.forEach((value, key) => {
+    if (!target.searchParams.has(key)) target.searchParams.append(key, value);
+  });
+  return Response.redirect(target.toString(), 301);
+}
+
 export default async function handler(request: Request, context: Context) {
   const url = new URL(request.url);
   const userAgent = request.headers.get("user-agent");
@@ -766,7 +776,7 @@ export default async function handler(request: Request, context: Context) {
     return new Response(generateListingHtml(events), { headers: htmlHeaders });
   }
 
-  const eventMatch = url.pathname.match(/^\/(e|events)\/([^/]+)$/);
+  const eventMatch = url.pathname.match(/^\/(e|event|events)\/([^/]+)$/);
   if (eventMatch) {
     const requestParam = decodeURIComponent(eventMatch[2]);
     const [event, related] = await Promise.all([
@@ -776,7 +786,7 @@ export default async function handler(request: Request, context: Context) {
     if (event) {
       const canonical = eventPublicPath(event);
       if (url.pathname !== canonical) {
-        return Response.redirect(`https://tembas.com${canonical}`, 301);
+        return redirectKeepingQuery(canonical, url.search);
       }
       const performers = await fetchEventPerformers(event.id);
       return new Response(generateEventHtml(event, requestParam, related, performers), {
@@ -1169,7 +1179,7 @@ export default async function handler(request: Request, context: Context) {
     const category = rows?.[0];
     const publicSlug = frenchCategorySlug(category, key);
     if (category && key !== publicSlug) {
-      return Response.redirect(`https://tembas.com/categories/${publicSlug}`, 301);
+      return redirectKeepingQuery(`/categories/${publicSlug}`, url.search);
     }
     const name = frenchCategoryName(publicSlug, category?.name || key);
     let items: { href: string; name: string; extra?: string }[] = [
@@ -1375,6 +1385,7 @@ export const config = {
     "/events",
     "/events/*",
     "/e/*",
+    "/event/*",
     "/attractions",
     "/venues",
     "/venues/*",
