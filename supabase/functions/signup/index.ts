@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendResendEmail, welcomeEmailHtml } from '../_shared/email.ts'
+import { sendWelcomeEmailIfReal } from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -220,10 +220,24 @@ serve(async (req) => {
       console.error('Session creation error:', sessionError)
     }
 
+    // Live signup sent the email itself and then called welcome-user, which
+    // sent a second copy. Keep the live webhook call (in-app notification +
+    // email) and only send directly if that call fails.
+    let welcomeHandled = false
     try {
-      await sendWelcomeEmail(email, name)
-    } catch (emailError) {
-      console.error('Welcome email error:', emailError)
+      console.log('Triggering welcome webhook for user:', authData.user.id)
+      await triggerWelcomeWebhook(supabaseUrl, authData.user, name)
+      welcomeHandled = true
+    } catch (webhookError) {
+      console.error('Welcome webhook error:', webhookError)
+    }
+
+    if (!welcomeHandled) {
+      try {
+        await sendWelcomeEmailIfReal(email, name)
+      } catch (emailError) {
+        console.error('Welcome email error:', emailError)
+      }
     }
 
     console.log('User account created successfully:', authData.user.id)
@@ -258,10 +272,22 @@ serve(async (req) => {
   }
 })
 
-async function sendWelcomeEmail(email: string, name: string) {
-  await sendResendEmail({
-    to: email,
-    subject: 'Bienvenue sur Temba',
-    html: welcomeEmailHtml(name),
-  });
-} 
+async function triggerWelcomeWebhook(supabaseUrl: string, user: { id: string; email?: string | null }, name: string) {
+  const webhookUrl = `${supabaseUrl}/functions/v1/welcome-user`
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+    },
+    body: JSON.stringify({
+      record: user,
+      eventType: 'INSERT',
+      user_metadata: { name },
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Webhook failed: ${response.status}`)
+  }
+}

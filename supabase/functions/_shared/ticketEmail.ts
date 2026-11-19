@@ -8,17 +8,12 @@ import {
   sendResendEmail,
   ticketEmailHtml,
   ticketEmailSubject,
+  realEmail,
   type TicketEmailInput,
 } from "./email.ts";
 import { buildTicketPdf, qrPng, ticketQrPayload, type PdfAssets } from "./ticketPdf.ts";
 
 const TZ = "Africa/Ouagadougou";
-
-function realEmail(email?: string | null): string | undefined {
-  const trimmed = (email || "").trim().toLowerCase();
-  if (!trimmed || trimmed.endsWith("@temba.temp") || !trimmed.includes("@")) return undefined;
-  return trimmed;
-}
 
 function cleanVenue(raw?: string | null, city?: string | null) {
   const name = String(raw || "")

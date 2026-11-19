@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendResendEmail, welcomeEmailHtml } from '../_shared/email.ts'
+import { realEmail, sendWelcomeEmailIfReal } from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,18 +48,17 @@ serve(async (req) => {
       console.log('No profile found for user:', userId)
     }
 
-    // Prepare welcome data
-    const userName = profile?.name || user_metadata?.name || email?.split('@')[0] || 'there'
     const userEmail = email
+    const rawName = String(profile?.name || user_metadata?.name || "").trim()
+    const userName = rawName || (realEmail(userEmail) ? String(userEmail).split("@")[0] : "")
 
-    // Send welcome email using Resend (if configured)
-    await sendWelcomeEmail(userEmail, userName)
+    await sendWelcomeEmailIfReal(userEmail, userName)
 
     // Create a welcome notification in the database
     await createWelcomeNotification(supabase, userId, userName)
 
     // Log the welcome event
-    console.log(`Welcome message sent to: ${userEmail} (${userName})`)
+    console.log(`Welcome flow finished for user: ${userId}`)
 
     return new Response(
       JSON.stringify({ 
@@ -81,19 +80,6 @@ serve(async (req) => {
     )
   }
 })
-
-async function sendWelcomeEmail(email: string, name: string) {
-  try {
-    await sendResendEmail({
-      to: email,
-      subject: 'Bienvenue sur Temba',
-      html: welcomeEmailHtml(name),
-    });
-    console.log('Welcome email sent to', email);
-  } catch (error) {
-    console.error('Error sending welcome email:', error)
-  }
-}
 
 async function createWelcomeNotification(supabase: any, userId: string, userName: string) {
   try {
