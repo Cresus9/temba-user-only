@@ -22,7 +22,7 @@ describe('eventOgImageUrl', () => {
   it('points at the first-party /og/e proxy and keeps a cache buster', () => {
     const url = eventOgImageUrl({ id: 'uuid-1', slug: ZONE_SLUG }, ZONE_IMG);
     expect(url.startsWith(`https://tembas.com/og/e/${ZONE_SLUG}.jpg?`)).toBe(true);
-    expect(url).toContain(`v=${shortHash(ZONE_IMG)}`);
+    expect(url).toContain(`v=2${shortHash(ZONE_IMG)}`);
     expect(url).not.toContain('supabase.co');
   });
 
