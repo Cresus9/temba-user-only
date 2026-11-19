@@ -69,7 +69,8 @@ export function eventOgImageUrl(
   if (!key) return TEMBA_OG_FALLBACK;
   const base = publicSiteOrigin(origin) || TEMBA_ORIGIN;
   const url = new URL(`${base}/og/e/${encodeURIComponent(key)}.jpg`);
-  if (imageUrl) url.searchParams.set("v", shortHash(imageUrl));
+  // Prefix bumps the query when a previous deploy cached a bad image at this path.
+  if (imageUrl) url.searchParams.set("v", "2" + shortHash(imageUrl));
   return url.toString();
 }
 
