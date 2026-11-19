@@ -167,108 +167,109 @@ const IC_ENVELOPE = `${EMAIL_ASSETS}/ic-envelope-brand.png`;
 const SI_APPLE = `${EMAIL_ASSETS}/si-apple-ink.png`;
 const SI_GOOGLE_PLAY = `${EMAIL_ASSETS}/si-googleplay-ink.png`;
 
-function storeBadge(href: string, iconSrc: string, kicker: string, label: string) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;">
-    <tr>
-      <td style="padding:8px 14px;">
-        <a href="${href}" style="text-decoration:none;color:${INK};display:block;">
-          <table role="presentation" cellpadding="0" cellspacing="0">
-            <tr>
-              <td valign="middle" style="padding-right:8px;">
-                <img src="${iconSrc}" width="18" height="18" alt="" style="display:block;border:0;width:18px;height:18px;">
-              </td>
-              <td valign="middle" style="font-family:${FONT};text-align:left;">
-                <div style="font-size:10px;line-height:1.2;color:${MUTE};">${escapeHtml(kicker)}</div>
-                <div style="font-size:14px;line-height:1.25;font-weight:700;color:${INK};">${escapeHtml(label)}</div>
-              </td>
-            </tr>
-          </table>
-        </a>
-      </td>
-    </tr>
-  </table>`;
-}
-
 export const WELCOME_EMAIL_SUBJECT = "Bienvenue sur Temba";
 
+const WELCOME_ASSETS = "https://tembas.com/email";
+const WELCOME_LOGO = `${WELCOME_ASSETS}/temba-logo-white-noR.png`;
+const WELCOME_HERO = `${WELCOME_ASSETS}/welcome-hero-dots.png`;
+const WELCOME_APPLE = `${WELCOME_ASSETS}/si-apple-ink.png`;
+const WELCOME_PLAY = `${WELCOME_ASSETS}/si-googleplay-ink.png`;
+const WELCOME_WA = `${WELCOME_ASSETS}/si-whatsapp-green.png`;
+const WELCOME_MAIL = `${WELCOME_ASSETS}/ic-envelope-brand.png`;
+
 export function welcomeEmailHtml(name: string) {
-  const safe = escapeHtml((name || "").trim());
-  const hello = safe ? `Bonjour ${safe},` : "Bonjour,";
-  const preheader = "Votre compte Temba est prêt.";
+  const first = escapeHtml((name || "").trim().split(/\s+/)[0] || "");
+  const greeting = first ? `Votre compte est ouvert, ${first}.` : "Votre compte est ouvert.";
+  const preheader = "Votre compte Temba est ouvert.";
+  const ic = (src: string, size = 16, mr = 6) =>
+    `<img src="${src}" width="${size}" height="${size}" alt="" style="display:inline-block;width:${size}px;height:${size}px;border:0;vertical-align:-3px;margin-right:${mr}px;">`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bienvenue sur Temba</title></head>
-<body style="margin:0;padding:0;background:#FFFFFF;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;">
-  <tr>
-    <td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;">
-        <tr>
-          <td style="padding:8px 24px 28px;text-align:center;">
-            <img src="${MARK}" width="48" height="48" alt="Temba" style="display:block;margin:0 auto;border:0;width:48px;height:48px;">
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 12px;font-family:${FONT};text-align:left;">
-            <h1 style="margin:0;font-size:24px;line-height:1.3;font-weight:700;color:${INK};">${hello}</h1>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 28px;font-family:${FONT};font-size:16px;line-height:1.6;color:${MUTE};">
-            Temba vous permet d’acheter des billets d’événements au Burkina, depuis votre téléphone.
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 32px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td align="center" style="background:${BRAND};border-radius:12px;">
-                  <a href="https://tembas.com/events" style="display:block;padding:14px 20px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Découvrir les événements</a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 16px;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTE};text-align:center;">
-            Téléchargez l’application pour garder vos billets sur votre téléphone.
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 28px;" align="center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" align="center">
-              <tr>
-                <td style="padding:0 6px 8px 0;" valign="top">
-                  ${storeBadge("https://apps.apple.com/app/temba/id6748848506", SI_APPLE, "Télécharger sur", "App Store")}
-                </td>
-                <td style="padding:0 0 8px 6px;" valign="top">
-                  ${storeBadge("https://play.google.com/store/apps/details?id=app.rork.temba", SI_GOOGLE_PLAY, "Disponible sur", "Google Play")}
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 28px;font-family:${FONT};font-size:13px;line-height:1.6;color:${MUTE};text-align:center;">
-            Une question ? Écrivez-nous à <a href="mailto:support@tembas.com" style="color:${BRAND};text-decoration:none;">support@tembas.com</a>.
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:20px 24px 0;border-top:1px solid #EEEEF2;font-family:${FONT};text-align:center;">
-            <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:${MUTE};">
-              Temba · EZSTAY LLC · Ouagadougou<br>
-              support@tembas.com · +226 74 75 08 15
-            </p>
-            <p style="margin:0;font-size:11px;color:${MUTE};">
-              Message transactionnel. Vous le recevez parce qu’un compte Temba est lié à cette adresse.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bienvenue sur Temba</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0!important;padding:0!important;width:100%!important;}
+table{border-collapse:collapse;}
+@media only screen and (max-width:620px){
+  .wrap{width:100%!important;}
+  .px{padding-left:18px!important;padding-right:18px!important;}
+  .hero{padding:24px 20px 26px!important;}
+  .hero-copy{padding-right:24px!important;}
+  .h1{font-size:25px!important;}
+  .ft{padding-left:18px!important;padding-right:18px!important;}
+}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#FAF7F2;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FAF7F2" style="background:#FAF7F2;">
+<tr><td align="center" style="padding:20px 10px 32px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="wrap" bgcolor="#FFFFFF" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:16px;">
+<tr>
+  <td class="hero" bgcolor="#3D3FE2" background="${WELCOME_HERO}" style="background-color:#3D3FE2;background-image:url('${WELCOME_HERO}');background-repeat:no-repeat;background-position:right top;background-size:100% auto;padding:28px 32px 42px;border-radius:16px 16px 0 0;">
+    <img src="${WELCOME_LOGO}" width="105" height="24" alt="Temba" style="display:block;width:105px;height:24px;border:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:380px;">
+      <tr><td class="hero-copy">
+        <p style="margin:26px 0 0;font:700 12px/1.3 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#F6B84A;">Compte créé</p>
+        <h1 class="h1" style="margin:8px 0 0;font:800 30px/1.15 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">${greeting}</h1>
+        <p style="margin:10px 0 0;font:500 15px/1.55 'Inter',Helvetica,Arial,sans-serif;color:#FAF7F2;">Vous pouvez acheter des billets d’événements au Burkina, et les garder sur votre téléphone.</p>
+      </td></tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td class="px" style="padding:26px 32px 8px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td align="center" bgcolor="#3D3FE2" style="background:#3D3FE2;border-radius:10px;">
+          <a href="https://tembas.com/events" style="display:block;padding:14px 18px;font:700 15px/1.2 'Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;">Voir les événements sur tembas.com</a>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td class="px" style="padding:24px 32px 8px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#14172A" style="background:#14172A;border-radius:14px;">
+      <tr><td style="padding:22px;">
+        <p style="margin:0;font:700 11px/1.3 'Inter',Helvetica,Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#F6B84A;">L’appli Temba</p>
+        <p style="margin:8px 0 0;font:800 19px/1.25 'Inter Tight','Inter',Helvetica,Arial,sans-serif;color:#FFFFFF;">Vos billets dans la poche</p>
+        <p style="margin:8px 0 16px;font:500 14px/1.5 'Inter',Helvetica,Arial,sans-serif;color:#F0EBE0;">Le même compte vous sert sur le site et dans l’application, sur Android et iPhone.</p>
+        <a href="https://apps.apple.com/app/temba/id6748848506" style="display:inline-block;margin:0 8px 8px 0;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#14172A;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">${ic(WELCOME_APPLE, 18, 8)}App Store</a>
+        <a href="https://play.google.com/store/apps/details?id=app.rork.temba" style="display:inline-block;margin:0 0 8px;padding:9px 16px;background:#FFFFFF;border-radius:10px;text-decoration:none;color:#14172A;font:700 15px/1.25 'Inter',Helvetica,Arial,sans-serif;">${ic(WELCOME_PLAY, 18, 8)}Google Play</a>
+      </td></tr>
+    </table>
+  </td>
+</tr>
+<tr>
+  <td class="px" style="padding:20px 32px 28px;">
+    <p style="margin:0;font:700 15px/1.3 'Inter',Helvetica,Arial,sans-serif;color:#14172A;">Une question ?</p>
+    <p style="margin:6px 0 0;font:500 14px/1.55 'Inter',Helvetica,Arial,sans-serif;color:#5C574C;">Écrivez-nous sur WhatsApp au <a href="https://wa.me/22674750815" style="color:#3D3FE2;font-weight:700;text-decoration:none;white-space:nowrap;">${ic(WELCOME_WA, 16, 4)}+226 74 75 08 15</a>, 7j/7.</p>
+    <p style="margin:6px 0 0;font:500 14px/1.55 'Inter',Helvetica,Arial,sans-serif;color:#5C574C;">Ou à <a href="mailto:support@tembas.com" style="color:#3D3FE2;font-weight:700;text-decoration:none;white-space:nowrap;">${ic(WELCOME_MAIL, 16, 4)}support@tembas.com</a>.</p>
+  </td>
+</tr>
+</table>
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="wrap" style="width:600px;max-width:600px;">
+<tr><td class="ft" style="padding:22px 32px 0;text-align:center;font-family:Inter,Helvetica,Arial,sans-serif;">
+  <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#5C574C;">
+    Temba · EZSTAY LLC · Ouagadougou<br>
+    support@tembas.com · +226 74 75 08 15
+  </p>
+  <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#5C574C;">
+    <a href="https://tembas.com" style="color:#5C574C;text-decoration:underline;">tembas.com</a> ·
+    <a href="https://tembas.com/terms" style="color:#5C574C;text-decoration:underline;">Conditions</a> ·
+    <a href="https://tembas.com/privacy" style="color:#5C574C;text-decoration:underline;">Confidentialité</a>
+  </p>
+  <p style="margin:0;font-size:11px;color:#5C574C;">
+    Message transactionnel. Vous le recevez parce qu’un compte Temba est lié à cette adresse.
+  </p>
+</td></tr>
+</table>
+</td></tr>
 </table>
 </body>
 </html>`;
