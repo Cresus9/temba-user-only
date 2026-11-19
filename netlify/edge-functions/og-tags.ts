@@ -1,10 +1,4 @@
 import type { Context } from "https://edge.netlify.com";
-import {
-  eventOgImageUrl,
-  eventShareDescription,
-  eventShareLocation,
-  toAbsoluteHttps,
-} from "./lib/eventOgShare.ts";
 
 /**
  * Crawler-facing HTML for Googlebot, social bots, and other non-JS clients.
@@ -487,25 +481,16 @@ function generateEventHtml(
 ): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
-  const location = eventShareLocation(event || {});
+  const location = event?.city || event?.location || "";
   const eventDate = event?.is_permanent ? "Ouvert toute l'année" : formatFrDate(event?.date);
   const eventTime = event?.time || "";
-  const description = eventShareDescription({
-    title,
-    description: rawDesc,
-    dateLabel: eventDate,
-    location,
-  });
+  const description =
+    rawDesc ||
+    `Achetez vos billets pour ${title}${location ? ` à ${location}` : ""} sur Temba.`;
   const eventUrl = `https://tembas.com${
     event ? eventPublicPath(event) : `/e/${requestParam}`
   }`;
-  // First-party /og/e proxy so WhatsApp can fetch a 1200×630 JPEG.
-  // The on-page <img> and JSON-LD keep the original flyer URL.
-  const flyerUrl =
-    toAbsoluteHttps(event?.image_url) || event?.image_url || TEMBA_OG_IMAGE;
-  const imageUrl = event?.image_url
-    ? eventOgImageUrl(event, event.image_url)
-    : TEMBA_OG_IMAGE;
+  const imageUrl = event?.image_url || TEMBA_OG_IMAGE;
   const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
   const minPrice =
@@ -527,7 +512,7 @@ function generateEventHtml(
     name: title,
     description,
     url: eventUrl,
-    image: [flyerUrl],
+    image: [imageUrl],
     ...(startDate ? { startDate } : {}),
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -591,7 +576,7 @@ function generateEventHtml(
     ${artistLines ? `<h2>À l'affiche</h2><ul>${artistLines}</ul>` : ""}
     ${ticketLines ? `<h2>Tarifs</h2><ul>${ticketLines}</ul>` : ""}
     <p><a href="${escapeHtml(eventUrl)}">Acheter des billets sur Temba</a></p>
-    ${event?.image_url ? `<img src="${escapeHtml(flyerUrl)}" alt="${escapeHtml(title)}" />` : ""}
+    ${event?.image_url ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />` : ""}
   </article>
   <h2>Autres événements</h2>
   ${eventListHtml(related.filter((e) => e.id !== event?.id).slice(0, 12))}
