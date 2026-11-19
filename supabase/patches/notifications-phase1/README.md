@@ -15,13 +15,18 @@ Applied in this order with the Management API SQL endpoint. Every patch has a `*
 | 07a | `07a_organizer_rpcs.sql` | `notif_ticket_scanned(ticket)` and `notif_message_attendees(event, users, message)` — admin or the event's organizer only (Temba-admin #56 uses them). |
 | 07b | `07b_lockdown_inbox_inserts.sql` | Signed-in users can no longer insert into anyone's inbox (policy now admins only); `create_notification_from_template` admin/server only; `mark_notifications_read` own inbox only (or admin). |
 | 08 | `08_enable_push.sql` | push_enabled=true after a valid OneSignal App API key was set as `ONESIGNAL_REST_API_KEY`. |
+| 09 | `09_push_default_on.sql` | Applied 2026-11-19: push stays default true; 1,177 untouched default-off rows flipped to on; 4 later-updated rows left off. Backup: `notification_preferences_push_backup_20261119` (1,181 rows). |
+| 10 | `10_abandoned_checkout.sql` | Applied 2026-11-19: signed-in started checkouts (including before an order exists) are recorded; after 45 minutes a French in-app + push reminder is enqueued; completing an order cancels the pending reminder. Honours `order_updates`, quiet hours and daily caps. |
 
-Kill switch (stops all sending, keeps rows): `06_go_live_rollback.sql`.
+Kill switch (stops all sending, keeps rows): `06_go_live_rollback.sql`. Reminder-only kill switch: set `abandoned_checkout_enabled` to false, or run `10_abandoned_checkout_rollback.sql`. Patch 09 rollback restores `push` from `notification_preferences_push_backup_20261119`.
 
 Settings (`public.notification_settings`, service role only): `worker_mode` (off | test_only | live), `dry_run`,
-`cutover_at`, `test_user_ids`, `push_enabled`, `email_enabled`, `reminders_enabled`, `order_confirmed_enabled`, `batch_size`.
+`cutover_at`, `test_user_ids`, `push_enabled`, `email_enabled`, `reminders_enabled`, `order_confirmed_enabled`,
+`abandoned_checkout_enabled`, `abandoned_checkout_delay_minutes`, `batch_size`.
 
 Rules enforced by the worker (`supabase/functions/notification-worker/policy.ts`, unit tests in `policy_test.ts`):
 - never email `@temba.temp` addresses; honour per-user push/email switches;
 - daily caps (push 4, email 3 by default) and quiet hours 22h–7h local for non-transactional messages (deferred, or dropped if the event has started);
 - idempotent: dedupe keys in SQL, row locking (`FOR UPDATE SKIP LOCKED`), and provider idempotency keys (queue row id) for OneSignal and Resend.
+
+Rule for patch 09: a preference was never set by the user when `updated_at` is identical to `created_at`. There is no `updated_at` trigger, and the settings screens always write a new `updated_at` on save.

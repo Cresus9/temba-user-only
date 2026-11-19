@@ -14,6 +14,7 @@ import { computeAddonsTotal, type AddonSelection } from '../services/addonServic
 import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../services/foodMenuService';
 import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
+import { recordCheckoutStart } from '../services/abandonedCheckout';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
 import { distinctDateIds, sanitizeAllocations, type LineAllocation } from '../utils/lineAllocations';
@@ -62,7 +63,36 @@ function readCheckoutDraft(): CheckoutState | null {
   return null;
 }
 
+function RecordStartedCheckout({
+  eventId,
+  eventSlug,
+  eventDateId,
+  tickets,
+  totalAmount,
+}: {
+  eventId: string;
+  eventSlug?: string | null;
+  eventDateId?: string | null;
+  tickets: { [key: string]: number };
+  totalAmount: number;
+}) {
+  const { isAuthenticated } = useAuth();
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    void recordCheckoutStart({
+      eventId,
+      eventSlug,
+      eventDateId,
+      tickets,
+      totalAmount,
+      source: 'web',
+    });
+  }, [isAuthenticated, eventId, eventSlug, eventDateId, tickets, totalAmount]);
+  return null;
+}
+
 export default function Checkout() {
+
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -258,6 +288,13 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-[#F4F5FA]">
+      <RecordStartedCheckout
+        eventId={state.eventId}
+        eventSlug={state.eventSlug}
+        eventDateId={state.eventDateId}
+        tickets={state.tickets}
+        totalAmount={state.totals.total}
+      />
       <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
       <CheckoutChrome current={2} backTo={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} />
 
