@@ -82,3 +82,6 @@ verify_jwt = false
 # Safety-net finalizer — called by QStash, auth via X-Finalize-Secret header
 [functions.process-finalize-jobs]
 verify_jwt = false
+# Notification queue worker — called by pg_cron, auth via x-worker-secret header (NOTIF_WORKER_SECRET)
+[functions.notification-worker]
+verify_jwt = false

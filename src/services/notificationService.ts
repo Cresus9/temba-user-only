@@ -25,6 +25,20 @@ export interface NotificationPreferences {
   types: string[];
 }
 
+// Server-side switches read by the notification worker (event reminders, order confirmations).
+// The settings screen shows them as the EVENT_REMINDER / TICKET_PURCHASED type toggles.
+const TYPE_COLUMNS = { EVENT_REMINDER: 'event_reminders', TICKET_PURCHASED: 'order_updates' } as const;
+
+type PreferenceRow = Partial<NotificationPreferences> & { event_reminders?: boolean | null; order_updates?: boolean | null };
+
+function withServerTypes(row: PreferenceRow | null): NotificationPreferences {
+  const base = (row?.types || []).filter((t) => !(t in TYPE_COLUMNS));
+  for (const [typeId, column] of Object.entries(TYPE_COLUMNS)) {
+    if (row?.[column] !== false) base.push(typeId);
+  }
+  return { email: row?.email ?? true, push: row?.push ?? false, types: base };
+}
+
 class NotificationService {
   async getUserNotifications(limit = 10): Promise<Notification[]> {
     try {
@@ -48,13 +62,13 @@ class NotificationService {
 
     const { data, error } = await supabase
       .from('notification_preferences')
-      .select('email, push, types')
+      .select('email, push, types, event_reminders, order_updates')
       .eq('user_id', user.id)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error; // no rows
 
-    return data || { email: true, push: false, types: [] };
+    return withServerTypes(data);
   }
 
   async updatePreferences(prefs: NotificationPreferences): Promise<void> {
@@ -63,13 +77,34 @@ class NotificationService {
 
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert({ user_id: user.id, ...prefs }, { onConflict: 'user_id' });
+      .upsert(
+        {
+          user_id: user.id,
+          email: prefs.email,
+          push: prefs.push,
+          types: prefs.types,
+          event_reminders: prefs.types.includes('EVENT_REMINDER'),
+          order_updates: prefs.types.includes('TICKET_PURCHASED'),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
 
     if (error) throw error;
   }
 
   async requestPushPermission(): Promise<boolean> {
     if (!('Notification' in window)) return false;
+    // Let OneSignal own the prompt so the browser gets a push subscription linked to the user.
+    const oneSignal = (window as unknown as { OneSignal?: { Notifications?: { requestPermission?: () => Promise<void> } } }).OneSignal;
+    if (oneSignal?.Notifications?.requestPermission) {
+      try {
+        await oneSignal.Notifications.requestPermission();
+        return Notification.permission === 'granted';
+      } catch (e) {
+        console.warn('OneSignal permission prompt failed, falling back', e);
+      }
+    }
     const result = await Notification.requestPermission();
     return result === 'granted';
   }
