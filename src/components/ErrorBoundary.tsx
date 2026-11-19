@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { WarningCircle } from '@phosphor-icons/react';
 
 interface Props {
   children: React.ReactNode;
@@ -27,18 +27,19 @@ export default class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-          <div className="text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
-            <p className="text-gray-600 mb-4">
-              {this.state.error?.message || 'An unexpected error occurred'}
+        <div className="flex min-h-screen items-center justify-center bg-white px-4">
+          <div className="max-w-md text-center">
+            <WarningCircle className="mx-auto mb-4 h-12 w-12 text-brand" />
+            <h1 className="font-display text-[28px] font-bold tracking-tight text-ink">Une erreur est survenue</h1>
+            <p className="mb-5 mt-2 text-[15px] leading-relaxed text-ink-2">
+              La page n’a pas pu s’afficher. Rechargez-la pour reprendre.
             </p>
             <button
+              type="button"
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              className="inline-flex h-11 items-center rounded-[10px] bg-brand px-5 text-[15px] font-semibold text-white"
             >
-              Refresh Page
+              Recharger la page
             </button>
           </div>
         </div>

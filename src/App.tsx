@@ -20,9 +20,10 @@ function PageTransition({ children }: { children: React.ReactNode }) {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
+        className="min-w-0"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
@@ -41,6 +42,10 @@ function MetaPixel() {
 
 function App() {
   const { featuredEvents } = useEvents();
+  const { pathname } = useLocation();
+  const bareAuth = pathname === '/login';
+  const focusedCheckout = /^\/(checkout|payment)(\/|$)/.test(pathname);
+  const openInAppPage = /^\/(e|event|events|ref)\/[^/]+$/.test(pathname);
 
   // Warm image cache when app loads
   useEffect(() => {
@@ -61,17 +66,17 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col bg-paper">
+      <div className="flex min-h-screen min-w-0 flex-col bg-paper">
         <MetaPixel />
         <ReferralQueryCapture />
-        <AppBanner />
-        <Navbar />
-        <main className="flex-grow">
+        {!bareAuth && !focusedCheckout && !openInAppPage && <AppBanner />}
+        {!bareAuth && !focusedCheckout && <Navbar />}
+        <main className="min-w-0 flex-grow">
           <PageTransition>
             <AppRoutes />
           </PageTransition>
         </main>
-        <Footer />
+        {!bareAuth && !focusedCheckout && <Footer />}
         <Toaster position="top-right" />
         <OfflineWarning />
         <PendingTransfersNotification />

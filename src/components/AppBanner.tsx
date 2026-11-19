@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowDownToLine, Smartphone } from 'lucide-react';
+import { detectMobilePlatform, storeUrlFor } from '../config/appLinks';
 
 const display = '"Plus Jakarta Sans", Inter, sans-serif';
 const mono    = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace';
@@ -30,14 +31,9 @@ export default function AppBanner() {
   };
 
   const handleDownload = () => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-    if (/android/i.test(ua)) {
-      window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
-    } else if (/iPad|iPhone|iPod/.test(ua)) {
-      window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
-    } else {
-      window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
-    }
+    const platform = detectMobilePlatform(navigator.userAgent, navigator.maxTouchPoints);
+    const store = storeUrlFor(platform);
+    if (store) window.open(store, '_blank', 'noopener,noreferrer');
     handleDismiss();
   };
 

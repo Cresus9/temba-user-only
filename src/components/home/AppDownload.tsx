@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../../config/appLinks';
 
 const AppStoreIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -36,14 +37,11 @@ export default function AppDownload() {
   }, []);
 
   const handleAppStoreDownload = () => {
-    window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
+    window.open(APP_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handleGooglePlayDownload = () => {
-    window.open(
-      'https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share',
-      '_blank'
-    );
+    window.open(PLAY_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handleInstallWebApp = async () => {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/generate-sitemap.mjs && node scripts/generate-blog-sitemap.mjs && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -17,6 +17,7 @@
     "deploy:functions:paris": "bash scripts/deploy-edge-functions-paris.sh"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@stripe/react-stripe-js": "^5.2.0",
@@ -29,6 +30,7 @@
     "date-fns": "^3.3.1",
     "framer-motion": "^12.40.0",
     "html2canvas": "^1.4.1",
+    "jimp": "^0.22.12",
     "jspdf": "^2.5.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
@@ -41,6 +43,8 @@
     "react-hot-toast": "^2.4.1",
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.3",
+    "sharp": "^0.33.5",
+    "simple-icons": "^16.37.0",
     "socket.io-client": "^4.7.4",
     "three": "^0.186.0",
     "use-sound": "^4.0.1",
@@ -72,6 +76,7 @@
     "resize-observer-polyfill": "^1.5.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
+    "typescript-eslint": "^8.72.2",
     "url-search-params-polyfill": "^8.2.3",
     "vite": "^5.1.4",
     "vitest": "^1.6.1",

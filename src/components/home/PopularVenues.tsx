@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Calendar, ArrowRight, Ticket } from 'lucide-react';
 import { Event } from '../../types/event';
 import { useEvents } from '../../context/EventContext';
+import { shortPlace } from '../../utils/eventGeo';
 
 interface VenueData {
   name: string;
@@ -26,7 +27,7 @@ export default function PopularVenues() {
       .filter(e => e.date >= today)
       .forEach(event => {
         if (event.location) {
-          const key = normalizeLocation(event.location);
+          const key = shortPlace(event.location, event.city).venue || normalizeLocation(event.location);
           const existing = locationMap.get(key) || [];
           locationMap.set(key, [...existing, event]);
         }

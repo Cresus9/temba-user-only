@@ -29,7 +29,7 @@ class AuthService {
   async login(credentials: LoginCredentials) {
     try {
       const inputType = detectInputType(credentials.email);
-      let emailForAuth = credentials.email;
+      const emailForAuth = credentials.email;
 
       // If input is a phone number, try to construct the temp email format
       // used for phone signups: {phoneDigits}@temba.temp

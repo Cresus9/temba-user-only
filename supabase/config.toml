@@ -48,6 +48,12 @@ verify_jwt = true
 # Async ticket finalization — called by QStash, auth via X-Finalize-Secret header
 [functions.finalize-order]
 verify_jwt = false
+# Ticket PDF assets read with Deno.readFile (fonts + logo) must ship in the bundle
+static_files = [
+  "./functions/_shared/fonts/*.ttf",
+  "../public/email/temba-logo-white-noR.png",
+  "../public/email/symbol-purple.png",
+]
 
 # PawaPay safety-net poller — called by QStash, auth via X-Finalize-Secret header
 [functions.check-pawapay-status]
@@ -75,4 +81,7 @@ verify_jwt = false
 
 # Safety-net finalizer — called by QStash, auth via X-Finalize-Secret header
 [functions.process-finalize-jobs]
+verify_jwt = false
+# Notification queue worker — called by pg_cron, auth via x-worker-secret header (NOTIF_WORKER_SECRET)
+[functions.notification-worker]
 verify_jwt = false

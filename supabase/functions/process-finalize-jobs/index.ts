@@ -5,19 +5,19 @@
  * Scheduled safety-net (run every ~5 min via QStash cron or pg_cron).
  * Picks up rows from payment_finalize_jobs where status='pending' and
  * attempts < 5, verifies payment is actually completed, then calls
- * admin_finalize_payment.
+ * finalize-order.
  *
- * Auth: X-Finalize-Secret header.
+ * Auth: X-Finalize-Secret, or Authorization: Bearer <service role>.
+ * Completed payments are handed to finalize-order so the ticket email stays there.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import {
-  verifyFinalizeSecret,
+  verifyFinalizeAuth,
   redisSet,
   paymentStatusKey,
   PAYMENT_STATUS_TTL,
 } from "../_shared/upstash.ts";
-import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE   = 20;
@@ -31,7 +31,8 @@ const json = (body: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
-  if (!verifyFinalizeSecret(req)) {
+  if (!(await verifyFinalizeAuth(req))) {
+    console.error("[process-finalize-jobs] unauthorized");
     return json({ error: "Unauthorized" }, 401);
   }
 
@@ -106,41 +107,19 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check if already finalized (order COMPLETED)
-      if (payment.order_id) {
-        const { data: order } = await supabase
-          .from("orders")
-          .select("status")
-          .eq("id", payment.order_id)
-          .maybeSingle();
-
-        if (order?.status === "COMPLETED") {
-          console.log(`[process-finalize-jobs] order already completed for payment ${job.payment_id}`);
-          await markJob(supabase, job.id, "done", null, job.attempts);
-          // Update Redis so mobile polling resolves
-          await redisSet(paymentStatusKey(job.payment_id), "finalized", PAYMENT_STATUS_TTL);
-          await sendMetaPurchase(supabase, job.payment_id);
-          succeeded++;
-          continue;
-        }
-      }
-
-      // ── Call the idempotent finalization RPC ─────────────────────────
-      const { error: rpcErr } = await supabase.rpc("admin_finalize_payment", {
-        p_payment_id: job.payment_id,
-      });
-
-      if (rpcErr) {
-        console.error(`[process-finalize-jobs] RPC failed for ${job.payment_id}:`, rpcErr);
+      // finalize-order creates tickets, sends the ticket email, and accepts
+      // either X-Finalize-Secret or the service-role bearer.
+      const finalized = await callFinalizeOrder(job.payment_id, job.provider);
+      if (!finalized.ok) {
+        console.error(`[process-finalize-jobs] finalize-order ${finalized.status} for ${job.payment_id}`);
         const newAttempts = job.attempts + 1;
         const newStatus   = newAttempts >= MAX_ATTEMPTS ? "failed" : "pending";
-        await markJob(supabase, job.id, newStatus, rpcErr.message, newAttempts);
+        await markJob(supabase, job.id, newStatus, finalized.error || `HTTP ${finalized.status}`, newAttempts);
         failed++;
       } else {
         console.log(`[process-finalize-jobs] finalized: ${job.payment_id}`);
         await markJob(supabase, job.id, "done", null, job.attempts + 1);
         await redisSet(paymentStatusKey(job.payment_id), "finalized", PAYMENT_STATUS_TTL);
-        await sendMetaPurchase(supabase, job.payment_id);
         succeeded++;
       }
     }
@@ -153,6 +132,26 @@ Deno.serve(async (req) => {
     return json({ error: err?.message ?? "Internal error" }, 500);
   }
 });
+
+async function callFinalizeOrder(paymentId: string, provider: string): Promise<{ ok: boolean; status: number; error?: string }> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const secret = Deno.env.get("FINALIZE_ORDER_SECRET") || "";
+  const res = await fetch(`${supabaseUrl}/functions/v1/finalize-order`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(serviceKey ? { Authorization: `Bearer ${serviceKey}` } : {}),
+      ...(secret ? { "X-Finalize-Secret": secret } : {}),
+    },
+    body: JSON.stringify({ payment_id: paymentId, provider }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    return { ok: false, status: res.status, error: text.slice(0, 180) };
+  }
+  return { ok: true, status: res.status };
+}
 
 async function markJob(
   supabase: any,

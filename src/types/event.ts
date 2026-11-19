@@ -163,4 +163,4 @@ export interface CategoryId {
   id: string;
 }
 
-export type CategoryIdType = typeof CATEGORIES[number]['id'];
+export type CategoryIdType = string;

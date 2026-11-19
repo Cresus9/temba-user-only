@@ -10,6 +10,33 @@ import {
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { stampTicketVisitDates, ticketLinesForOrder } from "../_shared/ticketLines.ts";
+
+// Fire-and-forget: ask finalize-order to send the ticket email for this payment.
+// finalize-order (email_only) only sends the email; it is idempotent via
+// payments.metadata.ticket_email_sent_at. Never throws, never blocks the response.
+function triggerTicketEmail(paymentId: string): void {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL");
+    if (!baseUrl || !paymentId) return;
+    const pending = fetch(`${baseUrl}/functions/v1/finalize-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Finalize-Secret": Deno.env.get("FINALIZE_ORDER_SECRET") ?? "",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+      },
+      body: JSON.stringify({ payment_id: paymentId, email_only: true }),
+    })
+      .then((r) => {
+        if (!r.ok) console.warn("[ticket-email] finalize-order HTTP", r.status);
+      })
+      .catch((err) => console.warn("[ticket-email] trigger failed:", err));
+    (globalThis as any).EdgeRuntime?.waitUntil?.(pending);
+  } catch (err) {
+    console.warn("[ticket-email] trigger error:", err);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -281,14 +308,14 @@ Deno.serve(async (req) => {
     const status = payload.status?.toUpperCase();
     const event = payload.event?.toLowerCase();
     
-    const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
+    // supabaseUrl is declared (and checked) above; redeclaring it here broke boot.
     const finalizeUrl    = `${supabaseUrl}/functions/v1/finalize-order`;
     const finalizeSecret = Deno.env.get("FINALIZE_ORDER_SECRET") ?? "";
     const anonKey        = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     if (status === "COMPLETED" || event === "payment.success") {
       await handleSuccessfulPayment(supabase, payment, payload, finalizeUrl, finalizeSecret, anonKey);
-    } else if (status === "FAILED" || event === "payment.failed") {
+    } else if (status === "FAILED" || status === "REJECTED" || event === "payment.failed") {
       await handleFailedPayment(supabase, payment, payload);
     } else if (status === "ACCEPTED" || status === "SUBMITTED" || status === "PENDING" || event === "payment.pending") {
       await handlePendingPayment(supabase, payment, payload);
@@ -426,6 +453,12 @@ async function handleSuccessfulPayment(
       console.error("admin_finalize_payment error:", rpcErr);
       // Fallback to manual ticket generation if RPC fails
       await generateTickets(supabase, orderId, payment);
+    } else {
+      try {
+        await stampTicketVisitDates(supabase, orderId);
+      } catch (stampErr) {
+        console.error("[pawapay-webhook] visit date stamp:", stampErr);
+      }
     }
   } else {
     console.warn("No order ID found for payment:", payment.id);
@@ -438,6 +471,7 @@ async function handleSuccessfulPayment(
   });
 
   await sendMetaPurchase(supabase, payment.id);
+  if (orderId) triggerTicketEmail(payment.id);
   console.log("✅ Payment completed successfully:", payment.id);
 }
 
@@ -448,18 +482,24 @@ async function handleFailedPayment(
 ) {
   console.log("❌ Processing failed payment:", payment.id);
 
-  // Update payment status with failure timestamp
-  const { error: paymentError } = await supabase
+  // A late FAILED/REJECTED must not undo a payment that already completed.
+  const { data: failedRows, error: paymentError } = await supabase
     .from("payments")
     .update({
       status: "failed",
       failed_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
-    .eq("id", payment.id);
+    .eq("id", payment.id)
+    .not("status", "in", "(completed,COMPLETED,paid,PAID)")
+    .select("id");
 
   if (paymentError) {
     throw new Error(`Failed to update payment: ${paymentError.message}`);
+  }
+  if (!failedRows?.length) {
+    console.log("[pawapay-webhook] refused to downgrade a completed payment", payment.id);
+    return;
   }
 
   // ── Write Redis status key ─────────────────────────────────────────────────
@@ -468,14 +508,18 @@ async function handleFailedPayment(
   // Update order status if exists (use payment.order_id)
   const orderId = payment.order_id;
   if (orderId) {
-    await supabase
+    const { data: cancelled, error: orderErr } = await supabase
       .from("orders")
       .update({
         status: "CANCELLED",
         visible_in_history: false,
         updated_at: new Date().toISOString()
       })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .not("status", "in", "(COMPLETED,paid,PAID)")
+      .select("id");
+    if (orderErr) console.error("[pawapay-webhook] order cancel failed", orderErr.message);
+    else if (!cancelled?.length) console.log("[pawapay-webhook] kept completed order", orderId);
   }
 
   console.log("❌ Payment marked as failed:", payment.id);
@@ -537,16 +581,19 @@ async function generateTickets(supabase: any, orderId: string, payment: any) {
     // Generate tickets for each ticket type
     const ticketPromises: Promise<any>[] = [];
     
-    for (const [ticketTypeId, quantity] of Object.entries(ticketQuantities)) {
-      for (let i = 0; i < (quantity as number); i++) {
+    // One entry per (ticket type, date); single-date orders: ticket_quantities + order date as before.
+    const ticketLines = await ticketLinesForOrder(supabase, order);
+
+    for (const line of ticketLines) {
+      for (let i = 0; i < line.quantity; i++) {
         const ticketPromise = supabase
           .from("tickets")
           .insert({
             user_id: order.user_id,
             event_id: order.event_id,
-            ticket_type_id: ticketTypeId,
+            ticket_type_id: line.ticket_type_id,
             order_id: orderId,
-            event_date_id: order.event_date_id || null,
+            event_date_id: line.event_date_id || null,
             payment_id: payment.id,
             status: "VALID",
             qr_code: crypto.randomUUID(),

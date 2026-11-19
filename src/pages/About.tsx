@@ -1,5 +1,5 @@
 import React from 'react';
-import PageSEO from '../components/SEO/PageSEO';
+import PageSEO, { TEMBA_OG_IMAGE } from '../components/SEO/PageSEO';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -124,7 +124,7 @@ export default function About() {
             '@type': 'Organization',
             name: 'Temba',
             url: 'https://tembas.com/',
-            logo: 'https://tembas.com/temba-wordmark-dark.jpg',
+            logo: TEMBA_OG_IMAGE,
           },
         }}
       />

@@ -18,7 +18,9 @@ import { useTranslation } from '../../context/TranslationContext';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
-import Image from '../common/Image';
+import { shortPlace } from '../../utils/eventGeo';
+import PosterTile from '../account/PosterTile';
+import FullscreenBackdrop from '../account/FullscreenBackdrop';
 
 interface SentTicket {
   id: string;
@@ -182,9 +184,15 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
           cls: 'bg-cream text-ink-mute ring-line',
           Icon: CircleSlash,
         };
+      case 'USED':
+        return {
+          label: 'Utilisé',
+          cls: 'bg-surf text-ink-2 ring-line',
+          Icon: CheckCircle2,
+        };
       default:
         return {
-          label: status,
+          label: status === 'USED' ? 'Utilisé' : status,
           cls: 'bg-cream text-ink-mute ring-line',
           Icon: Clock,
         };
@@ -273,12 +281,11 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
             >
               <div className="flex flex-col sm:flex-row gap-4 p-4">
                 {/* Poster */}
-                {ticket.ticket?.event?.image_url && (
-                  <div className="relative w-full sm:w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 bg-cream-deep ring-1 ring-line">
-                    <Image
-                      src={ticket.ticket.event.image_url}
-                      alt={ticket.ticket.event.title || 'Événement'}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-xl sm:w-28">
+                    <PosterTile
+                      src={ticket.ticket?.event?.image_url}
+                      alt={ticket.ticket?.event?.title || 'Événement'}
+                      className="h-full w-full"
                     />
                     {/* "SENT" stamp */}
                     <div className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.08em] bg-brand text-paper shadow-card">
@@ -286,7 +293,6 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                       Envoyé
                     </div>
                   </div>
-                )}
 
                 {/* Body */}
                 <div className="flex-1 min-w-0">
@@ -320,7 +326,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 truncate min-w-0">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{ticket.ticket.event.location}</span>
+                        <span className="truncate">{shortPlace(ticket.ticket.event.location).label}</span>
                       </span>
                     </div>
                   )}
@@ -390,10 +396,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
 
       {/* Modal */}
       {selectedTicket && (
-        <div
-          className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
-          onClick={() => setSelectedTicket(null)}
-        >
+        <FullscreenBackdrop onClose={() => setSelectedTicket(null)}>
           <div
             className="bg-paper rounded-xl2 max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-card-hover my-auto"
             onClick={(e) => e.stopPropagation()}
@@ -485,28 +488,10 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
 
               {/* Read-only ticket preview */}
               <div className="rounded-xl2 border border-line overflow-hidden bg-cream/40">
-                {selectedTicket.ticket?.event?.image_url && (
-                  <div className="relative aspect-[16/9] sm:aspect-[2/1] overflow-hidden">
-                    <Image
-                      src={selectedTicket.ticket.event.image_url}
-                      alt={selectedTicket.ticket.event.title}
-                      className="absolute inset-0 w-full h-full object-cover blur-sm scale-110 opacity-50"
-                    />
-                    <div className="absolute inset-0 bg-ink/60" />
-                    <div className="relative h-full flex flex-col items-center justify-center text-center px-4">
-                      <div className="grid place-items-center w-12 h-12 rounded-full bg-paper/10 ring-2 ring-paper/15 backdrop-blur-sm mb-3">
-                        <Send className="h-5 w-5 text-paper" />
-                      </div>
-                      <p className="eyebrow !text-paper/70 mb-1">Plus accessible</p>
-                      <p
-                        className="text-paper text-[15px] font-bold tracking-tight"
-                        style={{ fontFamily: displayFamily }}
-                      >
-                        Ce billet a été remis au destinataire
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 border-b border-line p-4">
+                  <PosterTile src={selectedTicket.ticket?.event?.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg" />
+                  <p className="text-[14px] font-semibold">Ce billet a été remis au destinataire.</p>
+                </div>
 
                 {selectedTicket.ticket?.event && selectedTicket.ticket?.ticket_type && (
                   <div className="p-4">
@@ -531,7 +516,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
                       </li>
                       <li className="flex items-start gap-2">
                         <MapPin className="h-3.5 w-3.5 text-brand flex-shrink-0 mt-0.5" />
-                        <span>{selectedTicket.ticket.event.location}</span>
+                        <span>{shortPlace(selectedTicket.ticket.event.location).label}</span>
                       </li>
                     </ul>
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
@@ -560,7 +545,7 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
               </button>
             </footer>
           </div>
-        </div>
+        </FullscreenBackdrop>
       )}
     </div>
   );

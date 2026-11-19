@@ -6,18 +6,20 @@
  * Runs admin_finalize_payment RPC to create tickets and complete the order.
  * Returns 5xx on failure — QStash will retry up to 5×.
  *
- * Auth: X-Finalize-Secret header (forwarded by QStash).
+ * Auth: X-Finalize-Secret, or Authorization: Bearer <service role>.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import {
-  verifyFinalizeSecret,
+  verifyFinalizeAuth,
   redisSet,
   paymentStatusKey,
   PAYMENT_STATUS_TTL,
 } from "../_shared/upstash.ts";
 import { notifyWhatsAppAdapter } from "../_shared/whatsappAdapter.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { sendTicketEmailForPayment } from "../_shared/ticketEmail.ts";
+import { stampTicketVisitDates } from "../_shared/ticketLines.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -25,11 +27,35 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
+/**
+ * Safety net for the orders trigger that writes the reward ledger in the
+ * same transaction as admin_finalize_payment. Idempotent. Never fails the
+ * ticket email or the finalize response. No-op when the order has no code.
+ */
+async function recordAttributionIfPresent(supabase: any, orderId: string | null | undefined) {
+  if (!orderId) return;
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("attribution_status")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error || data?.attribution_status !== "attributed") return;
+    const { error: rewardErr } = await supabase.rpc("record_order_rewards", {
+      p_order_id: orderId,
+    });
+    if (rewardErr) console.warn("[finalize-order] attribution:", rewardErr.message);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "skipped";
+    console.warn("[finalize-order] attribution:", message);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
   // ── Auth check ────────────────────────────────────────────────────────────
-  if (!verifyFinalizeSecret(req)) {
+  if (!(await verifyFinalizeAuth(req))) {
     console.error("[finalize-order] unauthorized");
     return json({ error: "Unauthorized" }, 401);
   }
@@ -45,6 +71,18 @@ Deno.serve(async (req) => {
 
     if (!payment_id) {
       return json({ error: "payment_id is required" }, 400);
+    }
+
+    // Email-only mode (backup payment paths): send the ticket email if not sent yet.
+    // No RPC, no WhatsApp, no Meta. sendTicketEmailForPayment is idempotent and
+    // returns early unless the order is COMPLETED with tickets.
+    if ((body as any)?.email_only === true) {
+      try {
+        await sendTicketEmailForPayment(supabase, payment_id);
+      } catch (emailErr) {
+        console.error("[finalize-order] ticket email (email_only):", emailErr);
+      }
+      return json({ ok: true, note: "email only" });
     }
 
     console.log("[finalize-order] processing:", payment_id, "provider:", provider);
@@ -71,6 +109,11 @@ Deno.serve(async (req) => {
 
       if (order?.status === "COMPLETED") {
         console.log("[finalize-order] order already completed, skipping:", payment.order_id);
+        try {
+          await stampTicketVisitDates(supabase, payment.order_id);
+        } catch (stampErr) {
+          console.error("[finalize-order] visit date stamp:", stampErr);
+        }
         await redisSet(paymentStatusKey(payment_id), "finalized", PAYMENT_STATUS_TTL);
         if (provider !== "stripe") {
           await notifyWhatsAppAdapter({
@@ -80,6 +123,12 @@ Deno.serve(async (req) => {
           });
         }
         await sendMetaPurchase(supabase, payment_id);
+        await recordAttributionIfPresent(supabase, payment.order_id);
+        try {
+          await sendTicketEmailForPayment(supabase, payment_id);
+        } catch (emailErr) {
+          console.error("[finalize-order] ticket email:", emailErr);
+        }
         return json({ ok: true, note: "already finalized" });
       }
     }
@@ -95,6 +144,14 @@ Deno.serve(async (req) => {
       return json({ error: rpcErr.message }, 500);
     }
 
+    if (payment.order_id) {
+      try {
+        await stampTicketVisitDates(supabase, payment.order_id);
+      } catch (stampErr) {
+        console.error("[finalize-order] visit date stamp:", stampErr);
+      }
+    }
+
     // ── Mark finalized in Redis ───────────────────────────────────────────
     await redisSet(paymentStatusKey(payment_id), "finalized", PAYMENT_STATUS_TTL);
 
@@ -107,6 +164,12 @@ Deno.serve(async (req) => {
     }
 
     await sendMetaPurchase(supabase, payment_id);
+    await recordAttributionIfPresent(supabase, payment.order_id);
+    try {
+      await sendTicketEmailForPayment(supabase, payment_id);
+    } catch (emailErr) {
+      console.error("[finalize-order] ticket email:", emailErr);
+    }
     console.log("[finalize-order] finalized:", payment_id);
     return json({ ok: true, payment_id });
 

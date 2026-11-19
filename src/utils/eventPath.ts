@@ -15,3 +15,17 @@ export function eventPublicPath(event: { id: string; slug?: string | null }): st
 export function eventPublicUrl(event: { id: string; slug?: string | null }): string {
   return `https://tembas.com${eventPublicPath(event)}`;
 }
+
+/**
+ * Move an old or alternate event URL onto /e/{slug} without dropping ?r=
+ * (or any other query). A null result means the address is already canonical.
+ */
+export function canonicalEventTarget(
+  pathname: string,
+  search: string,
+  hash: string,
+  canonicalPath: string,
+): { pathname: string; search: string; hash: string } | null {
+  if (pathname === canonicalPath) return null;
+  return { pathname: canonicalPath, search, hash };
+}

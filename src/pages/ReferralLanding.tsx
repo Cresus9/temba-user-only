@@ -1,19 +1,25 @@
 import React, { useEffect, useMemo } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Gift, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { referralService } from '../services/referralService';
-import { clearPendingReferralCode, normalizeReferralCode, setPendingReferralCode } from '../utils/referralStorage';
+import { setPendingReferralCode } from '../utils/referralStorage';
+import { codeFromLocation } from '../config/appLinks';
+import OpenInAppBanner from '../components/events/OpenInAppBanner';
 import PageSEO from '../components/SEO/PageSEO';
 import toast from 'react-hot-toast';
 
 export default function ReferralLanding() {
   const { code: rawCode } = useParams<{ code: string }>();
+  const location = useLocation();
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [tracking, setTracking] = React.useState(false);
 
-  const code = useMemo(() => normalizeReferralCode(rawCode), [rawCode]);
+  const code = useMemo(
+    () => codeFromLocation(location.pathname, location.search) ?? codeFromLocation(`/ref/${rawCode ?? ''}`, ''),
+    [location.pathname, location.search, rawCode],
+  );
 
   const pageTitle = code ? `Invitation TEMBA — code ${code}` : 'Invitation TEMBA';
   const pageDescription =
@@ -34,11 +40,9 @@ export default function ReferralLanding() {
       const result = await referralService.trackReferral(code);
       if (cancelled) return;
       if (result.ok) {
-        clearPendingReferralCode();
-        toast.success('Invitation enregistrée sur votre compte.');
-      } else if (result.message && !result.message.includes('no session')) {
+        toast.success('Invitation enregistrée. Elle reste active pour votre prochain achat.');
+      } else if (result.message && !result.message.includes('no session') && !result.message.toLowerCase().includes('disabled')) {
         toast(result.message, { icon: 'ℹ️' });
-        clearPendingReferralCode();
       }
       setTracking(false);
     })();
@@ -88,6 +92,7 @@ export default function ReferralLanding() {
         keywords={['TEMBA', 'parrainage', 'billets', 'Burkina Faso', code]}
         structuredData={structuredData}
       />
+      <OpenInAppBanner hint="Votre code vous suit dans l'application." />
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-6">
           <Gift className="w-8 h-8" />
@@ -113,14 +118,14 @@ export default function ReferralLanding() {
         {!isAuthenticated && !loading && (
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              to={`/signup?ref=${encodeURIComponent(code)}`}
+              to={`/signup?r=${encodeURIComponent(code)}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-white font-medium hover:bg-indigo-700"
             >
               Créer un compte
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              to={`/login?ref=${encodeURIComponent(code)}`}
+              to={`/login?r=${encodeURIComponent(code)}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-6 py-3 text-gray-800 font-medium hover:bg-gray-50"
             >
               J&apos;ai déjà un compte

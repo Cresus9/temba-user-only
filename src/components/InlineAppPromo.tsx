@@ -1,6 +1,7 @@
 import React from 'react';
 import { Smartphone, Download, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../config/appLinks';
 
 interface InlineAppPromoProps {
   className?: string;
@@ -8,12 +9,12 @@ interface InlineAppPromoProps {
 
 export default function InlineAppPromo({ className = "" }: InlineAppPromoProps) {
   const handleDownloadAndroid = () => {
-    window.open('https://play.google.com/store/apps/details?id=app.rork.temba&pcampaignid=web_share', '_blank');
+    window.open(PLAY_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownloadiOS = () => {
     // Official Temba app on Apple App Store
-    window.open('https://apps.apple.com/us/app/temba/id6748848506', '_blank');
+    window.open(APP_STORE_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (

@@ -12,6 +12,33 @@ import {
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
 import { sendMetaPurchase } from "../_shared/metaCapi.ts";
+import { stampTicketVisitDates, ticketLinesForOrder } from "../_shared/ticketLines.ts";
+
+// Fire-and-forget: ask finalize-order to send the ticket email for this payment.
+// finalize-order (email_only) only sends the email; it is idempotent via
+// payments.metadata.ticket_email_sent_at. Never throws, never blocks the response.
+function triggerTicketEmail(paymentId: string): void {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL");
+    if (!baseUrl || !paymentId) return;
+    const pending = fetch(`${baseUrl}/functions/v1/finalize-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Finalize-Secret": Deno.env.get("FINALIZE_ORDER_SECRET") ?? "",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? ""}`,
+      },
+      body: JSON.stringify({ payment_id: paymentId, email_only: true }),
+    })
+      .then((r) => {
+        if (!r.ok) console.warn("[ticket-email] finalize-order HTTP", r.status);
+      })
+      .catch((err) => console.warn("[ticket-email] trigger failed:", err));
+    (globalThis as any).EdgeRuntime?.waitUntil?.(pending);
+  } catch (err) {
+    console.warn("[ticket-email] trigger error:", err);
+  }
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -119,6 +146,7 @@ Deno.serve(async (req) => {
         console.log("ℹ️ Payment already finalized:", payment.id, payment.status);
         if (payment.status === "completed" || payment.status === "succeeded") {
           await sendMetaPurchase(supabase, payment.id);
+          triggerTicketEmail(payment.id);
         }
         if (webhookLog?.id) {
           await supabase
@@ -206,19 +234,26 @@ Deno.serve(async (req) => {
             console.error("❌ Error checking existing tickets:", existingTicketsError);
           } else if (existingTickets && existingTickets.length > 0) {
             console.log(`ℹ️ Tickets already exist for order ${payment.order_id} (${existingTickets.length} tickets), skipping ticket creation`);
+            try {
+              await stampTicketVisitDates(supabase, payment.order_id);
+            } catch (stampErr) {
+              console.error("[stripe-webhook] visit date stamp:", stampErr);
+            }
           } else {
             // Create tickets for the order (same logic as PayDunya)
             if (order.ticket_quantities) {
               const ticketInserts = [];
-              
-              for (const [ticketTypeId, quantity] of Object.entries(order.ticket_quantities)) {
-                for (let i = 0; i < Number(quantity); i++) {
+              // One entry per (ticket type, date); single-date orders: ticket_quantities + order date as before.
+              const ticketLines = await ticketLinesForOrder(supabase, order);
+
+              for (const line of ticketLines) {
+                for (let i = 0; i < line.quantity; i++) {
                   ticketInserts.push({
                     order_id: order.id,
                     event_id: order.event_id,
                     user_id: order.user_id,
-                    ticket_type_id: ticketTypeId,
-                    event_date_id: order.event_date_id || null,
+                    ticket_type_id: line.ticket_type_id,
+                    event_date_id: line.event_date_id || null,
                     status: "VALID",
                     payment_status: "paid",
                     payment_id: payment.id,
@@ -264,6 +299,7 @@ Deno.serve(async (req) => {
       } // end sync fallback
 
       if (!queued) await sendMetaPurchase(supabase, payment.id);
+      if (!queued) triggerTicketEmail(payment.id);
 
       // Mark webhook as processed
       if (webhookLog?.id) {
@@ -287,7 +323,7 @@ Deno.serve(async (req) => {
     if (event.type === "payment_intent.payment_failed") {
       const intent = event.data.object as Stripe.PaymentIntent;
 
-      const { error: failErr } = await supabase
+      const { data: failedRows, error: failErr } = await supabase
         .from("payments")
         .update({
           status: "failed",
@@ -298,35 +334,38 @@ Deno.serve(async (req) => {
             failure_message: intent.last_payment_error?.message,
           },
         })
-        .eq("stripe_payment_intent_id", intent.id);
+        .eq("stripe_payment_intent_id", intent.id)
+        .not("status", "in", "(completed,COMPLETED,paid,PAID)")
+        .select("id, order_id");
 
       if (failErr) {
         console.error("❌ Failed to update payment as failed:", failErr);
+      } else if (!failedRows?.length) {
+        console.log("[stripe-webhook] refused to downgrade a completed payment", intent.id);
       } else {
         console.log("✅ Payment marked as failed:", intent.id);
-
-        const { data: failedPayment } = await supabase
-          .from("payments")
-          .select("id, order_id")
-          .eq("stripe_payment_intent_id", intent.id)
-          .maybeSingle();
+        const failedPayment = failedRows[0];
 
         if (failedPayment?.id) {
           await redisSet(paymentStatusKey(failedPayment.id), "failed", PAYMENT_STATUS_TTL);
         }
 
         if (failedPayment?.order_id) {
-          const { error: orderFailErr } = await supabase
+          const { data: cancelled, error: orderFailErr } = await supabase
             .from("orders")
             .update({
               status: "CANCELLED",
               visible_in_history: false,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", failedPayment.order_id);
+            .eq("id", failedPayment.order_id)
+            .not("status", "in", "(COMPLETED,paid,PAID)")
+            .select("id");
 
           if (orderFailErr) {
             console.error("❌ Failed to mark order as cancelled:", orderFailErr);
+          } else if (!cancelled?.length) {
+            console.log("[stripe-webhook] kept completed order", failedPayment.order_id);
           }
         }
       }
@@ -341,6 +380,44 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ received: true, status: "failed" }), 
         { headers: cors }
+      );
+    }
+
+    // A full refund does not change ticket issuance. It writes a reversal row
+    // when the ledger function is installed. A partial refund leaves the reward.
+    // Missing SQL must not fail the webhook.
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as Stripe.Charge;
+      const amount = charge.amount ?? 0;
+      const amountRefunded = charge.amount_refunded ?? 0;
+      const fullyRefunded = charge.refunded === true || (amount > 0 && amountRefunded >= amount);
+      if (!fullyRefunded) {
+        console.log("[stripe-webhook] partial refund, rewards left in place");
+        return new Response(
+          JSON.stringify({ received: true, status: "partial_refund" }),
+          { headers: cors },
+        );
+      }
+      const paymentIntent = typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id;
+      if (paymentIntent) {
+        const { data: refundedPayment } = await supabase
+          .from("payments")
+          .select("order_id")
+          .eq("stripe_payment_intent_id", paymentIntent)
+          .maybeSingle();
+        if (refundedPayment?.order_id) {
+          const { error: reverseErr } = await supabase.rpc("reverse_order_rewards", {
+            p_order_id: refundedPayment.order_id,
+            p_reason: "stripe_refund",
+          });
+          if (reverseErr) console.warn("[stripe-webhook] reversal:", reverseErr.message);
+        }
+      }
+      return new Response(
+        JSON.stringify({ received: true, status: "refunded" }),
+        { headers: cors },
       );
     }
 

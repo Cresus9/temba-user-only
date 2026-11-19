@@ -12,6 +12,8 @@
  *   FINALIZE_ORDER_SECRET     arbitrary shared secret (openssl rand -hex 32)
  */
 
+import { authorizeFinalize, probeProjectServiceRole } from "./finalizeAuth.ts";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Config helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,7 +164,8 @@ export async function qstashPublish(
     }
 
     const res = await fetch(
-      `https://qstash.upstash.io/v2/publish/${encodeURIComponent(destinationUrl)}`,
+      // QStash expects the raw destination URL in the path (/v2/publish/https://...)
+      `https://qstash.upstash.io/v2/publish/${destinationUrl}`,
       { method: "POST", headers, body: JSON.stringify(body) }
     );
 
@@ -189,6 +192,30 @@ export function verifyFinalizeSecret(req: Request): boolean {
   const secret = Deno.env.get("FINALIZE_ORDER_SECRET");
   if (!secret) return true; // dev mode — skip
   return req.headers.get("X-Finalize-Secret") === secret;
+}
+
+function bearerToken(req: Request): string {
+  const header = req.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(\S+)/i);
+  return match?.[1] || "";
+}
+
+/**
+ * X-Finalize-Secret still works. A bearer is accepted when it equals
+ * SUPABASE_SERVICE_ROLE_KEY, or when it is a service_role JWT for this project
+ * (the legacy cron token). Anon and user tokens are rejected.
+ */
+export async function verifyFinalizeAuth(req: Request): Promise<boolean> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  return authorizeFinalize({
+    finalizeSecret: Deno.env.get("FINALIZE_ORDER_SECRET") || "",
+    presentedSecret: req.headers.get("X-Finalize-Secret") || "",
+    serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    bearer: bearerToken(req),
+    supabaseUrl,
+    jwtSecret: Deno.env.get("SUPABASE_JWT_SECRET") || Deno.env.get("JWT_SECRET") || "",
+    probe: (token) => probeProjectServiceRole(supabaseUrl, token),
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

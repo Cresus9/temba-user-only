@@ -1,33 +1,33 @@
+import { BUYER_APP_SCHEME, ONELINK_BASE, WEB_ORIGIN, buildDeferredOneLink } from './appLinks';
+
 export interface BuiltReferralShareLinks {
   oneLink: string;
   app: string;
   web: string;
 }
 
-/**
- * AppsFlyer OneLink base (same contract as mobile). Override via Vite env in production if the template id changes.
- */
-export const REFERRAL_ONELINK_BASE =
-  (import.meta.env.VITE_REFERRAL_ONELINK_BASE as string | undefined)?.replace(/\/$/, '') ??
-  'https://temba.onelink.me/Xbe8';
+/** Same OneLink base as the open-in-app handoff. */
+export const REFERRAL_ONELINK_BASE = ONELINK_BASE;
 
-export const REFERRAL_APP_SCHEME =
-  (import.meta.env.VITE_REFERRAL_APP_SCHEME as string | undefined) ?? 'temba';
+export const REFERRAL_APP_SCHEME = BUYER_APP_SCHEME;
 
-export const REFERRAL_WEB_ORIGIN =
-  (import.meta.env.VITE_REFERRAL_WEB_ORIGIN as string | undefined)?.replace(/\/$/, '') ??
-  'https://tembas.com';
+export const REFERRAL_WEB_ORIGIN = WEB_ORIGIN;
 
 /**
- * Builds share URLs aligned with mobile: deep_link_value = ref/{CODE}
+ * Web share link is https://tembas.com/?r=CODE. /ref/CODE still captures the same code.
+ * OneLink keeps deep_link_value=ref/CODE, and af_web_dp carries ?r= so a
+ * store install that falls back to the site still attributes the order.
  */
 export function buildReferralShareLinks(referralCode: string): BuiltReferralShareLinks {
   const trimmed = referralCode.trim();
-  const deepValue = `ref/${trimmed}`;
-  const q = new URLSearchParams({ deep_link_value: deepValue }).toString();
+  const web = `${REFERRAL_WEB_ORIGIN}/?r=${encodeURIComponent(trimmed)}`;
   return {
-    oneLink: `${REFERRAL_ONELINK_BASE}?${q}`,
+    oneLink: buildDeferredOneLink({
+      path: `ref/${trimmed}`,
+      code: trimmed,
+      webUrl: web,
+    }),
     app: `${REFERRAL_APP_SCHEME}://ref/${trimmed}`,
-    web: `${REFERRAL_WEB_ORIGIN}/ref/${encodeURIComponent(trimmed)}`,
+    web,
   };
 }

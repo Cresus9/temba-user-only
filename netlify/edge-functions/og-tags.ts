@@ -1,4 +1,12 @@
 import type { Context } from "https://edge.netlify.com";
+import {
+  TEMBA_ORIGIN,
+  eventOgImageUrl,
+  eventShareDescription,
+  eventShareLocation,
+  publicSiteOrigin,
+  toAbsoluteHttps,
+} from "./lib/eventOgShare.ts";
 
 /**
  * Crawler-facing HTML for Googlebot, social bots, and other non-JS clients.
@@ -9,6 +17,9 @@ import type { Context } from "https://edge.netlify.com";
  *
  * Do NOT add a meta-refresh — Google treats that as a redirect and drops the page.
  */
+
+/** Official share image. Never the old purple-T placeholder. */
+const TEMBA_OG_IMAGE = "https://tembas.com/og-image-v2.png";
 
 function getSupabaseRestConfig(): { url: string; anonKey: string } | null {
   const url =
@@ -388,7 +399,20 @@ function layout(opts: {
   );
   const description = escapeHtml(opts.description.slice(0, 220));
   const url = escapeHtml(opts.url);
-  const image = escapeHtml(opts.image || "https://tembas.com/temba-wordmark-dark.jpg");
+  const imageRaw = opts.image || TEMBA_OG_IMAGE;
+  const image = escapeHtml(imageRaw);
+  const imageLower = imageRaw.toLowerCase();
+  const imageType = imageLower.includes(".png")
+    ? "image/png"
+    : imageLower.includes(".webp")
+      ? "image/webp"
+      : imageLower.includes(".jpg") || imageLower.includes(".jpeg")
+        ? "image/jpeg"
+        : "";
+  const imageTypeTag = imageType
+    ? `  <meta property="og:image:type" content="${imageType}" />
+`
+    : "";
   const ogType = escapeHtml(opts.ogType || "website");
   const robots = escapeHtml(opts.robots || "index, follow");
   const jsonLd = opts.jsonLd
@@ -404,13 +428,17 @@ function layout(opts: {
   <meta name="description" content="${description}" />
   <meta name="robots" content="${robots}" />
   <link rel="canonical" href="${url}" />
+  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=3" />
+  <link rel="icon" type="image/png" sizes="32x32" href="https://tembas.com/favicon-32x32.png?v=3" />
+  <link rel="apple-touch-icon" sizes="180x180" href="https://tembas.com/apple-touch-icon-v2.png?v=3" />
   <meta property="og:type" content="${ogType}" />
   <meta property="og:site_name" content="Temba" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${image}" />
-  <meta property="og:image:width" content="1200" />
+${imageTypeTag}  <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="${title}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:locale" content="fr_BF" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -457,20 +485,30 @@ function generateEventHtml(
   event: any,
   requestParam: string,
   related: any[],
-  performers: { name: string; slug?: string; role?: string }[] = []
+  performers: { name: string; slug?: string; role?: string }[] = [],
+  origin = TEMBA_ORIGIN,
 ): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
-  const location = event?.city || event?.location || "";
+  const location = eventShareLocation(event || {});
   const eventDate = event?.is_permanent ? "Ouvert toute l'année" : formatFrDate(event?.date);
   const eventTime = event?.time || "";
-  const description =
-    rawDesc ||
-    `Achetez vos billets pour ${title}${location ? ` à ${location}` : ""} sur Temba.`;
+  const description = eventShareDescription({
+    title,
+    description: rawDesc,
+    dateLabel: eventDate,
+    location,
+  });
   const eventUrl = `https://tembas.com${
     event ? eventPublicPath(event) : `/e/${requestParam}`
   }`;
-  const imageUrl = event?.image_url || "https://tembas.com/temba-wordmark-dark.jpg";
+  // First-party /og/e proxy so WhatsApp can fetch a 1200×630 JPEG.
+  // The on-page <img> and JSON-LD keep the original flyer URL.
+  const flyerUrl =
+    toAbsoluteHttps(event?.image_url) || event?.image_url || TEMBA_OG_IMAGE;
+  const imageUrl = event?.image_url
+    ? eventOgImageUrl(event, event.image_url, origin)
+    : TEMBA_OG_IMAGE;
   const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
   const minPrice =
@@ -492,7 +530,7 @@ function generateEventHtml(
     name: title,
     description,
     url: eventUrl,
-    image: [imageUrl],
+    image: [flyerUrl],
     ...(startDate ? { startDate } : {}),
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -556,7 +594,7 @@ function generateEventHtml(
     ${artistLines ? `<h2>À l'affiche</h2><ul>${artistLines}</ul>` : ""}
     ${ticketLines ? `<h2>Tarifs</h2><ul>${ticketLines}</ul>` : ""}
     <p><a href="${escapeHtml(eventUrl)}">Acheter des billets sur Temba</a></p>
-    ${event?.image_url ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />` : ""}
+    ${event?.image_url ? `<img src="${escapeHtml(flyerUrl)}" alt="${escapeHtml(title)}" />` : ""}
   </article>
   <h2>Autres événements</h2>
   ${eventListHtml(related.filter((e) => e.id !== event?.id).slice(0, 12))}
@@ -645,14 +683,14 @@ function generateHomeHtml(events: any[], artists: { href: string; name: string; 
     title,
     description,
     url: "https://tembas.com/",
-    image: "https://tembas.com/temba-mark-navy.jpg",
+    image: TEMBA_OG_IMAGE,
     jsonLd: [
       {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: "Temba",
         url: "https://tembas.com/",
-        logo: "https://tembas.com/temba-mark-navy.jpg",
+        logo: TEMBA_OG_IMAGE,
         description,
         areaServed: ["BF", "CI", "SN"],
         address: {
@@ -720,6 +758,16 @@ function generateReferralHtml(referralCode: string): string {
   });
 }
 
+/** Crawler canonical redirects must not drop ?r= from a shared or OneLink URL. */
+function redirectKeepingQuery(pathname: string, search: string): Response {
+  const target = new URL(pathname, "https://tembas.com");
+  const incoming = new URLSearchParams(search);
+  incoming.forEach((value, key) => {
+    if (!target.searchParams.has(key)) target.searchParams.append(key, value);
+  });
+  return Response.redirect(target.toString(), 301);
+}
+
 export default async function handler(request: Request, context: Context) {
   const url = new URL(request.url);
   const userAgent = request.headers.get("user-agent");
@@ -746,7 +794,7 @@ export default async function handler(request: Request, context: Context) {
     return new Response(generateListingHtml(events), { headers: htmlHeaders });
   }
 
-  const eventMatch = url.pathname.match(/^\/(e|events)\/([^/]+)$/);
+  const eventMatch = url.pathname.match(/^\/(e|event|events)\/([^/]+)$/);
   if (eventMatch) {
     const requestParam = decodeURIComponent(eventMatch[2]);
     const [event, related] = await Promise.all([
@@ -756,14 +804,14 @@ export default async function handler(request: Request, context: Context) {
     if (event) {
       const canonical = eventPublicPath(event);
       if (url.pathname !== canonical) {
-        return Response.redirect(`https://tembas.com${canonical}`, 301);
+        return redirectKeepingQuery(canonical, url.search);
       }
       const performers = await fetchEventPerformers(event.id);
-      return new Response(generateEventHtml(event, requestParam, related, performers), {
+      return new Response(generateEventHtml(event, requestParam, related, performers, publicSiteOrigin(request.url)), {
         headers: htmlHeaders,
       });
     }
-    return new Response(generateEventHtml(event, requestParam, related), {
+    return new Response(generateEventHtml(event, requestParam, related, [], publicSiteOrigin(request.url)), {
       headers: htmlHeaders,
     });
   }
@@ -1149,7 +1197,7 @@ export default async function handler(request: Request, context: Context) {
     const category = rows?.[0];
     const publicSlug = frenchCategorySlug(category, key);
     if (category && key !== publicSlug) {
-      return Response.redirect(`https://tembas.com/categories/${publicSlug}`, 301);
+      return redirectKeepingQuery(`/categories/${publicSlug}`, url.search);
     }
     const name = frenchCategoryName(publicSlug, category?.name || key);
     let items: { href: string; name: string; extra?: string }[] = [
@@ -1355,6 +1403,7 @@ export const config = {
     "/events",
     "/events/*",
     "/e/*",
+    "/event/*",
     "/attractions",
     "/venues",
     "/venues/*",

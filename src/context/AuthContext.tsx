@@ -41,6 +41,25 @@ interface Profile {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+// Link this browser's OneSignal push subscription to the Temba user id (external_id),
+// so the notification worker can target the user. Never blocks or breaks auth.
+let linkedPushUser: string | null | undefined;
+function linkPushIdentity(userId: string | null) {
+  if (typeof window === 'undefined' || linkedPushUser === userId) return;
+  linkedPushUser = userId;
+  type OneSignalLike = { login: (id: string) => Promise<void>; logout: () => Promise<void> };
+  const w = window as unknown as { OneSignalDeferred?: Array<(os: OneSignalLike) => void> };
+  w.OneSignalDeferred = w.OneSignalDeferred || [];
+  w.OneSignalDeferred.push(async (OneSignal: OneSignalLike) => {
+    try {
+      if (userId) await OneSignal.login(userId);
+      else await OneSignal.logout();
+    } catch (e) {
+      console.warn('OneSignal identity link skipped', e);
+    }
+  });
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
@@ -52,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      linkPushIdentity(session?.user?.id ?? null);
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -64,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      linkPushIdentity(session?.user?.id ?? null);
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);

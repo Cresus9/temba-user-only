@@ -3,6 +3,7 @@ import { Mail, User, CreditCard, Loader, Check } from 'lucide-react';
 import { persistGuestWallet, resolveGuestEmail } from '../../services/guestTicketService';
 import { orderService } from '../../services/orderService';
 import { pawapayService } from '../../services/pawapayService';
+import { orderDateFields, type LineAllocation } from '../../utils/lineAllocations';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/formatters';
@@ -29,6 +30,8 @@ interface GuestCheckoutFormProps {
   /** Extra amount from venue service add-ons selected on the checkout page */
   addonTotal?: number;
   eventDateId?: string | null;
+  /** Several dates only. */
+  lineAllocations?: LineAllocation[] | null;
   onSuccess: (orderId: string) => void;
 }
 
@@ -38,9 +41,11 @@ export default function GuestCheckoutForm({
   currency,
   eventId,
   addonTotal = 0,
-  eventDateId = null,
+  eventDateId: eventDateIdProp = null,
+  lineAllocations: lineAllocationsProp = null,
   onSuccess
 }: GuestCheckoutFormProps) {
+  const { event_date_id: eventDateId, line_allocations: lineAllocations } = orderDateFields(eventDateIdProp, lineAllocationsProp);
   // Function to clear cart for specific event
   const clearCartForEvent = (eventId: string) => {
     try {
@@ -134,6 +139,7 @@ export default function GuestCheckoutForm({
           eventId,
           ticketQuantities: tickets,
           eventDateId,
+          lineAllocations,
           paymentMethod: 'CARD',
           paymentDetails: {
             cardNumber: formData.cardNumber,
@@ -191,6 +197,7 @@ export default function GuestCheckoutForm({
         eventId,
         ticketQuantities: tickets,
         eventDateId,
+        lineAllocations,
         paymentMethod: 'MOBILE_MONEY',
         paymentDetails: {
           provider: formData.provider,
@@ -232,6 +239,8 @@ export default function GuestCheckoutForm({
         buyer_email: resolveGuestEmail('', intlPhone) || undefined,
         event_id: eventId,
         order_id: orderResult.orderId,
+        event_date_id: eventDateId || null,
+        ...(lineAllocations ? { line_allocations: lineAllocations } : {}),
         ticket_lines: ticketLines,
         amount_major: grandTotal,
         currency: 'XOF',
@@ -241,7 +250,8 @@ export default function GuestCheckoutForm({
         preAuthorisationCode: formData.preAuthorisationCode || undefined, // OTP for second attempt (if provided)
         return_url: `${window.location.origin}/payment/success?order=${orderResult.orderId}`,
         cancel_url: `${window.location.origin}/payment/cancelled?order=${orderResult.orderId}`,
-        description: `Billets d'événement (Invité) - ${eventId}`
+        description: `Billets d'événement (Invité) - ${eventId}`,
+        ...(orderResult.token ? { guest_token: orderResult.token } : {}),
       });
 
       // ✅ BEST CASE: Payment URL redirect available (no OTP needed!)

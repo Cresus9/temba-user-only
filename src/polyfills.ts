@@ -3,8 +3,8 @@ import 'core-js/stable';
 
 // Polyfill for ResizeObserver (only load if needed)
 if (!window.ResizeObserver) {
-  import('resize-observer-polyfill').then(({ ResizeObserver }) => {
-    window.ResizeObserver = ResizeObserver;
+  import('resize-observer-polyfill').then((mod) => {
+    window.ResizeObserver = mod.default;
   }).catch(() => {
     // Fallback if polyfill fails to load
     console.warn('ResizeObserver polyfill failed to load');
@@ -111,7 +111,7 @@ if (!Array.prototype.includes) {
     if (len === 0) {
       return false;
     }
-    const n = parseInt(fromIndex) || 0;
+    const n = Number(fromIndex) || 0;
     let k;
     if (n >= 0) {
       k = n;

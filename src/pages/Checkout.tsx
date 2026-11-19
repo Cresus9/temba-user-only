@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, Lock } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import CheckoutChrome from '../components/checkout/CheckoutChrome';
+import { displayVenue } from '../utils/eventGeo';
+import { formatCalendarDate, formatEventTime } from '../utils/formatters';
+import { supabase } from '../lib/supabase-client';
 import { useAuth } from '../context/AuthContext';
 import CheckoutForm from '../components/checkout/CheckoutForm';
 import AddonSelector from '../components/tickets/AddonSelector';
@@ -11,6 +15,9 @@ import { computeFoodTotal, type FoodSelection, type FoodMenuCategory } from '../
 import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
 import { recordCheckoutStart } from '../services/abandonedCheckout';
+import { useEvents } from '../context/EventContext';
+import { formatCurrency } from '../utils/formatters';
+import { distinctDateIds, sanitizeAllocations, type LineAllocation } from '../utils/lineAllocations';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -23,6 +30,10 @@ interface CheckoutState {
   eventId: string;
   eventSlug?: string | null;
   eventDateId?: string | null;
+  /** Multi-date purchase: chosen dates, in event order. */
+  eventDateIds?: string[] | null;
+  /** Multi-date purchase: one line per (ticket type, date). Absent for single-date orders. */
+  lineAllocations?: LineAllocation[] | null;
   /** Pre-computed extras total passed from PermanentBookingPanel (addons + food) */
   addonTotal?: number;
   /** True when navigating from the permanent attraction booking panel */
@@ -85,8 +96,12 @@ export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { events } = useEvents();
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
   const [foodSelections,  setFoodSelections]  = useState<FoodSelection>({});
+  const [lines, setLines] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
+  const [chosenDate, setChosenDate] = useState<{ date: string; start_time: string | null } | null>(null);
+  const [dateRows, setDateRows] = useState<Record<string, { date: string; start_time: string | null }>>({});
 
   const locationState = location.state as CheckoutState | null;
   const state =
@@ -130,8 +145,149 @@ export default function Checkout() {
     ? addonsAmount               // seeded from state.addonTotal on mount
     : addonsAmount + foodAmount; // live selections on checkout page
 
+  const event = events.find((item) => item.id === state.eventId);
+  const place = displayVenue(event?.location, event?.city);
+  const asideTotal = (state.totals?.total || 0) + extrasTotal;
+  React.useEffect(() => {
+    const ids = Object.keys(state.tickets || {});
+    if (!ids.length) return;
+    supabase.from('ticket_types').select('id, name, price').in('id', ids).then(({ data }) => {
+      const rows = (data || []).map((row: { id: string; name: string; price: number }) => ({
+        id: row.id,
+        name: row.name,
+        price: Number(row.price) || 0,
+        qty: Number(state.tickets[row.id] || 0),
+      })).filter((row) => row.qty > 0);
+      setLines(rows);
+    });
+  }, [state.eventId]);
+
+  React.useEffect(() => {
+    if (!state.eventDateId) {
+      setChosenDate(null);
+      return;
+    }
+    supabase
+      .from('event_dates')
+      .select('date, start_time')
+      .eq('id', state.eventDateId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setChosenDate(data?.date ? { date: data.date, start_time: data.start_time || null } : null);
+      });
+  }, [state.eventDateId]);
+
+  const allocations = React.useMemo(() => {
+    const clean = sanitizeAllocations(state.lineAllocations);
+    return clean && distinctDateIds(clean).length > 1 ? clean : null;
+  }, [state.lineAllocations]);
+  const allocationDateIds = React.useMemo(() => {
+    const ids = distinctDateIds(allocations);
+    const order = (state.eventDateIds || []).filter((id) => ids.includes(id));
+    return [...order, ...ids.filter((id) => !order.includes(id))];
+  }, [allocations, state.eventDateIds]);
+
+  React.useEffect(() => {
+    if (!allocationDateIds.length) {
+      setDateRows({});
+      return;
+    }
+    supabase
+      .from('event_dates')
+      .select('id, date, start_time')
+      .in('id', allocationDateIds)
+      .then(({ data }) => {
+        const next: Record<string, { date: string; start_time: string | null }> = {};
+        for (const row of (data || []) as { id: string; date: string; start_time: string | null }[]) {
+          next[row.id] = { date: row.date, start_time: row.start_time || null };
+        }
+        setDateRows(next);
+      });
+  }, [allocationDateIds.join(',')]);
+
+  const priceById = React.useMemo(() => new Map(lines.map((line) => [line.id, line])), [lines]);
+  const dateGroups = allocations
+    ? allocationDateIds
+      .map((id) => ({ id, rows: allocations.filter((line) => line.event_date_id === id) }))
+      .sort((a, b) => (dateRows[a.id]?.date || '').localeCompare(dateRows[b.id]?.date || ''))
+    : [];
+
+  const recapDate = chosenDate?.date || event?.date;
+  const recapTime = chosenDate?.start_time || event?.time;
+
+  const summary = (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <div className="flex gap-3">
+        {event?.image_url ? <img src={event.image_url} alt="" className="h-[90px] w-[72px] rounded-[8px] object-contain bg-[#1B1D33]" /> : null}
+        <div className="min-w-0">
+          <p className="font-display text-[16px] font-bold leading-snug">{event?.title || 'Votre commande'}</p>
+          {allocations ? (
+            <p className="mt-1 text-[13px] text-ink-2">{allocationDateIds.length} dates</p>
+          ) : (
+          <p className="mt-1 text-[13px] text-ink-2">
+            {recapDate ? formatCalendarDate(recapDate, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : ''}
+            {formatEventTime(recapTime) ? ` · ${formatEventTime(recapTime)}` : ''}
+          </p>
+          )}
+          {!allocations && formatEventTime(recapTime) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
+          <p className="mt-1 text-[13px] text-ink-3">{place.label}</p>
+        </div>
+      </div>
+      {allocations ? (
+        <div className="mt-3 border-t border-line pt-1 text-[14px]">
+          {dateGroups.map((group) => {
+            const row = dateRows[group.id];
+            const time = formatEventTime(row?.start_time);
+            const groupTotal = group.rows.reduce((sum, line) => sum + (priceById.get(line.ticket_type_id)?.price || 0) * line.quantity, 0);
+            return (
+              <div key={group.id} className="border-b border-line py-2.5 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-semibold">
+                    {row?.date ? formatCalendarDate(row.date, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : '…'}
+                    {time ? <span className="font-normal text-ink-3"> · {time}</span> : null}
+                  </p>
+                  <span className="shrink-0 font-semibold tabular-nums">{formatCurrency(groupTotal, state.currency)}</span>
+                </div>
+                {group.rows.map((line) => {
+                  const type = priceById.get(line.ticket_type_id);
+                  return (
+                    <p key={`${group.id}-${line.ticket_type_id}`} className="mt-0.5 flex justify-between gap-3 text-[13px] text-ink-2">
+                      <span>{line.quantity} × {type?.name || 'Billet'}</span>
+                      <span className="tabular-nums">{formatCurrency((type?.price || 0) * line.quantity, state.currency)}</span>
+                    </p>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {formatEventTime(dateRows[allocationDateIds[0]]?.start_time) ? <p className="pt-1 text-[12px] text-ink-3">Heures de Ouagadougou</p> : null}
+        </div>
+      ) : (
+      <div className="mt-3 space-y-1 border-t border-line pt-3 text-[14px]">
+        {lines.map((line) => (
+          <p key={line.id} className="flex justify-between gap-3">
+            <span>{line.qty} × {line.name}</span>
+            <span className="tabular-nums">{formatCurrency(line.price * line.qty, state.currency)}</span>
+          </p>
+        ))}
+      </div>
+      )}
+      <div className="mt-3 flex items-center justify-between border-t border-line pt-3 font-display text-[20px] font-bold">
+        <span>Total</span>
+        <span className="tabular-nums">{formatCurrency(asideTotal, state.currency)}</span>
+      </div>
+      <Link to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} className="mt-3 inline-flex text-[14px] font-semibold text-brand">
+        Modifier mes billets
+      </Link>
+      <p className="mt-3 flex items-start gap-2 text-[13px] text-ink-3">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        Un souci au paiement ? WhatsApp +226 74 75 08 15, 7j/7.
+      </p>
+    </div>
+  );
+
   return (
-    <div>
+    <div className="min-h-screen bg-[#F4F5FA]">
       <RecordStartedCheckout
         eventId={state.eventId}
         eventSlug={state.eventSlug}
@@ -140,56 +296,24 @@ export default function Checkout() {
         totalAmount={state.totals.total}
       />
       <PageSEO title="Paiement" description="Finalisez votre achat de billets sur Temba." robots="noindex, nofollow" />
+      <CheckoutChrome current={2} backTo={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} />
 
-      {/* ── Title band ── */}
-      <section className="bg-cream bg-grain border-b border-line">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-5 pb-6">
+      <section className="bg-[#F4F5FA]">
+        <div className="mx-auto grid max-w-[1200px] gap-10 px-5 py-8 md:px-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:py-10">
+          <div className="space-y-6">
+          <details className="rounded-2xl border border-line bg-white p-4 lg:hidden">
+            <summary className="cursor-pointer font-semibold">Votre commande · {formatCurrency(asideTotal, state.currency)}</summary>
+            <div className="mt-3">{summary}</div>
+          </details>
           <Link
-            to={
-              state?.eventId
-                ? eventPublicPath({ id: state.eventId, slug: state.eventSlug })
-                : '/events'
-            }
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-mute hover:text-ink transition-colors mb-3"
+            to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'}
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-ink-3 hover:text-ink"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {state?.eventId ? "Retour à l'événement" : 'Retour aux événements'}
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux billets
           </Link>
-
-          <div className="flex items-center gap-3 mb-1.5">
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute tabular-nums"
-              style={{ fontFamily: mono }}
-            >
-              Étape 2 / 3
-            </span>
-            <span aria-hidden className="w-px h-3 bg-line" />
-            <span className="eyebrow !mb-0">Paiement</span>
-          </div>
-
-          <h1 className="!text-[clamp(22px,3vw,32px)] !leading-[1.06] text-ink mb-1.5 tracking-tight">
-            Finaliser votre achat
-          </h1>
-          <p className="text-[13px] text-ink-mute">
-            Choisissez votre méthode de paiement pour sécuriser vos billets.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-mute">
-            <span className="inline-flex items-center gap-1.5">
-              <Lock className="h-3 w-3 text-brand" />
-              Connexion chiffrée
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3 w-3 text-accent" />
-              Paiement sécurisé en FCFA
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Main area ── */}
-      <section className="bg-paper">
-        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 md:py-10 space-y-8">
+          <h1 className="font-display text-[32px] font-bold tracking-tight">Paiement</h1>
+          <p className="text-[14px] text-ink-3">Orange Money, Moov Money ou carte. Le code USSD Orange s'affiche ici dès que l'opérateur le demande — aucun débit sans votre validation.</p>
 
           {/* ── Extras section ──
                For permanent attractions: selectors were already shown in the
@@ -236,7 +360,8 @@ export default function Checkout() {
             addonTotal={extrasTotal}
             currency={state.currency}
             eventId={state.eventId}
-            eventDateId={state.eventDateId}
+            eventDateId={allocations ? null : state.eventDateId}
+            lineAllocations={allocations}
             onCreateAccount={() => {
               persistCheckoutDraft(state);
               navigate('/signup', {
@@ -245,6 +370,8 @@ export default function Checkout() {
             }}
             onSuccess={isAuthenticated ? handleAuthenticatedSuccess : handleGuestSuccess}
           />
+          </div>
+          <aside className="hidden h-fit lg:sticky lg:top-6 lg:block">{summary}</aside>
         </div>
       </section>
     </div>

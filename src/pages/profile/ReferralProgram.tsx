@@ -24,6 +24,7 @@ import {
 import { creditService, type CreditAggregates } from '../../services/creditService';
 import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
+import { buildReferralShareLinks } from '../../config/referralShare';
 
 const DEFAULT_REFERRAL_STATS: ReferralStats = {
   totalReferrals: 0,
@@ -62,6 +63,13 @@ export default function ReferralProgram() {
   const [aggregates, setAggregates] = useState<CreditAggregates>(DEFAULT_CREDIT_AGGREGATES);
   const [loading, setLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [rewardSummary, setRewardSummary] = useState<{
+    code: string | null;
+    link: string | null;
+    pending_amount: number;
+    available_amount: number;
+    currency: string;
+  } | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -71,6 +79,7 @@ export default function ReferralProgram() {
         referralService.getReferralLink(),
         referralService.getReferralStats(),
         creditService.getAggregates(),
+        referralService.getRewardSummary(),
       ]);
 
       if (settled[0].status === 'fulfilled') setConfig(settled[0].value);
@@ -86,6 +95,9 @@ export default function ReferralProgram() {
       if (settled[3].status === 'fulfilled')
         setAggregates(settled[3].value ?? DEFAULT_CREDIT_AGGREGATES);
       else setAggregates(DEFAULT_CREDIT_AGGREGATES);
+
+      if (settled[4].status === 'fulfilled') setRewardSummary(settled[4].value);
+      else setRewardSummary(null);
     } finally {
       setLoading(false);
     }
@@ -100,14 +112,24 @@ export default function ReferralProgram() {
     void loadAll();
   }, [authLoading, user?.id, loadAll]);
 
-  const referralCode = linkPayload?.referralCode || linkPayload?.code || '';
+  const referralCode = linkPayload?.referralCode || linkPayload?.code || rewardSummary?.code || '';
   const links = linkPayload?.links;
   const shareMessage = linkPayload?.shareMessage || linkPayload?.share_message || '';
 
+  const webLink = useMemo(() => {
+    if (rewardSummary?.link) return rewardSummary.link;
+    if (!referralCode) return '';
+    return buildReferralShareLinks(referralCode).web;
+  }, [referralCode, rewardSummary?.link]);
+
   const fullShareText = useMemo(() => {
-    if (!referralCode || !links?.oneLink) return '';
-    return buildFullShareText(referralCode, links.oneLink, shareMessage);
-  }, [referralCode, links?.oneLink, shareMessage]);
+    if (!referralCode) return '';
+    const base = links?.oneLink
+      ? buildFullShareText(referralCode, links.oneLink, shareMessage)
+      : `Rejoignez TEMBA avec mon code ${referralCode}.`;
+    if (webLink && !base.includes(webLink)) return `${base} ${webLink}`;
+    return base;
+  }, [referralCode, links?.oneLink, shareMessage, webLink]);
 
   const copyText = async (label: string, text: string | undefined) => {
     if (!text) return;
@@ -159,7 +181,7 @@ export default function ReferralProgram() {
   const gagne = aggregates.earned;
   const depense = aggregates.spent;
 
-  const hasReferralReady = Boolean(referralCode && links?.oneLink);
+  const hasReferralReady = Boolean(referralCode && (webLink || links?.oneLink));
 
   return (
     <div className="space-y-5">
@@ -284,7 +306,7 @@ export default function ReferralProgram() {
           </section>
 
           {/* Code + Share — paper card with cream code ticket */}
-          {!programOff && hasReferralReady && (
+          {hasReferralReady && (
             <section className="rounded-xl2 bg-paper border border-line shadow-card overflow-hidden">
               <header className="flex items-center justify-between px-5 py-3 bg-cream border-b border-line">
                 <p
@@ -307,7 +329,7 @@ export default function ReferralProgram() {
                     className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-mute mb-2"
                     style={{ fontFamily: monoFamily }}
                   >
-                    REFERRAL CODE
+                    Code de parrainage
                   </p>
                   <p
                     className="text-[28px] md:text-[32px] font-bold tracking-[0.08em] text-ink leading-none"
@@ -359,8 +381,44 @@ export default function ReferralProgram() {
                   </button>
                 </div>
 
+                {webLink && (
+                  <button
+                    type="button"
+                    onClick={() => copyText('weblink', webLink)}
+                    className="mt-4 w-full rounded-xl2 border border-line bg-cream px-3 py-3 text-left hover:border-brand transition-colors"
+                  >
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-mute mb-1"
+                      style={{ fontFamily: monoFamily }}
+                    >
+                      Votre lien
+                    </p>
+                    <p className="text-[13px] font-semibold text-ink break-all">{webLink}</p>
+                    <p className="text-[11px] text-ink-mute mt-1">
+                      {copiedField === 'weblink' ? 'Lien copié.' : 'Touchez pour copier. La personne qui l’ouvre garde le code pendant 30 jours.'}
+                    </p>
+                  </button>
+                )}
+
+                {rewardSummary && (
+                  <div className="mt-4 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl2 border border-line bg-paper px-3 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-mute">En attente</p>
+                      <p className="mt-1 text-[16px] font-bold tabular-nums text-ink">
+                        {formatCurrency(rewardSummary.pending_amount, rewardSummary.currency)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl2 border border-line bg-paper px-3 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-mute">Disponible</p>
+                      <p className="mt-1 text-[16px] font-bold tabular-nums text-ink">
+                        {formatCurrency(rewardSummary.available_amount, rewardSummary.currency)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-[11px] text-ink-mute mt-3 leading-relaxed text-center">
-                  Le partage inclut votre code et le lien d'installation OneLink.
+                  La récompense est calculée au paiement et reste en attente jusqu’au lendemain de l’événement. Elle ne s’applique pas encore au paiement.
                 </p>
 
                 {linkPayload?.source === 'database' && (
@@ -380,7 +438,7 @@ export default function ReferralProgram() {
           )}
 
           {/* Code unavailable state */}
-          {!programOff && !hasReferralReady && (
+          {!hasReferralReady && (
             <section className="rounded-xl2 bg-paper border border-line shadow-card overflow-hidden">
               <header className="flex items-center justify-between px-5 py-3 bg-cream border-b border-line">
                 <p

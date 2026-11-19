@@ -1,10 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
+import { checkLineAllocations } from "../_shared/ticketLines.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-application-name, x-guest-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -15,6 +17,8 @@ interface CreatePawaPayPaymentRequest {
   event_id: string;
   order_id?: string;  // order ID if already created
   event_date_id?: string | null;  // NEW: For multi-date events
+  /** Several dates: [{ticket_type_id, event_date_id, quantity}], per-type sums = ticket_quantities. */
+  line_allocations?: Array<{ ticket_type_id: string; event_date_id: string; quantity: number }> | null;
   ticket_lines?: Array<{
     ticket_type_id: string;
     quantity: number;
@@ -37,6 +41,8 @@ interface CreatePawaPayPaymentRequest {
   description: string;
   fbp?: string;
   fbc?: string;
+  /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
+  attribution_code?: string | null;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -232,6 +238,28 @@ Deno.serve(async (req) => {
 
       console.log("🔵 Order total calculated:", totalAmount);
 
+      // Several dates -> line_allocations (refused if they don't add up to the billed quantities).
+      // One date -> orders.event_date_id, as before.
+      let orderEventDateId: string | null = payload.event_date_id || null;
+      let orderLines: Array<{ ticket_type_id: string; event_date_id: string | null; quantity: number }> | null = null;
+      if (Array.isArray(payload.line_allocations) && payload.line_allocations.length > 0) {
+        const checked = await checkLineAllocations(
+          supabase,
+          payload.event_id,
+          ticketQuantities,
+          payload.line_allocations,
+        );
+        if (!checked.ok) {
+          throw new Error("Les billets par date ne correspondent pas à la commande");
+        }
+        if (checked.single) {
+          orderEventDateId = checked.single;
+        } else {
+          orderEventDateId = null;
+          orderLines = checked.lines;
+        }
+      }
+
       // Create order using service role (bypasses RLS)
       // IMPORTANT: Constraint requires either user_id OR guest_email, not both
       const { data: orderData, error: orderError } = await supabase
@@ -243,7 +271,8 @@ Deno.serve(async (req) => {
           status: 'AWAITING_PAYMENT',
           payment_method: payload.payment_method,
           ticket_quantities: ticketQuantities,
-          event_date_id: payload.event_date_id || null,
+          event_date_id: orderEventDateId,
+          ...(orderLines ? { line_allocations: orderLines } : {}),
           // Only set guest_email if user_id is not provided (guest checkout)
           guest_email: payload.user_id ? null : (payload.buyer_email || null),
           visible_in_history: false
@@ -262,6 +291,15 @@ Deno.serve(async (req) => {
       // If order_id is not provided and create_order is false, warn but continue
       console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");
     }
+
+    // Candidate code only. Does not change the charged amount.
+    // A caller-supplied order is updated only for its buyer or guest token.
+    const createdHere = Boolean(createOrder && !payload.order_id && finalOrderId);
+    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code, {
+      createdInThisRequest: createdHere,
+      jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
+      guestToken: createdHere ? null : readGuestToken(req),
+    });
 
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();

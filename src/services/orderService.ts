@@ -1,12 +1,16 @@
 import { supabase } from '../lib/supabase-client';
 import { notificationTriggers } from './notificationTriggers';
 import { getGuestTicketsByToken, resolveGuestEmail } from './guestTicketService';
+import { orderDateFields, sumAllocations, type LineAllocation } from '../utils/lineAllocations';
+import { getPendingReferralCode } from '../utils/referralStorage';
 
 export interface CreateOrderInput {
   eventId: string;
   ticketQuantities: { [key: string]: number };
   paymentMethod: string;
   eventDateId?: string | null;
+  /** Several dates: one line per (ticket type, date). ticketQuantities must be the per-type sums. */
+  lineAllocations?: LineAllocation[] | null;
   paymentDetails?: {
     provider?: string;
     phone?: string;
@@ -14,6 +18,32 @@ export interface CreateOrderInput {
     expiryDate?: string;
     cvv?: string;
   };
+}
+
+/**
+ * Sends the stored code when the column exists. If the patch is not applied yet,
+ * retries without it so a visit that has a code can still pay.
+ */
+async function insertOrderRow(row: Record<string, unknown>) {
+  const code = getPendingReferralCode();
+  const payload = code ? { ...row, attribution_code: code } : row;
+  const first = await supabase.from('orders').insert(payload).select().single();
+  if (first.error && code && /attribution_code/i.test(first.error.message || '')) {
+    return supabase.from('orders').insert(row).select().single();
+  }
+  return first;
+}
+
+/** Several-date lines must add up to ticketQuantities, or the order would bill one thing and issue another. */
+function checkAllocations(ticketQuantities: { [key: string]: number }, lines: LineAllocation[] | null) {
+  if (!lines) return;
+  const sums = sumAllocations(lines);
+  const keys = new Set([...Object.keys(sums), ...Object.keys(ticketQuantities).filter((key) => Number(ticketQuantities[key]) > 0)]);
+  for (const key of keys) {
+    if (Number(sums[key] || 0) !== Number(ticketQuantities[key] || 0)) {
+      throw new Error('Les billets par date ne correspondent pas à la commande');
+    }
+  }
 }
 
 class OrderService {
@@ -60,6 +90,9 @@ class OrderService {
 
       if (!event) throw new Error('Événement non trouvé');
 
+      const dateFields = orderDateFields(input.eventDateId, input.lineAllocations);
+      checkAllocations(input.ticketQuantities, dateFields.line_allocations);
+
       // For card payments, we'll create the order via the Edge Function
       // This bypasses RLS issues in production
       let orderData = null;
@@ -68,20 +101,17 @@ class OrderService {
         console.log('Order will be created by Edge Function for card payment');
       } else {
         // For mobile money, create order directly (legacy flow)
-        const { data: orderDataDirect, error: orderError } = await supabase
-          .from('orders')
-          .insert({
+        const { data: orderDataDirect, error: orderError } = await insertOrderRow({
             user_id: user.id,
             event_id: input.eventId,
             total: totalAmount,
             status: 'AWAITING_PAYMENT',
             payment_method: input.paymentMethod,
             ticket_quantities: input.ticketQuantities,
-            event_date_id: input.eventDateId || null,
+            event_date_id: dateFields.event_date_id,
+            ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
             visible_in_history: false
-          })
-          .select()
-          .single();
+          });
 
         if (orderError) throw orderError;
         orderData = orderDataDirect;
@@ -126,6 +156,7 @@ class OrderService {
     eventId: string;
     ticketQuantities: { [key: string]: number };
     eventDateId?: string | null;
+    lineAllocations?: LineAllocation[] | null;
   }): Promise<{ success: boolean; orderId?: string; error?: string }> {
     try {
       console.log('🎫 [FREE ORDER] Creating free ticket order...');
@@ -166,21 +197,21 @@ class OrderService {
 
       console.log('🎫 [FREE ORDER] Creating order for event:', event.title);
 
+      const dateFields = orderDateFields(input.eventDateId, input.lineAllocations);
+      checkAllocations(input.ticketQuantities, dateFields.line_allocations);
+
       // Create order with COMPLETED status (no payment needed)
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
+      const { data: orderData, error: orderError } = await insertOrderRow({
           user_id: user.id,
           event_id: input.eventId,
           total: 0, // Free order
           status: 'COMPLETED', // Immediately completed
           payment_method: 'FREE_TICKET',
           ticket_quantities: input.ticketQuantities,
-          event_date_id: input.eventDateId || null,
+          event_date_id: dateFields.event_date_id,
+          ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
           visible_in_history: true // Show in history immediately
-        })
-        .select()
-        .single();
+        });
 
       if (orderError) {
         console.error('❌ [FREE ORDER] Order creation error:', orderError);
@@ -191,14 +222,18 @@ class OrderService {
 
       // Create tickets immediately (same logic as webhook)
       const ticketInserts = [];
-      for (const [ticketTypeId, quantity] of Object.entries(input.ticketQuantities)) {
+      // Several dates: one ticket per line unit, each with its own date.
+      const ticketLines = dateFields.line_allocations
+        ? dateFields.line_allocations.map((line) => ({ ticketTypeId: line.ticket_type_id, quantity: line.quantity, eventDateId: line.event_date_id }))
+        : Object.entries(input.ticketQuantities).map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity: Number(quantity), eventDateId: dateFields.event_date_id }));
+      for (const { ticketTypeId, quantity, eventDateId } of ticketLines) {
         for (let i = 0; i < Number(quantity); i++) {
           ticketInserts.push({
             order_id: orderData.id,
             event_id: input.eventId,
             user_id: user.id,
             ticket_type_id: ticketTypeId,
-            event_date_id: input.eventDateId || null,
+            event_date_id: eventDateId || null,
             status: 'VALID',
             payment_status: 'paid', // Mark as paid (free = paid)
             created_at: new Date().toISOString()
@@ -241,6 +276,7 @@ class OrderService {
     ticketQuantities: { [key: string]: number };
     paymentMethod: string;
     eventDateId?: string | null;
+    lineAllocations?: LineAllocation[] | null;
     paymentDetails?: {
       provider?: string;
       phone?: string;
@@ -274,6 +310,9 @@ class OrderService {
         if (!input.paymentDetails?.cvv) throw new Error('CVV de la carte requis');
       }
 
+      const dateFields = orderDateFields(input.eventDateId, input.lineAllocations);
+      checkAllocations(input.ticketQuantities, dateFields.line_allocations);
+
       // Live Paris RPC is 7 args. Named p_event_date_id 404s in PostgREST
       // ("not in the schema cache") even when null. Stash visit date in jsonb.
       const { data, error } = await supabase.rpc('guest_order_processor', {
@@ -285,7 +324,9 @@ class OrderService {
         p_ticket_quantities: input.ticketQuantities,
         p_payment_details: {
           ...(input.paymentDetails || {}),
-          ...(input.eventDateId ? { event_date_id: input.eventDateId } : {}),
+          ...(dateFields.event_date_id ? { event_date_id: dateFields.event_date_id } : {}),
+          // Several dates ride in the same jsonb (no new RPC argument).
+          ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
         },
       });
 

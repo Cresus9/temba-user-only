@@ -1,18 +1,32 @@
-# Notifications — Phase 1.5 patches (not applied)
+# Notifications — Phase 1 (applied to Temba-EU on 2026-11-19)
 
-These patches sit on top of Phase 1, which is already live on Temba-EU. They are **not applied**. Apply only after an explicit "apply", in this order, via the Management API SQL endpoint (same path as Phase 1). Every file has a matching `*_rollback.sql`.
+Applied in this order with the Management API SQL endpoint. Every patch has a `*_rollback.sql`.
 
 | # | Patch | What it does |
 |---|-------|--------------|
-| 09 | `09_push_default_on.sql` | Keeps `notification_preferences.push` default true, backs up every current `push=false` row, then sets `push=true` only where the row was never edited by the user (`updated_at` is identical to `created_at`). There is no `updated_at` trigger, and the settings screens always write a new `updated_at` on save, so that rule is the audit trail. |
-| 10 | `10_abandoned_checkout.sql` | Logged-in started checkouts (including before an order exists) are recorded; after 45 minutes a French in-app + push reminder is enqueued with `notif_enqueue`; completing an order cancels the pending reminder. Honours `order_updates`, quiet hours and daily caps. |
+| 01 | `01_neutralize_stale_queue.sql` | Backed up 1,497 never-sent pending queue rows to `notification_queue_backup_20261119`, then marked them `cancelled` (nothing sent). |
+| 02 | `02_preferences_caps_settings.sql` | New preference columns (in_app, sms, event_reminders, order_updates, quiet hours, timezone, daily caps), queue idempotency columns, `notification_settings`. |
+| 03 | `03_worker_rpcs.sql` | `notif_enqueue`, `notif_claim_batch`, `notif_complete`; `queue_notification_delivery` now admin/service-only. |
+| 03b | `03b_channel_switches.sql` | `push_enabled` (off until the OneSignal App API key is valid) and `email_enabled`. |
+| 03c | `03c_worker_cron.sql` | pg_cron `notification-worker-every-minute` → edge function `notification-worker` (secret from Vault). |
+| 04 | `04_order_confirmed.sql` | Trigger `zz_notif_order_completed` on orders → "Commande confirmée" in-app + push. Never fails the order. |
+| 05 | `05_event_reminders.sql` | `notif_enqueue_event_reminders()` + pg_cron `notification-event-reminders-every-10-min` (24h and 2h, per visit date). |
+| 06 | `06_go_live.sql` | worker_mode=live, cutover_at=now (only rows created after go-live are ever sent). |
+| 07a | `07a_organizer_rpcs.sql` | `notif_ticket_scanned(ticket)` and `notif_message_attendees(event, users, message)` — admin or the event's organizer only (Temba-admin #56 uses them). |
+| 07b | `07b_lockdown_inbox_inserts.sql` | Signed-in users can no longer insert into anyone's inbox (policy now admins only); `create_notification_from_template` admin/server only; `mark_notifications_read` own inbox only (or admin). |
+| 08 | `08_enable_push.sql` | push_enabled=true after a valid OneSignal App API key was set as `ONESIGNAL_REST_API_KEY`. |
+| 09 | `09_push_default_on.sql` | Applied 2026-11-19: push stays default true; 1,177 untouched default-off rows flipped to on; 4 later-updated rows left off. Backup: `notification_preferences_push_backup_20261119` (1,181 rows). |
+| 10 | `10_abandoned_checkout.sql` | Applied 2026-11-19: signed-in started checkouts (including before an order exists) are recorded; after 45 minutes a French in-app + push reminder is enqueued; completing an order cancels the pending reminder. Honours `order_updates`, quiet hours and daily caps. |
 
-Counts on Temba-EU as of 19 Nov 2026, ~6:00 PM America/New_York (read-only, before any apply):
+Kill switch (stops all sending, keeps rows): `06_go_live_rollback.sql`. Reminder-only kill switch: set `abandoned_checkout_enabled` to false, or run `10_abandoned_checkout_rollback.sql`. Patch 09 rollback restores `push` from `notification_preferences_push_backup_20261119`.
 
-- 1,256 preference rows in total
-- 75 already `push=true`
-- 1,181 `push=false`
-- **1,177** of those have `updated_at = created_at` (never saved by the user) — patch 09 flips only these
-- **4** `push=false` rows were updated later (one 46 seconds after insert, three on a later day). Those are left off, in case the user saved the switch themselves.
+Settings (`public.notification_settings`, service role only): `worker_mode` (off | test_only | live), `dry_run`,
+`cutover_at`, `test_user_ids`, `push_enabled`, `email_enabled`, `reminders_enabled`, `order_confirmed_enabled`,
+`abandoned_checkout_enabled`, `abandoned_checkout_delay_minutes`, `batch_size`.
 
-Kill switch for reminders only: set `abandoned_checkout_enabled` to false, or run `10_abandoned_checkout_rollback.sql`. Patch 09 rollback restores `push` from `notification_preferences_push_backup_20261119`.
+Rules enforced by the worker (`supabase/functions/notification-worker/policy.ts`, unit tests in `policy_test.ts`):
+- never email `@temba.temp` addresses; honour per-user push/email switches;
+- daily caps (push 4, email 3 by default) and quiet hours 22h–7h local for non-transactional messages (deferred, or dropped if the event has started);
+- idempotent: dedupe keys in SQL, row locking (`FOR UPDATE SKIP LOCKED`), and provider idempotency keys (queue row id) for OneSignal and Resend.
+
+Rule for patch 09: a preference was never set by the user when `updated_at` is identical to `created_at`. There is no `updated_at` trigger, and the settings screens always write a new `updated_at` on save.
