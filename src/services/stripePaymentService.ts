@@ -1,6 +1,7 @@
 import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
+import { resellerCodeForCheckout } from './resellerAttribution';
 
 export interface FXQuote {
   usd_cents: number;
@@ -113,9 +114,11 @@ class StripePaymentService {
       payment_method?: string;
       guest_email?: string;
       guest_phone?: string;
+      reseller_code?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
+      const reseller_code = options.reseller_code || await resellerCodeForCheckout(eventId);
       const data = await postEdgeFunctionAnon<StripePaymentResponse>('create-stripe-payment', {
         display_amount_minor: displayAmountMinor,
         display_currency: 'XOF',
@@ -135,6 +138,7 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        reseller_code,
         ...metaBrowserMatch(),
       });
 
@@ -167,9 +171,11 @@ class StripePaymentService {
       payment_method?: string;
       guest_email?: string;
       guest_phone?: string;
+      reseller_code?: string;
     } = {}
   ): Promise<StripePaymentResponse> {
     try {
+      const reseller_code = options.reseller_code || await resellerCodeForCheckout(eventId);
       const data = await postEdgeFunctionAnon<StripePaymentResponse>('create-stripe-payment', {
         amount,
         currency,
@@ -184,6 +190,7 @@ class StripePaymentService {
         payment_method: options.payment_method,
         guest_email: options.guest_email,
         guest_phone: options.guest_phone,
+        reseller_code,
         ...metaBrowserMatch(),
       });
 

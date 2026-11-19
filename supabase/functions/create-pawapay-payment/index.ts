@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
+import { resolveResellerCodeForOrder, stampResellerCodeOnOrder } from "../_shared/resellerCodeForOrder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,8 @@ interface CreatePawaPayPaymentRequest {
   description: string;
   fbp?: string;
   fbc?: string;
+  /** Candidate from ?r=. Validated server-side before it is stored. */
+  reseller_code?: string;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -232,6 +235,13 @@ Deno.serve(async (req) => {
 
       console.log("🔵 Order total calculated:", totalAmount);
 
+      // Validate the candidate reseller code. The DB trigger also re-checks it.
+      const resolvedReseller = await resolveResellerCodeForOrder(
+        supabase,
+        payload.reseller_code,
+        payload.event_id,
+      );
+
       // Create order using service role (bypasses RLS)
       // IMPORTANT: Constraint requires either user_id OR guest_email, not both
       const { data: orderData, error: orderError } = await supabase
@@ -244,6 +254,7 @@ Deno.serve(async (req) => {
           payment_method: payload.payment_method,
           ticket_quantities: ticketQuantities,
           event_date_id: payload.event_date_id || null,
+          reseller_code: resolvedReseller.codeUpper,
           // Only set guest_email if user_id is not provided (guest checkout)
           guest_email: payload.user_id ? null : (payload.buyer_email || null),
           visible_in_history: false
@@ -258,6 +269,9 @@ Deno.serve(async (req) => {
 
       finalOrderId = orderData.id;
       console.log("✅ Order created successfully:", finalOrderId);
+    } else if (finalOrderId && payload.reseller_code) {
+      // Guest / already-created orders: attach the code if the row has none yet.
+      await stampResellerCodeOnOrder(supabase, finalOrderId, payload.reseller_code, payload.event_id);
     } else if (!finalOrderId) {
       // If order_id is not provided and create_order is false, warn but continue
       console.warn("⚠️ No order_id provided and create_order is false. Payment will be created without order link.");

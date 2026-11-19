@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
+import { resellerCodeForCheckout } from './resellerAttribution';
 
 export interface CreatePawaPayPaymentRequest {
   idempotency_key: string;
@@ -23,6 +24,8 @@ export interface CreatePawaPayPaymentRequest {
   return_url?: string;
   cancel_url?: string;
   description: string;
+  /** Candidate from ?r=. Validated server-side; ignored if invalid. */
+  reseller_code?: string;
 }
 
 // New structured response types from backend
@@ -81,9 +84,14 @@ class PawaPayService {
   async createPayment(request: CreatePawaPayPaymentRequest): Promise<PawaPayPaymentResponse> {
     try {
       console.log('Creating pawaPay payment with request:', request);
-      
+
+      let reseller_code = request.reseller_code;
+      if (!reseller_code) {
+        reseller_code = await resellerCodeForCheckout(request.event_id);
+      }
+
       // Ensure the request is properly serialized
-      const requestBody = JSON.stringify({ ...request, ...metaBrowserMatch() });
+      const requestBody = JSON.stringify({ ...request, reseller_code, ...metaBrowserMatch() });
       console.log('Serialized request body:', requestBody);
       
       // Use Supabase Edge Function

@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
+import { resolveResellerCodeForOrder, stampResellerCodeOnOrder } from "../_shared/resellerCodeForOrder.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +61,8 @@ type CreatePaymentBody = {
   guest_phone?: string | null;
   fbp?: string | null;
   fbc?: string | null;
+  /** Candidate from ?r=. Validated server-side before it is stored. */
+  reseller_code?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -96,6 +99,7 @@ Deno.serve(async (req) => {
       payment_method,
       guest_email,
       guest_phone,
+      reseller_code,
     } = body;
 
     // Determine mode and validate
@@ -223,6 +227,12 @@ Deno.serve(async (req) => {
         throw new Error("E-mail ou téléphone requis pour payer sans compte");
       }
 
+      const resolvedReseller = await resolveResellerCodeForOrder(
+        supabase,
+        reseller_code,
+        event_id,
+      );
+
       // Create order using service role (bypasses RLS)
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -233,6 +243,7 @@ Deno.serve(async (req) => {
           status: 'AWAITING_PAYMENT',
           payment_method: payment_method,
           ticket_quantities: ticket_quantities,
+          reseller_code: resolvedReseller.codeUpper,
           // Constraint order_user_or_guest_check requires guest_email when user_id is null.
           // Phone-only guests use a placeholder inbox; lookup ignores those for email search.
           guest_email: resolvedGuestEmail || null,
@@ -265,6 +276,8 @@ Deno.serve(async (req) => {
           console.log("✅ guest_orders token created", storedGuestPhone ? "(with phone)" : "(email only)");
         }
       }
+    } else if (finalOrderId && reseller_code) {
+      await stampResellerCodeOnOrder(supabase, finalOrderId, reseller_code, event_id);
     }
 
     // Check idempotency

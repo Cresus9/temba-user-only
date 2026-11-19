@@ -10,6 +10,7 @@ import OfflineWarning from './components/common/OfflineWarning';
 import AppBanner from './components/AppBanner';
 import PendingTransfersNotification from './components/tickets/PendingTransfersNotification';
 import ReferralQueryCapture from './components/referral/ReferralQueryCapture';
+import ResellerQueryCapture from './components/reseller/ResellerQueryCapture';
 import { useEvents } from './context/EventContext';
 import { imageCacheWarmer } from './utils/imageCacheWarmer';
 import { trackPageView } from './lib/metaPixel';
@@ -64,6 +65,7 @@ function App() {
       <div className="min-h-screen flex flex-col bg-paper">
         <MetaPixel />
         <ReferralQueryCapture />
+        <ResellerQueryCapture />
         <AppBanner />
         <Navbar />
         <main className="flex-grow">

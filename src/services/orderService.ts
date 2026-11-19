@@ -1,12 +1,14 @@
 import { supabase } from '../lib/supabase-client';
 import { notificationTriggers } from './notificationTriggers';
 import { getGuestTicketsByToken, resolveGuestEmail } from './guestTicketService';
+import { resellerCodeForCheckout } from './resellerAttribution';
 
 export interface CreateOrderInput {
   eventId: string;
   ticketQuantities: { [key: string]: number };
   paymentMethod: string;
   eventDateId?: string | null;
+  resellerCode?: string;
   paymentDetails?: {
     provider?: string;
     phone?: string;
@@ -68,6 +70,7 @@ class OrderService {
         console.log('Order will be created by Edge Function for card payment');
       } else {
         // For mobile money, create order directly (legacy flow)
+        const reseller_code = input.resellerCode || await resellerCodeForCheckout(input.eventId);
         const { data: orderDataDirect, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -78,6 +81,7 @@ class OrderService {
             payment_method: input.paymentMethod,
             ticket_quantities: input.ticketQuantities,
             event_date_id: input.eventDateId || null,
+            reseller_code: reseller_code || null,
             visible_in_history: false
           })
           .select()
@@ -167,6 +171,7 @@ class OrderService {
       console.log('🎫 [FREE ORDER] Creating order for event:', event.title);
 
       // Create order with COMPLETED status (no payment needed)
+      const reseller_code = await resellerCodeForCheckout(input.eventId);
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -177,6 +182,7 @@ class OrderService {
           payment_method: 'FREE_TICKET',
           ticket_quantities: input.ticketQuantities,
           event_date_id: input.eventDateId || null,
+          reseller_code: reseller_code || null,
           visible_in_history: true // Show in history immediately
         })
         .select()
