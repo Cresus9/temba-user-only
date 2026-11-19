@@ -34,13 +34,41 @@ export function shortHash(value: string): string {
  * Always https://tembas.com/og/e/<slug-or-id>, never the raw storage URL.
  * Query `v` is a cache buster only; the image function ignores it for lookup.
  */
+/**
+ * Origin for og:image links. Production stays on tembas.com.
+ * Deploy previews of this Netlify site may use their own host so the
+ * preview function can be tested without hitting production.
+ * Ignore any other Host header.
+ */
+export function publicSiteOrigin(rawUrl?: string | null): string {
+  if (!rawUrl) return TEMBA_ORIGIN;
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    if (host === "tembas.com" || host === "www.tembas.com") {
+      return "https://" + host;
+    }
+    if (
+      host === "temba-user.netlify.app" ||
+      /^deploy-preview-\d+--temba-user\.netlify\.app$/.test(host)
+    ) {
+      return "https://" + host;
+    }
+  } catch {
+    // fall through
+  }
+  return TEMBA_ORIGIN;
+}
+
 export function eventOgImageUrl(
   event: { id?: string; slug?: string | null },
   imageUrl?: string | null,
+  origin = TEMBA_ORIGIN,
 ): string {
   const key = String(event.slug ?? "").trim() || String(event.id ?? "").trim();
   if (!key) return TEMBA_OG_FALLBACK;
-  const url = new URL(`${TEMBA_ORIGIN}/og/e/${encodeURIComponent(key)}.jpg`);
+  const base = publicSiteOrigin(origin) || TEMBA_ORIGIN;
+  const url = new URL(`${base}/og/e/${encodeURIComponent(key)}.jpg`);
   if (imageUrl) url.searchParams.set("v", shortHash(imageUrl));
   return url.toString();
 }

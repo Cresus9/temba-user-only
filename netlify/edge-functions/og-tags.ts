@@ -1,8 +1,10 @@
 import type { Context } from "https://edge.netlify.com";
 import {
+  TEMBA_ORIGIN,
   eventOgImageUrl,
   eventShareDescription,
   eventShareLocation,
+  publicSiteOrigin,
   toAbsoluteHttps,
 } from "./lib/eventOgShare.ts";
 
@@ -483,7 +485,8 @@ function generateEventHtml(
   event: any,
   requestParam: string,
   related: any[],
-  performers: { name: string; slug?: string; role?: string }[] = []
+  performers: { name: string; slug?: string; role?: string }[] = [],
+  origin = TEMBA_ORIGIN,
 ): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
@@ -504,7 +507,7 @@ function generateEventHtml(
   const flyerUrl =
     toAbsoluteHttps(event?.image_url) || event?.image_url || TEMBA_OG_IMAGE;
   const imageUrl = event?.image_url
-    ? eventOgImageUrl(event, event.image_url)
+    ? eventOgImageUrl(event, event.image_url, origin)
     : TEMBA_OG_IMAGE;
   const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
@@ -804,11 +807,11 @@ export default async function handler(request: Request, context: Context) {
         return redirectKeepingQuery(canonical, url.search);
       }
       const performers = await fetchEventPerformers(event.id);
-      return new Response(generateEventHtml(event, requestParam, related, performers), {
+      return new Response(generateEventHtml(event, requestParam, related, performers, publicSiteOrigin(request.url)), {
         headers: htmlHeaders,
       });
     }
-    return new Response(generateEventHtml(event, requestParam, related), {
+    return new Response(generateEventHtml(event, requestParam, related, [], publicSiteOrigin(request.url)), {
       headers: htmlHeaders,
     });
   }

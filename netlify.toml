@@ -1,6 +1,6 @@
 [build]
   publish = "dist"
-  command = "npm run build"
+  command = "npm install --os=linux --cpu=x64 --libc=glibc sharp && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -9,6 +9,7 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
   external_node_modules = ["sharp"]
+  included_files = ["node_modules/sharp/**", "node_modules/@img/**"]
 
 # Association files are served as themselves. A rewrite to index.html, or a
 # redirect, makes Apple and Google ignore universal links.

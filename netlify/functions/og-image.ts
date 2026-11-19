@@ -6,6 +6,9 @@
  * files over ~600 KB — any of which drops the preview photo. This endpoint
  * looks up the event, fetches only that stored image_url, and returns a
  * 1200×630 baseline JPEG from tembas.com.
+ *
+ * Sharp (native) is preferred. If the native binary is missing from the
+ * Netlify bundle, Jimp (pure JS) resizes instead so a preview still works.
  */
 import {
   OG_IMAGE_HEIGHT,
@@ -72,20 +75,26 @@ async function fetchEventImage(
   return { imageUrl: event.image_url ?? null };
 }
 
-function imageHeaders(contentType: string, length: number): Record<string, string> {
-  return {
+function imageHeaders(
+  contentType: string,
+  length: number,
+  engine?: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {
     "Content-Type": contentType,
     "Content-Length": String(length),
     "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
     "X-Content-Type-Options": "nosniff",
     "Access-Control-Allow-Origin": "*",
   };
+  if (engine) headers["X-Temba-Og-Engine"] = engine;
+  return headers;
 }
 
-function jpegResponse(body: Buffer, contentType = "image/jpeg") {
+function jpegResponse(body: Buffer, engine: string, contentType = "image/jpeg") {
   return {
     statusCode: 200,
-    headers: imageHeaders(contentType, body.length),
+    headers: imageHeaders(contentType, body.length, engine),
     body: body.toString("base64"),
     isBase64Encoded: true,
   };
@@ -112,7 +121,7 @@ async function fetchBytes(url: string): Promise<{ bytes: Buffer; contentType: st
   return { bytes: buf, contentType };
 }
 
-async function toShareJpeg(bytes: Buffer): Promise<Buffer | null> {
+async function resizeWithSharp(bytes: Buffer): Promise<Buffer | null> {
   try {
     const sharp = (await import("sharp")).default;
     let quality = 80;
@@ -130,9 +139,39 @@ async function toShareJpeg(bytes: Buffer): Promise<Buffer | null> {
         .toBuffer();
     }
     return out.length <= OG_IMAGE_MAX_BYTES ? out : null;
-  } catch {
+  } catch (err) {
+    console.warn("og-image: sharp unavailable", err instanceof Error ? err.message : "error");
     return null;
   }
+}
+
+async function resizeWithJimp(bytes: Buffer): Promise<Buffer | null> {
+  try {
+    const jimpMod = await import("jimp");
+    const Jimp = (jimpMod as { default?: any }).default ?? jimpMod;
+    const image = await Jimp.read(bytes);
+    image.cover(OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT);
+    let quality = 80;
+    image.quality(quality);
+    let out: Buffer = Buffer.from(await image.getBufferAsync(Jimp.MIME_JPEG));
+    while (out.length > OG_IMAGE_MAX_BYTES && quality > 45) {
+      quality -= 10;
+      image.quality(quality);
+      out = Buffer.from(await image.getBufferAsync(Jimp.MIME_JPEG));
+    }
+    return out.length <= OG_IMAGE_MAX_BYTES ? out : null;
+  } catch (err) {
+    console.warn("og-image: jimp unavailable", err instanceof Error ? err.message : "error");
+    return null;
+  }
+}
+
+async function toShareJpeg(bytes: Buffer): Promise<{ body: Buffer; engine: string } | null> {
+  const sharpOut = await resizeWithSharp(bytes);
+  if (sharpOut) return { body: sharpOut, engine: "sharp" };
+  const jimpOut = await resizeWithJimp(bytes);
+  if (jimpOut) return { body: jimpOut, engine: "jimp" };
+  return null;
 }
 
 function looksLikeImage(bytes: Buffer, contentType: string): boolean {
@@ -152,11 +191,7 @@ async function fallbackJpeg(): Promise<
   const fallback = await fetchBytes(TEMBA_OG_FALLBACK);
   if (fallback) {
     const converted = await toShareJpeg(fallback.bytes);
-    if (converted) return jpegResponse(converted);
-    if (fallback.bytes.length <= OG_IMAGE_MAX_BYTES && looksLikeImage(fallback.bytes, fallback.contentType)) {
-      const type = fallback.contentType.startsWith("image/") ? fallback.contentType : "image/png";
-      return jpegResponse(fallback.bytes, type);
-    }
+    if (converted) return jpegResponse(converted.body, converted.engine);
   }
   return {
     statusCode: 302,
@@ -180,8 +215,7 @@ export async function handler(event: NetlifyEvent) {
   try {
     const key = requestKey(event);
     if (!key) {
-      const fallback = await fallbackJpeg();
-      return fallback;
+      return fallbackJpeg();
     }
 
     const { imageUrl } = await fetchEventImage(key);
@@ -199,14 +233,7 @@ export async function handler(event: NetlifyEvent) {
       const fetched = await fetchBytes(source);
       if (!fetched || !looksLikeImage(fetched.bytes, fetched.contentType)) continue;
       const converted = await toShareJpeg(fetched.bytes);
-      if (converted) return jpegResponse(converted);
-      const type = fetched.contentType.toLowerCase();
-      if (
-        fetched.bytes.length <= OG_IMAGE_MAX_BYTES &&
-        (type.includes("jpeg") || type.includes("jpg") || fetched.bytes[0] === 0xff)
-      ) {
-        return jpegResponse(fetched.bytes, "image/jpeg");
-      }
+      if (converted) return jpegResponse(converted.body, converted.engine);
     }
 
     return fallbackJpeg();

@@ -8,6 +8,7 @@ import {
   eventShareLocation,
   isBlockedImageUrl,
   parseOgImageKey,
+  publicSiteOrigin,
   shortHash,
   supabasePublicRenderUrl,
   toAbsoluteHttps,
@@ -135,5 +136,25 @@ describe('Netlify routes', () => {
     expect(toml).toContain('to = "/.netlify/functions/og-image?key=:splat"');
     expect(redirects.indexOf('/og/e/*')).toBeGreaterThan(0);
     expect(redirects.indexOf('/og/e/*')).toBeLessThan(redirects.indexOf('/* /index.html'));
+  });
+});
+
+describe('publicSiteOrigin', () => {
+  it('keeps production on tembas.com and allows only this site\'s Netlify previews', () => {
+    expect(publicSiteOrigin('https://tembas.com/e/zone-1?r=CODE')).toBe('https://tembas.com');
+    expect(publicSiteOrigin('https://www.tembas.com/e/zone-1')).toBe('https://www.tembas.com');
+    expect(publicSiteOrigin('https://deploy-preview-24--temba-user.netlify.app/e/zone-1')).toBe(
+      'https://deploy-preview-24--temba-user.netlify.app',
+    );
+    expect(publicSiteOrigin('https://temba-user.netlify.app/e/zone-1')).toBe('https://temba-user.netlify.app');
+    expect(publicSiteOrigin('https://evil.netlify.app/e/zone-1')).toBe('https://tembas.com');
+    expect(publicSiteOrigin('https://deploy-preview-24--other-site.netlify.app/')).toBe('https://tembas.com');
+  });
+
+  it('points preview og:image at the preview host', () => {
+    const preview = 'https://deploy-preview-24--temba-user.netlify.app';
+    const url = eventOgImageUrl({ slug: 'alif-naaba' }, 'https://example.com/a.jpg', preview);
+    expect(url.startsWith(`${preview}/og/e/alif-naaba.jpg?`)).toBe(true);
+    expect(url).not.toContain('tembas.com/og/e');
   });
 });
