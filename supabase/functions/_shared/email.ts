@@ -26,6 +26,14 @@ export function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+
+export function realEmail(email?: string | null): string | undefined {
+  const trimmed = (email || "").trim().toLowerCase();
+  if (!trimmed || trimmed.endsWith("@temba.temp") || !trimmed.includes("@")) return undefined;
+  return trimmed;
+}
+
+
 function logoBlock() {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" align="center">
@@ -122,33 +130,6 @@ export function otpCellsHtml(code: string) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>${cells}</tr></table>`;
 }
 
-export function welcomeEmailHtml(name: string) {
-  const safe = escapeHtml(name);
-  return tembaEmailLayout({
-    preheader: "Votre compte Temba est prêt. Billets QR, paiement en FCFA.",
-    bodyHtml: `
-      ${logoBlock()}
-      <p style="margin:20px 0 0;font-family:${FONT};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${ACCENT};font-weight:700;text-align:center;">Compte créé</p>
-      <h1 style="margin:10px 0 8px;font-family:${FONT};font-size:26px;line-height:1.2;letter-spacing:-0.03em;font-weight:700;color:${INK};text-align:center;">Bonjour ${safe}</h1>
-      <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.6;color:${MUTE};text-align:center;">
-        Votre espace Temba est prêt. Concerts, festivals et attractions au Burkina — billet QR, paiement Orange Money, Moov ou carte.
-      </p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
-        ${stepRow("01", "Payer comme ici", "Orange Money, Moov Money, ou carte. Montants en FCFA.")}
-        ${stepRow("02", "Billet sur le téléphone", "QR à l’entrée. Transfert si vous ne pouvez plus y aller.")}
-        ${stepRow("03", "Support à Ouagadougou", "support@tembas.com · +226 74 75 08 15")}
-      </table>
-      ${ctaButton("https://tembas.com/events", "Voir l’agenda")}
-      <p style="margin:18px 0 0;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTE};text-align:center;">
-        Vos billets : tembas.com/profile/my-tickets
-      </p>
-      <div style="height:1px;background:${LINE};margin:24px 0 16px;"></div>
-      ${paymentTrustRow()}
-      <p style="margin:0;font-family:${FONT};font-size:11px;color:${MUTE};text-align:center;">Paiement local · Support local · EZSTAY LLC</p>
-    `,
-  });
-}
-
 export function recoveryCodeEmailHtml(code: string) {
   return tembaEmailLayout({
     preheader: `Code ${code} pour retrouver vos billets Temba.`,
@@ -185,6 +166,131 @@ const IC_USERS = `${EMAIL_ASSETS}/ic-users-brand.png`;
 const IC_ENVELOPE = `${EMAIL_ASSETS}/ic-envelope-brand.png`;
 const SI_APPLE = `${EMAIL_ASSETS}/si-apple-ink.png`;
 const SI_GOOGLE_PLAY = `${EMAIL_ASSETS}/si-googleplay-ink.png`;
+
+function storeBadge(href: string, iconSrc: string, kicker: string, label: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;">
+    <tr>
+      <td style="padding:8px 14px;">
+        <a href="${href}" style="text-decoration:none;color:${INK};display:block;">
+          <table role="presentation" cellpadding="0" cellspacing="0">
+            <tr>
+              <td valign="middle" style="padding-right:8px;">
+                <img src="${iconSrc}" width="18" height="18" alt="" style="display:block;border:0;width:18px;height:18px;">
+              </td>
+              <td valign="middle" style="font-family:${FONT};text-align:left;">
+                <div style="font-size:10px;line-height:1.2;color:${MUTE};">${escapeHtml(kicker)}</div>
+                <div style="font-size:14px;line-height:1.25;font-weight:700;color:${INK};">${escapeHtml(label)}</div>
+              </td>
+            </tr>
+          </table>
+        </a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+export const WELCOME_EMAIL_SUBJECT = "Bienvenue sur Temba";
+
+export function welcomeEmailHtml(name: string) {
+  const safe = escapeHtml((name || "").trim());
+  const hello = safe ? `Bonjour ${safe},` : "Bonjour,";
+  const preheader = "Votre compte Temba est prêt.";
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bienvenue sur Temba</title></head>
+<body style="margin:0;padding:0;background:#FFFFFF;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;">
+        <tr>
+          <td style="padding:8px 24px 28px;text-align:center;">
+            <img src="${MARK}" width="48" height="48" alt="Temba" style="display:block;margin:0 auto;border:0;width:48px;height:48px;">
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 12px;font-family:${FONT};text-align:left;">
+            <h1 style="margin:0;font-size:24px;line-height:1.3;font-weight:700;color:${INK};">${hello}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 28px;font-family:${FONT};font-size:16px;line-height:1.6;color:${MUTE};">
+            Temba vous permet d’acheter des billets d’événements au Burkina, depuis votre téléphone.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="background:${BRAND};border-radius:12px;">
+                  <a href="https://tembas.com/events" style="display:block;padding:14px 20px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Découvrir les événements</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 16px;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTE};text-align:center;">
+            Téléchargez l’application pour garder vos billets sur votre téléphone.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 28px;" align="center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+              <tr>
+                <td style="padding:0 6px 8px 0;" valign="top">
+                  ${storeBadge("https://apps.apple.com/app/temba/id6748848506", SI_APPLE, "Télécharger sur", "App Store")}
+                </td>
+                <td style="padding:0 0 8px 6px;" valign="top">
+                  ${storeBadge("https://play.google.com/store/apps/details?id=app.rork.temba", SI_GOOGLE_PLAY, "Disponible sur", "Google Play")}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 24px 28px;font-family:${FONT};font-size:13px;line-height:1.6;color:${MUTE};text-align:center;">
+            Une question ? Écrivez-nous à <a href="mailto:support@tembas.com" style="color:${BRAND};text-decoration:none;">support@tembas.com</a>.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 24px 0;border-top:1px solid #EEEEF2;font-family:${FONT};text-align:center;">
+            <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:${MUTE};">
+              Temba · EZSTAY LLC · Ouagadougou<br>
+              support@tembas.com · +226 74 75 08 15
+            </p>
+            <p style="margin:0;font-size:11px;color:${MUTE};">
+              Message transactionnel. Vous le recevez parce qu’un compte Temba est lié à cette adresse.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendWelcomeEmailIfReal(
+  email: string | null | undefined,
+  name: string,
+): Promise<boolean> {
+  const to = realEmail(email);
+  if (!to) {
+    console.log("Skipping welcome email: address is missing or a @temba.temp placeholder");
+    return false;
+  }
+  await sendResendEmail({
+    to,
+    subject: WELCOME_EMAIL_SUBJECT,
+    html: welcomeEmailHtml(name),
+  });
+  return true;
+}
+
 const SI_WHATSAPP = `${EMAIL_ASSETS}/si-whatsapp-green.png`;
 const icon = (src: string, size: number, mr = 6, valign = -3) =>
   `<img src="${src}" width="${size}" height="${size}" alt="" style="display:inline-block;width:${size}px;height:${size}px;border:0;vertical-align:${valign}px;margin-right:${mr}px;">`;
