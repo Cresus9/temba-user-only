@@ -12,6 +12,9 @@ Applied in this order with the Management API SQL endpoint. Every patch has a `*
 | 04 | `04_order_confirmed.sql` | Trigger `zz_notif_order_completed` on orders → "Commande confirmée" in-app + push. Never fails the order. |
 | 05 | `05_event_reminders.sql` | `notif_enqueue_event_reminders()` + pg_cron `notification-event-reminders-every-10-min` (24h and 2h, per visit date). |
 | 06 | `06_go_live.sql` | worker_mode=live, cutover_at=now (only rows created after go-live are ever sent). |
+| 07a | `07a_organizer_rpcs.sql` | `notif_ticket_scanned(ticket)` and `notif_message_attendees(event, users, message)` — admin or the event's organizer only (Temba-admin #56 uses them). |
+| 07b | `07b_lockdown_inbox_inserts.sql` | Signed-in users can no longer insert into anyone's inbox (policy now admins only); `create_notification_from_template` admin/server only; `mark_notifications_read` own inbox only (or admin). |
+| 08 | `08_enable_push.sql` | push_enabled=true after a valid OneSignal App API key was set as `ONESIGNAL_REST_API_KEY`. |
 
 Kill switch (stops all sending, keeps rows): `06_go_live_rollback.sql`.
 
