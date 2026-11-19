@@ -1,4 +1,12 @@
 import type { Context } from "https://edge.netlify.com";
+import {
+  TEMBA_ORIGIN,
+  eventOgImageUrl,
+  eventShareDescription,
+  eventShareLocation,
+  publicSiteOrigin,
+  toAbsoluteHttps,
+} from "./lib/eventOgShare.ts";
 
 /**
  * Crawler-facing HTML for Googlebot, social bots, and other non-JS clients.
@@ -477,20 +485,30 @@ function generateEventHtml(
   event: any,
   requestParam: string,
   related: any[],
-  performers: { name: string; slug?: string; role?: string }[] = []
+  performers: { name: string; slug?: string; role?: string }[] = [],
+  origin = TEMBA_ORIGIN,
 ): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
-  const location = event?.city || event?.location || "";
+  const location = eventShareLocation(event || {});
   const eventDate = event?.is_permanent ? "Ouvert toute l'année" : formatFrDate(event?.date);
   const eventTime = event?.time || "";
-  const description =
-    rawDesc ||
-    `Achetez vos billets pour ${title}${location ? ` à ${location}` : ""} sur Temba.`;
+  const description = eventShareDescription({
+    title,
+    description: rawDesc,
+    dateLabel: eventDate,
+    location,
+  });
   const eventUrl = `https://tembas.com${
     event ? eventPublicPath(event) : `/e/${requestParam}`
   }`;
-  const imageUrl = event?.image_url || TEMBA_OG_IMAGE;
+  // First-party /og/e proxy so WhatsApp can fetch a 1200×630 JPEG.
+  // The on-page <img> and JSON-LD keep the original flyer URL.
+  const flyerUrl =
+    toAbsoluteHttps(event?.image_url) || event?.image_url || TEMBA_OG_IMAGE;
+  const imageUrl = event?.image_url
+    ? eventOgImageUrl(event, event.image_url, origin)
+    : TEMBA_OG_IMAGE;
   const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
   const minPrice =
@@ -512,7 +530,7 @@ function generateEventHtml(
     name: title,
     description,
     url: eventUrl,
-    image: [imageUrl],
+    image: [flyerUrl],
     ...(startDate ? { startDate } : {}),
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -576,7 +594,7 @@ function generateEventHtml(
     ${artistLines ? `<h2>À l'affiche</h2><ul>${artistLines}</ul>` : ""}
     ${ticketLines ? `<h2>Tarifs</h2><ul>${ticketLines}</ul>` : ""}
     <p><a href="${escapeHtml(eventUrl)}">Acheter des billets sur Temba</a></p>
-    ${event?.image_url ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />` : ""}
+    ${event?.image_url ? `<img src="${escapeHtml(flyerUrl)}" alt="${escapeHtml(title)}" />` : ""}
   </article>
   <h2>Autres événements</h2>
   ${eventListHtml(related.filter((e) => e.id !== event?.id).slice(0, 12))}
@@ -789,11 +807,11 @@ export default async function handler(request: Request, context: Context) {
         return redirectKeepingQuery(canonical, url.search);
       }
       const performers = await fetchEventPerformers(event.id);
-      return new Response(generateEventHtml(event, requestParam, related, performers), {
+      return new Response(generateEventHtml(event, requestParam, related, performers, publicSiteOrigin(request.url)), {
         headers: htmlHeaders,
       });
     }
-    return new Response(generateEventHtml(event, requestParam, related), {
+    return new Response(generateEventHtml(event, requestParam, related, [], publicSiteOrigin(request.url)), {
       headers: htmlHeaders,
     });
   }
