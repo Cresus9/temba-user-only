@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
 import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
+import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +75,11 @@ type CreatePaymentBody = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+
+  // Order whose tickets this request held (released again if the PaymentIntent cannot be created).
+  let heldOrderId: string | null = null;
+  // deno-lint-ignore no-explicit-any
+  let heldDb: any = null;
 
   try {
     const body: CreatePaymentBody = await req.json();
@@ -367,6 +373,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Hold the tickets before the card form opens, so nobody pays for a seat that is
+    // already gone. A retry of the same order keeps its hold.
+    const hold = await holdOrderTickets(supabase, finalOrderId);
+    if (!hold.ok) {
+      if (createdHere) await cancelRefusedOrder(supabase, finalOrderId);
+      return new Response(
+        JSON.stringify({ error: hold.message, code: "SOLD_OUT", details: hold.detail, orderId: finalOrderId }),
+        { status: 409, headers: cors }
+      );
+    }
+    if (hold.heldHere) {
+      heldOrderId = finalOrderId ?? null;
+      heldDb = supabase;
+    }
+
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { 
       apiVersion: "2024-06-20" 
@@ -485,6 +506,7 @@ Deno.serve(async (req) => {
 
   } catch (e: any) {
     console.error("❌ create-stripe-payment error:", e.message);
+    if (heldOrderId && heldDb) await releaseOrderTickets(heldDb, heldOrderId);
     console.error("Stack:", e.stack);
     
     return new Response(

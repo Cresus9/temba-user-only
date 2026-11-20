@@ -119,7 +119,16 @@ class PawaPayService {
       console.log('Response text:', responseText);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${responseText}`);
+        // Show the server's own sentence (e.g. sold out) instead of raw JSON.
+        let serverMessage: string | null = null;
+        try {
+          const j = JSON.parse(responseText) as Record<string, unknown>;
+          if (typeof j.error === 'string') serverMessage = j.error;
+          else if (typeof j.message === 'string') serverMessage = j.message;
+        } catch {
+          serverMessage = null;
+        }
+        throw new Error(serverMessage || `HTTP ${response.status}: ${responseText}`);
       }
 
       let data: PawaPayApiResponse;

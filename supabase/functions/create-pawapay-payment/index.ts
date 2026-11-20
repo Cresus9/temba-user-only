@@ -3,6 +3,7 @@ import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
 import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
+import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,6 +86,9 @@ Deno.serve(async (req) => {
       status: 204 
     });
   }
+
+  // Order whose tickets this request held (released again if we fail before the operator has it).
+  let heldOrderId: string | null = null;
 
   try {
     console.log("🚀 pawaPay Payment Function Started");
@@ -306,6 +310,26 @@ Deno.serve(async (req) => {
       guestToken: createdHere ? null : readGuestToken(req),
     });
 
+    // Hold the tickets before anything is sent to the operator, so nobody pays for
+    // a seat that is already gone. Same order again (OTP second step) keeps its hold.
+    const hold = await holdOrderTickets(supabase, finalOrderId);
+    if (!hold.ok) {
+      if (createdHere) await cancelRefusedOrder(supabase, finalOrderId);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: "SOLD_OUT",
+          code: "SOLD_OUT",
+          error: hold.message,
+          message: hold.message,
+          details: hold.detail,
+          order_id: finalOrderId,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    heldOrderId = hold.heldHere ? (finalOrderId ?? null) : null;
+
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();
     console.log("Creating payment record with token:", paymentToken);
@@ -424,6 +448,12 @@ Deno.serve(async (req) => {
     const requiresOtp = finalPaymentMethod === 'ORANGE_BFA';
     if (requiresOtp && !otpCode) {
       // Prompt client to collect OTP via USSD with amount
+      // Only a prompt: the app sends a second request (new order) with the OTP, which
+      // holds the tickets again. Holding now would let a buyer block their own last seat.
+      if (heldOrderId) {
+        await releaseOrderTickets(supabase, heldOrderId);
+        heldOrderId = null;
+      }
       return new Response(
         JSON.stringify({
           status: "PRE_AUTH_REQUIRED",
@@ -474,6 +504,9 @@ Deno.serve(async (req) => {
     };
 
     // Call pawaPay API
+    // From here the operator may have the request: keep the hold (webhook / safety net decide).
+    const heldBeforeProvider = heldOrderId;
+    heldOrderId = null;
     const pawapayResponse = await fetch(pawapayApiUrl, {
       method: "POST",
       headers,
@@ -606,6 +639,8 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .eq("id", paymentRecord.id);
+      // The operator refused the request: no money moved, give the tickets back.
+      if (heldBeforeProvider) await releaseOrderTickets(supabase, heldBeforeProvider);
       // HARD_ERROR: Extract detailed error information
       const errorMessage = responseData.message || 
                           responseData.error?.message || 
@@ -651,6 +686,10 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error("Payment creation error:", error);
+    if (heldOrderId) {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await releaseOrderTickets(sb, heldOrderId);
+    }
     
     return new Response(
       JSON.stringify({
