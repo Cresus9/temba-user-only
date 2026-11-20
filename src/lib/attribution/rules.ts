@@ -5,7 +5,7 @@
  * checked specification and the browser-side code normalizer.
  */
 
-export const ATTRIBUTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+export const ATTRIBUTION_WINDOW_MS = 15 * 24 * 60 * 60 * 1000;
 export const ATTRIBUTION_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 
 export type AttributionKind = "user_referral" | "reseller";
