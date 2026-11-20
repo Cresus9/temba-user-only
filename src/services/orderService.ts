@@ -2,7 +2,8 @@ import { supabase } from '../lib/supabase-client';
 import { notificationTriggers } from './notificationTriggers';
 import { getGuestTicketsByToken, resolveGuestEmail } from './guestTicketService';
 import { orderDateFields, sumAllocations, type LineAllocation } from '../utils/lineAllocations';
-import { getPendingReferralCode } from '../utils/referralStorage';
+import { resolveEventRef } from '../lib/attribution/eventRef';
+import { attributionCheckoutPayload } from '../utils/referralStorage';
 
 export interface CreateOrderInput {
   eventId: string;
@@ -25,10 +26,19 @@ export interface CreateOrderInput {
  * retries without it so a visit that has a code can still pay.
  */
 async function insertOrderRow(row: Record<string, unknown>) {
-  const code = getPendingReferralCode();
-  const payload = code ? { ...row, attribution_code: code } : row;
+  const eventId = typeof row.event_id === 'string' ? row.event_id : '';
+  const attribution = eventId ? attributionCheckoutPayload(await resolveEventRef(eventId)) : {};
+  const payload = { ...row, ...attribution };
   const first = await supabase.from('orders').insert(payload).select().single();
-  if (first.error && code && /attribution_code/i.test(first.error.message || '')) {
+  if (first.error && Object.keys(attribution).length && /attribution_/i.test(first.error.message || '')) {
+    if (attribution.attribution_code) {
+      const second = await supabase
+        .from('orders')
+        .insert({ ...row, attribution_code: attribution.attribution_code })
+        .select()
+        .single();
+      if (!second.error) return second;
+    }
     return supabase.from('orders').insert(row).select().single();
   }
   return first;

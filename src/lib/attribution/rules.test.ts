@@ -10,11 +10,15 @@ import {
   planReversal,
   planRewards,
   referralIdempotencyKey,
+  shouldCreditRepeatedReseller,
 } from './rules';
 import { buildReferralShareLinks } from '../../config/referralShare';
 import {
+  attributionCheckoutPayload,
   captureAttributionSearch,
   clearPendingReferralCode,
+  consumeAttributionOnPaidOrder,
+  getAttributionForCheckout,
   getPendingReferralCode,
   setPendingReferralCode,
 } from '../../utils/referralStorage';
@@ -267,5 +271,93 @@ describe('capture', () => {
     clearPendingReferralCode();
     captureAttributionSearch('?deep_link_value=e/soiree&deep_link_sub1=TEMBA8YEF', start);
     expect(getPendingReferralCode(start)).toBe('TEMBA8YEF');
+  });
+});
+
+describe('checkout scope and consume', () => {
+  it('applies an event-specific code only to that event, then clears it after a paid order', () => {
+    clearPendingReferralCode();
+    const start = Date.UTC(2026, 10, 5);
+    captureAttributionSearch('?r=TEMBA8YEF', start, '/e/soiree');
+    expect(getPendingReferralCode(start)).toBe('TEMBA8YEF');
+    expect(getAttributionForCheckout({ slug: 'soiree' }, start)).toBe('TEMBA8YEF');
+    expect(getAttributionForCheckout({ slug: 'other-show' }, start)).toBeNull();
+    expect(attributionCheckoutPayload({ id: 'evt-1', slug: 'soiree' }, start)).toEqual({
+      attribution_code: 'TEMBA8YEF',
+      attribution_event_id: 'evt-1',
+      attribution_captured_at: new Date(start).toISOString(),
+    });
+    expect(attributionCheckoutPayload({ id: 'evt-2', slug: 'other-show' }, start)).toEqual({});
+    consumeAttributionOnPaidOrder();
+    expect(getPendingReferralCode(start + 1000)).toBeNull();
+    expect(getAttributionForCheckout({ slug: 'soiree' }, start + 1000)).toBeNull();
+  });
+
+  it('applies a generic homepage code to the first checkout of any event', () => {
+    clearPendingReferralCode();
+    const start = Date.UTC(2026, 10, 6);
+    captureAttributionSearch('?r=TEMBA8YEF', start, '/');
+    expect(getAttributionForCheckout({ slug: 'soiree' }, start)).toBe('TEMBA8YEF');
+    expect(attributionCheckoutPayload({ id: 'evt-1', slug: 'soiree' }, start).attribution_event_id).toBeUndefined();
+  });
+
+  it('reads the event from deep_link_value=e/slug when the path is missing', () => {
+    clearPendingReferralCode();
+    const start = Date.UTC(2026, 10, 7);
+    captureAttributionSearch('?deep_link_value=e/soiree&deep_link_sub1=TEMBA8YEF', start);
+    expect(getAttributionForCheckout({ slug: 'soiree' }, start)).toBe('TEMBA8YEF');
+    expect(getAttributionForCheckout({ slug: 'other-show' }, start)).toBeNull();
+  });
+
+  it('keeps a later click after the previous one was consumed', () => {
+    clearPendingReferralCode();
+    const start = Date.UTC(2026, 10, 8);
+    captureAttributionSearch('?r=TEMBA8YEF', start, '/e/soiree');
+    consumeAttributionOnPaidOrder();
+    captureAttributionSearch('?r=TEMBA8YEF', start + 5000, '/e/other-show');
+    expect(getAttributionForCheckout({ slug: 'soiree' }, start + 5000)).toBeNull();
+    expect(getAttributionForCheckout({ slug: 'other-show' }, start + 5000)).toBe('TEMBA8YEF');
+  });
+});
+
+describe('shouldCreditRepeatedReseller', () => {
+  const eventA = '00000000-0000-0000-0000-0000000000a1';
+  const eventB = '00000000-0000-0000-0000-0000000000b2';
+  const t0 = Date.UTC(2026, 10, 10);
+  const t1 = t0 + 60_000;
+
+  it('credits the first order, and a later order only after a newer click', () => {
+    expect(shouldCreditRepeatedReseller({
+      alreadyCreditedSameBuyerAndCode: false,
+      priorOrderCreatedAtMs: null,
+      capturedAtMs: t0,
+    })).toBe(true);
+    expect(shouldCreditRepeatedReseller({
+      alreadyCreditedSameBuyerAndCode: true,
+      priorOrderCreatedAtMs: t1,
+      capturedAtMs: t0,
+    })).toBe(false);
+    expect(shouldCreditRepeatedReseller({
+      alreadyCreditedSameBuyerAndCode: true,
+      priorOrderCreatedAtMs: t1,
+      capturedAtMs: null,
+    })).toBe(false);
+    expect(shouldCreditRepeatedReseller({
+      alreadyCreditedSameBuyerAndCode: true,
+      priorOrderCreatedAtMs: t1,
+      capturedAtMs: t1 + 1,
+      attributionEventId: eventB,
+      orderEventId: eventB,
+    })).toBe(true);
+  });
+
+  it('rejects an event-specific click on a different event', () => {
+    expect(shouldCreditRepeatedReseller({
+      alreadyCreditedSameBuyerAndCode: false,
+      priorOrderCreatedAtMs: null,
+      capturedAtMs: t0,
+      attributionEventId: eventA,
+      orderEventId: eventB,
+    })).toBe(false);
   });
 });

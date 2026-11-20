@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
-import { getPendingReferralCode } from '../utils/referralStorage';
+import { resolveEventRef } from '../lib/attribution/eventRef';
+import { attributionCheckoutPayload } from '../utils/referralStorage';
 
 export interface CreatePawaPayPaymentRequest {
   idempotency_key: string;
@@ -85,13 +86,13 @@ export interface PawaPayPaymentResponse {
 class PawaPayService {
   async createPayment(request: CreatePawaPayPaymentRequest): Promise<PawaPayPaymentResponse> {
     try {
-      const attributionCode = getPendingReferralCode();
+      const attribution = await attributionCheckoutPayload(await resolveEventRef(request.event_id));
       const { guest_token: guestToken, ...paymentRequest } = request;
       console.log('Creating pawaPay payment with request:', paymentRequest);
       const requestBody = JSON.stringify({
         ...paymentRequest,
         ...metaBrowserMatch(),
-        ...(attributionCode ? { attribution_code: attributionCode } : {}),
+        ...attribution,
       });
       console.log('Serialized request body:', requestBody);
       

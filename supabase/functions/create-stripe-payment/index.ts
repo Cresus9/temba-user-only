@@ -4,7 +4,7 @@ import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
-import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, parseAttributionCapturedAt, parseAttributionEventId, readGuestToken } from "../_shared/attribution.ts";
 import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
 
 const cors = {
@@ -71,6 +71,8 @@ type CreatePaymentBody = {
   attribution_code?: string | null;
   /** Mobile sometimes sends the same ?r= code under this name only. */
   reseller_code?: string | null;
+  attribution_event_id?: string | null;
+  attribution_captured_at?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -321,6 +323,9 @@ Deno.serve(async (req) => {
       createdInThisRequest: createdHere,
       jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
       guestToken: createdHere ? null : readGuestToken(req),
+    }, {
+      eventId: parseAttributionEventId(body.attribution_event_id),
+      capturedAt: parseAttributionCapturedAt(body.attribution_captured_at),
     });
 
     // Check idempotency

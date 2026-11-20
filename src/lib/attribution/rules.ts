@@ -232,6 +232,32 @@ export function planReversal(entries: Array<{ key: string; status: string }>): s
     .map((entry) => `reversal:${entry.key}`);
 }
 
+/**
+ * Server-side reuse guard (mirrored in the prepared SQL patch).
+ * A later checkout of the same buyer + same code is credited only when
+ * the client reports a click time after the earlier credited order, which
+ * is what a new referral link produces. An event-specific click must match
+ * the event being paid.
+ */
+export function shouldCreditRepeatedReseller(input: {
+  alreadyCreditedSameBuyerAndCode: boolean;
+  priorOrderCreatedAtMs: number | null;
+  capturedAtMs: number | null;
+  attributionEventId?: string | null;
+  orderEventId?: string | null;
+}): boolean {
+  if (
+    input.attributionEventId &&
+    input.orderEventId &&
+    input.attributionEventId !== input.orderEventId
+  ) {
+    return false;
+  }
+  if (!input.alreadyCreditedSameBuyerAndCode) return true;
+  if (input.capturedAtMs == null || input.priorOrderCreatedAtMs == null) return false;
+  return input.capturedAtMs > input.priorOrderCreatedAtMs;
+}
+
 /** First instant of the calendar day after the event, in the event timezone. */
 export function holdAvailableAt(
   eventDate: string | null,
