@@ -119,12 +119,11 @@ class PawaPayService {
       console.log('Response text:', responseText);
 
       if (!response.ok) {
-        // Show the server's own sentence (e.g. sold out) instead of raw JSON.
+        // The function answers { status: "ERROR", message } in French; show that, not raw JSON.
         let serverMessage: string | null = null;
         try {
-          const j = JSON.parse(responseText) as Record<string, unknown>;
-          if (typeof j.error === 'string') serverMessage = j.error;
-          else if (typeof j.message === 'string') serverMessage = j.message;
+          const body = JSON.parse(responseText);
+          serverMessage = typeof body?.message === 'string' ? body.message : typeof body?.error === 'string' ? body.error : null;
         } catch {
           serverMessage = null;
         }

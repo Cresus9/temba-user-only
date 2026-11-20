@@ -4,6 +4,7 @@ import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
 import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
 import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
+import { classifyInitiation, frenchFailureMessage, providerMismatchMessage, toBfMsisdn } from "../_shared/pawapayDeposit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,6 +170,43 @@ Deno.serve(async (req) => {
     // Validate currency - pawaPay only handles XOF for mobile money
     if (payload.currency !== 'XOF') {
       throw new Error("pawaPay mobile money payments must be in XOF currency");
+    }
+
+    // Phone + operator checks run before any order/payment row is written, so a
+    // bad number no longer leaves a pending payment behind.
+    const earlyProvider = ['moov', 'moov-money', 'moov_money'].includes(String(payload.provider).toLowerCase()) ? 'MOOV_BFA' : null;
+    const earlyMsisdn = toBfMsisdn(payload.phone);
+    if (earlyProvider === 'MOOV_BFA') {
+      if (!earlyMsisdn) {
+        return new Response(JSON.stringify({ status: "ERROR", error_code: "INVALID_PHONE_NUMBER", message: "Numéro Moov invalide. Saisissez les 8 chiffres de votre numéro Moov (ex. 70 12 34 56)." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const mismatch = providerMismatchMessage(earlyProvider, earlyMsisdn);
+      if (mismatch) {
+        return new Response(JSON.stringify({ status: "ERROR", error_code: "PROVIDER_MISMATCH", message: mismatch }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Orange BF needs the OTP before anything is sent. Answer PRE_AUTH_REQUIRED here,
+    // before the order/payment rows are written: the old order left one "pending"
+    // payment per OTP prompt (most of the 800+ pending pawaPay rows were never sent).
+    const earlyOtp = payload.preAuthorisationCode || payload.pre_authorisation_code || payload.otpCode;
+    if (['orange', 'orange-money-bf', 'orange-money'].includes(String(payload.provider).toLowerCase()) && !earlyOtp) {
+      return new Response(
+        JSON.stringify({
+          status: "PRE_AUTH_REQUIRED",
+          requires_otp: true,
+          message: "Orange Money (BF) requiert un code OTP.",
+          provider: "ORANGE_BFA",
+          instructions: {
+            ussd_code_template: "*144*4*6*{amount}#",
+            amount: Math.round(Number(payload.amount_major)).toString(),
+            currency: payload.currency
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Internal record only — pawaPay v2 deposits use MSISDN, not this email.
@@ -391,30 +429,13 @@ Deno.serve(async (req) => {
       note: "Using pawaPay official provider codes from https://docs.pawapay.io/v2/docs/providers"
     });
 
-    // Format phone number for pawaPay: Only numbers are accepted.
-    // No whitespaces, separators or prefixes like + or 0 are allowed.
-    // Expected format: CountryCode + LocalNumber (e.g., 22675581026)
-    let cleanedPhone = payload.phone.replace(/\D/g, ''); // Remove all non-digits
-    
-    // Ensure country code 226 is present for Burkina Faso
-    // Local numbers are typically 8 digits (e.g., 75581026)
-    if (!cleanedPhone.startsWith('226')) {
-      // Remove any leading zeros from local number part
-      cleanedPhone = cleanedPhone.replace(/^0+/, '');
-      // Prepend country code
-      cleanedPhone = '226' + cleanedPhone;
-    } else {
-      // Already has country code, but ensure no extra leading zeros after 226
-      const afterCountryCode = cleanedPhone.substring(3);
-      cleanedPhone = '226' + afterCountryCode;
-    }
-    
-    const formattedPhone = cleanedPhone;
-    // Validate BF phone length (226 + 8 digits = 11)
-    if (!/^\d{11}$/.test(formattedPhone)) {
+    // pawaPay wants digits only: 226 + 8-digit number (e.g. 22675581026).
+    // Leading 0s are part of BF numbers (Moov 01/02/03, Orange 04–07) and are kept.
+    const formattedPhone = earlyMsisdn;
+    if (!formattedPhone) {
       throw new Error("Invalid phone format for pawaPay. Must include country code (e.g., 22675581026)");
     }
-    
+
     console.log("📞 Formatted phone number for pawaPay:", formattedPhone);
 
     // Prepare pawaPay API v2 payload
@@ -552,6 +573,41 @@ Deno.serve(async (req) => {
       fullResponseKeys: Object.keys(responseData)
     });
 
+    const initiation = classifyInitiation(pawapayResponse.ok, responseData);
+
+    if (pawapayResponse.ok && transactionId && initiation.kind === "rejected") {
+      // REJECTED at initiation: nothing reached the phone. Close the payment now
+      // instead of leaving it pending (buyers used to wait on a spinner forever).
+      console.error("❌ pawaPay rejected deposit:", {
+        payment_id: paymentRecord.id,
+        provider: finalPaymentMethod,
+        failureCode: initiation.failureCode,
+        failureMessage: initiation.failureMessage,
+      });
+      await supabase
+        .from("payments")
+        .update({
+          status: "failed",
+          transaction_id: transactionId,
+          failed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ipn_data: { initiation: { status: initiation.status, provider: finalPaymentMethod, failureReason: responseData.failureReason ?? null } },
+        })
+        .eq("id", paymentRecord.id);
+      // The operator refused the request: no money moved, give the tickets back.
+      if (heldBeforeProvider) await releaseOrderTickets(supabase, heldBeforeProvider);
+      return new Response(
+        JSON.stringify({
+          status: "ERROR",
+          error_code: initiation.failureCode,
+          message: frenchFailureMessage(initiation.failureCode),
+          payment_id: paymentRecord.id,
+          order_id: finalOrderId,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (pawapayResponse.ok && transactionId) {
       // Map provider status (ACCEPTED, SUBMITTED, COMPLETED, FAILED) to our allowed statuses
       const providerStatus = (responseData.status || "").toUpperCase();
@@ -574,7 +630,9 @@ Deno.serve(async (req) => {
           status: normalizedStatus,
           updated_at: new Date().toISOString()
         })
-        .eq("id", paymentRecord.id);
+        .eq("id", paymentRecord.id)
+        // A fast callback may already have completed this row (pawapay-webhook matches on id).
+        .eq("status", "pending");
 
       if (updateError) {
         console.error("❌ Failed to update payment with transaction ID:", updateError);
@@ -635,7 +693,10 @@ Deno.serve(async (req) => {
         .from("payments")
         .update({
           status: "failed",
-          error_message: JSON.stringify(responseData).substring(0, 500),
+          // payments has no error_message column; writing it made this whole update fail
+          // and left the row pending. ipn_data (jsonb) keeps pawaPay's answer for support.
+          failed_at: new Date().toISOString(),
+          ipn_data: { initiation: { http_status: pawapayResponse.status, provider: finalPaymentMethod, response: responseData } },
           updated_at: new Date().toISOString()
         })
         .eq("id", paymentRecord.id);
@@ -675,7 +736,9 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           status: "ERROR",
-          message: errorMessage
+          error_code: responseData.failureReason?.failureCode ?? null,
+          // Buyers see this text: French for known pawaPay codes, raw text otherwise.
+          message: responseData.failureReason?.failureCode ? frenchFailureMessage(responseData.failureReason.failureCode) : errorMessage
         }),
         { 
           status: 400,
