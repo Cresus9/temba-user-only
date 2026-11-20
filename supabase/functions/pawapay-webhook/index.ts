@@ -250,6 +250,21 @@ Deno.serve(async (req) => {
       paymentError = result.error;
     }
 
+    // depositId is our payments.id. If the callback lands before create-pawapay-payment
+    // saved transaction_id (fast operator approval), match on id instead of dropping it.
+    if (!payment && payload.depositId && /^[0-9a-f-]{36}$/i.test(String(payload.depositId))) {
+      const result = await supabase
+        .from("payments")
+        .select("*")
+        .eq("id", payload.depositId)
+        .eq("provider", "pawapay")
+        .maybeSingle();
+      if (result.data) {
+        payment = result.data;
+        paymentError = null;
+      }
+    }
+
     if (paymentError || !payment) {
       console.error("❌ Payment not found for transaction:", transactionId);
       console.error("Searched with:", {
