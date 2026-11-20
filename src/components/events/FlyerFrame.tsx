@@ -2,6 +2,7 @@ import { useState } from 'react';
 import DomePattern from '../design/DomePattern';
 import Logo from '../brand/Logo';
 import { prefersDataSaver } from '../../utils/eventDisplay';
+import { flyerSrcSet, resizedImageUrl } from '../../utils/imageUrl';
 
 export default function FlyerFrame({
   src,
@@ -10,6 +11,7 @@ export default function FlyerFrame({
   past = false,
   eager = false,
   className = '',
+  sizes = '(min-width: 1440px) 290px, (min-width: 1280px) 262px, 200px',
 }: {
   src?: string | null;
   alt: string;
@@ -17,8 +19,14 @@ export default function FlyerFrame({
   past?: boolean;
   eager?: boolean;
   className?: string;
+  /** Rendered width hint for the browser to pick a resized flyer. */
+  sizes?: string;
 }) {
   const [broken, setBroken] = useState(false);
+  // Resized copies first; if one fails, go back to the original file.
+  const [useOriginal, setUseOriginal] = useState(false);
+  const srcSet = !useOriginal ? flyerSrcSet(src) : undefined;
+  const backdrop = (!useOriginal && resizedImageUrl(src, 64, 50)) || src || '';
   const [reveal, setReveal] = useState(!prefersDataSaver());
   const ratioClass = ratio === '2/1' ? 'aspect-[2/1]' : ratio === '16/9' ? 'aspect-video' : 'aspect-[4/5]';
   const show = Boolean(src) && !broken && reveal;
@@ -28,19 +36,24 @@ export default function FlyerFrame({
       {show ? (
         <>
           <img
-            src={src || ''}
+            src={backdrop}
             alt=""
             aria-hidden
+            loading={eager ? 'eager' : 'lazy'}
+            decoding="async"
             referrerPolicy="no-referrer"
+            onError={() => setUseOriginal(true)}
             className={`absolute -inset-[14%] h-[128%] w-[128%] object-cover blur-[18px] brightness-[.72] saturate-[1.15] ${past ? 'grayscale' : ''}`}
           />
           <img
             src={src || ''}
+            srcSet={srcSet}
+            sizes={srcSet ? sizes : undefined}
             alt={alt}
             loading={eager ? 'eager' : 'lazy'}
             decoding="async"
             referrerPolicy="no-referrer"
-            onError={() => setBroken(true)}
+            onError={() => (srcSet ? setUseOriginal(true) : setBroken(true))}
             className={`absolute inset-0 h-full w-full object-contain ${past ? 'grayscale brightness-95' : ''}`}
           />
         </>

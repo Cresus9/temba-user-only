@@ -47,7 +47,7 @@ export default function DisplayCard({
     return (
       <Link to={eventPublicPath(event)} className="flex min-w-0 items-center gap-3 border-t border-line py-3">
         <div className="w-[52px] shrink-0">
-          <FlyerFrame src={event.image_url} alt="" past={badges.some((badge) => badge.kind === 'past')} />
+          <FlyerFrame src={event.image_url} alt="" sizes="52px" past={badges.some((badge) => badge.kind === 'past')} />
         </div>
         <span className="min-w-0 flex-1">
           <span className={`block truncate text-[12.5px] font-semibold ${badges.some((b) => b.kind === 'live') ? 'text-[#0B7A52]' : 'text-brand'}`}>{when}</span>
