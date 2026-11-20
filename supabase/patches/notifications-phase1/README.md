@@ -17,6 +17,7 @@ Applied in this order with the Management API SQL endpoint. Every patch has a `*
 | 08 | `08_enable_push.sql` | push_enabled=true after a valid OneSignal App API key was set as `ONESIGNAL_REST_API_KEY`. |
 | 09 | `09_push_default_on.sql` | Applied 2026-11-19: push stays default true; 1,177 untouched default-off rows flipped to on; 4 later-updated rows left off. Backup: `notification_preferences_push_backup_20261119` (1,181 rows). |
 | 10 | `10_abandoned_checkout.sql` | Applied 2026-11-19: signed-in started checkouts (including before an order exists) are recorded; after 45 minutes a French in-app + push reminder is enqueued; completing an order cancels the pending reminder. Honours `order_updates`, quiet hours and daily caps. |
+| 11 | `11_event_image_metadata.sql` | Not applied. Adds `image_url` to metadata on SQL-enqueued event inbox rows (reminders, abandoned checkout, order confirmed, organizer attendee messages). Promo inserts are updated in Temba-admin. Rollback: `11_event_image_metadata_rollback.sql`. |
 
 Kill switch (stops all sending, keeps rows): `06_go_live_rollback.sql`. Reminder-only kill switch: set `abandoned_checkout_enabled` to false, or run `10_abandoned_checkout_rollback.sql`. Patch 09 rollback restores `push` from `notification_preferences_push_backup_20261119`.
 
