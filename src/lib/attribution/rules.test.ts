@@ -29,6 +29,10 @@ const orderA = '00000000-0000-0000-0000-0000000000a1';
 const orderB = '00000000-0000-0000-0000-0000000000b2';
 
 describe('attribution code', () => {
+  it('uses a 15-day attribution window', () => {
+    expect(ATTRIBUTION_WINDOW_MS).toBe(15 * 24 * 60 * 60 * 1000);
+  });
+
   it('accepts a reseller or referral code and rejects junk', () => {
     expect(normalizeAttributionCode(' sigui1 ')).toBe('SIGUI1');
     expect(normalizeAttributionCode('ab')).toBeNull();
@@ -245,7 +249,7 @@ describe('attributionAttachDecision', () => {
 });
 
 describe('capture', () => {
-  it('keeps the latest code for 30 days and prefers ?r= over ?ref=', () => {
+  it('keeps the latest code for 15 days and prefers ?r= over ?ref=', () => {
     clearPendingReferralCode();
     const start = Date.UTC(2026, 10, 1);
     captureAttributionSearch('?ref=SIGUI1', start);

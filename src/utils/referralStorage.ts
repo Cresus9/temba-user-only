@@ -98,7 +98,7 @@ function eventKeyForCapture(search: string, pathname?: string): string | null {
 }
 
 /**
- * Last click wins, until the code is consumed after a paid order, or 30 days pass.
+ * Last click wins, until the code is consumed after a paid order, or 15 days pass.
  * `?r=` is the link format. `?ref=` is the legacy alias.
  * `deep_link_sub1` is what an AppsFlyer return carries when the web page
  * did not keep `?r=`. The first valid code wins, so `?r=` is kept.

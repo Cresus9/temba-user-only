@@ -403,7 +403,7 @@ class ReferralService {
   async flushPendingReferralAfterAuth(): Promise<void> {
     const code = getPendingReferralCode();
     if (!code) return;
-    // Keep the code for checkout. Last click stays for 30 days even if signup tracking fails.
+    // Keep the code for checkout. Last click stays for 15 days even if signup tracking fails.
     await this.trackReferral(code);
   }
 
