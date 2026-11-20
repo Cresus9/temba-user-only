@@ -1,5 +1,5 @@
-// Browser compatibility polyfills
-import 'core-js/stable';
+// Browser compatibility polyfills (small, always on).
+// The full core-js bundle is loaded by main.tsx only for browsers that need it.
 
 // Polyfill for ResizeObserver (only load if needed)
 if (!window.ResizeObserver) {

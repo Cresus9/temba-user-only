@@ -1,36 +1,36 @@
 import React, { lazy, Suspense } from 'react';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ScrollToTop from '../components/ScrollToTop';
 
 // Pages
 import Home from '../pages/Home';
-import Events from '../pages/Events';
+const Events = lazyWithRetry(() => import('../pages/Events'));
 import EventDetails from '../pages/EventDetails';
-import Categories from '../pages/Categories';
-import CategoryEvents from '../pages/CategoryEvents';
-import Login from '../pages/Login';
-import SignUp from '../pages/SignUp';
-import ForgotPassword from '../pages/ForgotPassword';
-import ResetPassword from '../pages/ResetPassword';
-import Profile from '../pages/Profile';
-import Dashboard from '../pages/Dashboard';
-import Checkout from '../pages/Checkout';
-import BookingConfirmation from '../pages/BookingConfirmation';
-import EnhancedBookingConfirmation from '../pages/EnhancedBookingConfirmation';
-import PaymentSuccess from '../pages/PaymentSuccess';
-import PaymentCancelled from '../pages/PaymentCancelled';
-import PaymentStatus from '../pages/PaymentStatus';
-import Support from '../pages/Support';
-import TicketDetails from '../pages/TicketDetails';
-import Notifications from '../pages/Notifications';
-import Terms from '../pages/Terms';
-import Privacy from '../pages/Privacy';
-import Contact from '../pages/Contact';
-import Cookies from '../pages/Cookies';
-import About from '../pages/About';
-import AccountDeletion from '../pages/AccountDeletion';
-import MobileAppPreview from '../pages/MobileAppPreview';
+const Categories = lazyWithRetry(() => import('../pages/Categories'));
+const CategoryEvents = lazyWithRetry(() => import('../pages/CategoryEvents'));
+const Login = lazyWithRetry(() => import('../pages/Login'));
+const SignUp = lazyWithRetry(() => import('../pages/SignUp'));
+const ForgotPassword = lazyWithRetry(() => import('../pages/ForgotPassword'));
+const ResetPassword = lazyWithRetry(() => import('../pages/ResetPassword'));
+const Profile = lazyWithRetry(() => import('../pages/Profile'));
+const Dashboard = lazyWithRetry(() => import('../pages/Dashboard'));
+const Checkout = lazyWithRetry(() => import('../pages/Checkout'));
+const EnhancedBookingConfirmation = lazyWithRetry(() => import('../pages/EnhancedBookingConfirmation'));
+const PaymentSuccess = lazyWithRetry(() => import('../pages/PaymentSuccess'));
+const PaymentCancelled = lazyWithRetry(() => import('../pages/PaymentCancelled'));
+const PaymentStatus = lazyWithRetry(() => import('../pages/PaymentStatus'));
+const Support = lazyWithRetry(() => import('../pages/Support'));
+const TicketDetails = lazyWithRetry(() => import('../pages/TicketDetails'));
+const Notifications = lazyWithRetry(() => import('../pages/Notifications'));
+const Terms = lazyWithRetry(() => import('../pages/Terms'));
+const Privacy = lazyWithRetry(() => import('../pages/Privacy'));
+const Contact = lazyWithRetry(() => import('../pages/Contact'));
+const Cookies = lazyWithRetry(() => import('../pages/Cookies'));
+const About = lazyWithRetry(() => import('../pages/About'));
+const AccountDeletion = lazyWithRetry(() => import('../pages/AccountDeletion'));
+const MobileAppPreview = lazyWithRetry(() => import('../pages/MobileAppPreview'));
 
 const DevAccountPreview = import.meta.env.DEV
   ? lazy(() => import('../pages/dev/AccountPreview'))
@@ -40,41 +40,50 @@ const DevTicketsPreview = import.meta.env.DEV
   : null;
 
 // Blog Pages
-import BlogHome from '../pages/blog/BlogHome';
-import BlogPost from '../pages/blog/BlogPost';
-import BlogCategory from '../pages/blog/BlogCategory';
-import BlogTag from '../pages/blog/BlogTag';
-import BlogAuthor from '../pages/blog/BlogAuthor';
-import BlogSearch from '../pages/blog/BlogSearch';
+const BlogHome = lazyWithRetry(() => import('../pages/blog/BlogHome'));
+const BlogPost = lazyWithRetry(() => import('../pages/blog/BlogPost'));
+const BlogCategory = lazyWithRetry(() => import('../pages/blog/BlogCategory'));
+const BlogTag = lazyWithRetry(() => import('../pages/blog/BlogTag'));
+const BlogAuthor = lazyWithRetry(() => import('../pages/blog/BlogAuthor'));
+const BlogSearch = lazyWithRetry(() => import('../pages/blog/BlogSearch'));
 
 // Public Discovery Pages
-import OrganizerProfile from '../pages/public/OrganizerProfile';
-import OrganizersDirectory from '../pages/public/OrganizersDirectory';
-import ArtistProfile from '../pages/public/ArtistProfile';
-import ArtistsDirectory from '../pages/public/ArtistsDirectory';
-import VenueProfile from '../pages/public/VenueProfile';
-import VenuesDirectory from '../pages/public/VenuesDirectory';
-import TagPage from '../pages/public/TagPage';
-import AttractionsDirectory from '../pages/public/AttractionsDirectory';
-import CityLanding from '../pages/public/CityLanding';
-import SeoLanding from '../pages/public/SeoLanding';
-import { LANDING_PAGES } from '../../netlify/edge-functions/lib/landingPages';
+const OrganizerProfile = lazyWithRetry(() => import('../pages/public/OrganizerProfile'));
+const OrganizersDirectory = lazyWithRetry(() => import('../pages/public/OrganizersDirectory'));
+const ArtistProfile = lazyWithRetry(() => import('../pages/public/ArtistProfile'));
+const ArtistsDirectory = lazyWithRetry(() => import('../pages/public/ArtistsDirectory'));
+const VenueProfile = lazyWithRetry(() => import('../pages/public/VenueProfile'));
+const VenuesDirectory = lazyWithRetry(() => import('../pages/public/VenuesDirectory'));
+const TagPage = lazyWithRetry(() => import('../pages/public/TagPage'));
+const AttractionsDirectory = lazyWithRetry(() => import('../pages/public/AttractionsDirectory'));
+const CityLanding = lazyWithRetry(() => import('../pages/public/CityLanding'));
+const SeoLanding = lazyWithRetry(() => import('../pages/public/SeoLanding'));
 import { CITY_LANDINGS } from '../data/cityLandings';
+import { LANDING_PAGES } from '../../netlify/edge-functions/lib/landingPages';
 
 // Test Components
-import CategoryTest from '../components/CategoryTest';
-import NotificationTester from '../components/NotificationTester';
-import NotificationDebugger from '../components/NotificationDebugger';
+const CategoryTest = lazyWithRetry(() => import('../components/CategoryTest'));
+const NotificationTester = lazyWithRetry(() => import('../components/NotificationTester'));
+const NotificationDebugger = lazyWithRetry(() => import('../components/NotificationDebugger'));
 
 // Guest Pages
-import GuestTicketVerification from '../components/tickets/GuestTicketVerification';
-import GuestOrderVerification from '../components/checkout/GuestOrderVerification';
-import GuestTickets from '../pages/GuestTickets';
-import FindGuestTickets from '../pages/FindGuestTickets';
-import WhatsAppShare from '../pages/WhatsAppShare';
-import ReferralLanding from '../pages/ReferralLanding';
-import ReferralProgram from '../pages/profile/ReferralProgram';
+const GuestTicketVerification = lazyWithRetry(() => import('../components/tickets/GuestTicketVerification'));
+const GuestOrderVerification = lazyWithRetry(() => import('../components/checkout/GuestOrderVerification'));
+const GuestTickets = lazyWithRetry(() => import('../pages/GuestTickets'));
+const FindGuestTickets = lazyWithRetry(() => import('../pages/FindGuestTickets'));
+const WhatsAppShare = lazyWithRetry(() => import('../pages/WhatsAppShare'));
+const ReferralLanding = lazyWithRetry(() => import('../pages/ReferralLanding'));
+const ReferralProgram = lazyWithRetry(() => import('../pages/profile/ReferralProgram'));
 import NotFound from '../pages/NotFound';
+
+/** Shown while a route chunk loads: same spinner as auth pages, holds the page height. */
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center" aria-busy="true">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+    </div>
+  );
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -98,6 +107,7 @@ export default function AppRoutes() {
   return (
     <>
       <ScrollToTop />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -214,6 +224,7 @@ export default function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </>
   );
 }
