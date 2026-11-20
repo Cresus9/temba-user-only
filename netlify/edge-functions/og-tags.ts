@@ -7,6 +7,8 @@ import {
   publicSiteOrigin,
   toAbsoluteHttps,
 } from "./lib/eventOgShare.ts";
+import { buildEventJsonLd, formatFcfa, realPrice, stripTags } from "./lib/eventJsonLd.ts";
+import { buildVenueIndex, type VenueRowLite } from "./lib/venueIndex.ts";
 
 /**
  * Crawler-facing HTML for Googlebot, social bots, and other non-JS clients.
@@ -20,6 +22,8 @@ import {
 
 /** Official share image. Never the old purple-T placeholder. */
 const TEMBA_OG_IMAGE = "https://tembas.com/og-image-v2.png";
+/** Square logo for Google (Organization.logo): the real white T on Temba blue, 512×512. */
+const TEMBA_LOGO_SQUARE = "https://tembas.com/icon-512-v2.png";
 
 function getSupabaseRestConfig(): { url: string; anonKey: string } | null {
   const url =
@@ -321,14 +325,42 @@ function clampMeta(text: string, max = 158) {
 async function fetchEvent(param: string) {
   const key = decodeURIComponent(param);
   const select =
-    "id,slug,title,description,image_url,date,time,location,city,address,country_code,currency,price,is_permanent,status,ticket_types(id,name,price,available)";
+    "id,slug,title,description,image_url,date,time,timezone,location,city,address,region,country_code,currency,price,is_permanent,status,venue_id,organizer_id,ticket_types(id,name,price,available,sales_enabled),event_dates(date,start_time,end_time,status)";
   const isUuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       key
     );
   const filter = isUuid ? `id=eq.${key}` : `slug=eq.${encodeEq(key)}`;
-  const rows = await supabaseGet(`events?${filter}&select=${select}`);
-  return rows?.[0] ?? null;
+  const rows = await supabaseGet(
+    `events?${filter}&status=eq.PUBLISHED&deleted_at=is.null&select=${select}`
+  );
+  // undefined = lookup failed (network, config): never 404 on an error.
+  if (rows === null) return undefined;
+  return rows[0] ?? null;
+}
+
+/** Real organizer name and real venue row for the Event JSON-LD. */
+async function fetchEventExtras(event: any) {
+  const [orgRows, venueRows] = await Promise.all([
+    event?.organizer_id
+      ? supabaseGet(
+          `organizer_profiles?organizer_id=eq.${encodeEq(event.organizer_id)}&select=business_name,slug&limit=1`
+        )
+      : Promise.resolve(null),
+    event?.venue_id
+      ? supabaseGet(`venues?id=eq.${encodeEq(event.venue_id)}&select=name,address,city&limit=1`)
+      : Promise.resolve(null),
+  ]);
+  const org = orgRows?.[0];
+  const venue = venueRows?.[0];
+  const orgName = String(org?.business_name ?? "").trim();
+  return {
+    organizer: orgName
+      ? { name: orgName, url: org?.slug ? `https://tembas.com/organizers/${org.slug}` : null }
+      : null,
+    venue: venue ?? null,
+    dates: Array.isArray(event?.event_dates) ? event.event_dates : [],
+  };
 }
 
 function eventPublicPath(event: { id: string; slug?: string | null }): string {
@@ -376,11 +408,23 @@ function encodeEq(value: string): string {
   return encodeURIComponent(value);
 }
 
+/** Row, null when there is no such slug, undefined when the lookup failed. */
 async function fetchBySlug(table: string, slug: string, select: string) {
   const rows = await supabaseGet(
     `${table}?slug=eq.${encodeEq(slug)}&select=${select}&limit=1`
   );
-  return rows?.[0] ?? null;
+  if (rows === null) return undefined;
+  return rows[0] ?? null;
+}
+
+/** Venue pages that really exist (same rule as the SPA catalog). null on failure. */
+async function fetchVenueIndex() {
+  const [venues, events] = await Promise.all([
+    supabaseGet("venues?select=id,name,slug,city,address,country_code"),
+    supabaseGet("events?select=id,venue_id,deleted_at&status=eq.PUBLISHED&deleted_at=is.null&venue_id=not.is.null"),
+  ]);
+  if (venues === null || events === null) return null;
+  return buildVenueIndex(venues as VenueRowLite[], events);
 }
 
 function layout(opts: {
@@ -428,7 +472,9 @@ function layout(opts: {
   <meta name="description" content="${description}" />
   <meta name="robots" content="${robots}" />
   <link rel="canonical" href="${url}" />
-  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=3" />
+  <link rel="icon" href="https://tembas.com/favicon.ico?v=4" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="https://tembas.com/icon-192-v2.png?v=3" />
+  <link rel="icon" type="image/svg+xml" href="https://tembas.com/favicon.svg?v=4" />
   <link rel="icon" type="image/png" sizes="32x32" href="https://tembas.com/favicon-32x32.png?v=3" />
   <link rel="apple-touch-icon" sizes="180x180" href="https://tembas.com/apple-touch-icon-v2.png?v=3" />
   <meta property="og:type" content="${ogType}" />
@@ -487,6 +533,11 @@ function generateEventHtml(
   related: any[],
   performers: { name: string; slug?: string; role?: string }[] = [],
   origin = TEMBA_ORIGIN,
+  extras: {
+    organizer?: { name: string; url?: string | null } | null;
+    venue?: { name?: string | null; address?: string | null; city?: string | null } | null;
+    dates?: { date?: string | null; start_time?: string | null; end_time?: string | null; status?: string | null }[];
+  } = {},
 ): string {
   const title = event?.title || "Événement Temba";
   const rawDesc = stripHtml(event?.description);
@@ -509,72 +560,27 @@ function generateEventHtml(
   const imageUrl = event?.image_url
     ? eventOgImageUrl(event, event.image_url, origin)
     : TEMBA_OG_IMAGE;
-  const currency = event?.currency || "XOF";
   const tickets: any[] = event?.ticket_types || [];
-  const minPrice =
-    tickets.length > 0
-      ? Math.min(...tickets.map((t) => Number(t.price) || 0))
-      : Number(event?.price) || 0;
 
-  const startDate = event?.is_permanent
-    ? undefined
-    : event?.date
-      ? event.time
-        ? `${event.date}T${event.time}`
-        : event.date
-      : undefined;
+  const jsonLd = event
+    ? buildEventJsonLd(event, {
+        url: eventUrl,
+        image: event.image_url ? flyerUrl : null,
+        organizer: extras.organizer ?? null,
+        venue: extras.venue ?? null,
+        performers,
+        dates: extras.dates ?? [],
+      })
+    : undefined;
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: title,
-    description,
-    url: eventUrl,
-    image: [flyerUrl],
-    ...(startDate ? { startDate } : {}),
-    eventStatus: "https://schema.org/EventScheduled",
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    location: {
-      "@type": "Place",
-      name: event?.location || location || "Afrique de l'Ouest",
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: event?.address || event?.location || undefined,
-        addressLocality: event?.city || event?.location || undefined,
-        addressCountry: event?.country_code || "BF",
-      },
-    },
-    organizer: {
-      "@type": "Organization",
-      name: "Temba",
-      url: "https://tembas.com/",
-    },
-    performer: performers.length
-      ? performers.map((a) => ({
-          "@type": "Person",
-          "@id": a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
-          name: a.name,
-          url: a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
-        }))
-      : undefined,
-    offers: (tickets.length ? tickets : [{ price: minPrice, available: 1 }]).map((t) => ({
-      "@type": "Offer",
-      url: eventUrl,
-      name: t.name || "Billet",
-      price: t.price ?? minPrice,
-      priceCurrency: currency,
-      availability:
-        t.available === 0
-          ? "https://schema.org/SoldOut"
-          : "https://schema.org/InStock",
-    })),
-  };
-
+  // A price of 0 or no price is not "free": show the tier name only.
   const ticketLines = tickets
-    .map(
-      (t) =>
-        `<li>${escapeHtml(t.name || "Billet")} — ${escapeHtml(t.price)} ${escapeHtml(currency)}</li>`
-    )
+    .map((t) => {
+      const price = realPrice(t.price);
+      return `<li>${escapeHtml(String(t.name || "Billet").trim())}${
+        price !== null ? ` — ${escapeHtml(formatFcfa(price))}` : ""
+      }</li>`;
+    })
     .join("");
 
   const artistLines = performers
@@ -590,7 +596,8 @@ function generateEventHtml(
     <h1>${escapeHtml(title)}</h1>
     ${eventDate ? `<p>Date : ${escapeHtml(eventDate)}${eventTime ? ` à ${escapeHtml(eventTime)}` : ""}</p>` : ""}
     ${location ? `<p>Lieu : ${escapeHtml(location)}</p>` : ""}
-    <p>${escapeHtml(description)}</p>
+    ${extras.organizer?.name ? `<p>Organisé par ${escapeHtml(extras.organizer.name.trim())}</p>` : ""}
+    ${fullDescription(event?.description, description)}
     ${artistLines ? `<h2>À l'affiche</h2><ul>${artistLines}</ul>` : ""}
     ${ticketLines ? `<h2>Tarifs</h2><ul>${ticketLines}</ul>` : ""}
     <p><a href="${escapeHtml(eventUrl)}">Acheter des billets sur Temba</a></p>
@@ -609,6 +616,38 @@ function generateEventHtml(
     jsonLd,
     body,
   });
+}
+
+/** Full event text for crawlers, one <p> per paragraph. Falls back to the short line. */
+function fullDescription(raw: unknown, fallback: string): string {
+  const text = stripTags(raw);
+  if (!text) return `<p>${escapeHtml(fallback)}</p>`;
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join("\n    ");
+}
+
+/** Real 404 for crawlers: status 404 and noindex, so Google drops the URL. */
+function notFoundResponse(opts: {
+  title: string;
+  text: string;
+  url: string;
+  back: { href: string; label: string };
+  headers: Record<string, string>;
+}): Response {
+  return new Response(
+    layout({
+      title: opts.title,
+      description: opts.text,
+      url: opts.url,
+      robots: "noindex, follow",
+      body: `<h1>${escapeHtml(opts.title)}</h1><p>${escapeHtml(opts.text)}</p><p><a href="${escapeHtml(opts.back.href)}">${escapeHtml(opts.back.label)}</a></p>`,
+    }),
+    { status: 404, headers: { ...opts.headers, "X-Robots-Tag": "noindex" } }
+  );
 }
 
 function linkList(
@@ -688,9 +727,16 @@ function generateHomeHtml(events: any[], artists: { href: string; name: string; 
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://tembas.com/#organization",
         name: "Temba",
+        alternateName: "Temba Billetterie",
         url: "https://tembas.com/",
-        logo: TEMBA_OG_IMAGE,
+        logo: {
+          "@type": "ImageObject",
+          url: TEMBA_LOGO_SQUARE,
+          width: 512,
+          height: 512,
+        },
         description,
         areaServed: ["BF", "CI", "SN"],
         address: {
@@ -709,9 +755,12 @@ function generateHomeHtml(events: any[], artists: { href: string; name: string; 
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": "https://tembas.com/#website",
         name: "Temba",
+        alternateName: ["Temba Billetterie"],
         url: "https://tembas.com/",
         inLanguage: "fr-BF",
+        publisher: { "@id": "https://tembas.com/#organization" },
       },
       {
         "@context": "https://schema.org",
@@ -752,6 +801,7 @@ function generateReferralHtml(referralCode: string): string {
     title,
     description,
     url: `https://tembas.com/ref/${encodeURIComponent(referralCode)}`,
+    robots: "noindex, follow",
     body: `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p>
       <p>Code : <strong>${escapeHtml(referralCode)}</strong></p>
       <p><a href="https://tembas.com/ref/${escapeHtml(referralCode)}">Rejoindre Temba</a></p>`,
@@ -801,17 +851,26 @@ export default async function handler(request: Request, context: Context) {
       fetchEvent(requestParam),
       fetchPublishedEvents(12),
     ]);
+    if (event === undefined) return context.next();
     if (event) {
       const canonical = eventPublicPath(event);
       if (url.pathname !== canonical) {
         return redirectKeepingQuery(canonical, url.search);
       }
-      const performers = await fetchEventPerformers(event.id);
-      return new Response(generateEventHtml(event, requestParam, related, performers, publicSiteOrigin(request.url)), {
-        headers: htmlHeaders,
-      });
+      const [performers, extras] = await Promise.all([
+        fetchEventPerformers(event.id),
+        fetchEventExtras(event),
+      ]);
+      return new Response(
+        generateEventHtml(event, requestParam, related, performers, publicSiteOrigin(request.url), extras),
+        { headers: htmlHeaders }
+      );
     }
-    return new Response(generateEventHtml(event, requestParam, related, [], publicSiteOrigin(request.url)), {
+    return notFoundResponse({
+      title: "Événement introuvable",
+      text: "Cet événement n’existe pas ou n’est plus en ligne sur Temba.",
+      url: `https://tembas.com/e/${encodeURIComponent(requestParam)}`,
+      back: { href: "https://tembas.com/events", label: "Voir l’agenda" },
       headers: htmlHeaders,
     });
   }
@@ -835,22 +894,18 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (url.pathname === "/venues" || url.pathname === "/venues/") {
-    const venues =
-      (await supabaseGet(
-        "venues?select=slug,name,city,updated_at&slug=not.is.null&order=name.asc&limit=40"
-      )) ?? [];
+    const index = await fetchVenueIndex();
+    if (!index) return context.next();
     return new Response(
       generateCollectionHtml({
         title: "Lieux — Salles et sites",
         description: "Découvrez les salles et sites partenaires de Temba au Burkina Faso et en Afrique de l'Ouest.",
         url: "https://tembas.com/venues",
-        items: venues
-          .filter((v) => v.slug)
-          .map((v) => ({
-            href: `https://tembas.com/venues/${v.slug}`,
-            name: v.name,
-            extra: v.city || "",
-          })),
+        items: index.pages.map((v) => ({
+          href: `https://tembas.com/venues/${v.primarySlug}`,
+          name: v.name,
+          extra: v.city || "",
+        })),
       }),
       { headers: htmlHeaders }
     );
@@ -859,34 +914,59 @@ export default async function handler(request: Request, context: Context) {
   const venueMatch = url.pathname.match(/^\/venues\/([^/]+)$/);
   if (venueMatch) {
     const slug = decodeURIComponent(venueMatch[1]);
-    const venue = await fetchBySlug(
-      "venues",
-      slug,
-      "slug,name,description,city,address,photos"
-    );
-    const name = venue?.name || slug;
+    const [index, venue] = await Promise.all([
+      fetchVenueIndex(),
+      fetchBySlug("venues", slug, "id,slug,name,description,city,address,photos"),
+    ]);
+    if (!index || venue === undefined) return context.next();
+    const page = index.bySlug.get(slug);
+    // Unknown slug, test rows ("dfyguh"), city-only rows and venues with no
+    // published event are not pages on the site (the SPA shows "Lieu introuvable").
+    if (!venue || !page) {
+      return notFoundResponse({
+        title: "Lieu introuvable",
+        text: "Cette fiche lieu n’existe pas sur Temba.",
+        url: `https://tembas.com/venues/${encodeURIComponent(slug)}`,
+        back: { href: "https://tembas.com/venues", label: "Voir tous les lieux" },
+        headers: htmlHeaders,
+      });
+    }
+    const canonical = `https://tembas.com/venues/${page.primarySlug}`;
+    const name = page.name || venue.name || slug;
     const photo = Array.isArray(venue?.photos) ? venue.photos[0] : undefined;
+    const today = todayYmdOuaga();
+    const shows =
+      (await supabaseGet(
+        `events?select=id,slug,title,date,city,location,is_permanent&status=eq.PUBLISHED&deleted_at=is.null&venue_id=in.(${page.ids.join(",")})&order=date.asc.nullslast&limit=60`
+      )) ?? [];
+    const upcoming = shows.filter((e) => e.is_permanent || String(e.date || "") >= today);
+    const past = shows.filter((e) => !e.is_permanent && String(e.date || "") < today).reverse();
+    const city = page.city || venue.city || "";
     return new Response(
-      generateCollectionHtml({
-        title: name,
+      layout({
+        title: `${name}${city ? ` à ${city}` : ""} — événements et billets`,
         description:
           stripHtml(venue?.description) ||
-          `Événements à ${name}${venue?.city ? ` (${venue.city})` : ""} sur Temba.`,
-        url: `https://tembas.com/venues/${slug}`,
+          `Événements à ${name}${city ? ` (${city})` : ""} : agenda et billets en FCFA sur Temba.`,
+        url: canonical,
         image: photo,
-        items: [
-          { href: "https://tembas.com/venues", name: "Tous les lieux" },
-          { href: "https://tembas.com/events", name: "Agenda Temba" },
-        ],
         jsonLd: {
           "@context": "https://schema.org",
           "@type": "Place",
           name,
-          url: `https://tembas.com/venues/${slug}`,
-          address: venue?.city
-            ? { "@type": "PostalAddress", addressLocality: venue.city }
-            : undefined,
+          url: canonical,
+          address: {
+            "@type": "PostalAddress",
+            ...(venue.address && venue.address !== venue.name ? { streetAddress: venue.address } : {}),
+            ...(city ? { addressLocality: city } : {}),
+          },
         },
+        body: `<h1>${escapeHtml(name)}</h1>
+      ${city ? `<p>${escapeHtml(city)}</p>` : ""}
+      <h2>Prochains événements</h2>
+      ${upcoming.length ? eventListHtml(upcoming) : "<p>Pas de date à venir pour le moment.</p>"}
+      ${past.length ? `<h2>Déjà passés ici</h2>${eventListHtml(past.slice(0, 20))}` : ""}
+      <p><a href="https://tembas.com/venues">Tous les lieux</a> · <a href="https://tembas.com/events">Agenda Temba</a></p>`,
       }),
       { headers: htmlHeaders }
     );
@@ -922,6 +1002,16 @@ export default async function handler(request: Request, context: Context) {
       slug,
       "slug,business_name,bio,logo_url,cover_image_url,city"
     );
+    if (org === undefined) return context.next();
+    if (!org) {
+      return notFoundResponse({
+        title: "Organisateur introuvable",
+        text: "Ce profil n’existe pas ou a été supprimé.",
+        url: `https://tembas.com/organizers/${encodeURIComponent(slug)}`,
+        back: { href: "https://tembas.com/events", label: "Voir les événements" },
+        headers: htmlHeaders,
+      });
+    }
     const name = org?.business_name || slug;
     return new Response(
       generateCollectionHtml({
@@ -998,6 +1088,7 @@ export default async function handler(request: Request, context: Context) {
       slug,
       "id,slug,name,bio,photo_url,cover_image_url,genre,city,country_code,social_links,verified"
     );
+    if (artist === undefined) return context.next();
     if (!artist) {
       return new Response(
         layout({
@@ -1007,7 +1098,7 @@ export default async function handler(request: Request, context: Context) {
           robots: "noindex, follow",
           body: `<h1>Artiste introuvable</h1><p>Cette fiche n’existe pas, ou le lien a changé.</p><p><a href="https://tembas.com/artists">Tous les artistes</a></p>`,
         }),
-        { status: 404, headers: htmlHeaders }
+        { status: 404, headers: { ...htmlHeaders, "X-Robots-Tag": "noindex" } }
       );
     }
     const name = artist.name || slug;
@@ -1025,7 +1116,7 @@ export default async function handler(request: Request, context: Context) {
             `Fiche officielle de ${name}${artist.genre ? `, ${artist.genre}` : ""} sur Temba. Dates publiées et billets en FCFA.`
         );
     const sameAs = artistSameAs(artist.social_links);
-    const jsonLd = [
+    const jsonLd: Record<string, unknown>[] = [
       {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -1133,7 +1224,7 @@ export default async function handler(request: Request, context: Context) {
 
   if (url.pathname === "/categories" || url.pathname === "/categories/") {
     const categories =
-      (await supabaseGet("categories?select=id,slug,name,description&order=name.asc&limit=40")) ??
+      (await supabaseGet("categories?select=id,name,description&order=name.asc&limit=40")) ??
       [];
     return new Response(
       generateCollectionHtml({
@@ -1157,44 +1248,24 @@ export default async function handler(request: Request, context: Context) {
   const categoryMatch = url.pathname.match(/^\/categories\/([^/]+)$/);
   if (categoryMatch) {
     const key = decodeURIComponent(categoryMatch[1]);
-    const isUuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        key
-      );
-    let rows = await supabaseGet(
-      isUuid
-        ? `categories?id=eq.${key}&select=id,slug,name,description&limit=1`
-        : `categories?slug=eq.${encodeEq(key)}&select=id,slug,name,description&limit=1`
-    );
-    if (!rows?.[0] && !isUuid) {
-      const alias =
-        key === "concerts-de-musique"
-          ? "music-concerts"
-          : key === "sport"
-          ? "sports"
-          : key === "music-concerts"
-          ? "concerts-de-musique"
-          : key === "sports"
-          ? "sport"
-          : "";
-      if (alias) {
-        rows = await supabaseGet(
-          `categories?slug=eq.${encodeEq(alias)}&select=id,slug,name,description&limit=1`
-        );
-      }
-      if (!rows?.[0]) {
-        const nameGuess = key.replace(/-/g, " ");
-        rows = await supabaseGet(
-          `categories?name=ilike.${encodeEq(nameGuess)}&select=id,slug,name,description&limit=1`
-        );
-      }
-      if (!rows?.[0] && (key === "concerts-de-musique" || key === "music-concerts")) {
-        rows = await supabaseGet(
-          `categories?name=ilike.${encodeEq("Music Concerts")}&select=id,slug,name,description&limit=1`
-        );
-      }
+    // The categories table has no slug column: match the public French slug
+    // (or the id) against the few rows instead of querying by slug.
+    const rows = await supabaseGet("categories?select=id,name,description&limit=100");
+    if (rows !== null) {
+      const hit = rows.find((c) => c.id === key || frenchCategorySlug(c, String(c.id)) === frenchCategorySlug(null, key));
+      rows.splice(0, rows.length, ...(hit ? [hit] : []));
     }
+    if (rows === null) return context.next();
     const category = rows?.[0];
+    if (!category) {
+      return notFoundResponse({
+        title: "Catégorie introuvable",
+        text: "Cette catégorie n’existe pas sur Temba.",
+        url: `https://tembas.com/categories/${encodeURIComponent(key)}`,
+        back: { href: "https://tembas.com/categories", label: "Toutes les catégories" },
+        headers: htmlHeaders,
+      });
+    }
     const publicSlug = frenchCategorySlug(category, key);
     if (category && key !== publicSlug) {
       return redirectKeepingQuery(`/categories/${publicSlug}`, url.search);
@@ -1265,8 +1336,18 @@ export default async function handler(request: Request, context: Context) {
     const post = await fetchBySlug(
       "blog_posts",
       slug,
-      "slug,title,excerpt,content,featured_image,featured_image_url,meta_title,meta_description,status"
+      "slug,title,excerpt,content,featured_image_url,meta_title,meta_description,status"
     );
+    if (post === undefined) return context.next();
+    if (!post) {
+      return notFoundResponse({
+        title: "Article introuvable",
+        text: "Cet article n’existe pas ou n’est plus en ligne.",
+        url: `https://tembas.com/blog/post/${encodeURIComponent(slug)}`,
+        back: { href: "https://tembas.com/blog", label: "Retour au blog" },
+        headers: htmlHeaders,
+      });
+    }
     const title = post?.meta_title || post?.title || slug;
     const description =
       post?.meta_description ||
@@ -1277,7 +1358,7 @@ export default async function handler(request: Request, context: Context) {
         title,
         description,
         url: `https://tembas.com/blog/post/${slug}`,
-        image: post?.featured_image || post?.featured_image_url,
+        image: post?.featured_image_url,
         ogType: "article",
         jsonLd: {
           "@context": "https://schema.org",
@@ -1339,7 +1420,17 @@ export default async function handler(request: Request, context: Context) {
   const tagMatch = url.pathname.match(/^\/tags\/([^/]+)$/);
   if (tagMatch) {
     const slug = decodeURIComponent(tagMatch[1]);
-    const tag = await fetchBySlug("tags", slug, "slug,name,description");
+    const tag = await fetchBySlug("tags", slug, "*");
+    if (tag === undefined) return context.next();
+    if (!tag) {
+      return notFoundResponse({
+        title: "Tag introuvable",
+        text: "Ce tag n’existe pas sur Temba.",
+        url: `https://tembas.com/tags/${encodeURIComponent(slug)}`,
+        back: { href: "https://tembas.com/events", label: "Voir les événements" },
+        headers: htmlHeaders,
+      });
+    }
     const name = tag?.name || slug;
     return new Response(
       generateCollectionHtml({

@@ -126,6 +126,57 @@ async function fetchSlugPages(table, prefix, extras = {}) {
     }));
 }
 
+/**
+ * Venue pages that really exist, canonical slug only. Same rule as the SPA and
+ * the live edge sitemap (netlify/edge-functions/lib/venueIndex.ts): a venue
+ * needs at least one PUBLISHED, non-deleted event. Test rows such as "dfyguh"
+ * and duplicate slugs of the same place are left out. The DB is not changed.
+ */
+async function loadVenueIndexBuilder() {
+  try {
+    const { build } = await import('esbuild');
+    const out = await build({
+      entryPoints: [path.join(ROOT_DIR, 'netlify/edge-functions/lib/venueIndex.ts')],
+      bundle: true,
+      write: false,
+      format: 'esm',
+      platform: 'node',
+      logLevel: 'silent',
+    });
+    const code = out.outputFiles[0].text;
+    const mod = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+    return mod.buildVenueIndex;
+  } catch (error) {
+    console.warn('[sitemap] venue index builder unavailable, using the simple rule:', error?.message || error);
+    return null;
+  }
+}
+
+async function fetchVenuePages() {
+  const [venues, events] = await Promise.all([
+    rest('venues?select=id,name,slug,city,updated_at'),
+    rest('events?select=id,venue_id,deleted_at&status=eq.PUBLISHED&deleted_at=is.null&venue_id=not.is.null'),
+  ]);
+  const buildVenueIndex = await loadVenueIndexBuilder();
+  if (buildVenueIndex) {
+    return buildVenueIndex(venues, events).pages.map((page) => ({
+      loc: `/venues/${page.primarySlug}`,
+      lastmod: formatDate(page.updatedAt),
+      changefreq: 'weekly',
+      priority: 0.6,
+    }));
+  }
+  const used = new Set(events.map((event) => event.venue_id).filter(Boolean));
+  return venues
+    .filter((row) => row?.slug && used.has(row.id))
+    .map((row) => ({
+      loc: `/venues/${row.slug}`,
+      lastmod: formatDate(row.updated_at),
+      changefreq: 'weekly',
+      priority: 0.6,
+    }));
+}
+
 async function fetchCategoryPages() {
   const data = await rest('categories?select=id,name,updated_at');
   return data
@@ -189,7 +240,7 @@ async function main() {
 
   const [events, venues, organizers, artists, categories, tags] = await Promise.all([
     fetchPublishedEvents(),
-    fetchSlugPages('venues', '/venues'),
+    fetchVenuePages(),
     fetchSlugPages('organizer_profiles', '/organizers'),
     fetchSlugPages('artists', '/artists', { priority: 0.75, changefreq: 'daily' }),
     fetchCategoryPages(),

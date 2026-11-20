@@ -24,6 +24,8 @@ import { canonicalEventTarget, eventPublicPath, eventPublicUrl, isEventUuid } fr
 import { trackViewContent } from '../lib/metaPixel';
 import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
+import NotFound from './NotFound';
+import { buildEventJsonLd } from '../../netlify/edge-functions/lib/eventJsonLd';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
 import DisplayCard from '../components/events/DisplayCard';
 import AppBand from '../components/design/AppBand';
@@ -55,6 +57,7 @@ export default function EventDetails() {
   const [loading,       setLoading]       = useState(true);
   const [eventDates,    setEventDates]    = useState<EventDate[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [missing,       setMissing]       = useState(false);
   const [venue,         setVenue]         = useState<{ id: string; name: string; slug: string | null; city: string | null; verified: boolean; serviceCount: number } | null>(null);
 
   const viewedContent = useRef<string | null>(null);
@@ -122,15 +125,15 @@ export default function EventDetails() {
           const { data, error } = await query.maybeSingle();
 
           if (error) throw error;
-          if (!data) {
-            navigate('/events');
+          // Unknown or unpublished: show the real 404 page (noindex) on this URL
+          // instead of bouncing to /events, which Google reads as a soft 404.
+          if (!data || (data.status !== 'PUBLISHED' && !user)) {
+            setEvent(null);
+            setMissing(true);
+            setLoading(false);
             return;
           }
-
-          if (data.status !== 'PUBLISHED' && !user) {
-            navigate('/events');
-            return;
-          }
+          setMissing(false);
 
           eventData = data;
         }
@@ -164,6 +167,9 @@ export default function EventDetails() {
                 logo_url: baseProfile.avatar_url ?? null,
                 slug: null,
                 verified: false,
+                // Personal account name, not a business profile: shown on the
+                // page as today, but kept out of the Event JSON-LD.
+                fromBaseProfile: true,
               };
             }
           }
@@ -260,90 +266,22 @@ export default function EventDetails() {
 
   const eventSchema = useMemo(() => {
     if (!event || !eventUrl) return undefined;
-    const tz = event.timezone ?? 'Africa/Ouagadougou';
-    const startDate = event.is_permanent
-      ? undefined
-      : event.time ? `${event.date}T${event.time}` : event.date;
-    const countryCode = event.country_code ?? 'BF';
-    return {
-      '@context': 'https://schema.org',
-      '@type': 'Event',
-      name: event.title,
-      description: event.description,
-      startDate,
-      eventStatus: 'https://schema.org/EventScheduled',
-      image: ogImage ? [ogImage] : undefined,
-      location: {
-        '@type': 'Place',
-        name: event.location,
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: event.address ?? event.location,
-          addressLocality: event.city ?? event.location,
-          addressRegion: event.region ?? undefined,
-          addressCountry: countryCode,
-        },
-      },
-      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-      ...(tz !== 'Africa/Ouagadougou' && { inLanguage: 'fr' }),
-      organizer: (() => {
-        const org = (event as any).organizer_profiles;
-        if (org?.business_name) {
-          return {
-            '@type': 'Organization',
-            name: org.business_name,
-            url: org.slug ? `https://tembas.com/organizers/${org.slug}` : 'https://tembas.com/',
-          };
-        }
-        return {
-          '@type': 'Organization',
-          name: 'Temba',
-          url: 'https://tembas.com/',
-        };
-      })(),
-      performer: (() => {
-        const ea = (event as any).event_artists;
-        if (!Array.isArray(ea) || !ea.length) return undefined;
-        const artists = ea
-          .map((row: any) => row.artists)
-          .filter((a: any) => a?.name);
-        if (!artists.length) return undefined;
-        return artists.map((a: any) => ({
-          '@type': 'Person',
-          '@id': a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
-          name: a.name,
-          url: a.slug ? `https://tembas.com/artists/${a.slug}` : undefined,
-        }));
-      })(),
-      offers: (event.ticket_types || []).map(ticketType => ({
-        '@type': 'Offer',
-        url: eventUrl,
-        price: ticketType.price,
-        priceCurrency: event.currency,
-        availability:
-          ticketType.available && ticketType.available > 0
-            ? 'https://schema.org/InStock'
-            : 'https://schema.org/SoldOut',
-      })),
-    };
-  }, [
-    event?.title,
-    event?.description,
-    event?.time,
-    event?.date,
-    event?.location,
-    event?.address,
-    event?.city,
-    event?.region,
-    event?.country_code,
-    event?.timezone,
-    event?.ticket_types,
-    event?.currency,
-    (event as any)?.organizer_profiles,
-    (event as any)?.event_artists,
-    eventUrl,
-    ogImage,
-  ]);
+    const org = (event as any).organizer_profiles;
+    const ea = (event as any).event_artists;
+    const performers = Array.isArray(ea)
+      ? ea.map((row: any) => row.artists).filter((a: any) => a?.name).map((a: any) => ({ name: a.name, slug: a.slug }))
+      : [];
+    return buildEventJsonLd(event as any, {
+      url: eventUrl,
+      image: ogImage ?? null,
+      organizer: org?.business_name && !org.fromBaseProfile
+        ? { name: org.business_name, url: org.slug ? `https://tembas.com/organizers/${org.slug}` : null }
+        : null,
+      venue: venue ? { name: venue.name, city: venue.city } : null,
+      performers,
+      dates: eventDates,
+    });
+  }, [event, eventUrl, ogImage, venue, eventDates]);
 
   const breadcrumbSchema = useMemo(() => {
     if (!eventUrl || !event?.title) return undefined;
@@ -404,6 +342,8 @@ export default function EventDetails() {
       </div>
     );
   }
+
+  if (!event && missing) return <NotFound />;
 
   if (!event) {
     return (
