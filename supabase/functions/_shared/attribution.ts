@@ -26,6 +26,15 @@ export function normalizeAttributionCode(raw: unknown): string | null {
   return code;
 }
 
+/** First valid candidate wins. Mobile may send the ?r= code as reseller_code only. */
+export function candidateAttributionCode(...raws: unknown[]): string | null {
+  for (const raw of raws) {
+    const code = normalizeAttributionCode(raw);
+    if (code) return code;
+  }
+  return null;
+}
+
 export async function buyerIdFromAuthHeader(supabase: ServiceClient, req: Request): Promise<string | null> {
   const header = req.headers.get("authorization") ?? "";
   const bearer = header.replace(/^Bearer\s+/i, "").trim();
