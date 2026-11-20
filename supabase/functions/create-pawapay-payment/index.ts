@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
-import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +43,8 @@ interface CreatePawaPayPaymentRequest {
   fbc?: string;
   /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
   attribution_code?: string | null;
+  /** Mobile sometimes sends the same ?r= code under this name only. */
+  reseller_code?: string | null;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -137,6 +139,8 @@ Deno.serve(async (req) => {
       console.error("Failed to parse request body:", parseError);
       throw new Error(`Invalid request body format: ${parseError.message}`);
     }
+
+    const candidateCode = candidateAttributionCode(payload.attribution_code, payload.reseller_code);
 
     // Validate required fields
     if (!payload.event_id) {
@@ -275,7 +279,8 @@ Deno.serve(async (req) => {
           ...(orderLines ? { line_allocations: orderLines } : {}),
           // Only set guest_email if user_id is not provided (guest checkout)
           guest_email: payload.user_id ? null : (payload.buyer_email || null),
-          visible_in_history: false
+          visible_in_history: false,
+          ...(candidateCode ? { attribution_code: candidateCode } : {}),
         })
         .select('id')
         .single();
@@ -295,7 +300,7 @@ Deno.serve(async (req) => {
     // Candidate code only. Does not change the charged amount.
     // A caller-supplied order is updated only for its buyer or guest token.
     const createdHere = Boolean(createOrder && !payload.order_id && finalOrderId);
-    await attachAttributionCode(supabase, finalOrderId, payload.attribution_code, {
+    await attachAttributionCode(supabase, finalOrderId, candidateCode, {
       createdInThisRequest: createdHere,
       jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
       guestToken: createdHere ? null : readGuestToken(req),

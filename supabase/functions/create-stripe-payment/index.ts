@@ -4,7 +4,7 @@ import Stripe from "https://esm.sh/stripe@17.3.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.3";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
-import { attachAttributionCode, buyerIdFromAuthHeader, readGuestToken } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -68,6 +68,8 @@ type CreatePaymentBody = {
   fbc?: string | null;
   /** Candidate code from ?r= (legacy ?ref=). The database resolves it. */
   attribution_code?: string | null;
+  /** Mobile sometimes sends the same ?r= code under this name only. */
+  reseller_code?: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -75,6 +77,7 @@ Deno.serve(async (req) => {
 
   try {
     const body: CreatePaymentBody = await req.json();
+    const candidateCode = candidateAttributionCode(body.attribution_code, body.reseller_code);
     
     const {
       // Simple mode
@@ -274,6 +277,7 @@ Deno.serve(async (req) => {
           visible_in_history: false,
           ...(orderEventDateId ? { event_date_id: orderEventDateId } : {}),
           ...(orderLines ? { line_allocations: orderLines } : {}),
+          ...(candidateCode ? { attribution_code: candidateCode } : {}),
         })
         .select('id')
         .single();
@@ -307,7 +311,7 @@ Deno.serve(async (req) => {
     // Candidate code only. A pre-existing order is updated only for its buyer.
     // A failure here does not change the amount or stop the payment.
     const createdHere = Boolean(create_order && !order_id && finalOrderId);
-    await attachAttributionCode(supabase, finalOrderId, body.attribution_code, {
+    await attachAttributionCode(supabase, finalOrderId, candidateCode, {
       createdInThisRequest: createdHere,
       jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
       guestToken: createdHere ? null : readGuestToken(req),
