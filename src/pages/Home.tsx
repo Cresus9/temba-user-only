@@ -86,7 +86,6 @@ export default function Home() {
       return String(a.date || '').localeCompare(String(b.date || ''));
     });
   }, [filteredEvents, permanent, spans]);
-  const current = featured[Math.min(slide, Math.max(featured.length - 1, 0))];
 
   const goToSlide = (next: number) => {
     if (featured.length === 0) return;
@@ -317,7 +316,7 @@ export default function Home() {
       <HomeRails events={dedupeEvents([...(filteredEvents ?? []), ...running])} permanent={permanent} ready={ready} loading={loading} spans={spans} kinds={kinds} filters={filters} />
 
       <section className="px-5 pt-12 min-[1280px]:px-16 min-[1440px]:px-20">
-        <AppBand exampleTitle={current?.title || 'Alif Naaba'} />
+        <AppBand />
       </section>
 
       <section className="px-5 pb-20 pt-8 min-[1280px]:px-16 min-[1440px]:px-20">
