@@ -96,9 +96,13 @@ export function PageSEO({
 
     const resolvedTitle = title ? `${title} | Temba` : DEFAULTS.title;
     const resolvedDescription = description ?? DEFAULTS.description;
+    // Default canonical: this path on tembas.com, without ?query or #hash,
+    // so filtered or tracked URLs do not compete with the clean page.
     const resolvedCanonical =
       canonicalUrl ??
-      (typeof window !== 'undefined' ? window.location.href : DEFAULTS.canonical);
+      (typeof window !== 'undefined'
+        ? `https://tembas.com${window.location.pathname}`
+        : DEFAULTS.canonical);
     const resolvedOgImage = ogImage ?? DEFAULTS.ogImage;
     const resolvedLocale = ogLocale ?? DEFAULTS.locale;
 

@@ -68,6 +68,7 @@ export default function TagPage() {
   if (loading) return <div className="min-h-screen bg-cream bg-grain flex items-center justify-center"><div className="w-10 h-10 border-2 border-brand border-t-transparent rounded-full animate-spin" /></div>;
   if (notFound || !tag) return (
     <div className="min-h-screen bg-cream bg-grain flex flex-col items-center justify-center gap-4 px-4">
+      <PageSEO title="Tag introuvable" description="Ce tag n’existe pas sur Temba." robots="noindex, follow" />
       <Tag className="w-10 h-10 text-ink-mute" />
       <h1 className="text-[20px] font-bold text-ink" style={{ fontFamily: display }}>Tag introuvable</h1>
       <Link to="/events" className="px-5 py-2.5 bg-brand text-paper rounded-xl text-[13px] font-bold">Voir les événements</Link>

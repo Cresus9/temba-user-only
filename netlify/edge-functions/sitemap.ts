@@ -1,4 +1,5 @@
 import type { Context } from "https://edge.netlify.com";
+import { buildVenueIndex, type VenueRowLite } from "./lib/venueIndex.ts";
 
 /**
  * Live sitemap for Googlebot: every PUBLISHED event (and slug pages) from
@@ -108,12 +109,12 @@ async function buildSitemap(): Promise<string | null> {
   const today = new Date().toISOString().slice(0, 10);
   const [events, venues, organizers, artists, categories, tags] = await Promise.all([
     restAll(
-      "events?select=id,slug,updated_at&status=eq.PUBLISHED&deleted_at=is.null"
+      "events?select=id,slug,updated_at,venue_id,deleted_at&status=eq.PUBLISHED&deleted_at=is.null"
     ),
-    restAll("venues?select=slug,updated_at&slug=not.is.null"),
+    restAll("venues?select=id,name,slug,city,updated_at"),
     restAll("organizer_profiles?select=slug,updated_at&slug=not.is.null"),
     restAll("artists?select=slug,updated_at&slug=not.is.null"),
-    restAll("categories?select=id,slug,name,updated_at"),
+    restAll("categories?select=id,name,updated_at"),
     restAll("tags?select=slug,updated_at&slug=not.is.null"),
   ]);
 
@@ -129,11 +130,15 @@ async function buildSitemap(): Promise<string | null> {
         changefreq: "daily",
         priority: "0.8",
       })),
-    ...venues
-      .filter((r) => r.slug)
-      .map((r) => ({
-        loc: `/venues/${r.slug}`,
-        lastmod: ymd(String(r.updated_at || "")),
+    // Only real venue pages, canonical slug only: no test rows ("dfyguh"),
+    // no venue without a published event, no duplicate slug of the same place.
+    ...buildVenueIndex(
+      venues as unknown as VenueRowLite[],
+      events as unknown as { id: string; venue_id?: string | null; deleted_at?: string | null }[],
+    )
+      .pages.map((r) => ({
+        loc: `/venues/${r.primarySlug}`,
+        lastmod: ymd(String(r.updatedAt || "")),
         changefreq: "weekly",
         priority: "0.6",
       })),
