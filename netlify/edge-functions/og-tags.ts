@@ -9,6 +9,7 @@ import {
 } from "./lib/eventOgShare.ts";
 import { buildEventJsonLd, formatFcfa, realPrice, stripTags } from "./lib/eventJsonLd.ts";
 import { buildVenueIndex, type VenueRowLite } from "./lib/venueIndex.ts";
+import { LANDING_PAGES, landingByPath, isConcertCategory, selectLandingEvents, weekendRange } from "./lib/landingPages.ts";
 
 /**
  * Crawler-facing HTML for Googlebot, social bots, and other non-JS clients.
@@ -500,6 +501,8 @@ ${imageTypeTag}  <meta property="og:image:width" content="1200" />
   ${opts.body}
   <nav>
     <a href="https://tembas.com/events">Événements</a> ·
+    <a href="https://tembas.com/ce-weekend">Ce week-end</a> ·
+    <a href="https://tembas.com/ouagadougou/concerts">Concerts à Ouagadougou</a> ·
     <a href="https://tembas.com/ouagadougou">Ouagadougou</a> ·
     <a href="https://tembas.com/bobo-dioulasso">Bobo-Dioulasso</a> ·
     <a href="https://tembas.com/abidjan">Abidjan</a> ·
@@ -522,6 +525,24 @@ function eventListHtml(events: any[]): string {
       const place = e.city || e.location || "";
       return `<li><a href="https://tembas.com${eventPublicPath(e)}">${escapeHtml(e.title)}</a>${
         date || place ? ` — ${escapeHtml([date, place].filter(Boolean).join(" · "))}` : ""
+      }</li>`;
+    })
+    .join("")}</ul>`;
+}
+
+/** Landing page list: multi-day events show "du … au …" instead of only their first day. */
+function landingListHtml(events: any[], dates: Map<string, string[]>): string {
+  return `<ul>${events
+    .map((e) => {
+      const days = [...new Set([String(e.date || "").slice(0, 10), ...(dates.get(e.id) ?? [])].filter(Boolean))].sort();
+      const first = days[0];
+      const last = days[days.length - 1];
+      const when = first && last && first !== last
+        ? `du ${formatFrDate(first)} au ${formatFrDate(last)}`
+        : formatFrDate(e.date);
+      const place = e.city || e.location || "";
+      return `<li><a href="https://tembas.com${eventPublicPath(e)}">${escapeHtml(e.title)}</a>${
+        when || place ? ` — ${escapeHtml([when, place].filter(Boolean).join(" · "))}` : ""
       }</li>`;
     })
     .join("")}</ul>`;
@@ -1448,6 +1469,91 @@ export default async function handler(request: Request, context: Context) {
     return new Response(generateReferralHtml(refMatch[1]), { headers: htmlHeaders });
   }
 
+  const landing = landingByPath(url.pathname);
+  if (landing) {
+    const today = todayYmdOuaga();
+    const [y, m, d] = today.split("-").map(Number);
+    const since = new Date(Date.UTC(y, m - 1, d - 30)).toISOString().slice(0, 10);
+    const [rows, relations, categories] = await Promise.all([
+      supabaseGet(
+        `events?select=id,slug,title,date,time,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&is_permanent=is.false&date=gte.${since}&order=date.asc&limit=200`
+      ),
+      landing.concertsOnly ? supabaseGet("event_category_relations?select=event_id,category_id") : Promise.resolve([]),
+      landing.concertsOnly ? supabaseGet("categories?select=id,name") : Promise.resolve([]),
+    ]);
+    // Database unreachable: let the app answer rather than serve an empty page.
+    if (!rows || !relations || !categories) return context.next();
+    const ids = rows.map((e) => e.id).filter(Boolean);
+    const dateRows = ids.length
+      ? (await supabaseGet(`event_dates?select=event_id,date&event_id=in.(${ids.join(",")})`)) ?? []
+      : [];
+    const dates = new Map<string, string[]>();
+    for (const row of dateRows) {
+      const day = String(row.date || "").slice(0, 10);
+      if (!day) continue;
+      dates.set(row.event_id, [...(dates.get(row.event_id) ?? []), day]);
+    }
+    const concertCategoryIds = new Set(categories.filter((c) => isConcertCategory(c.name)).map((c) => c.id));
+    const concertIds = new Set(
+      relations.filter((r) => concertCategoryIds.has(r.category_id)).map((r) => r.event_id as string)
+    );
+    const events = selectLandingEvents(landing, rows, { today, dates, concertIds });
+    const pageUrl = `https://tembas.com${landing.path}`;
+    const weekend = weekendRange(today);
+    const when = landing.weekend
+      ? `<p>Week-end du ${escapeHtml(formatFrDate(weekend.start))} au ${escapeHtml(formatFrDate(weekend.end))}.</p>`
+      : "";
+    const others = LANDING_PAGES.filter((p) => p.path !== landing.path)
+      .map((p) => `<a href="https://tembas.com${p.path}">${escapeHtml(p.label)}</a>`)
+      .join(" · ");
+    const empty = landing.weekend
+      ? `<p>Aucun événement n’est encore publié pour ce week-end. Consultez <a href="https://tembas.com/events">l’agenda complet</a>.</p>`
+      : `<p>Aucun concert n’est publié pour le moment. Consultez <a href="https://tembas.com/events">l’agenda complet</a>.</p>`;
+    return new Response(
+      layout({
+        title: landing.title,
+        description: landing.description,
+        url: pageUrl,
+        // An empty list is thin content: keep it out of Google until events are published.
+        robots: events.length ? "index, follow" : "noindex, follow",
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: landing.h1,
+            url: pageUrl,
+            description: landing.description,
+            mainEntity: {
+              "@type": "ItemList",
+              numberOfItems: events.length,
+              itemListElement: events.slice(0, 30).map((e, i) => ({
+                "@type": "ListItem",
+                position: i + 1,
+                url: `https://tembas.com${eventPublicPath(e)}`,
+                name: e.title,
+              })),
+            },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tembas.com/" },
+              { "@type": "ListItem", position: 2, name: "Événements", item: "https://tembas.com/events" },
+              { "@type": "ListItem", position: 3, name: landing.label, item: pageUrl },
+            ],
+          },
+        ],
+        body: `<h1>${escapeHtml(landing.h1)}</h1>
+      <p>${escapeHtml(landing.intro)}</p>
+      ${when}
+      ${events.length ? landingListHtml(events, dates) : empty}
+      <p>Voir aussi : ${others}</p>`,
+      }),
+      { headers: htmlHeaders }
+    );
+  }
+
   const citySlug = url.pathname.replace(/^\/+|\/+$/g, "");
   const cityPage = CITY_PAGES[citySlug];
   if (cityPage) {
@@ -1513,5 +1619,8 @@ export const config = {
     "/bobo-dioulasso",
     "/abidjan",
     "/dakar",
+    "/ce-weekend",
+    "/ouagadougou/concerts",
+    "/bobo-dioulasso/concerts",
   ],
 };

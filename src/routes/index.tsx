@@ -57,6 +57,8 @@ import VenuesDirectory from '../pages/public/VenuesDirectory';
 import TagPage from '../pages/public/TagPage';
 import AttractionsDirectory from '../pages/public/AttractionsDirectory';
 import CityLanding from '../pages/public/CityLanding';
+import SeoLanding from '../pages/public/SeoLanding';
+import { LANDING_PAGES } from '../../netlify/edge-functions/lib/landingPages';
 import { CITY_LANDINGS } from '../data/cityLandings';
 
 // Test Components
@@ -141,6 +143,9 @@ export default function AppRoutes() {
         <Route path="/venues/:slug" element={<VenueProfile />} />
         <Route path="/tags/:slug" element={<TagPage />} />
         <Route path="/attractions" element={<AttractionsDirectory />} />
+        {LANDING_PAGES.map((page) => (
+          <Route key={page.path} path={page.path} element={<SeoLanding />} />
+        ))}
         {CITY_LANDINGS.map((city) => (
           <Route key={city.slug} path={`/${city.slug}`} element={<CityLanding />} />
         ))}
