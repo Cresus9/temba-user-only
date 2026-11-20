@@ -5,6 +5,32 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Netlify Image CDN: resized copies of flyers hosted on other websites
+# (/.netlify/images?url=...&w=...). Only these hosts can be fetched, so the CDN
+# is not an open proxy. Keep in sync with src/utils/imageUrl.ts.
+[images]
+remote_images = [
+  "https://showbook\\.africa/.*",
+  "https://fasobouge\\.com/.*",
+  "https://www\\.fasobouge\\.com/.*",
+  "https://afroduc\\.com/.*",
+  "https://foire-skbowa\\.org/.*",
+  "https://icicine\\.com/.*",
+  "https://i\\.natgeofe\\.com/.*",
+  "https://s\\.rfi\\.fr/.*",
+  "https://www\\.infosculturedufaso\\.net/.*",
+  "https://www\\.bgospel\\.com/.*",
+  "https://e-events\\.s3\\.eu-north-1\\.amazonaws\\.com/.*",
+  "https://sitho\\.bf/.*",
+  "https://www\\.ripo\\.bf/.*",
+  "https://uwmlagvsivxqocklxbbo\\.supabase\\.co/.*",
+  "https://upload\\.wikimedia\\.org/.*",
+  "https://commons\\.wikimedia\\.org/.*",
+  "https://cdn-images\\.dzcdn\\.net/.*",
+  "https://yt3\\.googleusercontent\\.com/.*",
+  "https://lastfm\\.freetls\\.fastly\\.net/.*"
+]
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

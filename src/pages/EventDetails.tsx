@@ -26,6 +26,7 @@ import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import NotFound from './NotFound';
 import { buildEventJsonLd } from '../../netlify/edge-functions/lib/eventJsonLd';
+import { flyerSrcSet, resizedImageUrl } from '../utils/imageUrl';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
 import DisplayCard from '../components/events/DisplayCard';
 import AppBand from '../components/design/AppBand';
@@ -58,7 +59,17 @@ export default function EventDetails() {
   const [eventDates,    setEventDates]    = useState<EventDate[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [missing,       setMissing]       = useState(false);
+  // Resized flyer failed: show the original file instead.
+  const [heroOriginal, setHeroOriginal] = useState(false);
+  // Keeps the flyer's space while it downloads so the title does not jump.
+  const [heroLoaded, setHeroLoaded] = useState(false);
   const [venue,         setVenue]         = useState<{ id: string; name: string; slug: string | null; city: string | null; verified: boolean; serviceCount: number } | null>(null);
+
+  // Another event's flyer starts fresh.
+  useEffect(() => {
+    setHeroOriginal(false);
+    setHeroLoaded(false);
+  }, [event?.image_url]);
 
   const viewedContent = useRef<string | null>(null);
   useEffect(() => {
@@ -336,7 +347,8 @@ export default function EventDetails() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1200px] px-5 py-16">
+      // Holds the screen while the event loads so the footer does not jump up and down.
+      <div className="mx-auto min-h-[100vh] max-w-[1200px] px-5 py-16">
         <div className="h-8 w-48 animate-pulse rounded bg-surf" />
         <div className="mt-6 h-64 animate-pulse rounded-2xl bg-surf" />
       </div>
@@ -401,7 +413,14 @@ export default function EventDetails() {
 
       <section className="relative overflow-hidden bg-[#14162B] text-white">
         {event.image_url && (
-          <img src={event.image_url} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-[40px]" />
+          <img
+            src={(!heroOriginal && resizedImageUrl(event.image_url, 64, 50)) || event.image_url}
+            onError={() => setHeroOriginal(true)}
+            alt=""
+            aria-hidden
+            decoding="async"
+            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-[40px]"
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#14162B] via-[#14162B]/75 to-[#14162B]/40" />
         <div className="relative px-5 py-6 min-[1280px]:px-16 min-[1280px]:py-8 min-[1440px]:px-20 lg:pr-[460px]">
@@ -414,7 +433,14 @@ export default function EventDetails() {
             <span className="truncate text-white">{event.title}</span>
           </nav>
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end">
-            <img src={event.image_url || ''} alt={`Affiche ${event.title}`} className="max-h-[340px] w-auto max-w-full rounded-[10px] object-contain sm:max-h-[425px] sm:max-w-[340px]" />
+            <img
+              src={event.image_url || ''}
+              srcSet={heroOriginal ? undefined : flyerSrcSet(event.image_url, [360, 480, 640, 960, 1280])}
+              sizes="(min-width: 640px) 340px, 100vw"
+              onLoad={() => setHeroLoaded(true)}
+              onError={() => (heroOriginal ? setHeroLoaded(true) : setHeroOriginal(true))}
+              alt={`Affiche ${event.title}`}
+              className={`max-h-[340px] w-auto max-w-full rounded-[10px] object-contain sm:max-h-[425px] sm:max-w-[340px] ${heroLoaded ? '' : 'min-h-[340px] sm:min-h-[425px]'}`} />
             <div className="min-w-0 pb-1 text-white [&_h1]:!text-white [&_p]:!text-white">
               <div className="flex flex-wrap items-center gap-2">
                 {badges.map((badge) => (
@@ -462,7 +488,7 @@ export default function EventDetails() {
               <div className="mt-4 flex flex-wrap gap-3">
                 {artists.map((artist) => (
                   <Link key={artist.id} to={`/artists/${artist.slug || artist.id}`} className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2">
-                    {artist.photo_url ? <img src={artist.photo_url} alt="" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-surf font-semibold">{artist.name?.charAt(0)}</span>}
+                    {artist.photo_url ? <img src={resizedImageUrl(artist.photo_url, 144) || artist.photo_url} onError={(e) => { if (e.currentTarget.src !== artist.photo_url) e.currentTarget.src = artist.photo_url; }} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-12 w-12 rounded-full object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-surf font-semibold">{artist.name?.charAt(0)}</span>}
                     <span>
                       <b className="block text-[15px]">{artist.name}</b>
                       <small className="text-[13px] text-ink-3">{[ARTIST_ROLE_FR[artist.role] || artist.role, artist.genre].filter(Boolean).join(' · ')}</small>
