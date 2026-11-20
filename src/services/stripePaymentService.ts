@@ -1,7 +1,8 @@
 import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { supabase } from '../lib/supabase-client';
 import { metaBrowserMatch } from '../lib/metaPixel';
-import { getPendingReferralCode } from '../utils/referralStorage';
+import { resolveEventRef } from '../lib/attribution/eventRef';
+import { attributionCheckoutPayload } from '../utils/referralStorage';
 
 export interface FXQuote {
   usd_cents: number;
@@ -45,9 +46,8 @@ export interface StripePaymentError {
   type?: string;
 }
 
-function attributionPayload(): { attribution_code?: string } {
-  const code = getPendingReferralCode();
-  return code ? { attribution_code: code } : {};
+async function attributionPayload(eventId: string) {
+  return attributionCheckoutPayload(await resolveEventRef(eventId));
 }
 
 class StripePaymentService {
@@ -145,7 +145,7 @@ class StripePaymentService {
         guest_phone: options.guest_phone,
         ...(options.event_date_id ? { event_date_id: options.event_date_id } : {}),
         ...(options.line_allocations?.length ? { line_allocations: options.line_allocations } : {}),
-        ...attributionPayload(),
+        ...(await attributionPayload(eventId)),
         ...metaBrowserMatch(),
       });
 
@@ -199,7 +199,7 @@ class StripePaymentService {
         guest_phone: options.guest_phone,
         ...(options.event_date_id ? { event_date_id: options.event_date_id } : {}),
         ...(options.line_allocations?.length ? { line_allocations: options.line_allocations } : {}),
-        ...attributionPayload(),
+        ...(await attributionPayload(eventId)),
         ...metaBrowserMatch(),
       });
 

@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase-client';
 import { postEdgeFunctionAnon } from '../lib/payments/edge';
 import { waitForPawaPayPaymentTerminal } from '../lib/payments/pawapayWatcher';
 import { guestRedirectForOrder } from '../services/guestTicketService';
+import { consumeAttributionOnPaidOrder } from '../utils/referralStorage';
 
 type Phase = 'waiting' | 'otp' | 'success' | 'failed';
 
@@ -48,6 +49,13 @@ export default function PaymentStatus() {
 
   const goToTickets = () => navigate(ticketsPath());
 
+  const markPaidSuccess = (msg: string) => {
+    consumeAttributionOnPaidOrder();
+    setPhase('success');
+    setMessage(msg);
+  };
+
+
   useEffect(() => {
     if (phase !== 'success') return;
     const t = window.setTimeout(goToTickets, 1200);
@@ -81,8 +89,7 @@ export default function PaymentStatus() {
             return;
           }
           if (state === 'completed' || state === 'succeeded') {
-            setPhase('success');
-            setMessage('Paiement confirmé.');
+            markPaidSuccess('Paiement confirmé.');
             return;
           }
           setPhase('waiting');
@@ -96,8 +103,7 @@ export default function PaymentStatus() {
         const applyStripeStatus = (status: string, errorMessage?: string) => {
           const normalized = String(status || '').toLowerCase();
           if (normalized === 'completed' || normalized === 'succeeded' || normalized === 'finalized') {
-            setPhase('success');
-            setMessage('Paiement confirmé.');
+            markPaidSuccess('Paiement confirmé.');
             return true;
           }
           if (normalized === 'failed' || normalized === 'canceled' || normalized === 'cancelled') {
@@ -223,8 +229,7 @@ export default function PaymentStatus() {
         return;
       }
       if (st === 'completed' || st === 'succeeded') {
-        setPhase('success');
-        setMessage('Paiement confirmé.');
+        markPaidSuccess('Paiement confirmé.');
         return;
       }
       if (st === 'failed') {

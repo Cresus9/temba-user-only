@@ -19,6 +19,7 @@ import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../ser
 import CountryCodeSelector from '../CountryCodeSelector';
 import { isValidPhone, normalizePhone } from '../../utils/phoneValidation';
 import { rememberMetaOrder, trackInitiateCheckout } from '../../lib/metaPixel';
+import { consumeAttributionOnPaidOrder } from '../../utils/referralStorage';
 
 const DEFAULT_DIAL_CODE = '+226';
 
@@ -272,6 +273,7 @@ export default function CheckoutForm({
     paymentToken: string,
     guestToken?: string | null
   ) => {
+    consumeAttributionOnPaidOrder();
     console.log('🎉 [CHECKOUT] Stripe payment success handler called');
     console.log('Parameters:', { paymentId, orderId, paymentToken, guestToken });
     

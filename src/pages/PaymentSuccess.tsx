@@ -5,6 +5,7 @@ import { paymentService } from '../services/paymentService';
 import { clearCartForEvent } from '../utils/cartUtils';
 import toast from 'react-hot-toast';
 import { guestRedirectForOrder } from '../services/guestTicketService';
+import { consumeAttributionOnPaidOrder } from '../utils/referralStorage';
 
 export default function PaymentSuccess() {
   const [loading, setLoading] = useState(true);
@@ -181,6 +182,7 @@ export default function PaymentSuccess() {
           ? 'Paiement en attente (mode test) - Billets créés !'
           : 'Paiement confirmé avec succès !';
         toast.success(statusMessage);
+        consumeAttributionOnPaidOrder();
         
         // Mark payment as verified to avoid duplicate verification on booking confirmation page
         sessionStorage.setItem('paymentVerified', token!);

@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { qstashPublish } from "../_shared/upstash.ts";
 import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
-import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, readGuestToken } from "../_shared/attribution.ts";
+import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, parseAttributionCapturedAt, parseAttributionEventId, readGuestToken } from "../_shared/attribution.ts";
 import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
 import { classifyInitiation, frenchFailureMessage, providerMismatchMessage, toBfMsisdn } from "../_shared/pawapayDeposit.ts";
 
@@ -47,6 +47,8 @@ interface CreatePawaPayPaymentRequest {
   attribution_code?: string | null;
   /** Mobile sometimes sends the same ?r= code under this name only. */
   reseller_code?: string | null;
+  attribution_event_id?: string | null;
+  attribution_captured_at?: string | null;
 }
 
 // Helper to extract payment URL from pawaPay response (normalize all possible field names)
@@ -346,6 +348,9 @@ Deno.serve(async (req) => {
       createdInThisRequest: createdHere,
       jwtUserId: createdHere ? null : await buyerIdFromAuthHeader(supabase, req),
       guestToken: createdHere ? null : readGuestToken(req),
+    }, {
+      eventId: parseAttributionEventId(payload.attribution_event_id),
+      capturedAt: parseAttributionCapturedAt(payload.attribution_captured_at),
     });
 
     // Hold the tickets before anything is sent to the operator, so nobody pays for

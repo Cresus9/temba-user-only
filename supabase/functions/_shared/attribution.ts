@@ -35,6 +35,26 @@ export function candidateAttributionCode(...raws: unknown[]): string | null {
   return null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function parseAttributionEventId(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  return UUID_RE.test(value) ? value : null;
+}
+
+export function parseAttributionCapturedAt(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+export type AttributionAttachExtras = {
+  eventId?: string | null;
+  capturedAt?: string | null;
+};
+
 export async function buyerIdFromAuthHeader(supabase: ServiceClient, req: Request): Promise<string | null> {
   const header = req.headers.get("authorization") ?? "";
   const bearer = header.replace(/^Bearer\s+/i, "").trim();
@@ -66,6 +86,7 @@ export async function attachAttributionCode(
   orderId: string | null | undefined,
   raw: unknown,
   proof: { createdInThisRequest: boolean; jwtUserId: string | null; guestToken: string | null },
+  extras: AttributionAttachExtras = {},
 ): Promise<void> {
   const code = normalizeAttributionCode(raw);
   if (!orderId || !code) return;
@@ -98,14 +119,34 @@ export async function attachAttributionCode(
       jwtUserId: proof.jwtUserId,
       guestTokenMatches,
     });
-    if (decision !== "allow") return;
+    const sameCode = normalizeAttributionCode(order.attribution_code) === code;
+    const canWriteExtras =
+      decision === "allow" ||
+      (sameCode && (proof.createdInThisRequest || (order.user_id ? proof.jwtUserId === order.user_id : guestTokenMatches)));
+    if (decision !== "allow" && !canWriteExtras) return;
 
-    const { error } = await supabase
-      .from("orders")
-      .update({ attribution_code: code })
-      .eq("id", orderId)
-      .eq("status", "AWAITING_PAYMENT")
-      .is("attribution_code", null);
+    const eventId = parseAttributionEventId(extras.eventId);
+    const capturedAt = parseAttributionCapturedAt(extras.capturedAt);
+    const patch: Record<string, unknown> = {};
+    if (decision === "allow") patch.attribution_code = code;
+    if (canWriteExtras && eventId) patch.attribution_event_id = eventId;
+    if (canWriteExtras && capturedAt) patch.attribution_captured_at = capturedAt;
+    if (Object.keys(patch).length === 0) return;
+
+    const apply = async (row: Record<string, unknown>) => {
+      let query = supabase.from("orders").update(row).eq("id", orderId).eq("status", "AWAITING_PAYMENT");
+      if (decision === "allow") query = query.is("attribution_code", null);
+      return query;
+    };
+
+    let { error } = await apply(patch);
+    if (error && /attribution_event_id|attribution_captured_at/i.test(error.message || "")) {
+      if (patch.attribution_code) {
+        ({ error } = await apply({ attribution_code: patch.attribution_code }));
+      } else {
+        error = null;
+      }
+    }
     if (error) console.warn("[attribution] code not stored:", error.message);
   } catch (err) {
     const message = err instanceof Error ? err.message : "skipped";
