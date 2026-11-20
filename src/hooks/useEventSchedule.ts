@@ -7,6 +7,8 @@ import { addDays, categoryKind, spanFor, type CategoryKind, type ScheduleSpan } 
 export function useEventSchedule(events: Event[]) {
   const [spans, setSpans] = useState<Map<string, ScheduleSpan>>(new Map());
   const [kinds, setKinds] = useState<Map<string, CategoryKind>>(new Map());
+  // Every event linked to a concert category, even when another category gives its label.
+  const [concertIds, setConcertIds] = useState<Set<string>>(new Set());
   const [permanent, setPermanent] = useState<Event[]>([]);
   const [running, setRunning] = useState<Event[]>([]);
   const [ready, setReady] = useState(false);
@@ -48,6 +50,7 @@ export function useEventSchedule(events: Event[]) {
       });
 
       const kindMap = new Map<string, CategoryKind>();
+      const concerts = new Set<string>();
       const [{ data: relations, error: relError }, { data: categories, error: catError }, { data: alwaysOn }, { data: started }] = await Promise.all([
         supabase.from('event_category_relations').select('event_id, category_id'),
         supabase.from('categories').select('id, name'),
@@ -79,12 +82,14 @@ export function useEventSchedule(events: Event[]) {
         (relations ?? []).forEach((rel: { event_id: string; category_id: string }) => {
           const kind = categoryKind(names.get(rel.category_id));
           if (kind !== 'other') kindMap.set(rel.event_id, kind);
+          if (kind === 'concert') concerts.add(rel.event_id);
         });
       }
 
       if (!cancel) {
         setSpans(nextSpans);
         setKinds(kindMap);
+        setConcertIds(concerts);
         setPermanent((alwaysOn ?? []) as Event[]);
         setRunning((started ?? []) as Event[]);
         setReady(true);
@@ -96,5 +101,5 @@ export function useEventSchedule(events: Event[]) {
     };
   }, [ids]);
 
-  return { spans, kinds, permanent, running, ready };
+  return { spans, kinds, concertIds, permanent, running, ready };
 }

@@ -107,9 +107,20 @@ function MonthCalendar({ month, activeDays, today }: { month: string; activeDays
   );
 }
 
-export default function EventsBoard({ events, loading }: { events: Event[]; loading: boolean }) {
-  const [params] = useSearchParams();
-  const { spans, kinds } = useEventSchedule(events);
+/** Filters a landing page starts with (instead of the URL's ?location=&date=&category=). */
+export type EventsBoardPreset = { location?: string; date?: 'weekend'; category?: 'concerts' };
+
+export default function EventsBoard({ events, loading, preset, hideHero = false }: { events: Event[]; loading: boolean; preset?: EventsBoardPreset; hideHero?: boolean }) {
+  const [urlParams] = useSearchParams();
+  const params = useMemo(() => {
+    if (!preset) return urlParams;
+    const next = new URLSearchParams(urlParams);
+    if (preset.location) next.set('location', preset.location);
+    if (preset.date) next.set('date', preset.date);
+    if (preset.category) next.set('category', preset.category);
+    return next;
+  }, [urlParams, preset?.location, preset?.date, preset?.category]);
+  const { spans, kinds, concertIds } = useEventSchedule(events);
   const today = calendarDayInZone();
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [sheet, setSheet] = useState(false);
@@ -139,7 +150,8 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
     if (criteria.when === 'week' && !overlaps(span, week.start, week.end)) return false;
     if (criteria.when === 'month' && !ymd(event.date).startsWith(today.slice(0, 7))) return false;
     if (criteria.kind === 'attraction' && !event.is_permanent && kinds.get(event.id) !== 'attraction') return false;
-    if (criteria.kind && criteria.kind !== 'attraction' && kinds.get(event.id) !== criteria.kind) return false;
+    if (criteria.kind === 'concert' && !concertIds.has(event.id)) return false;
+    if (criteria.kind && criteria.kind !== 'attraction' && criteria.kind !== 'concert' && kinds.get(event.id) !== criteria.kind) return false;
     const price = listedPrice(event);
     if (criteria.band === 'lt5' && !(price != null && price < 5000)) return false;
     if (criteria.band === 'mid' && !(price != null && price >= 5000 && price <= 10000)) return false;
@@ -149,7 +161,7 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
 
   const visible = useMemo(() => {
     return dedupeEvents(events).filter((event) => matches(event, { ...filters, kind, band, when }));
-  }, [events, spans, filters, query, kinds, today, kind, band, when]);
+  }, [events, spans, filters, query, kinds, concertIds, today, kind, band, when]);
 
   const groups = groupAgenda(visible, spans, today);
   const activeDays = new Set(visible.flatMap((event) => (spans.get(event.id) ?? spanFor(event)).dates));
@@ -161,7 +173,7 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
 
   return (
     <div className="bg-white">
-      {loading ? (
+      {hideHero ? null : loading ? (
         <div className="flex gap-5 px-5 py-10 md:px-16">{Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}</div>
       ) : (
         <FeaturedHero events={events} spans={spans} />

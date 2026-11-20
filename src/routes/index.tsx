@@ -57,7 +57,9 @@ const VenuesDirectory = lazyWithRetry(() => import('../pages/public/VenuesDirect
 const TagPage = lazyWithRetry(() => import('../pages/public/TagPage'));
 const AttractionsDirectory = lazyWithRetry(() => import('../pages/public/AttractionsDirectory'));
 const CityLanding = lazyWithRetry(() => import('../pages/public/CityLanding'));
+const SeoLanding = lazyWithRetry(() => import('../pages/public/SeoLanding'));
 import { CITY_LANDINGS } from '../data/cityLandings';
+import { LANDING_PAGES } from '../../netlify/edge-functions/lib/landingPages';
 
 // Test Components
 const CategoryTest = lazyWithRetry(() => import('../components/CategoryTest'));
@@ -151,6 +153,9 @@ export default function AppRoutes() {
         <Route path="/venues/:slug" element={<VenueProfile />} />
         <Route path="/tags/:slug" element={<TagPage />} />
         <Route path="/attractions" element={<AttractionsDirectory />} />
+        {LANDING_PAGES.map((page) => (
+          <Route key={page.path} path={page.path} element={<SeoLanding />} />
+        ))}
         {CITY_LANDINGS.map((city) => (
           <Route key={city.slug} path={`/${city.slug}`} element={<CityLanding />} />
         ))}
