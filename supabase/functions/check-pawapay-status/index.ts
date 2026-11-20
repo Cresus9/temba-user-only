@@ -24,6 +24,7 @@ import {
   WEBHOOK_DEDUP_TTL,
 } from "../_shared/upstash.ts";
 import { stampTicketVisitDates } from "../_shared/ticketLines.ts";
+import { isFinalDepositStatus, readDepositStatus } from "../_shared/pawapayDeposit.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -102,14 +103,14 @@ Deno.serve(async (req) => {
     }
 
     const apiBody = await apiRes.json();
-    // PawaPay returns array or single object depending on endpoint version
-    const deposit = Array.isArray(apiBody) ? apiBody[0] : apiBody;
-    const apiStatus = (deposit?.status ?? "").toUpperCase();
+    // v2 wraps the deposit: { status: "FOUND", data: { status: "COMPLETED" } }.
+    // Reading the top-level status gave "FOUND", so this safety net never closed anything.
+    const { found, status: apiStatus, failureCode } = readDepositStatus(apiBody);
 
-    console.log("[check-pawapay-status] PawaPay status:", apiStatus);
+    console.log("[check-pawapay-status] PawaPay status:", { found, apiStatus, failureCode });
 
-    // ── 4. Still PENDING — return 5xx to trigger QStash retry ────────────
-    if (!["COMPLETED", "FAILED", "REJECTED"].includes(apiStatus)) {
+    // ACCEPTED / PROCESSING / IN_RECONCILIATION are not final: retry later.
+    if (!isFinalDepositStatus(apiStatus)) {
       console.log("[check-pawapay-status] still pending, will retry");
       return json({ note: "still pending" }, 500);
     }

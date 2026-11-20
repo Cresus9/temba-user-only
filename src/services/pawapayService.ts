@@ -119,7 +119,15 @@ class PawaPayService {
       console.log('Response text:', responseText);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${responseText}`);
+        // The function answers { status: "ERROR", message } in French; show that, not raw JSON.
+        let serverMessage: string | null = null;
+        try {
+          const body = JSON.parse(responseText);
+          serverMessage = typeof body?.message === 'string' ? body.message : typeof body?.error === 'string' ? body.error : null;
+        } catch {
+          serverMessage = null;
+        }
+        throw new Error(serverMessage || `HTTP ${response.status}: ${responseText}`);
       }
 
       let data: PawaPayApiResponse;
