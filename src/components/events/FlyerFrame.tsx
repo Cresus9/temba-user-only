@@ -32,7 +32,7 @@ export default function FlyerFrame({
   const show = Boolean(src) && !broken && reveal;
 
   return (
-    <div className={`relative overflow-hidden rounded-[10px] bg-[#1B1D33] ${ratioClass} ${className}`}>
+    <div className={`relative w-full min-w-0 overflow-hidden rounded-[10px] bg-[#1B1D33] ${ratioClass} ${className}`}>
       {show ? (
         <>
           <img

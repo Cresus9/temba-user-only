@@ -1,7 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import DomePattern from './DomePattern';
 import StoreBadges from './StoreBadges';
-import Logo from '../brand/Logo';
 import { ONELINK_BASE } from '../../config/appLinks';
 
 const STEPS = [
@@ -10,14 +9,8 @@ const STEPS = [
   'Présentez le QR à l’entrée, même sans réseau.',
 ];
 
-/** The v6 home app band. The mini ticket is an example, never a real order. */
-export default function AppBand({
-  exampleTitle = 'Alif Naaba',
-  exampleWhen = 'Sam. 26 déc. · 20:00',
-}: {
-  exampleTitle?: string;
-  exampleWhen?: string;
-}) {
+/** The v6 home app band. Store badges and a download QR; no sample ticket. */
+export default function AppBand() {
   return (
     <div className="relative grid items-center gap-8 overflow-hidden rounded-[20px] bg-brand px-6 py-8 text-white md:grid-cols-[minmax(0,1fr)_auto] md:px-14 md:py-12">
       <DomePattern variant="dome" className="object-right-bottom opacity-90" />
@@ -36,31 +29,10 @@ export default function AppBand({
         </ol>
         <div className="mt-6"><StoreBadges /></div>
       </div>
-      <div className="relative flex flex-col items-center gap-4 md:flex-row md:items-end">
-        <div className="w-[230px] overflow-hidden rounded-[14px] bg-white text-ink">
-          <div className="relative bg-[#2F3095] p-3.5 text-white">
-            <DomePattern variant="tile" />
-            <div className="relative flex items-center justify-between">
-              <Logo variant="light" size={14} />
-              <span className="rounded border border-white/75 px-1.5 py-1 text-[10.5px] font-bold">STANDARD</span>
-            </div>
-            <p className="relative mt-3 font-display text-[17px] font-bold text-white">{exampleTitle}</p>
-            <p className="relative mt-1 text-[12.5px] font-semibold text-white/85">{exampleWhen}</p>
-          </div>
-          <div className="flex items-center gap-3 border-t-2 border-dashed border-line p-3">
-            <QRCodeSVG value="exemple" size={64} />
-            <div>
-              <p className="text-[13px] font-semibold">Votre nom</p>
-              <p className="font-mono text-[11px] text-ink-3">EX-AN-0001</p>
-              <p className="text-[11px] text-ink-4">(exemple)</p>
-            </div>
-          </div>
-        </div>
-        <div className="hidden w-[168px] rounded-[14px] bg-white p-3.5 text-center text-ink md:block">
-          <QRCodeSVG value={ONELINK_BASE} size={140} className="mx-auto" aria-label="QR de téléchargement" />
-          <p className="mt-2 text-[12.5px] font-semibold">Scannez pour télécharger</p>
-          <p className="text-[11.5px] text-ink-3">iPhone et Android</p>
-        </div>
+      <div className="relative hidden w-[168px] rounded-[14px] bg-white p-3.5 text-center text-ink md:block">
+        <QRCodeSVG value={ONELINK_BASE} size={140} className="mx-auto" aria-label="QR de téléchargement" />
+        <p className="mt-2 text-[12.5px] font-semibold">Scannez pour télécharger</p>
+        <p className="text-[11.5px] text-ink-3">iPhone et Android</p>
       </div>
     </div>
   );

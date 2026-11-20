@@ -179,8 +179,8 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
         <div className="min-w-0 flex-1">
           {groups.length === 0 && !loading ? <p className="text-[15px] text-ink-2">Aucun événement ne correspond à ces filtres.</p> : null}
           {view === 'grid' ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {visible.map((event) => <DisplayCard key={event.id} event={event} span={spans.get(event.id)} />)}
+            <div className="grid min-w-0 grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+              {visible.map((event) => <DisplayCard key={event.id} event={event} span={spans.get(event.id)} variant="grid" />)}
             </div>
           ) : groups.map((group) => (
             <section key={group.id}>
@@ -194,7 +194,7 @@ export default function EventsBoard({ events, loading }: { events: Event[]; load
                     return (
                       <Link key={event.id} to={eventPublicPath(event)} className="grid grid-cols-[64px_72px_minmax(0,1fr)_auto] items-center gap-4 border-t border-line py-3">
                         <span className="text-[14px] font-semibold tabular-nums">{formatEventTime(event.time) || '—'}</span>
-                        <FlyerFrame src={event.image_url} alt="" />
+                        <FlyerFrame src={event.image_url} alt="" className="w-full min-w-0" sizes="72px" />
                         <span className="min-w-0">
                           <span className="block truncate font-display text-[17px] font-bold">{event.title}</span>
                           <span className="mt-0.5 block truncate text-[14px] text-ink-3">{placeLabel(event)}</span>
