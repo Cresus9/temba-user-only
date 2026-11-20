@@ -185,6 +185,7 @@ export default function OrganizerProfile() {
   if (notFound || !organizer) {
     return (
       <div className="min-h-screen bg-cream bg-grain flex flex-col items-center justify-center gap-4 px-4">
+        <PageSEO title="Organisateur introuvable" description="Ce profil n’existe pas ou a été supprimé." robots="noindex, follow" />
         <div className="w-16 h-16 rounded-2xl bg-paper border border-line grid place-items-center">
           <Users className="w-7 h-7 text-ink-mute" />
         </div>
