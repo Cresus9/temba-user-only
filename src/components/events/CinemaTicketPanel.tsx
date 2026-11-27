@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CalendarBlank, Clock, FilmStrip, MapPin, Minus, Plus } from '@phosphor-icons/react';
 import type { Event, TicketType } from '../../types/event';
@@ -49,6 +49,9 @@ export default function CinemaTicketPanel({
   const types = useMemo(() => event.ticket_types ?? [], [event.ticket_types]);
   const selling = types.filter(onSale);
   const salesOpen = selling.length > 0;
+  // Ticket step rows: on-sale types, or (sales off) every priced type so the flow stays visible.
+  const rows = salesOpen ? selling : types.filter((t) => Number(t.price) > 0);
+  const stepRef = useRef<HTMLDivElement>(null);
   const days = useMemo(() => seanceDays(seances), [seances]);
   const firstDay = useMemo(
     () => days.find((d) => seancesOn(seances, d).some(isBookable)) || days.find((d) => d >= today) || days[0] || today,
@@ -88,6 +91,10 @@ export default function CinemaTicketPanel({
   const pickSeance = (s: Seance) => {
     setPickedId(s.id);
     setQty({});
+    // Mobile: bring the ticket step (right under the séances) into view.
+    if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+      window.setTimeout(() => stepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    }
   };
 
   const change = (ticket: TicketType, delta: number) => {
@@ -117,16 +124,16 @@ export default function CinemaTicketPanel({
   };
 
   return (
-    <div className="rounded-[20px] border border-line bg-white p-5 text-ink shadow-[0_24px_50px_-28px_rgba(3,6,30,0.45)]" data-testid="cinema-panel">
+    <div className="min-w-0 max-w-full rounded-[20px] border border-line bg-white p-4 text-ink min-[400px]:p-5 shadow-[0_24px_50px_-28px_rgba(3,6,30,0.45)]" data-testid="cinema-panel">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="font-display text-[20px] font-bold tracking-[-0.02em]">Séances</p>
           <p className="mt-0.5 text-[13px] text-ink-3">Choisissez un jour, puis une heure.</p>
         </div>
         {from != null ? <span className="shrink-0 rounded-full bg-surf px-2.5 py-1 font-mono text-[12px] font-semibold text-ink-2">Dès {fcfa(from)}</span> : null}
       </div>
 
-      <div role="tablist" aria-label="Jours de projection" className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div role="tablist" aria-label="Jours de projection" className="mt-4 flex w-full min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {days.map((iso) => {
           const active = iso === day;
           const list = seancesOn(seances, iso);
@@ -157,20 +164,20 @@ export default function CinemaTicketPanel({
             <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-ink-3"><MapPin size={13} /> {venueLabel}</p>
           ) : null}
         </div>
-        <ul className="grid grid-cols-2 gap-2 p-3">
+        <ul className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 p-3">
           {daySeances.map((s) => {
             const off = !isBookable(s) || !salesOpen;
             const sel = pickedId === s.id;
             const extras = seanceExtras(s);
             const sMin = lowestPrice([s], (salesOpen ? selling : types).map((t) => t.id));
             return (
-              <li key={s.id}>
+              <li key={s.id} className="min-w-0">
                 <button
                   type="button"
                   disabled={!isBookable(s)}
                   aria-pressed={sel}
                   onClick={() => pickSeance(s)}
-                  className={`w-full rounded-[12px] border px-3 py-2.5 text-left ${
+                  className={`w-full min-w-0 overflow-hidden break-words rounded-[12px] border px-3 py-2.5 text-left ${
                     !isBookable(s)
                       ? 'cursor-not-allowed border-line bg-surf text-ink-4'
                       : sel
@@ -178,7 +185,7 @@ export default function CinemaTicketPanel({
                         : 'border-line bg-white hover:border-brand'
                   }`}
                 >
-                  <span className="flex items-baseline justify-between gap-2">
+                  <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                     <span className="font-mono text-[20px] font-semibold leading-none">{s.start_time}</span>
                     {s.version ? <span className={`rounded-[6px] px-1.5 py-0.5 text-[10.5px] font-semibold ${sel ? 'bg-white/15' : 'bg-surf text-ink-2'}`}>{s.version}</span> : null}
                   </span>
@@ -200,8 +207,8 @@ export default function CinemaTicketPanel({
       </div>
       <p className="mt-2 text-[12px] text-ink-3">Heures de Ouagadougou. Placement libre.</p>
 
-      {chosen && salesOpen ? (
-        <div className="mt-5 border-t border-line pt-4">
+      {chosen ? (
+        <div ref={stepRef} className="mt-5 scroll-mt-4 border-t border-line pt-4" data-testid="cinema-ticket-step">
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-3">Votre séance</p>
           <ul className="mt-2 space-y-1.5 text-[14px] text-ink-2">
             <li className="flex items-center gap-2"><CalendarBlank size={16} /> <span className="first-letter:uppercase">{longDay(chosen.date)}</span></li>
@@ -211,51 +218,63 @@ export default function CinemaTicketPanel({
 
           <p className="mt-4 text-[13px] font-semibold text-ink-2">Billets</p>
           <div className="mt-2 divide-y divide-line rounded-[12px] border border-line">
-            {selling.map((ticket) => {
+            {rows.map((ticket) => {
               const price = seancePrice(chosen, ticket.id, Number(ticket.price));
               const q = qty[ticket.id] || 0;
               return (
-                <div key={ticket.id} className="flex items-center justify-between gap-3 px-3 py-3">
+                <div key={ticket.id} className="flex items-center justify-between gap-3 px-3 py-3" data-testid="cinema-ticket-row">
                   <div className="min-w-0">
                     <p className="truncate text-[14.5px] font-semibold">{ticket.name}</p>
                     <p className="font-mono text-[13px] text-ink-2">{fcfa(price)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button type="button" aria-label={`Retirer un billet ${ticket.name}`} onClick={() => change(ticket, -1)} disabled={q === 0} className="grid h-9 w-9 place-items-center rounded-full border border-line disabled:opacity-40"><Minus size={14} /></button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button type="button" aria-label={`Retirer un billet ${ticket.name}`} onClick={() => change(ticket, -1)} disabled={!salesOpen || q === 0} className="grid h-10 w-10 place-items-center rounded-full border border-line disabled:opacity-40"><Minus size={14} /></button>
                     <span className="w-5 text-center font-mono text-[15px] font-semibold tabular-nums">{q}</span>
-                    <button type="button" aria-label={`Ajouter un billet ${ticket.name}`} onClick={() => change(ticket, 1)} className="grid h-9 w-9 place-items-center rounded-full border border-line"><Plus size={14} /></button>
+                    <button type="button" aria-label={`Ajouter un billet ${ticket.name}`} onClick={() => change(ticket, 1)} disabled={!salesOpen} className="grid h-10 w-10 place-items-center rounded-full border border-line disabled:opacity-40"><Plus size={14} /></button>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-4 space-y-1 text-[14px]">
-            <p className="flex justify-between"><span className="text-ink-3">Billets</span><span className="font-mono tabular-nums">{fcfa(subtotal)}</span></p>
-            {fees.total_buyer_fees ? <p className="flex justify-between"><span className="text-ink-3">Frais de service</span><span className="font-mono tabular-nums">{fcfa(fees.total_buyer_fees)}</span></p> : null}
-            <p className="flex justify-between pt-1 font-display text-[18px] font-bold"><span>Total</span><span className="font-mono tabular-nums">{fcfa(total)}</span></p>
+          {salesOpen ? (
+            <div className="mt-4 space-y-1 text-[14px]">
+              <p className="flex justify-between"><span className="text-ink-3">Billets</span><span className="font-mono tabular-nums">{fcfa(subtotal)}</span></p>
+              {fees.total_buyer_fees ? <p className="flex justify-between"><span className="text-ink-3">Frais de service</span><span className="font-mono tabular-nums">{fcfa(fees.total_buyer_fees)}</span></p> : null}
+              <p className="flex justify-between pt-1 font-display text-[18px] font-bold"><span>Total</span><span className="font-mono tabular-nums">{fcfa(total)}</span></p>
+            </div>
+          ) : (
+            <p className="mt-3 text-[13px] leading-relaxed text-ink-3">La billetterie n’est pas encore ouverte. Les tarifs ci-dessus sont ceux de cette séance.</p>
+          )}
+
+          {/* Mobile: sticky bar at the bottom of the screen while the ticket step is on screen. Desktop: plain button. */}
+          <div className="sticky bottom-0 z-30 -mx-4 mt-4 border-t border-line bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur min-[400px]:-mx-5 min-[400px]:px-5 min-[1280px]:static min-[1280px]:mx-0 min-[1280px]:border-0 min-[1280px]:bg-transparent min-[1280px]:p-0">
+            {salesOpen && count > 0 ? (
+              <p className="mb-2 flex justify-between text-[13px] text-ink-3 min-[1280px]:hidden"><span>{count} billet{count > 1 ? 's' : ''}</span><span className="font-mono font-semibold text-ink tabular-nums">{fcfa(total)}</span></p>
+            ) : null}
+            <button
+              type="button"
+              onClick={buy}
+              disabled={!salesOpen || count === 0}
+              data-testid="cinema-continue"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
+            >
+              {salesOpen ? (<>Continuer <ArrowRight size={16} weight="bold" /></>) : 'Vente pas encore ouverte'}
+            </button>
+            {salesOpen ? <p className="mt-2 text-center text-[12px] text-ink-3">{count === 0 ? 'Choisissez au moins un billet.' : 'Achat possible sans compte.'}</p> : null}
           </div>
-          <button
-            type="button"
-            onClick={buy}
-            disabled={count === 0}
-            className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
-          >
-            Continuer <ArrowRight size={16} weight="bold" />
-          </button>
-          <p className="mt-2 text-center text-[12px] text-ink-3">Achat possible sans compte.</p>
         </div>
       ) : (
         <div className="mt-5 border-t border-line pt-4">
           <p className="text-[13.5px] leading-relaxed text-ink-3">
-            {salesOpen ? 'Choisissez une heure pour voir les tarifs de la séance.' : 'La billetterie n’est pas encore ouverte. Tarifs annoncés :'}
+            {salesOpen ? 'Choisissez une heure pour voir les billets de la séance.' : 'La billetterie n’est pas encore ouverte. Choisissez une heure pour voir les tarifs de la séance.'}
           </p>
           {!salesOpen && types.some((t) => Number(t.price) > 0) ? (
             <ul className="mt-3 space-y-1.5">
               {types.filter((t) => Number(t.price) > 0).map((t) => (
-                <li key={t.id} className="flex items-center justify-between text-[14px]">
-                  <span className="text-ink-2">{t.name}</span>
-                  <span className="font-mono font-medium">{varies ? `Dès ${fcfa(lowestPrice(seances.map((s) => ({ ...s, state: 'open' as const })), [t.id]) ?? Number(t.price))}` : fcfa(seancePrice(seances[0], t.id, Number(t.price)))}</span>
+                <li key={t.id} className="flex items-center justify-between gap-3 text-[14px]">
+                  <span className="min-w-0 truncate text-ink-2">{t.name}</span>
+                  <span className="shrink-0 font-mono font-medium">{varies ? `Dès ${fcfa(lowestPrice(seances.map((s) => ({ ...s, state: 'open' as const })), [t.id]) ?? Number(t.price))}` : fcfa(seancePrice(seances[0], t.id, Number(t.price)))}</span>
                 </li>
               ))}
             </ul>
