@@ -6,6 +6,7 @@ import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations, isUuid } from "../_shared/ticketLines.ts";
 import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, parseAttributionCapturedAt, parseAttributionEventId, readGuestToken } from "../_shared/attribution.ts";
 import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
+import { creditsFromPayload, releaseOrderCredits, reserveOrderCredits } from "../_shared/orderCredits.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +74,8 @@ type CreatePaymentBody = {
   reseller_code?: string | null;
   attribution_event_id?: string | null;
   attribution_captured_at?: string | null;
+  /** Wallet credits (F CFA) the signed-in buyer applies; held by the server, never debited by the app. */
+  credits_major?: number;
 };
 
 Deno.serve(async (req) => {
@@ -82,6 +85,9 @@ Deno.serve(async (req) => {
   let heldOrderId: string | null = null;
   // deno-lint-ignore no-explicit-any
   let heldDb: any = null;
+  // Order whose wallet credits this request held (given back if we fail before the card form opens).
+  let creditsOrderId: string | null = null;
+  let creditsDb: any = null;
 
   try {
     const body: CreatePaymentBody = await req.json();
@@ -393,6 +399,29 @@ Deno.serve(async (req) => {
       heldDb = supabase;
     }
 
+    // Wallet credits: held on the server for this order before the card form opens.
+    // XOF has no minor unit, so the display amount is the F CFA the buyer pays by card.
+    const creditsMajor = creditsFromPayload(body.credits_major);
+    if (creditsMajor > 0) {
+      const credit = await reserveOrderCredits(supabase, req, {
+        orderId: finalOrderId,
+        userId: user_id ?? null,
+        credits: creditsMajor,
+        paymentAmountMajor: finalDisplayCurrency === "XOF" ? finalDisplayAmount : 0,
+      });
+      if (!credit.ok) {
+        if (heldOrderId && heldDb) await releaseOrderTickets(heldDb, heldOrderId);
+        heldOrderId = null;
+        if (createdHere) await cancelRefusedOrder(supabase, finalOrderId);
+        return new Response(
+          JSON.stringify({ error: credit.message, code: credit.code, orderId: finalOrderId }),
+          { status: credit.status, headers: cors }
+        );
+      }
+      creditsOrderId = finalOrderId ?? null;
+      creditsDb = supabase;
+    }
+
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { 
       apiVersion: "2024-06-20" 
@@ -512,6 +541,7 @@ Deno.serve(async (req) => {
   } catch (e: any) {
     console.error("❌ create-stripe-payment error:", e.message);
     if (heldOrderId && heldDb) await releaseOrderTickets(heldDb, heldOrderId);
+    if (creditsOrderId && creditsDb) await releaseOrderCredits(creditsDb, creditsOrderId);
     console.error("Stack:", e.stack);
     
     return new Response(

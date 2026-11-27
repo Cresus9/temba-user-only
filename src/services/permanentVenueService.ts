@@ -120,6 +120,10 @@ export async function checkVisitDateAvailable(
 
 // ── 3. Create a permanent-attraction purchase ────────────────────────────────
 
+/**
+ * @deprecated The RPC no longer issues tickets (it answers PAYMENT_REQUIRED). Use the standard checkout:
+ * tickets are created only after the payment is confirmed.
+ */
 export async function initiatePermanentPurchase(
   eventId: string,
   visitDate: string,

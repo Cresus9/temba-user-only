@@ -4,6 +4,7 @@ import { metaAttribution } from "../_shared/metaCapi.ts";
 import { checkLineAllocations } from "../_shared/ticketLines.ts";
 import { attachAttributionCode, buyerIdFromAuthHeader, candidateAttributionCode, parseAttributionCapturedAt, parseAttributionEventId, readGuestToken } from "../_shared/attribution.ts";
 import { cancelRefusedOrder, holdOrderTickets, releaseOrderTickets } from "../_shared/ticketHolds.ts";
+import { creditsFromPayload, releaseOrderCredits, reserveOrderCredits } from "../_shared/orderCredits.ts";
 import { classifyInitiation, frenchFailureMessage, providerMismatchMessage, toBfMsisdn } from "../_shared/pawapayDeposit.ts";
 
 const corsHeaders = {
@@ -29,6 +30,8 @@ interface CreatePawaPayPaymentRequest {
   }>;
   ticket_quantities?: Record<string, number>;  // NEW: For order creation (e.g., { "ticket-type-id": 2 })
   amount_major: number;  // major units for UI
+  /** Wallet credits (F CFA) the signed-in buyer applies; held by the server, never debited by the app. */
+  credits_major?: number;
   currency: string;
   method: 'mobile_money';
   phone: string;  // required for mobile money
@@ -92,6 +95,8 @@ Deno.serve(async (req) => {
 
   // Order whose tickets this request held (released again if we fail before the operator has it).
   let heldOrderId: string | null = null;
+  // Order whose wallet credits this request held (given back if we stop before the operator has it).
+  let creditsOrderId: string | null = null;
 
   try {
     console.log("🚀 pawaPay Payment Function Started");
@@ -373,6 +378,36 @@ Deno.serve(async (req) => {
     }
     heldOrderId = hold.heldHere ? (finalOrderId ?? null) : null;
 
+    // Wallet credits: held on the server for this order before the operator is contacted.
+    const creditsMajor = creditsFromPayload(payload.credits_major);
+    if (creditsMajor > 0) {
+      const credit = await reserveOrderCredits(supabase, req, {
+        orderId: finalOrderId,
+        userId: payload.user_id ?? null,
+        credits: creditsMajor,
+        paymentAmountMajor: Number(payload.amount_major),
+      });
+      if (!credit.ok) {
+        if (heldOrderId) {
+          await releaseOrderTickets(supabase, heldOrderId);
+          heldOrderId = null;
+        }
+        if (createdHere) await cancelRefusedOrder(supabase, finalOrderId);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            status: credit.code,
+            code: credit.code,
+            error: credit.message,
+            message: credit.message,
+            order_id: finalOrderId,
+          }),
+          { status: credit.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      creditsOrderId = finalOrderId ?? null;
+    }
+
     // Create payment record in database first
     const paymentToken = crypto.randomUUID();
     console.log("Creating payment record with token:", paymentToken);
@@ -480,6 +515,10 @@ Deno.serve(async (req) => {
         await releaseOrderTickets(supabase, heldOrderId);
         heldOrderId = null;
       }
+      if (creditsOrderId) {
+        await releaseOrderCredits(supabase, creditsOrderId);
+        creditsOrderId = null;
+      }
       return new Response(
         JSON.stringify({
           status: "PRE_AUTH_REQUIRED",
@@ -533,6 +572,8 @@ Deno.serve(async (req) => {
     // From here the operator may have the request: keep the hold (webhook / safety net decide).
     const heldBeforeProvider = heldOrderId;
     heldOrderId = null;
+    const creditsBeforeProvider = creditsOrderId;
+    creditsOrderId = null;
     const pawapayResponse = await fetch(pawapayApiUrl, {
       method: "POST",
       headers,
@@ -601,6 +642,7 @@ Deno.serve(async (req) => {
         .eq("id", paymentRecord.id);
       // The operator refused the request: no money moved, give the tickets back.
       if (heldBeforeProvider) await releaseOrderTickets(supabase, heldBeforeProvider);
+      if (creditsBeforeProvider) await releaseOrderCredits(supabase, creditsBeforeProvider);
       return new Response(
         JSON.stringify({
           status: "ERROR",
@@ -707,6 +749,7 @@ Deno.serve(async (req) => {
         .eq("id", paymentRecord.id);
       // The operator refused the request: no money moved, give the tickets back.
       if (heldBeforeProvider) await releaseOrderTickets(supabase, heldBeforeProvider);
+      if (creditsBeforeProvider) await releaseOrderCredits(supabase, creditsBeforeProvider);
       // HARD_ERROR: Extract detailed error information
       const errorMessage = responseData.message || 
                           responseData.error?.message || 
@@ -757,6 +800,10 @@ Deno.serve(async (req) => {
     if (heldOrderId) {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       await releaseOrderTickets(sb, heldOrderId);
+    }
+    if (creditsOrderId) {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await releaseOrderCredits(sb, creditsOrderId);
     }
     
     return new Response(
