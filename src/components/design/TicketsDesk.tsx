@@ -25,6 +25,8 @@ export interface DeskTicket {
   eventTitle: string;
   eventDate?: string | null;
   eventTime?: string | null;
+  /** Cinema séance, see TicketPass. */
+  seance?: { hours: string; extras?: string | null } | null;
   venue?: string | null;
   city?: string | null;
   holder?: string | null;
@@ -104,7 +106,9 @@ export default function TicketsDesk({
   const dateLabel = first?.eventDate
     ? formatCalendarDate(first.eventDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
-  const timeLabel = formatEventTime(first?.eventTime);
+  const timeLabel = first?.seance
+    ? `Séance ${first.seance.hours}${first.seance.extras ? ` · ${first.seance.extras}` : ''}`
+    : formatEventTime(first?.eventTime);
   const totalLabel = money(total ?? tickets.reduce((sum, ticket) => sum + (ticket.price || 0), 0));
   const phone = maskPhone(phoneHint);
   const delivery = [
@@ -220,6 +224,7 @@ export default function TicketsDesk({
                     eventTitle={ticket.eventTitle}
                     eventDate={ticket.eventDate}
                     eventTime={ticket.eventTime}
+                    seance={ticket.seance}
                     venue={ticket.venue}
                     city={ticket.city}
                     holder={ticket.holder}
@@ -371,7 +376,7 @@ function QrModal({
   const dateLabel = ticket.eventDate
     ? formatCalendarDate(ticket.eventDate, { weekday: 'short', day: 'numeric', month: 'short' })
     : '';
-  const timeLabel = formatEventTime(ticket.eventTime);
+  const timeLabel = ticket.seance ? `Séance ${ticket.seance.hours}` : formatEventTime(ticket.eventTime);
   const [touchX, setTouchX] = useState<number | null>(null);
 
   return (

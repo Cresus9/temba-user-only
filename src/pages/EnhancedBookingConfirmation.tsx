@@ -24,10 +24,12 @@ import {
   type GuestTicketRow,
 } from '../services/guestTicketService';
 import { trackPurchase } from '../lib/metaPixel';
+import { recallOrderSeance, ticketSeances, type TicketSeance } from '../services/cinemaService';
 
 interface Ticket {
   id: string;
   qr_code: string;
+  event_date_id?: string | null;
   ticket_type: {
     id: string;
     name: string;
@@ -78,6 +80,9 @@ export default function EnhancedBookingConfirmation() {
   const { user, profile, loading: authLoading } = useAuth();
   
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  /** Cinema: séance by event_date_id (signed-in tickets) or remembered at checkout (guest). */
+  const [seances, setSeances] = useState<Map<string, TicketSeance>>(new Map());
+  const rememberedSeance = useMemo(() => recallOrderSeance(bookingId), [bookingId]);
   const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingTicket, setDownloadingTicket] = useState(false);
@@ -86,6 +91,25 @@ export default function EnhancedBookingConfirmation() {
   const [transferTicket, setTransferTicket] = useState<{ id: string; title: string } | null>(null);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [addedToCalendar, setAddedToCalendar] = useState(false);
+
+  useEffect(() => {
+    const rows = tickets
+      .map((ticket) => ({
+        event_date_id: ticket.event_date_id || rememberedSeance?.eventDateId || null,
+        // Guest rows carry the order id in event.id; the event id then comes from checkout.
+        event_id: ticket.event_date_id ? ticket.event?.id : rememberedSeance?.eventId,
+      }))
+      .filter((row) => row.event_date_id && row.event_id);
+    if (!rows.length) {
+      setSeances(new Map());
+      return;
+    }
+    let cancelled = false;
+    ticketSeances(rows)
+      .then((map) => { if (!cancelled) setSeances(map); })
+      .catch(() => { if (!cancelled) setSeances(new Map()); });
+    return () => { cancelled = true; };
+  }, [tickets, rememberedSeance]);
 
   const firstTicket = tickets[0] || null;
 
@@ -349,6 +373,7 @@ export default function EnhancedBookingConfirmation() {
         .select(`
           id,
           qr_code,
+          event_date_id,
           event_date:event_dates (
             date,
             start_time
@@ -869,6 +894,7 @@ export default function EnhancedBookingConfirmation() {
           eventTitle: ticket.event.title,
           eventDate: ticket.event.date,
           eventTime: ticket.event.time,
+          seance: seances.get(ticket.event_date_id || rememberedSeance?.eventDateId || '') || null,
           venue: ticket.event.location,
           holder: profile?.name || user?.email?.split('@')[0] || 'Détenteur',
           categoryName: ticket.ticket_type.name,

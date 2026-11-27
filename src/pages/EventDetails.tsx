@@ -30,6 +30,9 @@ import { eventDaySpan, eventSeoTitle, frDayRange } from '../../netlify/edge-func
 import { eventShareDescription } from '../../netlify/edge-functions/lib/eventOgShare';
 import { flyerSrcSet, resizedImageUrl } from '../utils/imageUrl';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
+import CinemaTicketPanel from '../components/events/CinemaTicketPanel';
+import { loadCinema } from '../services/cinemaService';
+import { durationLabel, fcfa, lowestPrice, type FilmDetails, type Seance } from '../utils/cinema';
 import DisplayCard from '../components/events/DisplayCard';
 import AppBand from '../components/design/AppBand';
 import OpenInAppBanner from '../components/events/OpenInAppBanner';
@@ -59,6 +62,8 @@ export default function EventDetails() {
   const [event,         setEvent]         = useState<Event | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [eventDates,    setEventDates]    = useState<EventDate[]>([]);
+  /** Cinema category only: séances + film details (null = regular event page). */
+  const [cinema, setCinema] = useState<{ seances: Seance[]; film: FilmDetails | null } | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [missing,       setMissing]       = useState(false);
   // Resized flyer failed: show the original file instead.
@@ -271,6 +276,16 @@ export default function EventDetails() {
   }, [eventIdOrSlug, user, navigate]);
 
   useEffect(() => {
+    let cancelled = false;
+    setCinema(null);
+    if (!event?.id || event.is_permanent) return;
+    loadCinema(event.id)
+      .then((data) => { if (!cancelled) setCinema(data); })
+      .catch(() => { if (!cancelled) setCinema(null); });
+    return () => { cancelled = true; };
+  }, [event?.id, event?.is_permanent]);
+
+  useEffect(() => {
     if (!event?.id) return;
     const target = canonicalEventTarget(route.pathname, route.search, route.hash, eventPublicPath(event));
     if (target) navigate(target, { replace: true });
@@ -392,6 +407,22 @@ export default function EventDetails() {
   const span = spanFor(event, eventDates.length ? { dates: eventDates.map((row) => row.date), min: '', max: '' } : null);
   const badges = eventBadges(event, span);
   const kind = kinds.get(event.id);
+  const cinemaFrom = cinema ? lowestPrice(cinema.seances, (event.ticket_types ?? []).map((t) => t.id)) : null;
+  const cinemaPriceLine = cinema && cinemaFrom != null && mode !== 'none'
+    ? `Dès ${fcfa(cinemaFrom)}${mode === 'soon' ? ' · vente pas encore ouverte' : ''}`
+    : '';
+  const film = cinema?.film ?? null;
+  const filmFacts = film
+    ? [
+        film.duration_minutes ? ['Durée', durationLabel(film.duration_minutes)] : null,
+        film.age_rating ? ['Public', film.age_rating === 'TP' ? 'Tous publics' : film.age_rating] : null,
+        film.original_language ? ['Langue', film.original_language] : null,
+        film.genres?.length ? ['Genre', film.genres.join(', ')] : null,
+        film.directors?.length ? ['Réalisation', film.directors.join(' et ')] : null,
+        film.cast_names?.length ? ['Avec', film.cast_names.join(', ')] : null,
+        film.production ? ['Production', film.production] : null,
+      ].filter(Boolean) as [string, string][]
+    : [];
   const kindLabel = kind === 'concert' ? 'Concert' : kind === 'festival' ? 'Festival' : kind === 'cinema' ? 'Cinéma' : event.is_permanent ? 'Attraction' : '';
   const when = event.is_permanent
     ? 'Ouvert tous les jours'
@@ -477,7 +508,7 @@ export default function EventDetails() {
                 </p>
               )}
               <p className="mt-2 flex items-center gap-2 text-[16px] !text-white"><MapPin size={18} /> {place.label}</p>
-              <p className="mt-4 text-[18px] font-semibold !text-white">{heroPriceLine(event, mode)}</p>
+              <p className="mt-4 text-[18px] font-semibold !text-white">{cinemaPriceLine || heroPriceLine(event, mode)}</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button type="button" onClick={shareWhatsApp} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white/10 px-3 text-[14px] font-semibold text-white"><WhatsappLogo size={16} /> Partager</button>
                 {!event.is_permanent && (
@@ -519,13 +550,27 @@ export default function EventDetails() {
             </section>
           )}
 
+          {filmFacts.length > 0 && (
+            <section>
+              <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Le film</h2>
+              <dl className="mt-3 grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2">
+                {filmFacts.map(([label, value]) => (
+                  <div key={label} className="bg-white px-4 py-3">
+                    <dt className="text-[12px] text-ink-3">{label}</dt>
+                    <dd className="mt-0.5 text-[14.5px] font-semibold">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
           {event.is_permanent ? (
             <section>
               <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">Horaires</h2>
               <p className="mt-2 text-[15px] text-ink-2">{hoursLine(eventDates)}</p>
               <p className="text-[13px] text-ink-3">Heures de Ouagadougou.</p>
             </section>
-          ) : eventDates.length > 1 && mode !== 'open' && (
+          ) : !cinema && eventDates.length > 1 && mode !== 'open' && (
             <section>
               <h2 className="font-display text-[20px] font-bold min-[1280px]:text-[24px]">{eventDates.length} dates</h2>
               <p className="mt-1 text-[13px] text-ink-3">Heures de Ouagadougou.</p>
@@ -591,7 +636,11 @@ export default function EventDetails() {
         </div>
 
         <aside className="order-1 min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:order-2 min-[1280px]:-mt-64">
-          <EventTicketPanel event={event} dates={eventDates} />
+          {cinema ? (
+            <CinemaTicketPanel event={event} seances={cinema.seances} venueLabel={[place.venue, place.city].filter(Boolean).join(', ')} />
+          ) : (
+            <EventTicketPanel event={event} dates={eventDates} />
+          )}
         </aside>
       </div>
 

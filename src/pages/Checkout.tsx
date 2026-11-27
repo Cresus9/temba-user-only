@@ -18,6 +18,8 @@ import { recordCheckoutStart } from '../services/abandonedCheckout';
 import { useEvents } from '../context/EventContext';
 import { formatCurrency } from '../utils/formatters';
 import { distinctDateIds, sanitizeAllocations, type LineAllocation } from '../utils/lineAllocations';
+import { fetchSeancePrices, rememberOrderSeance, ticketSeances, type TicketSeance } from '../services/cinemaService';
+import { withSeancePrices } from '../utils/cinema';
 
 interface CheckoutState {
   tickets: { [key: string]: number };
@@ -102,6 +104,8 @@ export default function Checkout() {
   const [lines, setLines] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
   const [chosenDate, setChosenDate] = useState<{ date: string; start_time: string | null } | null>(null);
   const [dateRows, setDateRows] = useState<Record<string, { date: string; start_time: string | null }>>({});
+  /** Cinema: the chosen séance (hours, hall, version). */
+  const [seance, setSeance] = useState<TicketSeance | null>(null);
 
   const locationState = location.state as CheckoutState | null;
   const state =
@@ -118,11 +122,13 @@ export default function Checkout() {
   const isPermanent = Boolean((state as any).isPermanent);
 
   const handleGuestSuccess = (orderId: string) => {
+    if (seance) rememberOrderSeance(orderId, state.eventId, state.eventDateId);
     const guestPath = guestRedirectForOrder(orderId);
     navigate(guestPath || '/find-tickets');
   };
 
   const handleAuthenticatedSuccess = (orderId: string) => {
+    if (seance) rememberOrderSeance(orderId, state.eventId, state.eventDateId);
     navigate(`/booking/confirmation/${orderId}`);
   };
 
@@ -151,16 +157,31 @@ export default function Checkout() {
   React.useEffect(() => {
     const ids = Object.keys(state.tickets || {});
     if (!ids.length) return;
-    supabase.from('ticket_types').select('id, name, price').in('id', ids).then(({ data }) => {
+    const singleDate = state.lineAllocations && state.lineAllocations.length ? null : state.eventDateId;
+    Promise.all([
+      supabase.from('ticket_types').select('id, name, price').in('id', ids),
+      fetchSeancePrices(singleDate),
+    ]).then(([{ data }, seancePrices]) => {
       const rows = (data || []).map((row: { id: string; name: string; price: number }) => ({
         id: row.id,
         name: row.name,
         price: Number(row.price) || 0,
         qty: Number(state.tickets[row.id] || 0),
       })).filter((row) => row.qty > 0);
-      setLines(rows);
+      // Cinema: the séance price replaces the ticket type price (same rule as the server).
+      setLines(withSeancePrices(rows, seancePrices));
     });
-  }, [state.eventId]);
+  }, [state.eventId, state.eventDateId]);
+
+  React.useEffect(() => {
+    if (!state.eventDateId) {
+      setSeance(null);
+      return;
+    }
+    ticketSeances([{ event_date_id: state.eventDateId, event_id: state.eventId }])
+      .then((map) => setSeance(map.get(state.eventDateId as string) || null))
+      .catch(() => setSeance(null));
+  }, [state.eventDateId, state.eventId]);
 
   React.useEffect(() => {
     if (!state.eventDateId) {
@@ -229,6 +250,11 @@ export default function Checkout() {
             {formatEventTime(recapTime) ? ` · ${formatEventTime(recapTime)}` : ''}
           </p>
           )}
+          {!allocations && seance ? (
+            <p className="mt-0.5 text-[13px] font-semibold text-ink" data-testid="checkout-seance">
+              Séance {seance.hours}{seance.extras ? ` · ${seance.extras}` : ''}
+            </p>
+          ) : null}
           {!allocations && formatEventTime(recapTime) ? <p className="text-[12px] text-ink-3">Heure de Ouagadougou</p> : null}
           <p className="mt-1 text-[13px] text-ink-3">{place.label}</p>
         </div>
