@@ -25,13 +25,13 @@ describe('eventJsonLd', () => {
   });
 
   it('never marks a 0 or missing price as an offer', () => {
-    const ld = buildEventJsonLd(
+    const ld: any = buildEventJsonLd(
       { ...base, price: 0, ticket_types: [{ name: 'Coming soon', price: 0, available: 0, sales_enabled: false }] },
       { url },
     );
     expect(ld.offers).toBeUndefined();
     expect(JSON.stringify(ld)).not.toMatch(/"price":0|gratuit|free/i);
-    const noTickets = buildEventJsonLd({ ...base, price: null, ticket_types: [] }, { url });
+    const noTickets: any = buildEventJsonLd({ ...base, price: null, ticket_types: [] }, { url });
     expect(noTickets.offers).toBeUndefined();
   });
 
@@ -67,10 +67,24 @@ describe('eventJsonLd', () => {
     expect(ld.eventStatus).toBe('https://schema.org/EventScheduled');
   });
 
-  it('omits organizer when unknown and startDate for attractions', () => {
-    const ld: any = buildEventJsonLd({ ...base, is_permanent: true }, { url });
+  it('marks permanent attractions as TouristAttraction, never as an Event', () => {
+    const ld: any = buildEventJsonLd({ ...base, is_permanent: true }, { url, dates: [{ date: '2026-12-01', status: 'ACTIVE' }] });
+    expect(ld['@type']).toBe('TouristAttraction');
     expect(ld.organizer).toBeUndefined();
     expect(ld.startDate).toBeUndefined();
+    expect(ld.offers).toBeUndefined();
+    expect(ld.eventStatus).toBeUndefined();
+  });
+
+  it('gives no markup to an event without any date', () => {
+    expect(buildEventJsonLd({ ...base, date: null }, { url, dates: [] })).toBeNull();
+  });
+
+  it('lists performers with their artist page', () => {
+    const ld: any = buildEventJsonLd(base, { url, performers: [{ name: 'Alif Naaba', slug: 'alif-naaba' }] });
+    expect(ld.performer).toEqual([
+      { '@type': 'Person', '@id': 'https://tembas.com/artists/alif-naaba', name: 'Alif Naaba', url: 'https://tembas.com/artists/alif-naaba' },
+    ]);
   });
 
   it('formats prices as F CFA', () => {

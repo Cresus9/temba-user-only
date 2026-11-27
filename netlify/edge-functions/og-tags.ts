@@ -8,6 +8,7 @@ import {
   toAbsoluteHttps,
 } from "./lib/eventOgShare.ts";
 import { buildEventJsonLd, formatFcfa, realPrice, stripTags } from "./lib/eventJsonLd.ts";
+import { artistPageTitle, eventSeoTitle, frDayRange, splitArtistShows } from "./lib/eventSeo.ts";
 import { buildVenueIndex, type VenueRowLite } from "./lib/venueIndex.ts";
 import { LANDING_PAGES, landingByPath, isConcertCategory, selectLandingEvents, weekendRange } from "./lib/landingPages.ts";
 
@@ -242,9 +243,20 @@ async function supabaseGet(path: string): Promise<any[] | null> {
   }
 }
 
+/**
+ * event_artists read limited to confirmed links. The public read policy already
+ * returns confirmed links only once migration 20261127130000 is applied; before
+ * it, the status column does not exist and the plain query is used.
+ */
+async function supabaseGetLineup(path: string) {
+  const withStatus = await supabaseGet(`${path}&status=eq.confirmed`);
+  if (withStatus !== null) return withStatus;
+  return supabaseGet(path);
+}
+
 async function fetchEventPerformers(eventId: string) {
   const rows =
-    (await supabaseGet(
+    (await supabaseGetLineup(
       `event_artists?event_id=eq.${eventId}&select=role,display_order,artists(name,slug,photo_url)&order=display_order.asc`
     )) ?? [];
   return rows
@@ -257,7 +269,7 @@ async function fetchEventPerformers(eventId: string) {
 
 async function fetchBilledArtists(limit = 24) {
   const rows =
-    (await supabaseGet(
+    (await supabaseGetLineup(
       `event_artists?select=artists(slug,name,genre,city),events(status,deleted_at,date,title)&limit=120`
     )) ?? [];
   const seen = new Set<string>();
@@ -278,15 +290,16 @@ async function fetchBilledArtists(limit = 24) {
   return out;
 }
 
-async function fetchArtistPublishedShows(artistId: string) {
+/** Published shows of one artist, split into upcoming (soonest first) and past. */
+async function fetchArtistShows(artistId: string) {
   const rows =
-    (await supabaseGet(
-      `event_artists?artist_id=eq.${artistId}&select=role,events(id,slug,title,date,location,city,status,deleted_at)`
+    (await supabaseGetLineup(
+      `event_artists?artist_id=eq.${artistId}&select=role,events(id,slug,title,date,location,city,status,deleted_at,is_permanent,event_dates(date,status))`
     )) ?? [];
-  return rows
+  const shows = rows
     .map((row) => ({ role: row.role, ...(row.events || {}) }))
-    .filter((e) => e.id && e.status === "PUBLISHED" && !e.deleted_at)
-    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+    .filter((e) => e.id && e.status === "PUBLISHED" && !e.deleted_at);
+  return splitArtistShows(shows, todayYmdOuaga());
 }
 
 function artistSameAs(social: Record<string, string> | null | undefined): string[] {
@@ -591,7 +604,7 @@ function generateEventHtml(
         venue: extras.venue ?? null,
         performers,
         dates: extras.dates ?? [],
-      })
+      }) ?? undefined
     : undefined;
 
   // A price of 0 or no price is not "free": show the tier name only.
@@ -629,7 +642,8 @@ function generateEventHtml(
   `;
 
   return layout({
-    title,
+    // City and date in the title: "Alif Naaba — Ouagadougou, 26 décembre 2026".
+    title: event ? eventSeoTitle(event, extras.dates ?? event.event_dates ?? []) : title,
     description,
     url: eventUrl,
     image: imageUrl,
@@ -1124,12 +1138,14 @@ export default async function handler(request: Request, context: Context) {
     }
     const name = artist.name || slug;
     const pageUrl = `https://tembas.com/artists/${artist.slug || slug}`;
-    const shows = artist.id ? await fetchArtistPublishedShows(artist.id) : [];
-    const next = shows.find((s) => s.date) || shows[0];
+    const { upcoming, past } = artist.id ? await fetchArtistShows(artist.id) : { upcoming: [], past: [] };
+    const shows = [...upcoming, ...past];
+    // Only a real upcoming show counts as "next": past shows never read as upcoming.
+    const next = upcoming[0];
     const description = next?.title
       ? clampMeta(
           `${name}${artist.genre ? ` (${artist.genre})` : ""} : « ${next.title} »${
-            next.date ? ` le ${formatFrDate(next.date)}` : ""
+            next.first ? ` le ${formatFrDate(next.first)}` : ""
           }${next.location || next.city ? ` à ${next.city || next.location}` : ""}. Billets officiels sur Temba.`
         )
       : clampMeta(
@@ -1173,7 +1189,7 @@ export default async function handler(request: Request, context: Context) {
               "@type": "MusicEvent",
               name: s.title,
               url: `https://tembas.com${eventPublicPath(s)}`,
-              startDate: s.date || undefined,
+              startDate: s.first || undefined,
               location: {
                 "@type": "Place",
                 name: s.city || s.location || "Afrique de l'Ouest",
@@ -1182,7 +1198,7 @@ export default async function handler(request: Request, context: Context) {
           : undefined,
       },
     ];
-    const place = artist.city || next?.city || "Ouagadougou";
+    const place = next?.city || artist.city || "Ouagadougou";
     jsonLd.push({
       "@context": "https://schema.org",
       "@type": "FAQPage",
@@ -1197,21 +1213,23 @@ export default async function handler(request: Request, context: Context) {
         },
         {
           "@type": "Question",
-          name: `${name} en concert à ${place} ?`,
+          name: next ? `${name} en concert à ${place} ?` : `Prochain concert de ${name} ?`,
           acceptedAnswer: {
             "@type": "Answer",
             text: next?.title
-              ? `Oui : « ${next.title} »${next.date ? ` le ${formatFrDate(next.date)}` : ""}. Billets sur Temba.`
-              : `${name} n’a pas encore de date publiée sur Temba.`,
+              ? `Oui : « ${next.title} »${next.first ? ` le ${formatFrDate(next.first)}` : ""}. Billets sur Temba.`
+              : `${name} n’a pas de date à venir publiée sur Temba pour l’instant.`,
           },
         },
       ],
     });
-    const showItems = shows.map((s) => ({
+    const showItem = (s: (typeof shows)[number]) => ({
       href: `https://tembas.com${eventPublicPath(s)}`,
       name: s.title,
-      extra: [formatFrDate(s.date), s.city || s.location].filter(Boolean).join(" · "),
-    }));
+      extra: [s.is_permanent ? "Ouvert toute l'année" : frDayRange(s.first, s.last), s.city || s.location].filter(Boolean).join(" · "),
+    });
+    const upcomingItems = upcoming.map(showItem);
+    const pastItems = past.map(showItem);
     const bio = stripHtml(artist.bio);
     const body = `<article>
       <nav><a href="https://tembas.com/artists">Artistes</a> / ${escapeHtml(name)}</nav>
@@ -1220,15 +1238,14 @@ export default async function handler(request: Request, context: Context) {
       ${bio ? `<p>${escapeHtml(bio)}</p>` : ""}
       <p>Fiche officielle Temba : seuls les concerts réellement mis en vente sur la plateforme sont listés.</p>
       ${artist.photo_url ? `<img src="${escapeHtml(artist.photo_url)}" alt="${escapeHtml(name)}, artiste" />` : ""}
-      <h2>Concerts et billets ${escapeHtml(name)}</h2>
-      ${showItems.length ? linkList(showItems) : "<p>Pas encore de date publiée sur Temba.</p>"}
+      <h2>Prochaines dates</h2>
+      ${upcomingItems.length ? linkList(upcomingItems) : "<p>Pas de date à venir sur Temba pour l’instant.</p>"}
+      ${pastItems.length ? `<h2>Déjà passé sur Temba</h2>${linkList(pastItems)}` : ""}
       <h2>Où acheter des billets pour ${escapeHtml(name)} ?</h2>
       <p>Sur Temba. Orange Money, Moov Money ou carte — QR sur le téléphone.</p>
     </article>`;
-    const placeTitle = artist.city || next?.city || next?.location || "";
-    const seoTitle = placeTitle
-      ? `${name} — concert à ${/bobo/i.test(placeTitle) ? "Bobo-Dioulasso" : /ouaga/i.test(placeTitle) ? "Ouagadougou" : placeTitle}, billets`
-      : `${name} — concert et billets`;
+    // "concert à …" only when a real upcoming show exists.
+    const seoTitle = artistPageTitle(name, next ? { city: next.city, location: next.location } : null);
     return new Response(
       layout({
         title: seoTitle,
@@ -1557,35 +1574,136 @@ export default async function handler(request: Request, context: Context) {
   const citySlug = url.pathname.replace(/^\/+|\/+$/g, "");
   const cityPage = CITY_PAGES[citySlug];
   if (cityPage) {
-    const [dated, permanents] = await Promise.all([
-      fetchPublishedEvents(80),
+    const today = todayYmdOuaga();
+    const [y, m, d] = today.split("-").map(Number);
+    const since = new Date(Date.UTC(y, m - 1, d - 30)).toISOString().slice(0, 10);
+    const [dated, permanents, venueIndex] = await Promise.all([
       supabaseGet(
-        "events?select=id,slug,title,date,location,city,image_url,is_permanent,price,currency,country_code&status=eq.PUBLISHED&deleted_at=is.null&is_permanent=eq.true&limit=40"
+        `events?select=id,slug,title,date,location,city,address,image_url,is_permanent,venue_id,country_code&status=eq.PUBLISHED&deleted_at=is.null&is_permanent=is.false&date=gte.${since}&order=date.asc&limit=200`
       ),
+      supabaseGet(
+        "events?select=id,slug,title,date,location,city,address,image_url,is_permanent,venue_id,country_code&status=eq.PUBLISHED&deleted_at=is.null&is_permanent=eq.true&limit=40"
+      ),
+      fetchVenueIndex(),
     ]);
-    const merged = [...(dated ?? []), ...(permanents ?? [])];
-    const seen = new Set<string>();
-    const events = merged.filter((e) => {
-      if (!e?.id || seen.has(e.id)) return false;
-      seen.add(e.id);
-      return eventMatchesCityPage(e, citySlug, cityPage);
+    // Database unreachable: let the app answer rather than serve an empty page.
+    if (dated === null) return context.next();
+    const inCity = (e: any) => e?.id && eventMatchesCityPage(e, citySlug, cityPage);
+    const cityDated = dated.filter(inCity);
+    const attractions = (permanents ?? []).filter(inCity);
+    const ids = cityDated.map((e) => e.id);
+    const [dateRows, lineupRows] = ids.length
+      ? await Promise.all([
+          supabaseGet(`event_dates?select=event_id,date,status&event_id=in.(${ids.join(",")})`),
+          supabaseGetLineup(`event_artists?event_id=in.(${ids.join(",")})&select=event_id,artists(name,slug)`),
+        ])
+      : [[], []];
+    const datesBy = new Map<string, { date: string; status?: string }[]>();
+    for (const row of dateRows ?? []) {
+      datesBy.set(row.event_id, [...(datesBy.get(row.event_id) ?? []), row]);
+    }
+    // Upcoming = last active day is today or later (multi-day events stay listed while they run).
+    const upcoming = cityDated
+      .map((e) => {
+        const days = [String(e.date || "").slice(0, 10), ...(datesBy.get(e.id) ?? [])
+          .filter((r) => !r.status || String(r.status).toLowerCase() === "active")
+          .map((r) => String(r.date).slice(0, 10))]
+          .filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v))
+          .sort();
+        return { ...e, first: days[0] || null, last: days[days.length - 1] || null };
+      })
+      .filter((e) => e.last && e.last >= today)
+      .sort((a, b) => String(a.first).localeCompare(String(b.first)));
+    const upcomingIds = new Set(upcoming.map((e) => e.id));
+
+    const venuePageById = new Map<string, { name: string; slug: string }>();
+    for (const page of venueIndex?.pages ?? []) {
+      for (const id of page.ids) venuePageById.set(id, { name: page.name, slug: page.primarySlug });
+    }
+    const venues = new Map<string, { name: string; slug: string; count: number }>();
+    for (const e of [...upcoming, ...attractions]) {
+      const v = e.venue_id ? venuePageById.get(e.venue_id) : undefined;
+      if (!v) continue;
+      const prev = venues.get(v.slug);
+      venues.set(v.slug, { ...v, count: (prev?.count ?? 0) + 1 });
+    }
+    const artists = new Map<string, { name: string; slug: string }>();
+    for (const row of lineupRows ?? []) {
+      const a = row.artists;
+      if (!upcomingIds.has(row.event_id) || !a?.slug || !a?.name) continue;
+      artists.set(a.slug, { name: a.name, slug: a.slug });
+    }
+
+    const pageUrl = `https://tembas.com/${citySlug}`;
+    const next = upcoming.find((e) => String(e.first) >= today) || upcoming[0];
+    const facts = [
+      upcoming.length
+        ? `${upcoming.length} événement${upcoming.length > 1 ? "s" : ""} en cours ou à venir à ${cityPage.name} sur Temba`
+        : `Aucun événement à venir n’est publié à ${cityPage.name} pour l’instant`,
+      next ? `${String(next.first) >= today ? "prochain" : "en cours"} : « ${next.title} »${String(next.first) >= today ? ` le ${formatFrDate(next.first)}` : ""}` : "",
+      venues.size ? `${venues.size} lieu${venues.size > 1 ? "x" : ""}` : "",
+      artists.size ? `${artists.size} artiste${artists.size > 1 ? "s" : ""} à l’affiche` : "",
+      attractions.length ? `${attractions.length} attraction${attractions.length > 1 ? "s" : ""} ouverte${attractions.length > 1 ? "s" : ""} toute l’année` : "",
+    ].filter(Boolean);
+    const description = clampMeta(
+      upcoming.length
+        ? `${facts[0]}${next ? ` — ${facts[1]}` : ""}. ${cityPage.description}`
+        : cityPage.description
+    );
+    const agenda = upcoming.map((e) => {
+      const v = e.venue_id ? venuePageById.get(e.venue_id) : undefined;
+      return {
+        href: `https://tembas.com${eventPublicPath(e)}`,
+        name: e.title,
+        extra: [frDayRange(e.first, e.last), v?.name || e.location || ""].filter(Boolean).join(" · "),
+      };
     });
+    const concertsLanding = LANDING_PAGES.find((p) => p.path === `/${citySlug}/concerts`);
+    const body = `<h1>Événements à ${escapeHtml(cityPage.name)}</h1>
+      <p>${escapeHtml(facts.join(", "))}.</p>
+      <h2>Agenda à ${escapeHtml(cityPage.name)}</h2>
+      ${agenda.length ? linkList(agenda) : `<p>Consultez <a href="https://tembas.com/events">l’agenda complet</a>.</p>`}
+      ${artists.size ? `<h2>Artistes à l’affiche à ${escapeHtml(cityPage.name)}</h2>${linkList([...artists.values()].map((a) => ({ href: `https://tembas.com/artists/${a.slug}`, name: a.name })))}` : ""}
+      ${venues.size ? `<h2>Lieux</h2>${linkList([...venues.values()].map((v) => ({ href: `https://tembas.com/venues/${v.slug}`, name: v.name, extra: `${v.count} événement${v.count > 1 ? "s" : ""}` })))}` : ""}
+      ${attractions.length ? `<h2>Attractions à ${escapeHtml(cityPage.name)}</h2>${linkList(attractions.map((e) => ({ href: `https://tembas.com${eventPublicPath(e)}`, name: e.title, extra: "Ouvert toute l’année" })))}` : ""}
+      <p>Voir aussi : ${concertsLanding ? `<a href="https://tembas.com${concertsLanding.path}">${escapeHtml(concertsLanding.label)}</a> · ` : ""}<a href="https://tembas.com/ce-weekend">Ce week-end</a> · <a href="https://tembas.com/artists">Artistes</a></p>`;
+    const listed = [...upcoming, ...attractions];
     return new Response(
-      generateCollectionHtml({
+      layout({
         title: cityPage.title,
-        description: cityPage.description,
-        url: `https://tembas.com/${citySlug}`,
-        items: [
+        description,
+        url: pageUrl,
+        // Nothing to list is thin content: keep it out of Google until events are published.
+        robots: listed.length ? "index, follow" : "noindex, follow",
+        jsonLd: [
           {
-            href: "https://tembas.com/artists",
-            name: `Artistes et concerts à ${cityPage.name}`,
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `Événements à ${cityPage.name}`,
+            url: pageUrl,
+            description,
+            about: { "@type": "City", name: cityPage.name },
+            mainEntity: {
+              "@type": "ItemList",
+              numberOfItems: listed.length,
+              itemListElement: listed.slice(0, 30).map((e, i) => ({
+                "@type": "ListItem",
+                position: i + 1,
+                url: `https://tembas.com${eventPublicPath(e)}`,
+                name: e.title,
+              })),
+            },
           },
-          ...events.map((e) => ({
-            href: `https://tembas.com${eventPublicPath(e)}`,
-            name: e.title,
-            extra: e.city || e.location || "",
-          })),
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tembas.com/" },
+              { "@type": "ListItem", position: 2, name: cityPage.name, item: pageUrl },
+            ],
+          },
         ],
+        body,
       }),
       { headers: htmlHeaders }
     );
