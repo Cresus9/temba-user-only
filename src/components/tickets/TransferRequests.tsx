@@ -56,10 +56,7 @@ export default function TransferRequests() {
       const senderIds = (recipientRequests || []).map(r => r.sender_id).filter((v, i, a) => v && a.indexOf(v) === i);
       let profilesMap: Record<string, { name?: string; email?: string }> = {};
       if (senderIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_id, name, email')
-          .in('user_id', senderIds);
+        const { data: profiles, error: profileError } = await supabase.rpc('get_profile_cards', { p_user_ids: senderIds });
         if (profileError) throw profileError;
         profilesMap = (profiles || []).reduce((acc: any, p: any) => {
           acc[p.user_id] = { name: p.name, email: p.email };

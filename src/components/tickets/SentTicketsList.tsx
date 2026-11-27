@@ -123,13 +123,13 @@ export default function SentTicketsList({ onTicketClick }: SentTicketsListProps)
         let recipientsMap: Record<string, { name: string; email: string }> = {};
 
         if (recipientIds.length > 0) {
-          const { data: recipients } = await supabase
-            .from('profiles')
-            .select('id, name, email')
-            .in('id', recipientIds);
+          const { data: recipientCards } = await supabase.rpc('get_profile_cards', { p_user_ids: recipientIds });
+          const recipients = (recipientCards || []) as { id: string; user_id: string; name: string; email: string }[];
 
           recipientsMap = (recipients || []).reduce((acc, recipient) => {
-            acc[recipient.id] = { name: recipient.name, email: recipient.email };
+            const entry = { name: recipient.name, email: recipient.email };
+            acc[recipient.user_id] = entry;
+            if (recipient.id) acc[recipient.id] = entry;
             return acc;
           }, {} as Record<string, { name: string; email: string }>);
         }

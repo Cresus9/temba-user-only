@@ -340,11 +340,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const enrichedTransfers = await Promise.all(
           finalTransfers.map(async (transfer) => {
             // Get sender info
-            const { data: sender } = await supabase
-              .from('profiles')
-              .select('name, email')
-              .eq('user_id', transfer.sender_id)
-              .single();
+            const { data: senderCards } = await supabase.rpc('get_profile_cards', { p_user_ids: [transfer.sender_id] });
+            const sender = ((senderCards || []) as { name: string | null; email: string | null }[])[0] || null;
 
             // Get ticket info
             const { data: ticket } = await supabase
