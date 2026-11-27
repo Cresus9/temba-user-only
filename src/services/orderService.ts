@@ -167,113 +167,44 @@ class OrderService {
     ticketQuantities: { [key: string]: number };
     eventDateId?: string | null;
     lineAllocations?: LineAllocation[] | null;
-  }): Promise<{ success: boolean; orderId?: string; error?: string }> {
+    /** Reuse the same key when retrying the same reservation; the server never creates it twice. */
+    idempotencyKey?: string;
+  }): Promise<{ success: boolean; orderId?: string; firstTicketId?: string; error?: string }> {
     try {
-      console.log('🎫 [FREE ORDER] Creating free ticket order...');
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Non authentifié');
 
-      // Validate input
       if (!input.eventId) throw new Error('ID d\'événement requis');
       if (!input.ticketQuantities || Object.keys(input.ticketQuantities).length === 0) {
         throw new Error('Aucun billet sélectionné');
       }
 
-      // Verify all tickets are free (price = 0)
-      const { data: ticketTypes, error: ticketError } = await supabase
-        .from('ticket_types')
-        .select('id, price, name')
-        .in('id', Object.keys(input.ticketQuantities));
-
-      if (ticketError || !ticketTypes) {
-        throw new Error('Types de billets non trouvés');
-      }
-
-      // Check that all selected tickets are free
-      const nonFreeTickets = ticketTypes.filter(t => t.price > 0);
-      if (nonFreeTickets.length > 0) {
-        throw new Error('Certains billets ne sont pas gratuits');
-      }
-
-      // Get event details
-      const { data: event } = await supabase
-        .from('events')
-        .select('title, currency')
-        .eq('id', input.eventId)
-        .single();
-
-      if (!event) throw new Error('Événement non trouvé');
-
-      console.log('🎫 [FREE ORDER] Creating order for event:', event.title);
-
       const dateFields = orderDateFields(input.eventDateId, input.lineAllocations);
       checkAllocations(input.ticketQuantities, dateFields.line_allocations);
 
-      // Create order with COMPLETED status (no payment needed)
-      const { data: orderData, error: orderError } = await insertOrderRow({
-          user_id: user.id,
-          event_id: input.eventId,
-          total: 0, // Free order
-          status: 'COMPLETED', // Immediately completed
-          payment_method: 'FREE_TICKET',
-          ticket_quantities: input.ticketQuantities,
-          event_date_id: dateFields.event_date_id,
-          ...(dateFields.line_allocations ? { line_allocations: dateFields.line_allocations } : {}),
-          visible_in_history: true // Show in history immediately
-        });
+      // The server checks prices (must be 0), availability, limits, and issues the tickets.
+      const { data, error } = await supabase.rpc('create_free_order', {
+        p_event_id: input.eventId,
+        p_ticket_quantities: input.ticketQuantities,
+        p_event_date_id: dateFields.line_allocations ? null : dateFields.event_date_id ?? null,
+        p_line_allocations: dateFields.line_allocations ?? null,
+        p_idempotency_key: input.idempotencyKey || crypto.randomUUID(),
+      });
 
-      if (orderError) {
-        console.error('❌ [FREE ORDER] Order creation error:', orderError);
-        throw orderError;
+      if (error) {
+        console.error('❌ [FREE ORDER] RPC error:', error);
+        throw new Error('Échec de la réservation');
       }
-
-      console.log('✅ [FREE ORDER] Order created:', orderData.id);
-
-      // Create tickets immediately (same logic as webhook)
-      const ticketInserts = [];
-      // Several dates: one ticket per line unit, each with its own date.
-      const ticketLines = dateFields.line_allocations
-        ? dateFields.line_allocations.map((line) => ({ ticketTypeId: line.ticket_type_id, quantity: line.quantity, eventDateId: line.event_date_id }))
-        : Object.entries(input.ticketQuantities).map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity: Number(quantity), eventDateId: dateFields.event_date_id }));
-      for (const { ticketTypeId, quantity, eventDateId } of ticketLines) {
-        for (let i = 0; i < Number(quantity); i++) {
-          ticketInserts.push({
-            order_id: orderData.id,
-            event_id: input.eventId,
-            user_id: user.id,
-            ticket_type_id: ticketTypeId,
-            event_date_id: eventDateId || null,
-            status: 'VALID',
-            payment_status: 'paid', // Mark as paid (free = paid)
-            created_at: new Date().toISOString()
-          });
-        }
+      const res = (data || {}) as { success?: boolean; order_id?: string; first_ticket_id?: string; error?: string };
+      if (!res.success || !res.order_id) {
+        return { success: false, error: res.error || 'Échec de la réservation' };
       }
-
-      if (ticketInserts.length > 0) {
-        const { error: ticketsError } = await supabase
-          .from('tickets')
-          .insert(ticketInserts);
-
-        if (ticketsError) {
-          console.error('❌ [FREE ORDER] Ticket creation error:', ticketsError);
-          // Don't throw - order is created, just log the error
-          // Tickets might be created by a trigger
-        } else {
-          console.log(`✅ [FREE ORDER] Created ${ticketInserts.length} tickets`);
-        }
-      }
-
-      return {
-        success: true,
-        orderId: orderData.id
-      };
+      return { success: true, orderId: res.order_id, firstTicketId: res.first_ticket_id };
     } catch (error: any) {
       console.error('❌ [FREE ORDER] Error:', error);
       return {
         success: false,
-        error: error.message || 'Échec de la création de la commande gratuite'
+        error: error.message || 'Échec de la réservation'
       };
     }
   }
