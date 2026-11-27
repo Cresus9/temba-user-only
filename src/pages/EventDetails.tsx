@@ -168,7 +168,7 @@ export default function EventDetails() {
           } else {
             // Organizer hasn't set up a business profile yet — use profiles table
             const { data: baseProfile } = await supabase
-              .from('profiles')
+              .from('public_profiles')
               .select('name, avatar_url')
               .eq('user_id', organizerId)
               .maybeSingle();

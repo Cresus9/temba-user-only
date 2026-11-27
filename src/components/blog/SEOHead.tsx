@@ -79,8 +79,7 @@ export default function SEOHead({ title, description, image, url, type = 'articl
             author: post.author
               ? {
                   '@type': 'Person',
-                  name: post.author.name,
-                  email: post.author.email
+                  name: post.author.name
                 }
               : undefined,
             publisher: {

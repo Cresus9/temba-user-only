@@ -26,7 +26,7 @@ export interface BlogPost {
   author?: {
     id: string;
     name: string;
-    email: string;
+    email?: string;
     avatar_url?: string;
     bio?: string;
   };
@@ -77,10 +77,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
@@ -184,10 +183,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
@@ -244,10 +242,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
@@ -300,10 +297,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
@@ -356,10 +352,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
@@ -412,10 +407,9 @@ class BlogService {
         .from('blog_posts')
         .select(`
           *,
-          author:profiles!author_id (
+          author:public_profiles!author_id (
             id,
             name,
-            email,
             avatar_url,
             bio
           ),
