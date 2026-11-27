@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Ticket, Loader, Check } from 'lucide-react';
 import VisitDateCalendar from './VisitDateCalendar';
-import { initiatePermanentPurchase, formatOpeningHours, dayTypeLabel } from '../../services/permanentVenueService';
-import { useAuth } from '../../context/AuthContext';
+import { formatOpeningHours, dayTypeLabel } from '../../services/permanentVenueService';
 import { formatCurrency } from '../../utils/formatters';
 import { supabase } from '../../lib/supabase-client';
 import type { VisitDate, PermanentTicketType, TimeSlot } from '../../types/event';
@@ -41,14 +40,13 @@ export default function PermanentBookingPanel({
   pricingOverrides = [],
 }: PermanentBookingPanelProps) {
   const navigate  = useNavigate();
-  const { user }  = useAuth();
 
   const [step,          setStep]          = useState<'date' | 'tickets' | 'confirm'>('date');
   const [selectedDate,  setSelectedDate]  = useState<string | null>(null);
   const [visitData,     setVisitData]     = useState<VisitDate | null>(null);
   const [selectedSlot,  setSelectedSlot]  = useState<TimeSlot | null>(null);
   const [selections,    setSelections]    = useState<Record<string, number>>({});
-  const [submitting,    setSubmitting]    = useState(false);
+  const [submitting] = useState(false);
 
   // Add-on services state
   const [addonSelections, setAddonSelections] = useState<AddonSelection>({});
@@ -170,34 +168,8 @@ export default function PermanentBookingPanel({
       });
     };
 
-    // Guests skip the auth-bound RPC and pay via guest checkout.
-    if (!user) {
-      goCheckout();
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      // Try the permanent purchase RPC first
-      const result = await initiatePermanentPurchase(eventId, selectedDate, sels, {
-        timeSlotId:    selectedSlot?.id,
-        paymentMethod: 'CASH',
-      });
-
-      if (result.success && result.order_id) {
-        // RPC succeeded — go straight to confirmation
-        navigate(`/booking/confirmation/${result.order_id}`);
-        return;
-      }
-
-      // RPC failed or unavailable — fall through to standard checkout
-      console.warn('[PermanentBookingPanel] RPC unavailable, using standard checkout:', result.error);
-    } catch {
-      // ignore — fall through
-    } finally {
-      setSubmitting(false);
-    }
-
+    // Everyone pays through the standard checkout; tickets are issued only once the payment
+    // is confirmed (initiate_permanent_purchase used to issue VALID tickets without payment).
     goCheckout();
   };
 
