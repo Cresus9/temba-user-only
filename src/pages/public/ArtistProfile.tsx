@@ -88,6 +88,25 @@ function PastRow({ show }: { show: CatalogShow }) {
   );
 }
 
+function UpcomingRow({ show }: { show: CatalogShow }) {
+  const role = roleBadge(show.role);
+  const price = priceBits(show);
+  return (
+    <Link to={eventPublicPath(show.event)} className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-4 border-b border-line py-4 md:grid-cols-[48px_minmax(0,1fr)_auto_auto]">
+      <span className="block h-[60px] w-12 overflow-hidden rounded-md bg-[#1B1D33]">
+        {show.event.image_url ? <img src={show.event.image_url} alt="" className="h-full w-full object-cover" /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[14px] font-semibold text-brand">{whenLabel(show.event, show.span)}</span>
+        <span className="block truncate text-[16px] font-medium">{show.event.title}</span>
+        <span className="block truncate text-[14px] text-ink-3">{show.venueName}{show.city ? ` · ${show.city}` : ''}</span>
+      </span>
+      {role ? <span className="hidden h-6 items-center rounded-md bg-surf px-2 text-[12px] font-semibold text-ink-2 md:inline-flex">{role}</span> : <span className="hidden md:block" />}
+      <span className="text-[14px] font-semibold">{price.main}</span>
+    </Link>
+  );
+}
+
 export default function ArtistProfile() {
   const { slug = '' } = useParams();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -140,7 +159,7 @@ export default function ArtistProfile() {
   return (
     <DirectoryPage>
       <PageSEO
-        title={artistSeoTitle(artist.name, { city: artist.city, nextLocation: next?.venueName })}
+        title={artistSeoTitle(artist.name, { hasUpcoming: Boolean(next), nextCity: next?.city, nextLocation: next?.venueName })}
         description={artistMetaDescription({ name: artist.name, bio: artist.bio, genre: artist.genre, city: artist.city, nextShow: next ? { id: next.event.id, title: next.event.title, date: next.span.min || next.event.date, location: next.venueName, slug: next.event.slug } : null })}
         canonicalUrl={pageUrl}
         ogImage={artist.photo || undefined}
@@ -209,6 +228,16 @@ export default function ArtistProfile() {
           />
         )}
       </section>
+
+      {artist.upcoming.length > 1 ? (
+        <section className="pt-12 md:pt-16">
+          <div className="mb-2 flex items-baseline gap-4">
+            <h2 className="!text-[24px] !font-semibold !leading-8 md:!text-[28px]">Autres dates à venir</h2>
+            <span className="text-[16px] text-ink-4">{artist.upcoming.length - 1}</span>
+          </div>
+          {artist.upcoming.slice(1).map((show) => <UpcomingRow key={`${show.event.id}-${show.role || ''}`} show={show} />)}
+        </section>
+      ) : null}
 
       {artist.past.length ? (
         <section className="pt-12 md:pt-16">

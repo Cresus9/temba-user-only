@@ -86,11 +86,16 @@ function placeLabel(city?: string | null, location?: string | null) {
   return city?.trim() || '';
 }
 
+/**
+ * Artist page title. "concert à …" only when the artist has a real upcoming
+ * show (place taken from that show); otherwise "… — artiste, dates et billets".
+ */
 export function artistSeoTitle(
   name: string,
-  opts?: { city?: string | null; nextLocation?: string | null }
+  opts?: { nextCity?: string | null; nextLocation?: string | null; hasUpcoming?: boolean }
 ) {
-  const place = placeLabel(opts?.city, opts?.nextLocation);
+  if (!opts?.hasUpcoming) return `${name} — artiste, dates et billets`;
+  const place = placeLabel(opts.nextCity, opts.nextLocation);
   if (place) return `${name} — concert à ${place}, billets`;
   return `${name} — concert et billets`;
 }
@@ -189,14 +194,14 @@ export function artistFaqItems(opts: {
   const dateLine =
     next?.title && next.date
       ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${shortPlace(next.location).label}` : ''}. Les billets s’achètent sur Temba (Orange Money, Moov, carte).`
-      : `${name} n’a pas encore de date publiée sur Temba. Dès qu’un organisateur met des billets en vente, ils apparaissent sur cette fiche.`;
+      : `${name} n’a pas de date à venir publiée sur Temba pour l’instant. Dès qu’un organisateur met des billets en vente, ils apparaissent sur cette fiche.`;
   return [
     {
       q: `Où acheter des billets pour ${name} ?`,
       a: `Sur Temba, fiche officielle ${name}. Seuls les concerts réellement mis en vente sur tembas.com sont listés — paiement en FCFA.`,
     },
     {
-      q: `${name} en concert à ${place} ?`,
+      q: next?.title && next.date ? `${name} en concert à ${place} ?` : `Prochain concert de ${name} ?`,
       a: dateLine,
     },
     {

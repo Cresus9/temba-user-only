@@ -26,6 +26,8 @@ import { ARTIST_ROLE_FR } from '../utils/artistSeo';
 import PageSEO from '../components/SEO/PageSEO';
 import NotFound from './NotFound';
 import { buildEventJsonLd } from '../../netlify/edge-functions/lib/eventJsonLd';
+import { eventDaySpan, eventSeoTitle, frDayRange } from '../../netlify/edge-functions/lib/eventSeo';
+import { eventShareDescription } from '../../netlify/edge-functions/lib/eventOgShare';
 import { flyerSrcSet, resizedImageUrl } from '../utils/imageUrl';
 import EventTicketPanel, { heroPriceLine, hoursLine, ticketMode } from '../components/events/EventTicketPanel';
 import DisplayCard from '../components/events/DisplayCard';
@@ -187,11 +189,22 @@ export default function EventDetails() {
         }
 
         // Fetch artists separately
-        const { data: eaData } = await supabase
+        // Confirmed lineup only (also enforced by the public read policy).
+        const lineupSelect = 'role, display_order, artists(id, name, slug, photo_url, genre, verified)';
+        let { data: eaData, error: eaError } = await supabase
           .from('event_artists')
-          .select('role, display_order, artists(id, name, slug, photo_url, genre, verified)')
+          .select(lineupSelect)
           .eq('event_id', data.id)
+          .eq('status', 'confirmed')
           .order('display_order');
+        if (eaError) {
+          // Before the lineup migration there is no status column.
+          ({ data: eaData } = await supabase
+            .from('event_artists')
+            .select(lineupSelect)
+            .eq('event_id', data.id)
+            .order('display_order'));
+        }
         if (eaData) (data as any).event_artists = eaData;
 
         // Fetch venue if the event has one
@@ -314,13 +327,20 @@ export default function EventDetails() {
     return data.length ? data : undefined;
   }, [breadcrumbSchema, eventSchema]);
 
+  // "Alif Naaba — Ouagadougou, 26 décembre 2026": same title as the crawler HTML.
+  const seoTitle = useMemo(() => (event ? eventSeoTitle(event as any, eventDates) : undefined), [event, eventDates]);
+
   const description = useMemo(() => {
     if (!event) return undefined;
-    return (
-      event.description?.replace(/\s+/g, ' ').trim().slice(0, 160) ||
-      `Achetez vos billets pour ${event.title} à ${shortPlace(event.location, event.city).label}.`
-    );
-  }, [event?.description, event?.title, event?.location]);
+    const span = eventDaySpan(event as any, eventDates);
+    const when = event.is_permanent ? 'Ouvert toute l’année' : span.first ? frDayRange(span.first, span.last) : '';
+    return eventShareDescription({
+      title: event.title,
+      description: event.description?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      dateLabel: when,
+      location: shortPlace(event.location, event.city).label,
+    });
+  }, [event, eventDates]);
 
   const shareWhatsApp = () => {
     if (!event) return;
@@ -402,7 +422,7 @@ export default function EventDetails() {
     <div className="min-w-0 bg-white pb-24 lg:pb-0">
       {eventUrl && (
         <PageSEO
-          title={event.title}
+          title={seoTitle || event.title}
           description={description}
           canonicalUrl={eventUrl}
           ogType="event"

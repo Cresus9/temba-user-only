@@ -7,6 +7,12 @@
  *   and the event gets no `offers` block when no ticket has a real price.
  * - Only real database fields. Nothing is guessed.
  * - Dates carry the event's UTC offset (Africa/Ouagadougou is +00:00).
+ * - Only dated events are marked up as `Event`. Permanent attractions (zoo,
+ *   water park…) are a `TouristAttraction`, and an event without any date
+ *   gets no markup at all (returns null): Google rejects an Event without
+ *   startDate.
+ * - `performer` comes from the confirmed lineup only (the public read policy
+ *   on event_artists returns confirmed links only).
  */
 
 export type JsonLdTicket = {
@@ -149,7 +155,32 @@ function offerAvailability(t: JsonLdTicket): string | undefined {
   return "https://schema.org/InStock";
 }
 
-export function buildEventJsonLd(event: JsonLdEventInput, extras: JsonLdExtras): Record<string, unknown> {
+/** schema.org TouristAttraction for permanent places (no dates, no offers). */
+export function buildAttractionJsonLd(event: JsonLdEventInput, extras: JsonLdExtras): Record<string, unknown> {
+  const venueName = String(extras.venue?.name || event.location || "").trim();
+  const street = String(event.address || extras.venue?.address || "").trim();
+  const city = String(event.city || extras.venue?.city || "").trim();
+  const description = stripTags(event.description);
+  return {
+    "@context": "https://schema.org",
+    "@type": "TouristAttraction",
+    name: String(event.title ?? "").trim(),
+    url: extras.url,
+    ...(description ? { description } : {}),
+    ...(extras.image ? { image: [extras.image] } : {}),
+    address: {
+      "@type": "PostalAddress",
+      ...(street && street !== venueName ? { streetAddress: street } : {}),
+      ...(city ? { addressLocality: city } : {}),
+      ...(event.region ? { addressRegion: event.region } : {}),
+      addressCountry: (event.country_code || "BF").toUpperCase(),
+    },
+    ...(venueName && venueName !== city ? { containedInPlace: { "@type": "Place", name: venueName } } : {}),
+  };
+}
+
+export function buildEventJsonLd(event: JsonLdEventInput, extras: JsonLdExtras): Record<string, unknown> | null {
+  if (event.is_permanent) return buildAttractionJsonLd(event, extras);
   const tz = event.timezone || "Africa/Ouagadougou";
   const activeDates = (extras.dates ?? [])
     .filter((d) => ymdOf(d.date) && (!d.status || d.status.toLowerCase() === "active"))
@@ -159,7 +190,7 @@ export function buildEventJsonLd(event: JsonLdEventInput, extras: JsonLdExtras):
 
   let startDate: string | undefined;
   let endDate: string | undefined;
-  if (!event.is_permanent) {
+  {
     const startYmd = ymdOf(first?.date) ?? ymdOf(event.date);
     const startTime = first?.start_time || event.time || null;
     startDate = isoLocal(startYmd, startTime, tz);
@@ -175,6 +206,9 @@ export function buildEventJsonLd(event: JsonLdEventInput, extras: JsonLdExtras):
       }
     }
   }
+
+  // No date at all: not an Event for Google. No markup rather than a broken one.
+  if (!startDate) return null;
 
   const currency = (event.currency || "XOF").toUpperCase();
   const tickets = (event.ticket_types ?? []).filter((t) => realPrice(t.price) !== null);

@@ -110,16 +110,36 @@ function urlXml(entry: UrlRow): string {
 
 async function buildSitemap(): Promise<string | null> {
   const today = new Date().toISOString().slice(0, 10);
-  const [events, venues, organizers, artists, categories, tags] = await Promise.all([
+  const [events, venues, organizers, artistRows, lineup, categories, tags] = await Promise.all([
     restAll(
       "events?select=id,slug,updated_at,venue_id,deleted_at&status=eq.PUBLISHED&deleted_at=is.null"
     ),
     restAll("venues?select=id,name,slug,city,updated_at"),
     restAll("organizer_profiles?select=slug,updated_at&slug=not.is.null"),
-    restAll("artists?select=slug,updated_at&slug=not.is.null"),
+    restAll("artists?select=id,slug,updated_at,verified,photo_url,bio&slug=not.is.null"),
+    // Public read policy returns confirmed lineup links only.
+    restAll("event_artists?select=artist_id,events(status,deleted_at,updated_at)"),
     restAll("categories?select=id,name,updated_at"),
     restAll("tags?select=slug,updated_at&slug=not.is.null"),
   ]);
+
+  // Artist pages: every artist with real content (verified, photo or bio) or a
+  // published show. A bare name added from the organizer portal stays out until
+  // the Temba team completes it. lastmod follows the latest published show.
+  const showLastmod = new Map<string, string>();
+  for (const row of lineup as { artist_id?: string; events?: { status?: string; deleted_at?: string | null; updated_at?: string } }[]) {
+    const e = row.events;
+    if (!row.artist_id || e?.status !== "PUBLISHED" || e.deleted_at) continue;
+    const day = ymd(String(e.updated_at || ""));
+    if (!showLastmod.has(row.artist_id) || day > String(showLastmod.get(row.artist_id))) showLastmod.set(row.artist_id, day);
+  }
+  const artists = (artistRows as { id?: string; slug?: string; updated_at?: string; verified?: boolean; photo_url?: string | null; bio?: string | null }[])
+    .filter((r) => r.slug && (r.verified || String(r.photo_url || "").trim() || String(r.bio || "").trim() || showLastmod.has(String(r.id))))
+    .map((r) => {
+      const own = ymd(String(r.updated_at || ""));
+      const show = showLastmod.get(String(r.id));
+      return { slug: r.slug, updated_at: show && show > own ? show : own };
+    });
 
   if (!events.length && !artists.length) return null;
 
