@@ -14,7 +14,7 @@ export interface BlogComment {
   author?: {
     id: string;
     name: string;
-    email: string;
+    email?: string;
     avatar_url?: string;
   };
   replies?: BlogComment[]; // For future threaded comments
@@ -30,10 +30,9 @@ class BlogCommentService {
         .from('blog_comments')
         .select(`
           *,
-          author:profiles!user_id (
+          author:public_profiles!blog_comments_user_id_fkey (
             id,
             name,
-            email,
             avatar_url
           )
         `)

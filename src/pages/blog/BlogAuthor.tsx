@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Mail } from 'lucide-react';
+import { ArrowLeft, User } from 'lucide-react';
 import { blogService, BlogPost } from '../../services/blogService';
 import BlogPostCard from '../../components/blog/BlogPostCard';
 import BlogPagination from '../../components/blog/BlogPagination';
@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 interface Author {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   avatar_url?: string;
   bio?: string;
 }
@@ -35,8 +35,8 @@ export default function BlogAuthor() {
 
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
+        .from('public_profiles')
+        .select('id, user_id, name, avatar_url, bio')
         .eq('user_id', authorId)
         .single();
 
@@ -45,7 +45,6 @@ export default function BlogAuthor() {
       setAuthor({
         id: authorId,
         name: data.name,
-        email: data.email,
         avatar_url: data.avatar_url,
         bio: data.bio
       });
@@ -131,10 +130,6 @@ export default function BlogAuthor() {
                 </p>
               )}
               <div className="flex items-center gap-4 text-white/80">
-                <span className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  {author.email}
-                </span>
                 <span>{posts.length} article{posts.length > 1 ? 's' : ''}</span>
               </div>
             </div>
