@@ -193,12 +193,12 @@ export function artistFaqItems(opts: {
   const next = opts.nextShow;
   const dateLine =
     next?.title && next.date
-      ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${shortPlace(next.location).label}` : ''}. Les billets s’achètent sur Temba (Orange Money, Moov, carte).`
-      : `${name} n’a pas de date à venir publiée sur Temba pour l’instant. Dès qu’un organisateur met des billets en vente, ils apparaissent sur cette fiche.`;
+      ? `Oui : « ${next.title} » le ${formatFrDay(next.date)}${next.location ? ` à ${shortPlace(next.location).label}` : ''}. Les billets s’achètent sur Temba dès l’ouverture de la vente (Orange Money, Moov, carte).`
+      : `${name} n’a pas de date à venir publiée sur Temba pour l’instant. Dès qu’un organisateur publie une date, elle apparaît sur cette fiche.`;
   return [
     {
       q: `Où acheter des billets pour ${name} ?`,
-      a: `Sur Temba, fiche officielle ${name}. Seuls les concerts réellement mis en vente sur tembas.com sont listés — paiement en FCFA.`,
+      a: `Sur Temba, fiche officielle ${name}. Les billets de ses concerts sont vendus sur tembas.com dès l’ouverture de la vente, en F CFA.`,
     },
     {
       q: next?.title && next.date ? `${name} en concert à ${place} ?` : `Prochain concert de ${name} ?`,
@@ -206,7 +206,7 @@ export function artistFaqItems(opts: {
     },
     {
       q: `Comment payer un concert de ${name} ?`,
-      a: `Orange Money (par défaut), puis Moov Money, puis carte. Le billet QR arrive sur le téléphone après paiement.`,
+      a: `Orange Money (par défaut), puis Moov Money, puis carte. Le billet QR arrive sur votre téléphone après le paiement.`,
     },
   ];
 }

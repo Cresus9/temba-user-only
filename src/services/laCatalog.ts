@@ -46,6 +46,10 @@ export interface CatalogArtist {
   countryCode: string | null;
   bio: string;
   photo: string;
+  /** `artists.verified` as stored; shown as "Profil vérifié". */
+  verified: boolean;
+  /** Other artists billed on the same published events (event_artists). */
+  coArtistIds: string[];
   social: {
     instagram?: string;
     facebook?: string;
@@ -77,7 +81,7 @@ type EventRow = {
   location?: string | null;
   featured?: boolean | null;
   deleted_at?: string | null;
-  ticket_types?: { id?: string; price?: number | null; sales_enabled?: boolean | null }[] | null;
+  ticket_types?: { id?: string; name?: string | null; price?: number | null; sales_enabled?: boolean | null }[] | null;
 };
 
 type VenueRow = {
@@ -98,6 +102,7 @@ type ArtistRow = {
   city: string | null;
   country_code: string | null;
   bio: string | null;
+  verified?: boolean | null;
   social_links: CatalogArtist['social'] | null;
 };
 
@@ -128,7 +133,7 @@ async function loadDates(ids: string[]) {
 function toEvent(row: EventRow, venueName: string, city: string): Event {
   const tickets = (row.ticket_types ?? []).map((ticket) => ({
     id: ticket.id || `${row.id}-price`,
-    name: '',
+    name: (ticket.name || '').trim(),
     price: Number(ticket.price) || 0,
     sales_enabled: ticket.sales_enabled === true,
   })) as TicketType[];
@@ -179,12 +184,12 @@ function sortShows(shows: CatalogShow[]) {
 }
 
 async function fetchEvents(): Promise<EventRow[]> {
-  const columns = 'id, slug, title, date, time, image_url, price, currency, is_permanent, venue_id, city, location, featured, deleted_at, ticket_types(id, price, sales_enabled)';
+  const columns = 'id, slug, title, date, time, image_url, price, currency, is_permanent, venue_id, city, location, featured, deleted_at, ticket_types(id, name, price, sales_enabled)';
   const first = await supabase.from('events').select(columns).eq('status', 'PUBLISHED').is('deleted_at', null);
   if (!first.error) return (first.data ?? []) as EventRow[];
   const second = await supabase
     .from('events')
-    .select('id, slug, title, date, time, image_url, price, currency, is_permanent, venue_id, city, location, featured, ticket_types(id, price, sales_enabled)')
+    .select('id, slug, title, date, time, image_url, price, currency, is_permanent, venue_id, city, location, featured, ticket_types(id, name, price, sales_enabled)')
     .eq('status', 'PUBLISHED');
   if (second.error) throw second.error;
   return (second.data ?? []) as EventRow[];
@@ -194,7 +199,7 @@ export async function loadCatalog(): Promise<Catalog> {
   const today = calendarDayInZone();
   const [venuesRes, artistsRes, linksRes, events] = await Promise.all([
     supabase.from('venues').select('id, name, slug, city, country_code, address'),
-    supabase.from('artists').select('id, name, slug, genre, photo_url, city, country_code, bio, social_links').order('name'),
+    supabase.from('artists').select('id, name, slug, genre, photo_url, city, country_code, bio, verified, social_links').order('name'),
     supabase.from('event_artists').select('artist_id, event_id, role'),
     fetchEvents(),
   ]);
@@ -286,6 +291,14 @@ export async function loadCatalog(): Promise<Catalog> {
     linksByArtist.set(link.artist_id, list);
   });
 
+  const artistsByEvent = new Map<string, Set<string>>();
+  links.forEach((link) => {
+    if (!eventMeta.has(link.event_id)) return;
+    const set = artistsByEvent.get(link.event_id) ?? new Set<string>();
+    set.add(link.artist_id);
+    artistsByEvent.set(link.event_id, set);
+  });
+
   const artists: CatalogArtist[] = ((artistsRes.data ?? []) as ArtistRow[])
     .filter((artist) => artist.slug)
     .map((artist) => {
@@ -299,6 +312,12 @@ export async function loadCatalog(): Promise<Catalog> {
           .filter(Boolean) as CatalogShow[],
       );
       const sorted = sortShows(shows);
+      const coArtistIds = new Set<string>();
+      (linksByArtist.get(artist.id) ?? []).forEach((link) => {
+        artistsByEvent.get(link.event_id)?.forEach((id) => {
+          if (id !== artist.id) coArtistIds.add(id);
+        });
+      });
       const social = artist.social_links ?? {};
       return {
         id: artist.id,
@@ -310,6 +329,8 @@ export async function loadCatalog(): Promise<Catalog> {
         countryCode: artist.country_code,
         bio: (artist.bio || '').trim(),
         photo: hasArtistPhoto(artist.photo_url, artist.slug) ? (artist.photo_url as string) : '',
+        verified: artist.verified === true,
+        coArtistIds: [...coArtistIds],
         social: {
           instagram: social.instagram?.trim() || undefined,
           facebook: social.facebook?.trim() || undefined,
