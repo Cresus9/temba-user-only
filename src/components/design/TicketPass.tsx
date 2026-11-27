@@ -17,6 +17,8 @@ export interface TicketPassProps {
   eventTitle: string;
   eventDate?: string | null;
   eventTime?: string | null;
+  /** Cinema: the ticket's séance ("20:30 – 22:15", "Salle 1 · VF"). Replaces « Ouverture ». */
+  seance?: { hours: string; extras?: string | null } | null;
   venue?: string | null;
   city?: string | null;
   holder?: string | null;
@@ -52,6 +54,7 @@ export default function TicketPass({
   eventTitle,
   eventDate,
   eventTime,
+  seance,
   venue,
   city,
   holder,
@@ -80,7 +83,8 @@ export default function TicketPass({
   const dateLabel = eventDate
     ? formatCalendarDate(eventDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
-  const timeLabel = formatEventTime(eventTime);
+  const timeLabel = seance?.hours || formatEventTime(eventTime);
+  const timeTitle = seance ? 'Séance' : 'Ouverture';
   const placeInfo = shortPlace(venue, city);
   const place = placeInfo.label;
   const directions = mapsSearchUrl(place);
@@ -187,8 +191,9 @@ export default function TicketPass({
               ) : null}
               {timeLabel ? (
                 <div>
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-white/75">Ouverture</span>
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-white/75">{timeTitle}</span>
                   <b className="mt-0.5 block text-[14px] font-semibold">{timeLabel}</b>
+                  {seance?.extras ? <span className="block text-[12px] text-white/80">{seance.extras}</span> : null}
                 </div>
               ) : null}
             </div>
@@ -336,8 +341,9 @@ export default function TicketPass({
           )}
           {timeLabel && (
             <div>
-              <span className="block text-[12px] font-semibold uppercase tracking-[0.06em] text-white/80">Ouverture</span>
+              <span className="block text-[12px] font-semibold uppercase tracking-[0.06em] text-white/80">{timeTitle}</span>
               <b className="mt-0.5 block text-[17px] font-semibold">{timeLabel}</b>
+              {seance?.extras ? <span className="block text-[13px] text-white/80">{seance.extras}</span> : null}
             </div>
           )}
         </div>

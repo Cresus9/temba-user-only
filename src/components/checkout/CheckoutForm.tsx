@@ -8,6 +8,7 @@ import { SavedPaymentMethod } from '../../types/payment';
 import { clearCartForEvent } from '../../utils/cartUtils';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase-client';
+import { fetchSeancePrices } from '../../services/cinemaService';
 import { useFeeCalculation } from '../../hooks/useFeeCalculation';
 import StripeElementsProvider from './StripeElementsProvider';
 import StripePaymentForm from './StripePaymentForm';
@@ -63,6 +64,7 @@ export default function CheckoutForm({
   const { user, login } = useAuth();
   // Single date: event_date_id as before. Several dates: event_date_id null + line_allocations.
   const { event_date_id: eventDateId, line_allocations: lineAllocations } = orderDateFields(eventDateIdProp, lineAllocationsProp);
+  const multiDateOrder = Boolean(lineAllocations && lineAllocations.length);
   const isGuestCheckout = !user;
   const [identityMode, setIdentityMode] = useState<'guest' | 'account'>('guest');
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
@@ -120,15 +122,20 @@ export default function CheckoutForm({
         if (!cancelled) setPricedSelections([]);
         return;
       }
-      const { data } = await supabase.from('ticket_types').select('id, price').in('id', ids);
+      const [{ data }, seancePrices] = await Promise.all([
+        supabase.from('ticket_types').select('id, price').in('id', ids),
+        // Cinema: price of the chosen séance when the organizer set one (single-date orders).
+        fetchSeancePrices(multiDateOrder ? null : eventDateId),
+      ]);
       if (cancelled) return;
       const map = new Map((data || []).map((t: any) => [t.id, Number(t.price || 0)]));
+      seancePrices.forEach((price, id) => map.set(id, price));
       setPricedSelections(Object.entries(tickets).map(([id, q]) => ({ ticket_type_id: id, quantity: Number(q), price: map.get(id) || 0 })));
       setPricesReady(true);
     };
     loadPrices();
     return () => { cancelled = true; };
-  }, [tickets]);
+  }, [tickets, eventDateId, multiDateOrder]);
 
   const { fees, loading: feesLoading } = useFeeCalculation(eventId, pricedSelections);
   const subtotal = pricedSelections.reduce((s, it) => s + it.price * it.quantity, 0);

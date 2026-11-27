@@ -11,10 +11,12 @@ import { calendarDayInZone, formatCurrency } from '../../utils/formatters';
 import toast from 'react-hot-toast';
 import PosterTile from '../account/PosterTile';
 import FullscreenBackdrop from '../account/FullscreenBackdrop';
+import { ticketSeances, type TicketSeance } from '../../services/cinemaService';
 
 interface MyTicket {
   id: string;
   qr_code: string;
+  event_date_id?: string | null;
   status: string;
   scanned_at?: string;
   event: {
@@ -41,6 +43,8 @@ interface MyTicket {
 
 export default function MyTickets() {
   const [tickets, setTickets] = useState<MyTicket[]>([]);
+  /** Cinema tickets: séance by event_date_id. */
+  const [seances, setSeances] = useState<Map<string, TicketSeance>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<MyTicket | null>(null);
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
@@ -189,6 +193,9 @@ export default function MyTickets() {
       });
 
       setTickets(datedTickets as MyTicket[]);
+      ticketSeances(validTickets as Array<{ event_date_id?: string | null; event_id?: string | null }>)
+        .then(setSeances)
+        .catch(() => setSeances(new Map()));
 
       // Step 4: Check ticket ownership (if ticket was purchased by user)
       const ownershipMap = new Map<string, boolean>();
@@ -396,7 +403,9 @@ export default function MyTickets() {
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 tabular-nums">
                         <Clock className="h-3 w-3" />
-                        {ticket.event.time}
+                        {seances.get(ticket.event_date_id || '')
+                          ? `Séance ${seances.get(ticket.event_date_id || '')?.hours}`
+                          : ticket.event.time}
                       </span>
                       <span aria-hidden className="text-line">·</span>
                       <span className="inline-flex items-center gap-1.5 truncate min-w-0">
@@ -555,6 +564,7 @@ export default function MyTickets() {
                       eventTitle={selectedTicket.event.title}
                       eventDate={selectedTicket.event.date}
                       eventTime={selectedTicket.event.time}
+                      seance={seances.get(selectedTicket.event_date_id || '') || null}
                       venue={selectedTicket.event.location}
                       holder={profile?.name || user?.email?.split('@')[0] || 'Détenteur'}
                       categoryName={selectedTicket.ticket_type.name}
