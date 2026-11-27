@@ -16,7 +16,7 @@ import { guestRedirectForOrder } from '../services/guestTicketService';
 import { eventPublicPath } from '../utils/eventPath';
 import { recordCheckoutStart } from '../services/abandonedCheckout';
 import { useEvents } from '../context/EventContext';
-import { formatCurrency } from '../utils/formatters';
+import { formatCheckoutPrice } from '../utils/formatters';
 import { distinctDateIds, sanitizeAllocations, type LineAllocation } from '../utils/lineAllocations';
 import { fetchSeancePrices, rememberOrderSeance, ticketSeances, type TicketSeance } from '../services/cinemaService';
 import { withSeancePrices } from '../utils/cinema';
@@ -272,14 +272,14 @@ export default function Checkout() {
                     {row?.date ? formatCalendarDate(row.date, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou') : '…'}
                     {time ? <span className="font-normal text-ink-3"> · {time}</span> : null}
                   </p>
-                  <span className="shrink-0 font-semibold tabular-nums">{formatCurrency(groupTotal, state.currency)}</span>
+                  <span className="shrink-0 font-semibold tabular-nums">{formatCheckoutPrice(groupTotal, state.currency)}</span>
                 </div>
                 {group.rows.map((line) => {
                   const type = priceById.get(line.ticket_type_id);
                   return (
                     <p key={`${group.id}-${line.ticket_type_id}`} className="mt-0.5 flex justify-between gap-3 text-[13px] text-ink-2">
                       <span>{line.quantity} × {type?.name || 'Billet'}</span>
-                      <span className="tabular-nums">{formatCurrency((type?.price || 0) * line.quantity, state.currency)}</span>
+                      <span className="tabular-nums">{formatCheckoutPrice((type?.price || 0) * line.quantity, state.currency)}</span>
                     </p>
                   );
                 })}
@@ -293,14 +293,14 @@ export default function Checkout() {
         {lines.map((line) => (
           <p key={line.id} className="flex justify-between gap-3">
             <span>{line.qty} × {line.name}</span>
-            <span className="tabular-nums">{formatCurrency(line.price * line.qty, state.currency)}</span>
+            <span className="tabular-nums">{formatCheckoutPrice(line.price * line.qty, state.currency)}</span>
           </p>
         ))}
       </div>
       )}
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3 font-display text-[20px] font-bold">
         <span>Total</span>
-        <span className="tabular-nums">{formatCurrency(asideTotal, state.currency)}</span>
+        <span className="tabular-nums">{formatCheckoutPrice(asideTotal, state.currency)}</span>
       </div>
       <Link to={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} className="mt-3 inline-flex text-[14px] font-semibold text-brand">
         Modifier mes billets
@@ -343,7 +343,7 @@ export default function Checkout() {
             </div>
           ) : null}
           <details className="rounded-2xl border border-line bg-white p-4 lg:hidden">
-            <summary className="cursor-pointer font-semibold">Votre commande · {formatCurrency(asideTotal, state.currency)}</summary>
+            <summary className="cursor-pointer font-semibold">Votre commande · {formatCheckoutPrice(asideTotal, state.currency)}</summary>
             <div className="mt-3">{summary}</div>
           </details>
           <Link
@@ -367,7 +367,7 @@ export default function Checkout() {
                   Options &amp; repas inclus
                 </p>
                 <p className="text-[14px] font-extrabold text-brand tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                  +{new Intl.NumberFormat('fr-FR').format((state as any).addonTotal)} {state.currency}
+                  +{formatCheckoutPrice((state as any).addonTotal, state.currency)}
                 </p>
               </div>
             )

@@ -6,7 +6,7 @@ import { pawapayService } from '../../services/pawapayService';
 import { orderDateFields, type LineAllocation } from '../../utils/lineAllocations';
 import { supabase } from '../../lib/supabase-client';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCheckoutPrice } from '../../utils/formatters';
 
 /**
  * Normalize a phone input to E.164-ish for Burkina Faso (+226).
@@ -698,16 +698,16 @@ export default function GuestCheckoutForm({
           <div className="border-t border-line pt-4 space-y-1.5">
             <div className="flex justify-between text-[13px] text-ink-mute">
               <span>Sous-total</span>
-              <span className="tabular-nums text-ink">{formatCurrency(totalAmount, currency)}</span>
+              <span className="tabular-nums text-ink">{formatCheckoutPrice(totalAmount, currency)}</span>
             </div>
             <div className="flex justify-between text-[13px] text-ink-mute">
               <span>Frais de traitement (2%)</span>
-              <span className="tabular-nums text-ink">{formatCurrency(totalAmount * 0.02, currency)}</span>
+              <span className="tabular-nums text-ink">{formatCheckoutPrice(totalAmount * 0.02, currency)}</span>
             </div>
             {addonTotal > 0 && (
               <div className="flex justify-between text-[13px] text-ink-mute">
                 <span>Options &amp; services</span>
-                <span className="tabular-nums text-brand font-semibold">+{formatCurrency(addonTotal, currency)}</span>
+                <span className="tabular-nums text-brand font-semibold">+{formatCheckoutPrice(addonTotal, currency)}</span>
               </div>
             )}
             <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-line">
@@ -716,7 +716,7 @@ export default function GuestCheckoutForm({
                 className="text-[20px] font-bold text-ink tabular-nums tracking-tight"
                 style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
               >
-                {formatCurrency(totalAmount * 1.02 + addonTotal, currency)}
+                {formatCheckoutPrice(totalAmount * 1.02 + addonTotal, currency)}
               </span>
             </div>
           </div>
@@ -734,7 +734,7 @@ export default function GuestCheckoutForm({
             ) : (
               <>
                 <span>Payer</span>
-                <span className="tabular-nums">{formatCurrency(totalAmount * 1.02, currency)}</span>
+                <span className="tabular-nums">{formatCheckoutPrice(totalAmount * 1.02, currency)}</span>
                 <span aria-hidden>→</span>
               </>
             )}
