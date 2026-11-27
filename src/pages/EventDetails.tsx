@@ -523,7 +523,7 @@ export default function EventDetails() {
 
       <OpenInAppBanner />
 
-      <div className="grid items-start gap-8 px-5 pt-6 min-[1280px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:px-16 min-[1440px]:grid-cols-[minmax(0,1fr)_400px] min-[1440px]:px-20">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 px-5 pt-6 min-[1280px]:grid-cols-[minmax(0,1fr)_380px] min-[1280px]:px-16 min-[1440px]:grid-cols-[minmax(0,1fr)_400px] min-[1440px]:px-20">
         <div className="order-2 min-w-0 space-y-10 min-[1280px]:order-1">
           {event.description && (
             <section>
@@ -635,7 +635,7 @@ export default function EventDetails() {
 
         </div>
 
-        <aside className="order-1 min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:order-2 min-[1280px]:-mt-64">
+        <aside className="order-1 min-w-0 min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:order-2 min-[1280px]:-mt-64">
           {cinema ? (
             <CinemaTicketPanel event={event} seances={cinema.seances} venueLabel={[place.venue, place.city].filter(Boolean).join(', ')} />
           ) : (

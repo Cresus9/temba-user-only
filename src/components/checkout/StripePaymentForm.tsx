@@ -5,7 +5,7 @@ import { stripePaymentService, FXQuote } from '../../services/stripePaymentServi
 import { orderService } from '../../services/orderService';
 import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCheckoutPrice } from '../../utils/formatters';
 import type { LineAllocation } from '../../utils/lineAllocations';
 
 interface StripePaymentFormProps {
@@ -271,7 +271,7 @@ export default function StripePaymentForm({
     }
   };
 
-  const formatXOFAmount = (amount: number) => formatCurrency(amount, 'XOF');
+  const formatXOFAmount = (amount: number) => formatCheckoutPrice(amount, 'XOF');
 
   const formatUSDAmount = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -291,11 +291,11 @@ export default function StripePaymentForm({
             <>
               <div className="flex justify-between">
                 <span className="text-ink-mute">Sous-total</span>
-                <span className="tabular-nums text-ink">{formatCurrency(subtotal, currency)}</span>
+                <span className="tabular-nums text-ink">{formatCheckoutPrice(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-mute">Frais de service</span>
-                <span className="tabular-nums text-ink">{formatCurrency(serviceFees, currency)}</span>
+                <span className="tabular-nums text-ink">{formatCheckoutPrice(serviceFees, currency)}</span>
               </div>
               <div className="border-t border-line pt-2 mt-1.5">
                 <div className="flex justify-between items-baseline">

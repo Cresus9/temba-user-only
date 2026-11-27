@@ -15,7 +15,7 @@ import StripePaymentForm from './StripePaymentForm';
 import { orderDateFields, type LineAllocation } from '../../utils/lineAllocations';
 import { stripePaymentService, FXQuote } from '../../services/stripePaymentService';
 import { pawapayService } from '../../services/pawapayService';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCheckoutPrice } from '../../utils/formatters';
 import { persistGuestWallet, realGuestEmail, resolveGuestEmail } from '../../services/guestTicketService';
 import CountryCodeSelector from '../CountryCodeSelector';
 import { isValidPhone, normalizePhone } from '../../utils/phoneValidation';
@@ -1673,18 +1673,18 @@ export default function CheckoutForm({
             <div className="border-t border-line pt-4 space-y-1.5">
               <div className="flex justify-between text-[13px] text-ink-mute">
                 <span>Sous-total</span>
-                <span className="tabular-nums text-ink">{formatCurrency(subtotal, currency)}</span>
+                <span className="tabular-nums text-ink">{formatCheckoutPrice(subtotal, currency)}</span>
               </div>
               {buyerFees > 0 && (
               <div className="flex justify-between text-[13px] text-ink-mute">
                 <span>Frais de service</span>
-                <span className="tabular-nums text-ink">{formatCurrency(buyerFees, currency)}</span>
+                <span className="tabular-nums text-ink">{formatCheckoutPrice(buyerFees, currency)}</span>
               </div>
               )}
               {addonTotal > 0 && (
                 <div className="flex justify-between text-[13px] text-ink-mute">
                   <span>Options &amp; services</span>
-                  <span className="tabular-nums text-brand font-semibold">+{formatCurrency(addonTotal, currency)}</span>
+                  <span className="tabular-nums text-brand font-semibold">+{formatCheckoutPrice(addonTotal, currency)}</span>
                 </div>
               )}
               <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-line">
@@ -1693,7 +1693,7 @@ export default function CheckoutForm({
                   className="text-[20px] font-bold text-ink tabular-nums tracking-tight"
                   style={{ fontFamily: '"Plus Jakarta Sans", Inter, sans-serif' }}
                 >
-                  {formatCurrency(grandTotal, currency)}
+                  {formatCheckoutPrice(grandTotal, currency)}
                 </span>
               </div>
             </div>
@@ -1746,7 +1746,7 @@ export default function CheckoutForm({
               ) : (
                 <>
                   <span>Payer</span>
-                  <span className="tabular-nums">{formatCurrency(grandTotal, currency)}</span>
+                  <span className="tabular-nums">{formatCheckoutPrice(grandTotal, currency)}</span>
                   <span aria-hidden>→</span>
                 </>
               )}
@@ -1754,7 +1754,7 @@ export default function CheckoutForm({
             <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-white px-4 py-3 md:hidden">
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] text-ink-3">Total</p>
-                <p className="text-[16px] font-bold tabular-nums">{formatCurrency(grandTotal, currency)}</p>
+                <p className="text-[16px] font-bold tabular-nums">{formatCheckoutPrice(grandTotal, currency)}</p>
               </div>
               <button
                 type="button"

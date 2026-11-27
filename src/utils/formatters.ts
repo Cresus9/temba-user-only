@@ -79,6 +79,22 @@ export function isPlaceholderEmail(email?: string | null): boolean {
   return /@temba\.temp$/i.test(email.trim());
 }
 
+/**
+ * House price format for the checkout flow: "4 500 F CFA" (narrow no-break space
+ * in the thousands, no-break spaces before "F CFA"). Other currencies fall back
+ * to formatCurrency.
+ */
+export const formatCheckoutPrice = (amount: number, currency: string = 'XOF'): string => {
+  const normalized = currency?.toUpperCase?.() ?? 'XOF';
+  if (normalized === 'XOF' || normalized === 'FCFA' || normalized === 'XOF FCFA' || normalized === 'CFA' || normalized === 'F CFA') {
+    const digits = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      .format(Math.round(Number(amount) || 0))
+      .replace(/[\u00a0\u202f ]/g, '\u202f');
+    return `${digits}\u00a0F\u00a0CFA`;
+  }
+  return formatCurrency(amount, currency);
+};
+
 export const formatCurrency = (amount: number, currency: string = 'XOF'): string => {
   const normalizedCurrency = currency?.toUpperCase?.() ?? 'XOF';
 

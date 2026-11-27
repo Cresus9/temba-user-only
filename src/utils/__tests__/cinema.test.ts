@@ -75,3 +75,17 @@ describe('cinema helpers', () => {
     expect(withSeancePrices(lines, new Map([['e', 3000]]))).toEqual([{ id: 'e', price: 3000, qty: 1 }, { id: 'v', price: 2500, qty: 1 }]);
   });
 });
+
+import { formatCheckoutPrice } from '../formatters';
+
+describe('formatCheckoutPrice (house format)', () => {
+  it('formats XOF as "4 500 F CFA" with no-break spaces', () => {
+    expect(formatCheckoutPrice(4500, 'XOF')).toBe('4\u202f500\u00a0F\u00a0CFA');
+    expect(formatCheckoutPrice(1000000, 'FCFA')).toBe('1\u202f000\u202f000\u00a0F\u00a0CFA');
+    expect(formatCheckoutPrice(0, 'XOF')).toBe('0\u00a0F\u00a0CFA');
+    expect(formatCheckoutPrice(4500, 'XOF')).not.toContain('FCFA');
+  });
+  it('falls back for other currencies', () => {
+    expect(formatCheckoutPrice(10, 'EUR')).toContain('€');
+  });
+});
