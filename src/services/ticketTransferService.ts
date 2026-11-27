@@ -113,15 +113,7 @@ class TicketTransferService {
           message,
           status,
           created_at,
-          updated_at,
-          sender:profiles!ticket_transfers_sender_id_fkey (
-            name,
-            email
-          ),
-          recipient:profiles!ticket_transfers_recipient_id_fkey (
-            name,
-            email
-          )
+          updated_at
         `)
         .or(`sender_id.eq.${targetUserId},recipient_id.eq.${targetUserId}`)
         .order('created_at', { ascending: false });
@@ -130,7 +122,21 @@ class TicketTransferService {
         throw error;
       }
 
-      return transfers || [];
+      // Names come from the protected lookup (counterparties only; no e-mail of other users).
+      const ids = [...new Set((transfers || []).flatMap((t) => [t.sender_id, t.recipient_id]).filter(Boolean))] as string[];
+      const { data: cards } = ids.length
+        ? await supabase.rpc('get_profile_cards', { p_user_ids: ids })
+        : { data: [] as { user_id: string; name: string | null; email: string | null }[] };
+      const byId = new Map(((cards || []) as { user_id: string; name: string | null; email: string | null }[]).map((c) => [c.user_id, c]));
+      const card = (id: string | null) => {
+        const c = id ? byId.get(id) : undefined;
+        return { name: c?.name || '', email: c?.email || '' };
+      };
+      return (transfers || []).map((t) => ({
+        ...t,
+        sender: card(t.sender_id),
+        recipient: card(t.recipient_id),
+      })) as TransferHistory[];
     } catch (error) {
       console.error('Get transfer history error:', error);
       return [];

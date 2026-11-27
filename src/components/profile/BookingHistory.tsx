@@ -128,10 +128,8 @@ export default function BookingHistory() {
 
       let scannerNames: Record<string, string> = {};
       if (scannerIds.length > 0) {
-        const { data: scanners } = await supabase
-          .from('profiles')
-          .select('user_id, name')
-          .in('user_id', scannerIds);
+        const { data: scannerCards } = await supabase.rpc('get_profile_cards', { p_user_ids: scannerIds });
+        const scanners = (scannerCards || []) as { user_id: string; name: string }[];
         
         scannerNames = (scanners || []).reduce((acc, scanner) => ({
           ...acc,

@@ -135,10 +135,8 @@ class TransferredTicketsService {
 
       // Step 5: Get sender information
       const senderIds = [...new Set(transfers.map(t => t.sender_id))];
-      const { data: senders, error: sendersError } = await supabase
-        .from('profiles')
-        .select('user_id, name, email')
-        .in('user_id', senderIds);
+      const { data: senderCards, error: sendersError } = await supabase.rpc('get_profile_cards', { p_user_ids: senderIds });
+      const senders = (senderCards || []) as { user_id: string; name: string | null; email: string | null }[];
 
       if (sendersError) {
         console.error('Error fetching senders:', sendersError);
@@ -152,11 +150,9 @@ class TransferredTicketsService {
       
       let scannerNames: Record<string, string> = {};
       if (scannerIds.length > 0) {
-        const { data: scanners, error: scannersError } = await supabase
-          .from('profiles')
-          .select('user_id, name')
-          .in('user_id', scannerIds);
-        
+        const { data: scannerCards, error: scannersError } = await supabase.rpc('get_profile_cards', { p_user_ids: scannerIds });
+        const scanners = (scannerCards || []) as { user_id: string; name: string | null }[];
+
         if (!scannersError && scanners) {
           scannerNames = scanners.reduce((acc, scanner) => ({
             ...acc,
