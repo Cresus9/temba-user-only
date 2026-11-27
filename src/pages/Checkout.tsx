@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link, Navigate } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Film, ShieldCheck } from 'lucide-react';
 import CheckoutChrome from '../components/checkout/CheckoutChrome';
 import { displayVenue } from '../utils/eventGeo';
 import { formatCalendarDate, formatEventTime } from '../utils/formatters';
@@ -325,8 +325,23 @@ export default function Checkout() {
       <CheckoutChrome current={2} backTo={state?.eventId ? eventPublicPath({ id: state.eventId, slug: state.eventSlug }) : '/events'} />
 
       <section className="bg-[#F4F5FA]">
-        <div className="mx-auto grid max-w-[1200px] gap-10 px-5 py-8 md:px-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:py-10">
-          <div className="space-y-6">
+        <div className="mx-auto grid max-w-[1200px] grid-cols-[minmax(0,1fr)] gap-10 px-5 py-8 md:px-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:py-10">
+          <div className="min-w-0 space-y-6">
+          {/* Cinema: the chosen séance stays visible on mobile (the recap below is collapsed). */}
+          {!allocations && seance ? (
+            <div
+              className="flex min-w-0 items-start gap-3 rounded-2xl border border-line bg-white px-4 py-3 lg:hidden"
+              data-testid="checkout-seance-top"
+            >
+              <Film className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+              <div className="min-w-0 text-[14px] leading-snug">
+                <p className="font-semibold text-ink">
+                  Séance{recapDate ? ` du ${formatCalendarDate(recapDate, { weekday: 'short', day: 'numeric', month: 'short' }, 'Africa/Ouagadougou')}` : ''} · {seance.hours}
+                </p>
+                {seance.extras ? <p className="break-words text-[13px] text-ink-2">{seance.extras}</p> : null}
+              </div>
+            </div>
+          ) : null}
           <details className="rounded-2xl border border-line bg-white p-4 lg:hidden">
             <summary className="cursor-pointer font-semibold">Votre commande · {formatCurrency(asideTotal, state.currency)}</summary>
             <div className="mt-3">{summary}</div>
